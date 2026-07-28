@@ -1,0 +1,249 @@
+name: Atlas Boot
+
+# Boot gate for examples/server/atlas-commerce-os — the repo's flagship server example
+# (~29k lines / 90 Go files: SSR + hydration + sqlite + mock auth + CSRF + buyer and operator
+# surfaces). Until this workflow existed Atlas was in ZERO CI gates: examples-build.yml covers
+# ./examples/public/... only, and Atlas lives under examples/server/. It was consequently broken
+# at boot from 2026-04-08 while every signal the repo collects read green — it compiled for both
+# targets and its 7 Go test packages passed.
+#
+# WHAT THIS GATE COVERS
+#   1. The native server package compiles.
+#   2. The client compiles for GOOS=js GOARCH=wasm.
+#   3. The Atlas Go test packages pass.
+#   4. The server actually BOOTS (open sqlite, migrate, seed, listen) instead of exiting.
+#   5. HTTP-level reachability of the real routes a first-time visitor hits:
+#      - /healthz is 200 and self-reports ok + wasmPresent
+#      - /assets/bin/atlas-commerce-os.wasm is 200 AND non-empty  <-- the load-bearing line
+#      - /shop is 200 and its HTML carries the __ATLAS_BOOTSTRAP__ SSR payload script
+#      - /app/dashboard is 200 for an authenticated (mock-role cookie) operator session
+#
+#      Assertion 5.2 is the one that would have caught the shipped defect: the client wasm was
+#      written to bin/examples/ while the server serves /assets/ from examples/static/, so
+#      /healthz cheerfully reported "wasmPresent":true while the browser got a 404 on
+#      /assets/bin/atlas-commerce-os.wasm. Asserting the healthz probe AND the served URL
+#      together is what pins "the file the server claims exists" to "the file the browser gets".
+#
+# WHAT THIS GATE DOES *NOT* COVER — do not read it as broader than it is
+#   - It is HTTP-level only. It never runs the wasm. A client that compiles, downloads with a
+#     200, and then PANICS on boot (the second shipped defect was
+#     `GoUseAtom called outside component context`, which left #app permanently empty) passes
+#     every assertion here. Observing that needs a real browser.
+#   - No hydration, no DOM assertions, no console-error capture, no interaction, no visual check.
+#   - Note how little the /shop assertion can therefore promise: Atlas SSR emits
+#     `<div id="app"></div>` plus the __ATLAS_BOOTSTRAP__ JSON payload, and EVERY piece of visible
+#     markup is rendered by the wasm client on hydration. A green /shop here means the server
+#     produced a correct payload for a client that may never render it.
+#   - Browser-level hydration coverage for Atlas is STILL MISSING. The repo already runs headless
+#     Chromium elsewhere (see agent-bridge-headless.yml / test/playwrightgo), so the follow-up is
+#     a Playwright lane that loads /shop, waits for #app to be non-empty, and fails on any
+#     console error. Until that lands, "Atlas Boot green" means "Atlas serves bytes", not
+#     "Atlas works".
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".github/workflows/atlas-boot.yml"
+      - "examples/server/atlas-commerce-os/**"
+      - "examples/static/**"
+      - "fetch/**"
+      - "html/**"
+      - "internal/**"
+      - "interop/**"
+      - "router/**"
+      - "state/**"
+      - "ui/**"
+      - "tools/runnerconfig/**"
+      - "go.mod"
+      - "go.sum"
+  pull_request:
+    paths:
+      - ".github/workflows/atlas-boot.yml"
+      - "examples/server/atlas-commerce-os/**"
+      - "examples/static/**"
+      - "fetch/**"
+      - "html/**"
+      - "internal/**"
+      - "interop/**"
+      - "router/**"
+      - "state/**"
+      - "ui/**"
+      - "tools/runnerconfig/**"
+      - "go.mod"
+      - "go.sum"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Atlas honours ATLAS_ADDR (server/config.go); its default is 127.0.0.1:8096. Pin an explicit
+  # port here and reuse it for every assertion so the boot step and the probes cannot drift.
+  ATLAS_ADDR: 127.0.0.1:8471
+  ATLAS_BASE_URL: http://127.0.0.1:8471
+  # The path the server serves as /assets/bin/atlas-commerce-os.wasm (StaticDir is
+  # examples/static, mounted at /assets/). Both are gitignored, so a clean checkout has neither.
+  ATLAS_WASM_OUT: examples/static/bin/atlas-commerce-os.wasm
+
+jobs:
+  atlas-boot:
+    name: Atlas Build + Test + HTTP Boot Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build Atlas native server
+        run: go build ./examples/server/atlas-commerce-os/...
+
+      - name: Build Atlas client (wasm) into the served asset directory
+        # Must land where the server's /assets/ file server can see it. Writing it anywhere else
+        # is exactly the defect this gate exists to catch, so the output path is not negotiable.
+        env:
+          GOOS: js
+          GOARCH: wasm
+        run: |
+          mkdir -p "$(dirname "$ATLAS_WASM_OUT")"
+          go build -o "$ATLAS_WASM_OUT" ./examples/server/atlas-commerce-os/client
+          ls -l "$ATLAS_WASM_OUT"
+
+      - name: Run Atlas Go tests
+        run: go test ./examples/server/atlas-commerce-os/... -count=1 -timeout 10m
+
+      - name: Boot Atlas and assert HTTP surface
+        run: |
+          set -uo pipefail
+
+          # Config paths are resolved from the repo root (findRepoRoot walks up to go.mod), so the
+          # server must be started from the checkout root.
+          # (No `set -e`: every command below is checked explicitly so each failure can dump the
+          # server log first. That makes this one build the only spot needing its own guard.)
+          mkdir -p bin/ci
+          go build -o bin/ci/atlas-server ./examples/server/atlas-commerce-os/server || {
+            echo "::error::failed to build the Atlas server binary"
+            exit 1
+          }
+
+          SERVER_LOG="atlas-server.log"
+          : > "$SERVER_LOG"
+
+          # Refuse to run against a pre-existing listener. Without this, a foreign server already
+          # holding the port would answer every probe below and the gate would pass green while
+          # our own process died on bind — observed for real while developing this workflow.
+          # (-fs, not -fsS: a connection refused here is the EXPECTED, healthy outcome.)
+          if curl -fs -o /dev/null --max-time 2 "$ATLAS_BASE_URL/healthz"; then
+            echo "::error::something is already serving $ATLAS_BASE_URL/healthz; refusing to assert against a foreign process"
+            exit 1
+          fi
+
+          ./bin/ci/atlas-server > "$SERVER_LOG" 2>&1 &
+          SERVER_PID=$!
+
+          # Always tear the server down, including on any failure path below.
+          cleanup() {
+            if kill -0 "$SERVER_PID" 2>/dev/null; then
+              kill "$SERVER_PID" 2>/dev/null || true
+              wait "$SERVER_PID" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          dump_log_and_die() {
+            echo "::error::Atlas boot gate FAILED: $1"
+            echo "----- BEGIN atlas server stdout/stderr -----"
+            cat "$SERVER_LOG" || echo "(no server log captured)"
+            echo "----- END atlas server stdout/stderr -----"
+            exit 1
+          }
+
+          # Readiness by polling, not by sleeping a fixed interval. Bail out early if the process
+          # died (a config/migrate/seed failure exits before it ever listens).
+          READY=0
+          for attempt in $(seq 1 90); do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              dump_log_and_die "server process exited before becoming ready (after ${attempt} poll(s))"
+            fi
+            # -fs again: failed polls are normal while the server migrates and seeds sqlite.
+            if curl -fs -o /dev/null --max-time 2 "$ATLAS_BASE_URL/healthz"; then
+              # Re-check liveness AFTER the successful probe: a child that dies on bind can still
+              # look alive during the same poll, and the answer would then be a foreign server's.
+              if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+                dump_log_and_die "/healthz answered but our server process is gone — the reply came from another process (check for a bind failure in the log above)"
+              fi
+              READY=1
+              echo "server ready after ${attempt} poll(s)"
+              break
+            fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then
+            dump_log_and_die "server did not answer $ATLAS_BASE_URL/healthz within 90s"
+          fi
+          grep -q "Atlas server listening on" "$SERVER_LOG" || \
+            dump_log_and_die "server never logged 'Atlas server listening on' — it did not reach ListenAndServe"
+
+          # ---- assertion 1: /healthz is 200 and self-reports ok + wasmPresent ----
+          HEALTH_BODY="healthz.json"
+          HEALTH_CODE="$(curl -sS -o "$HEALTH_BODY" -w '%{http_code}' --max-time 10 "$ATLAS_BASE_URL/healthz")" || \
+            dump_log_and_die "curl failed for /healthz"
+          echo "GET /healthz -> $HEALTH_CODE"
+          cat "$HEALTH_BODY"; echo
+          [ "$HEALTH_CODE" = "200" ] || dump_log_and_die "/healthz returned $HEALTH_CODE, want 200"
+          # -s guards against a vacuous grep: an empty body must fail, not pass.
+          [ -s "$HEALTH_BODY" ] || dump_log_and_die "/healthz body was empty"
+          grep -q '"ok":true' "$HEALTH_BODY" || dump_log_and_die "/healthz body missing \"ok\":true"
+          grep -q '"wasmPresent":true' "$HEALTH_BODY" || \
+            dump_log_and_die "/healthz reported wasmPresent!=true — the server is looking for the client wasm somewhere other than $ATLAS_WASM_OUT"
+
+          # ---- assertion 2: the client wasm is actually SERVED (the important one) ----
+          # /healthz claiming wasmPresent proves only that some path on disk exists. This proves
+          # the browser's exact request URL resolves, with a non-empty body.
+          WASM_URL="$ATLAS_BASE_URL/assets/bin/atlas-commerce-os.wasm"
+          WASM_PROBE="$(curl -sS -o /dev/null -w '%{http_code} %{size_download}' --max-time 60 "$WASM_URL")" || \
+            dump_log_and_die "curl failed for /assets/bin/atlas-commerce-os.wasm"
+          WASM_CODE="${WASM_PROBE% *}"
+          WASM_SIZE="${WASM_PROBE#* }"
+          echo "GET /assets/bin/atlas-commerce-os.wasm -> $WASM_CODE (${WASM_SIZE} bytes)"
+          [ "$WASM_CODE" = "200" ] || \
+            dump_log_and_die "/assets/bin/atlas-commerce-os.wasm returned $WASM_CODE, want 200 — the browser cannot fetch the client, so #app stays empty even though the build and /healthz both looked fine"
+          [ "$WASM_SIZE" -gt 0 ] || \
+            dump_log_and_die "/assets/bin/atlas-commerce-os.wasm returned 200 with a 0-byte body"
+
+          # ---- assertion 3: /shop is 200 and emits the SSR bootstrap payload ----
+          SHOP_BODY="shop.html"
+          SHOP_CODE="$(curl -sS -o "$SHOP_BODY" -w '%{http_code}' --max-time 30 "$ATLAS_BASE_URL/shop")" || \
+            dump_log_and_die "curl failed for /shop"
+          echo "GET /shop -> $SHOP_CODE ($(wc -c < "$SHOP_BODY") bytes)"
+          [ "$SHOP_CODE" = "200" ] || dump_log_and_die "/shop returned $SHOP_CODE, want 200"
+          [ -s "$SHOP_BODY" ] || dump_log_and_die "/shop returned 200 with an empty body"
+          grep -q 'id="__ATLAS_BOOTSTRAP__"' "$SHOP_BODY" || \
+            dump_log_and_die "/shop HTML is missing the id=\"__ATLAS_BOOTSTRAP__\" script — SSR rendered without the hydration payload"
+
+          # ---- assertion 4: the operator surface is 200 for a signed-in session ----
+          # Mock auth (server/auth/mock.go) keys off the plain atlas_mock_role cookie; without it
+          # /app/dashboard is a 303 to /auth/mock-sign-in, which would make a followed-redirect
+          # 200 meaningless.
+          DASH_BODY="dashboard.html"
+          DASH_CODE="$(curl -sS -o "$DASH_BODY" -w '%{http_code}' --max-time 30 \
+            -b 'atlas_mock_role=ops_lead' "$ATLAS_BASE_URL/app/dashboard")" || \
+            dump_log_and_die "curl failed for /app/dashboard"
+          echo "GET /app/dashboard -> $DASH_CODE ($(wc -c < "$DASH_BODY") bytes)"
+          [ "$DASH_CODE" = "200" ] || dump_log_and_die "/app/dashboard returned $DASH_CODE, want 200"
+          [ -s "$DASH_BODY" ] || dump_log_and_die "/app/dashboard returned 200 with an empty body"
+
+          echo "Atlas boot gate PASSED (HTTP level only — no browser, no hydration; see header)."
+          echo "----- BEGIN atlas server stdout/stderr -----"
+          cat "$SERVER_LOG" || true
+          echo "----- END atlas server stdout/stderr -----"

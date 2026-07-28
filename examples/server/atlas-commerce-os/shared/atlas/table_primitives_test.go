@@ -11,14 +11,14 @@ import (
 func TestInventoryQueueTableRendersEmptyState(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(inventoryQueueTable(nil))
+	parseMarkup, parseErr := renderAtlasNodeForTest(inventoryQueueTable(nil))
 	if parseErr != nil {
 		parseT.Fatalf("inventoryQueueTable(empty) render failed: %v", parseErr)
 	}
-	if !strings.Contains(parseMarkup, "Dense queue table") {
+	if !strings.Contains(parseMarkup, "Inventory queue") {
 		parseT.Fatalf("expected queue table heading, got %q", parseMarkup)
 	}
-	if !strings.Contains(parseMarkup, "No inventory rows match the current filter set.") {
+	if !strings.Contains(parseMarkup, "No SKUs match these filters.") {
 		parseT.Fatalf("expected queue table empty-state copy, got %q", parseMarkup)
 	}
 }
@@ -28,7 +28,7 @@ func TestInventoryQueueTableRendersRowsAndActions(parseT *testing.T) {
 	parseT.Parallel()
 
 	parseRows := inventorySummaryCards(sampleInventoryRows())
-	parseMarkup, parseErr := ui.RenderToString(inventoryQueueTable(parseRows))
+	parseMarkup, parseErr := renderAtlasNodeForTest(inventoryQueueTable(parseRows))
 	if parseErr != nil {
 		parseT.Fatalf("inventoryQueueTable(rows) render failed: %v", parseErr)
 	}
@@ -47,7 +47,7 @@ func TestInventoryQueueTableRendersRowsAndActions(parseT *testing.T) {
 func TestWarehouseItemNetworkTableRendersSortableHeaders(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(warehouseItemNetworkTable(
+	parseMarkup, parseErr := renderAtlasNodeForTest(warehouseItemNetworkTable(
 		"/app/warehouses/new-jersey-hub/items/frame-desk",
 		map[string]string{"sort": "available", "dir": "desc"},
 		"new-jersey-hub",
@@ -71,7 +71,7 @@ func TestWarehouseItemNetworkTableRendersSortableHeaders(parseT *testing.T) {
 func TestInventoryOperationsRailRendersFilterAndSavedViewBadges(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(inventoryOperationsRail(internalShellState{
+	parseMarkup, parseErr := renderAtlasNodeForTest(inventoryOperationsRail(internalShellState{
 		SummaryLabel:    "Risk lanes",
 		SummaryValue:    "4",
 		ActiveFilters:   []string{"Status: promise_risk", "Warehouse: new-jersey-hub"},
@@ -99,7 +99,8 @@ func TestCommentsRouteRendersBulkModerationAffordance(parseT *testing.T) {
 		Summary: sampleSummary("Buyer inbox"),
 		Items:   sampleCommentRecords(),
 	}, nil)
-	parseMarkup, parseErr := ui.RenderToString(App(parsePayload))
+	// component + props, not App(payload): App's hooks need a render fiber.
+	parseMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parsePayload))
 	if parseErr != nil {
 		parseT.Fatalf("comments route render failed: %v", parseErr)
 	}

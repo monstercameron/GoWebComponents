@@ -244,6 +244,30 @@ export function buildReport({ idleWindows, loadedWindows, frameIntervalMs, optio
       // M7 — worst GC pause on the render thread while loaded.
       m7_maxGCPauseMs: maxGCPauseMs,
       m7_sampleTruncated: loadedMetrics.some((metric) => metric.gcSampleTruncated),
+      // How many collections the pause figure above was derived from.
+      //
+      // Without this, maxGCPauseMs === 0 is ambiguous: it means either "every
+      // collection was fast" (a pass) or "no collection happened, so nothing was
+      // measured" (not a result). The gate cannot tell those apart from a single
+      // number, and the second one reads as a perfect score.
+      m7_collectionsObserved: loadedMetrics.reduce(
+        (total, metric) => total + (metric.go?.numGC ?? 0), 0),
+      // Whether the Go probe answered at all. metrics.js readGoProbe() returns
+      // null when window.__gwcV5Probe is missing or unparseable, so a non-null
+      // `go` block IS the liveness proof.
+      //
+      // This separates the two ways to reach zero collections. A live probe that
+      // saw none is reporting something true and good: the render thread allocated
+      // little enough never to collect, which is precisely what the two-artifact
+      // split exists to produce. A missing probe is reporting nothing.
+      //
+      // Deliberately NOT inferred from per-window commit or render deltas. That
+      // was the first attempt and it was wrong for the same reason the frame-clock
+      // proxy was: an idle render thread legitimately commits zero times in a
+      // window, so a healthy run looked blind. Measured on this harness the render
+      // thread collects ONCE at boot (numGC stays at 1 for the whole session), so
+      // every per-window delta is zero by design.
+      m7_probeLive: loadedMetrics.some((metric) => metric.go != null),
     },
 
     // Retained so a stored run can be re-scored without re-running.
@@ -307,7 +331,22 @@ export function gate(report, budgets) {
   }
 
   const m1 = report.metrics.m1_frameTimeEquivalence;
-  if (!m1.equivalent) {
+  // M1 is only meaningful when the probe actually ran.
+  //
+  // Equivalence between two arms that both did nothing is trivially true, and
+  // that is how M1 was recorded as met: the typing probe never typed, so idle and
+  // loaded were both an idle page at vsync. Gating M1 on the interaction count
+  // ties it to the same evidence M3 already demanded.
+  const interactionSamples = report.metrics.m3_interactionLatency?.n ?? 0;
+  if (!interactionSamples) {
+    failures.push({
+      metric: 'M1',
+      reason:
+        'no interactions were recorded, so the probe did not exercise the app; comparing two idle arms ' +
+        'reports equivalence regardless of the runtime. M1 is UNMEASURED. Drive real (trusted) input — ' +
+        'Event Timing ignores synthetic events, so it must come from the automation driver.',
+    });
+  } else if (!m1.equivalent) {
     failures.push({
       metric: 'M1',
       reason: `loaded p95 frame time is not equivalent to idle (CI upper ${m1.ci.upper?.toFixed(2)}ms > margin ${m1.marginMs?.toFixed(2)}ms)`,
@@ -319,10 +358,45 @@ export function gate(report, budgets) {
   // observer is available the sink stays permanently empty and a naive
   // `count > 0` check passes trivially — "no long frames observed" is not
   // "no long frames occurred". Blind instrument = failed run.
+  //
+  // The observer EXISTING is not the same as the observer FIRING, and the second
+  // failure is the dangerous one because it reports a clean zero.
+  //
+  // Measured 2026-07-26: a headless Chromium run reported
+  // `source: "long-animation-frame", count: 0` — an observer was constructed, so
+  // the source check below passed — while six deliberately injected 180 ms
+  // main-thread blocks went uncounted. LoAF never delivers entries in that
+  // environment, so the counter cannot rise no matter what the page does.
+  //
+  // The cross-check is the FRAME TIMELINE, collected independently for M1. If the
+  // recorded frames contain one longer than the threshold while the long-frame
+  // observer reported none, the two instruments disagree and the observer is the
+  // one that is wrong. If the longest recorded frame is short, zero long frames is
+  // consistent and believed.
+  //
+  // Deliberately NOT inferred from frame-time variance. An earlier version of this
+  // guard treated a near-zero MAD as proof of a synthetic clock, which fails the
+  // moment the harness runs headed: an idle arm legitimately produces near-uniform
+  // vsync-locked frames, so real passing runs were reported as blind. Disagreement
+  // between two instruments is evidence; uniformity is not.
+  const LONG_FRAME_THRESHOLD_MS = 50;
+  const longestLoadedFrameMs = Number(m1?.loaded?.max ?? 0);
+  const observerMissedALongFrame =
+    m2.count === 0 && longestLoadedFrameMs > LONG_FRAME_THRESHOLD_MS;
+
   if (m2.source === 'none') {
     failures.push({
       metric: 'M2',
       reason: 'no long-frame observer available (neither long-animation-frame nor longtask); M2 is unmeasurable in this environment',
+    });
+  } else if (observerMissedALongFrame) {
+    failures.push({
+      metric: 'M2',
+      reason:
+        `reported 0 long frames from source "${m2.source}", but the frame timeline recorded a ` +
+        `${longestLoadedFrameMs.toFixed(1)}ms frame (threshold ${LONG_FRAME_THRESHOLD_MS}ms). ` +
+        'The two instruments disagree, so the observer is not firing and this zero is UNMEASURED, ' +
+        'not achieved. Re-run in a headed browser.',
     });
   } else if (m2.count > budgets.M2_maxLongFrames) {
     failures.push({
@@ -372,6 +446,40 @@ export function gate(report, budgets) {
     failures.push({
       metric: 'M7',
       reason: 'GC pause buffer overflowed within a window (>256 collections); reported max is a lower bound, not a maximum. Shorten windowMs.',
+    });
+  } else if (
+    report.metrics.m7_maxGCPauseMs === 0 &&
+    report.metrics.m7_collectionsObserved === 0 &&
+    report.metrics.m7_probeLive === false
+  ) {
+    // A zero pause derived from zero collections BY A PROBE THAT SAW NOTHING is
+    // not a measurement.
+    //
+    // The probe-live term is what makes this correct rather than merely cautious.
+    // Zero collections is the SUCCESS condition for M7 — the metric exists to
+    // bound "residency re-imports GC pressure onto the render thread", and a
+    // render thread that never collects has none. Failing that would reject the
+    // outcome the architecture is trying to produce. Only a probe that recorded no
+    // commits and no render time is actually blind.
+    //
+    // BOTH conditions are required, and both are checked for an EXPLICIT zero
+    // rather than for falsiness. A non-zero pause proves a collection happened, so
+    // the count adds nothing there. And an ABSENT count (an older report, or a
+    // hand-built fixture) means "unknown", which must not gate — treating
+    // undefined as zero made this fire on a report carrying a perfectly good
+    // 1.2ms pause.
+    //
+    // Checked against the COLLECTION COUNT rather than against the frame clock.
+    // An earlier version inferred "unmeasured" from a synthetic frame clock, which
+    // false-positived the moment the harness ran headed: an idle arm legitimately
+    // produces near-uniform vsync-locked frames, so a valid run was reported as
+    // blind. The collection count is direct evidence and needs no proxy.
+    failures.push({
+      metric: 'M7',
+      reason:
+        'no GC collections were observed in the loaded arm, so max GC pause is UNMEASURED rather than 0ms. ' +
+        'A run that imports, re-indexes and decodes a dataset without collecting once is not a plausible pass — ' +
+        'check that the Go probe is reporting MemStats.',
     });
   } else if (report.metrics.m7_maxGCPauseMs > budgets.M7_maxGCPauseMs) {
     failures.push({

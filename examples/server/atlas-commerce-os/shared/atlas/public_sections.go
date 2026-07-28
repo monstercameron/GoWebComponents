@@ -1,5 +1,83 @@
 package atlas
 
+// =============================================================================
+// THE PUBLIC STOREFRONT, rendered in the Go typed-CSS design system.
+// =============================================================================
+//
+// Every class on this surface now comes from shared/design (read its doc.go
+// first). There is no Tailwind string left in this file, and that is not a
+// cosmetic migration — the old markup was the design system's own case study in
+// what went wrong, so this file is where the fix has to be visible.
+//
+// WHAT THE OLD /shop LOOKED LIKE, AND WHY EACH PIECE IS GONE
+//
+//   - A product was FOUR nested rounded dark boxes: card -> "story" card ->
+//     price rail -> two blurb pills, every one with the same border, radius and
+//     shadow. Four identical frames means nothing on the card is more important
+//     than anything else, so nothing reads as important at all. The design
+//     system therefore ships no Card at all (surfaces.go) and the catalog is a
+//     manifest (below).
+//   - THREE competing heroes stacked before the first product: the route hero,
+//     a "Catalog overview" band with its own stat cards, and a second stat row.
+//     Now there is exactly one page head per route (renderPublicHero) and the
+//     content starts immediately after it.
+//   - The stat cards lied. "24 workspace products" was hardcoded above a
+//     computed "4 products", and the warehouse directory printed "0 stocked
+//     units" because /api/public/warehouses does not return stock at all. The
+//     rule now: print a number only where the payload actually carries it, and
+//     let the catalog's own result note be the count of record.
+//   - Per-item filler repeated verbatim on every row ("Workspace upgrades with a
+//     more considered systems view.", "Stock posture supports immediate quoting
+//     and fulfillment follow-through."). Copy that is identical across items
+//     carries zero information per item; it is noise with a word count. Deleted.
+//     If a product has nothing distinguishing to say, this file says nothing.
+//   - Redundant per-card chrome: the category twice (eyebrow + slug line), an
+//     "ATLAS SYSTEM" badge on every card, a "READY FOR ACTIVE PROJECTS" badge on
+//     every card, and the description twice (summary + SEO description). All
+//     gone. One summary, one category, one status.
+//
+// WHY THE CATALOG IS A MANIFEST ROW LIST AND NOT A CARD GRID
+//
+// This is the decision a future contributor is most likely to reverse, so:
+// design.Catalog renders <ul role="list"> of <li><a>, each row a CSS grid laid
+// out on tracks shared with a labelled header strip. It is not a grid of cards
+// and it is not a <table>. The full argument lives in design/catalog.go's header
+// and should be read before changing the shape here, but the four reasons that
+// bite hardest on THIS data set are:
+//
+//  1. Atlas has FOUR products. Four cards in a three-column grid is an orphan
+//     row with two holes and no CSS fix, plus wildly unequal card heights. Rows
+//     are full-width, so four items is four rows and five is five. The failure
+//     mode is structurally impossible rather than merely tidied up.
+//  2. Prices become a column. Comparing prices is most of what browsing a
+//     catalog IS, and twenty-four prices in twenty-four boxes cannot be compared.
+//  3. Availability gets its own labelled column instead of being the fourth line
+//     of a paragraph. Warehouse-aware availability is Atlas's entire thesis; on
+//     the old cards it was buried inside the filler. Promoting it is the point.
+//  4. repository.Product has no image field, so the thumbnail slot falls back to
+//     design.CatalogThumbPlate: the SKU tail set in mono on pressed paper, like a
+//     bin label. That is legible and true, where an empty grey square is neither.
+//
+// If you are about to turn this back into cards, note that you would also be
+// re-introducing the orphan row, the incomparable prices and the buried
+// availability. The row list is the argument, not a styling preference.
+//
+// A NOTE ON THE PRODUCT TITLE'S TYPE ROLE
+//
+// design.CatalogTitle is Prose, not Display, and that looks like a violation of
+// "every label is Display". It is not: Display names a REGION of the page, and
+// twenty-four condensed uppercase product titles would be a wall of shouting
+// that outranks the page title. catalog.go has the comment; do not "fix" it.
+//
+// WHAT DID NOT CHANGE
+//
+// No hook, handler, route, form action or form field name was touched. The
+// public forms' `name` attributes are asserted by browser specs, so the field
+// primitives keep their exact ids, names and aria wiring and only their classes
+// changed. The lazy sections, error boundaries and cached resources keep their
+// copy where a spec asserts it as evidence of the BEHAVIOUR (deferred mount,
+// background refresh, cache reuse) rather than as decoration.
+
 import (
 	"context"
 	"encoding/json"
@@ -8,48 +86,312 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/v5/css"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/api"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
 	"github.com/monstercameron/GoWebComponents/v5/html"
 	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
+// =============================================================================
+// LOCAL BUNDLES — the four shapes the design system deliberately does not ship
+// =============================================================================
+//
+// Each of these is a []css.Rule built once at package init and folded by
+// design.Class at the call site. That split matters: design.Class EMITS to the
+// css sink, and a package-level fold would hand out class names whose CSS a
+// css.Reset() in tests had already thrown away. Bundles are inert; folds are
+// lazy. (See design/doc.go, "Why bundles are package-level vars".)
+//
+// All four spend design tokens only — no literal color, no off-scale spacing —
+// so a theme change still reaches them. If a fifth surface needs one of these,
+// promote it into shared/design instead of copying it.
+
+// atlasBuyingPageBundle is the two-column page split: document on the left, a
+// persistent buying rail on the right.
+//
+// design has exactly one grid (the catalog's shared track definition) and
+// otherwise composes with Stack, Cluster and SplitRow — which is right for a
+// document. The product and availability routes are a document PLUS a rail that
+// must stay reachable while the buyer reads, and that is a page-level grid.
+//
+// grid-template-columns has no typed constructor (the same gap catalog.go calls
+// out), so the tracks are css.Raw. The collapse point is 960px to match the
+// breakpoint design uses for "the rail stops being a rail".
+var atlasBuyingPageBundle = css.Rules(
+	css.Raw("display", "grid"),
+	css.Raw("grid-template-columns", "minmax(0,1.6fr) minmax(19rem,0.8fr)"),
+	css.Raw("align-items", "start"),
+	css.Gap(design.Space6),
+	// min-width:0 on the container AND minmax(0,...) on the track: the pair that
+	// makes a grid column actually shrinkable. Without it one long mono SKU sets
+	// the column's min-content width and the page grows a horizontal scrollbar
+	// that appears to come from nowhere.
+	css.MinWidth(css.Zero),
+	css.Media(css.MaxW(960), css.Raw("grid-template-columns", "minmax(0,1fr)")),
+)
+
+func atlasBuyingPageClass() string { return design.Class(atlasBuyingPageBundle) }
+
+// atlasBuyingRailBundle is the sticky column the buying actions live in. It goes
+// static below the collapse point, because a sticky element inside a single
+// column steals viewport from the content it was meant to accompany.
+var atlasBuyingRailBundle = css.Rules(
+	design.Stack(design.Space5),
+	css.Position.Sticky,
+	css.Raw("top", string(design.Space5)),
+	css.Media(css.MaxW(960), css.Position.Static),
+)
+
+func atlasBuyingRailClass() string { return design.Class(atlasBuyingRailBundle) }
+
+// atlasRuledRowBundle is a full-width ruled list row that is also a link: hub
+// rows, related-product rows, promise-lane rows.
+//
+// It is deliberately the same IDEA as design.CatalogRow — rows separated by
+// hairlines rather than boxed — but CatalogRow is laid out on the catalog's
+// product tracks (thumb / identity / availability / price / action), which is
+// wrong for a two-field hub row. This is the generic case, and it is the one
+// primitive this file would most like to see promoted into shared/design.
+//
+// Hairline, not border: a row is a division of one sheet, not a new object.
+var atlasRuledRowBundle = css.Rules(
+	design.Stack(design.Space1),
+	css.PaddingY(design.Space3),
+	css.PaddingX(design.Space3),
+	css.BorderTop(design.HairlineWidth, design.Hairline()),
+	css.TextColor(design.Ink()),
+	css.Raw("text-decoration", "none"),
+	css.Hover(css.Bg(design.PaperSunk())),
+	css.FocusVisible(
+		css.Outline(design.ManifestRuleWidth, design.Lane()),
+		css.OutlineOffset(css.Px(-2)),
+	),
+)
+
+func atlasRuledRowClass() string { return design.Class(atlasRuledRowBundle) }
+
+// atlasRuledListBundle holds those rows. No gap: the rows carry their own
+// hairlines, so the list is RULED rather than spaced — which is what lets values
+// line up down the page.
+var atlasRuledListBundle = css.Rules(
+	css.Display.Flex,
+	css.FlexDir.Col,
+	css.Raw("list-style", "none"),
+	css.Padding(css.Zero),
+	css.Margin(css.Zero),
+	css.MinWidth(css.Zero),
+)
+
+func atlasRuledListClass() string { return design.Class(atlasRuledListBundle) }
+
+// atlasMeterTrackBundle / atlasMeterFillBundle are the buyer-sentiment bar.
+//
+// The fill is StatusVerified because the bar measures the share of approved
+// feedback that is positive — a semantic tone, not a decorative green. Its width
+// is the one inline style in this file: a percentage class would mint up to 101
+// hashed classes for one bar.
+var atlasMeterTrackBundle = css.Rules(
+	css.Display.Block,
+	css.W(css.Full),
+	css.H(css.Px(6)),
+	css.Bg(design.PaperSunk()),
+	css.Border(design.HairlineWidth, design.Hairline()),
+	css.Rounded(design.RadiusTag),
+	css.Raw("overflow", "hidden"),
+)
+
+var atlasMeterFillBundle = css.Rules(
+	css.Display.Block,
+	css.H(css.Full),
+	css.Bg(design.StatusVerified()),
+)
+
+// atlasSkeletonBundle is a loading placeholder: pressed paper at the height of
+// the row it stands in for, so the deferred module does not shift the page when
+// it resolves. No shimmer animation — a pulsing gradient is three of the things
+// the design system removed.
+var atlasSkeletonBundle = css.Rules(
+	css.Display.Block,
+	css.H(css.Px(60)),
+	css.Bg(design.PaperSunk()),
+	css.Rounded(design.RadiusTag),
+)
+
+// =============================================================================
+// DOMAIN -> DESIGN MAPPINGS
+// =============================================================================
+//
+// design.Availability and design.Posture are closed enums with no color escape
+// hatch: a caller passes a domain state and the design system decides what it
+// looks like. These four functions are the whole bridge, which is why they are
+// small switches in one place rather than inline conditionals at call sites.
+
+// atlasLineHub is the hub code for a manifest line, or "" when there is no hub.
+//
+// The guard is the point. page.go's atlasHubCode compresses a warehouse slug to
+// initials and appends "-HUB", and for an EMPTY input it falls back to the bare
+// string "HUB" — a sensible default when you know you are rendering a hub, and a
+// live bug when you are rendering a product that has no hub: the catalog's
+// availability line printed the label "HUB" with nothing after it on every row of
+// /shop, which is worse than printing nothing, because it looks like a value that
+// failed to load.
+//
+// So: no hub, no line. design.CatalogLine omits the promise line entirely when
+// both Hub and Promise are empty, and the chip above it still carries the answer.
+func atlasLineHub(parseWarehouseID string) string {
+	if strings.TrimSpace(parseWarehouseID) == "" {
+		return ""
+	}
+	return atlasHubCode(parseWarehouseID)
+}
+
+// atlasSKUCode renders a product SKU as the mono code the catalog's identity
+// column and its thumbnail bin plate expect.
+//
+// Atlas's SKUs are slugs ("frame-desk"), and the console's atlasHubCode (page.go)
+// is the wrong tool for them: it compresses a WAREHOUSE slug to initials plus
+// "-HUB". A product code must stay whole — it is the string a buyer quotes back
+// on the phone — so this only uppercases it. "FRAME-DESK" reads as a code where
+// "frame-desk" reads as a URL fragment, and design.CatalogThumbPlate takes the
+// tail after the last hyphen for the bin label.
+func atlasSKUCode(parseValue string) string {
+	return strings.ToUpper(strings.TrimSpace(parseValue))
+}
+
+// atlasStockAvailability maps real on-hand and inbound counts onto the buyer
+// availability enum. Used wherever the payload actually carries counts: the
+// availability route, and any product row whose inventory columns are populated.
+func atlasStockAvailability(parseAvailable int, parseInbound int) design.Availability {
+	switch {
+	case parseAvailable > 0:
+		return design.AvailStocked
+	case parseInbound > 0:
+		return design.AvailInbound
+	default:
+		return design.AvailNone
+	}
+}
+
+// atlasStatusAvailability maps a product STATUS onto the buyer availability enum,
+// for the catalog rows, where the payload has no counts at all (see
+// server/db/store.go Catalog: it selects sku, slug, title, category, price,
+// status, summary, seo_description and nothing else).
+//
+// The interesting case is "low_stock" -> AvailInbound, and it is a compromise
+// worth naming: design.Availability has no LIMITED state. AvailStocked would
+// print "IN STOCK" in the verified tone over an item the operator has flagged as
+// below threshold, which overstates it; AvailNearby would claim the units are in
+// a different hub, which we do not know. AvailInbound prints "INBOUND" in the
+// pending tone and changes nothing else, which is the honest de-emphasis. The
+// real fix is a fifth enum case in design (reported as a gap).
+func atlasStatusAvailability(parseStatus string) design.Availability {
+	switch normalizedAtlasStatus(parseStatus) {
+	case "in_stock", "healthy", "approved", "available":
+		return design.AvailStocked
+	case "low_stock", "pending", "submitted", "in_review":
+		return design.AvailInbound
+	default:
+		return design.AvailNone
+	}
+}
+
+// atlasProductAvailability prefers real counts and falls back to status.
+//
+// Counts win because they are the specific claim and status is the summary of
+// it. This is also what makes one catalog primitive serve both the storefront
+// catalog (status only) and the warehouse-scoped product list (counts).
+func atlasProductAvailability(parseItem productCard) design.Availability {
+	if parseItem.Available > 0 || parseItem.Inbound > 0 {
+		return atlasStockAvailability(parseItem.Available, parseItem.Inbound)
+	}
+	return atlasStatusAvailability(parseItem.Status)
+}
+
+// atlasStockPosture maps counts onto the lane placard's posture.
+//
+// PostureShort for "nothing on hand and nothing inbound" is the ONE place the
+// storefront spends the exception hue, and it is earned: the promise cannot be
+// met. Everything else is on-lane or held, so oxide stays rare enough to still
+// mean "a human has to look at this".
+func atlasStockPosture(parseAvailable int, parseInbound int) design.Posture {
+	switch {
+	case parseAvailable > 0:
+		return design.PostureOnLane
+	case parseInbound > 0:
+		return design.PostureHeld
+	default:
+		return design.PostureShort
+	}
+}
+
+// atlasPromiseWindow formats a warehouse service level ("2-4 days") as the mono
+// promise value on a placard or an availability line.
+//
+// Atlas promises a WINDOW, not a date — there is no promise date in the public
+// payload — so this prints the window rather than manufacturing a date. Mono and
+// uppercase, because it is a machine fact and it has to align down a column.
+func atlasPromiseWindow(parseServiceLevel string) string {
+	return strings.ToUpper(strings.TrimSpace(parseServiceLevel))
+}
+
+// atlasBuyerDestination is the destination on a storefront lane placard.
+//
+// The placard is ORIGIN -> DEST and Atlas knows the origin hub exactly. It does
+// not know the buyer's address, so the honest destination on a public page is
+// the buyer themselves. Naming it in the buyer's own terms keeps the placard's
+// accessible sentence true ("Lane NEW-JERSEY-HUB to YOUR SITE, promise 2-4
+// DAYS, posture ON LANE") instead of inventing a hub code nobody can look up.
+const atlasBuyerDestination = "YOUR SITE"
+
+// =============================================================================
+// LANDING (/)
+// =============================================================================
+
 func renderLandingContent() ui.Node {
-	return html.Section(html.Props{Class: "grid gap-8"},
-		html.Div(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.8fr)]"},
-			publicLandingIntroCard(),
-			publicLandingMetrics(),
-		),
-		publicLandingFeatures(),
+	return html.Section(html.Props{Class: design.Class(design.Stack(design.Space5))},
+		publicLandingIntroCard(),
 	)
 }
 
+// publicLandingIntroCard is ONE surface where there used to be an intro card,
+// two metric cards and three feature cards — eight boxes making the same claim
+// eight times. The three points below are a ruled list inside the surface, not
+// three more boxes: separation is a hairline, never another frame.
 func publicLandingIntroCard() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 " + publicHeroSurfaceClass() + " shadow-[0_22px_50px_rgba(0,0,0,0.22)] sm:p-7"},
-		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text(publicWhyAtlasFeelsReady)),
-		html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-white"}, html.Text("A darker, cleaner storefront for complex workspace buying.")),
-		html.P(html.Props{Class: "text-base leading-8 text-stone-300"}, html.Text("Atlas keeps pricing, delivery timing, and next-step actions visible in a standard commerce layout so buyers can compare products without translating warehouse language.")),
-		html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-3"},
-			publicSignalPill("Fast regional promise"),
-			publicSignalPill("Project quote capture"),
-			publicSignalPill("Warehouse-aware recovery"),
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space4))},
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(publicWhyAtlasFeelsReady)),
+		html.H2(html.Props{Class: design.Class(design.SectionTitle())}, html.Text("Every product shows the hub that ships it")),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepLede), design.Measure())},
+			html.Text("Atlas prices workspace systems against real hub stock, so you can read a desk and its delivery window on the same line."),
+		),
+		html.Div(html.Props{Class: design.Class(design.Divider())}),
+		html.Ul(html.Props{Class: atlasRuledListClass(), Role: "list"},
+			publicLandingPoint("Price and stock together", "Each catalog line carries its price and whether a hub can fill it."),
+			publicLandingPoint("One window per hub", "Open a hub to see what it holds for a product and how long it takes."),
+			publicLandingPoint("Ask on the product", "Quotes, reservations and questions post from the product you are reading."),
 		),
 	)
 }
 
-func publicLandingMetrics() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		publicMetricCard("Regional promise", "Delivery timing stays visible throughout the buying journey so teams can judge confidence before requesting pricing."),
-		publicMetricCard("Buying confidence", "Pricing requests, delivery questions, and availability follow-up stay tied to the same product context."),
+func publicLandingPoint(parseTerm string, parseCopy string) ui.Node {
+	return html.Li(html.Props{Class: design.Class(atlasRuledRowBundle)},
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(parseTerm)),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseCopy)),
 	)
 }
 
-func publicLandingFeatures() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 md:grid-cols-3"},
-		publicFeatureCard("Workspace systems", "Merchandising stays focused on whole setups instead of disconnected utility parts."),
-		publicFeatureCard("Beautifully direct UX", "Primary actions stay visible, labels remain explicit, and the reading order is stable across route entry."),
-		publicFeatureCard("Server-backed confidence", "Quotes, availability capture, and product questions share the same request-time contract as the internal ops console."),
-	)
-}
+// =============================================================================
+// CATALOG (/shop) — the manifest
+// =============================================================================
 
+// renderCatalogContent is the filter bar plus one manifest. Nothing else.
+//
+// Every hook, the deferred value, the debounce and the query-sync effect are
+// unchanged; only the markup below them is. What came OUT is the entire second
+// and third hero: publicCatalogOverview (an eyebrow, an H2, a paragraph and two
+// stat cards, one of which recomputed a count the manifest already reports) and
+// the four-deep product card.
 func renderCatalogContent(parsePage catalogPage) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		parseSearch := useAtlasSearchParams()
@@ -76,100 +418,172 @@ func renderCatalogContent(parsePage catalogPage) ui.Node {
 			parseSearch.ReplaceAll(atlasBuildListFilterQuery(parseSearch.Values(), parseForm.Get()))
 		})
 		parseFilteredItems := filterCatalogItems(parsePage.Items, parseDeferred)
-		parseViewPage := parsePage
-		parseViewPage.Items = parseFilteredItems
-		parseItems := make([]ui.Node, 0, len(parseFilteredItems))
-		for _, parseItem := range parseFilteredItems {
-			parseItems = append(parseItems, publicCatalogCard(parseItem))
-		}
-		return html.Section(html.Props{Class: "grid gap-8"},
-			publicCatalogOverview(parseViewPage),
+		return html.Section(html.Props{Class: design.Class(design.Stack(design.Space5))},
 			storeCatalogControls(parseForm, parseDebounced.Pending(), parseSubmit),
-			html.Div(html.Props{Class: "grid gap-5 md:grid-cols-2 xl:grid-cols-3"}, parseItems...),
+			// SurfaceFlush, not Surface: the manifest reaches its own hairline the
+			// way a table does. A ruled list inside a 16px gutter throws away the
+			// column alignment it was chosen for.
+			html.Div(html.Props{Class: design.Class(design.SurfaceFlush())},
+				design.Catalog(design.CatalogSpec{
+					// The active hub filter is handed to the lines, not just to the
+					// result note: when the buyer has narrowed to a hub, EVERY line in
+					// the result is provably stocked there (store.Catalog filters on
+					// `exists (select 1 from inventory_levels ...)`), so naming it in
+					// the availability column is a fact the query already established.
+					Items:      atlasCatalogLines(parseFilteredItems, parseDeferred.Warehouse),
+					TotalCount: atlasCatalogTotal(parsePage),
+					// The filter summary is empty unless something is actually
+					// narrowed, so an unfiltered visit gets a bare count instead of
+					// chrome the reader learns to ignore.
+					FilterSummary:    atlasCatalogFilterSummary(parseDeferred),
+					Label:            "Product catalog",
+					EmptyTitle:       "No lines match this filter",
+					EmptyBody:        "Nothing in the catalog matches what you asked for. Widen the category or clear the filter to see every line.",
+					EmptyActionLabel: "Clear filters",
+					EmptyActionHref:  RouteCatalog,
+				}),
+			),
 		)
 	})
 }
 
-func publicCatalogOverview(parsePage catalogPage) ui.Node {
-	return html.Div(html.Props{Class: "flex flex-col gap-4 " + publicGlassCardClass() + " lg:flex-row lg:items-end lg:justify-between"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text(publicCatalogOverviewLabel)),
-			html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-white"}, html.Text("Modern workspace systems, organized for quick decisions.")),
-			html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-300"}, html.Text("The catalog follows a more standard browse flow: category, price, stock posture, and next step all stay in the same place for faster scanning.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2 lg:min-w-[20rem]"},
-			publicMetricCard(fmt.Sprintf("%d products", len(parsePage.Items)), "Workspace systems stay organized for quick comparison and shortlist building."),
-			publicMetricCard("Quote-ready", "Pricing help and delivery follow-up stay one step away on every product page."),
-		),
-	)
+// atlasCatalogTotal is how many lines exist before the client-side filter runs.
+//
+// design.Catalog prints "N OF M LINES" only when M is larger than what is shown,
+// which is exactly the case this feeds: the server has already paginated, and the
+// deferred filter narrows that page further. Passing the server's own total keeps
+// a narrow filter from reading as an empty shop.
+func atlasCatalogTotal(parsePage catalogPage) int {
+	if parsePage.Total > len(parsePage.Items) {
+		return parsePage.Total
+	}
+	return len(parsePage.Items)
 }
 
-func publicCatalogCard(parseItem productCard) ui.Node {
-	parseActionLabel, parseActionCopy := catalogActionPlan(parseItem.Status)
-	return html.A(html.Props{Href: RouteCatalog + "/" + parseItem.Slug, Class: publicCatalogCardClass()},
-		html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseItem.Category)),
-				html.P(html.Props{Class: "text-[0.68rem] font-medium uppercase tracking-[0.28em] text-stone-500"}, html.Text(parseItem.SKU)),
-			),
-			html.Span(html.Props{Class: publicStatusClass(parseItem.Status)}, html.Text(publicStatusLabel(parseItem.Status))),
-		),
-		publicCatalogStory(parseItem),
-		publicCatalogPriceRail(parseItem, parseActionLabel, parseActionCopy),
-	)
+// atlasCatalogLines turns product rows into manifest lines.
+//
+// # Where the availability column's hub line comes from, and where it does not
+//
+// This is the one place the storefront catalog can lie, so the sourcing is spelled
+// out. The hub under the availability chip is taken, in order, from:
+//
+//  1. the ROW's own warehouse, when the payload carries one. It does on the
+//     warehouse-scoped lists and in the test fixtures.
+//  2. the ACTIVE HUB FILTER, when the buyer has narrowed to one. store.Catalog
+//     implements that filter as `exists (select 1 from inventory_levels il where
+//     il.product_sku = products.sku and il.warehouse_id = ?)`, so every returned
+//     row is stocked at that hub by construction — printing it is reporting the
+//     query, not guessing.
+//  3. nothing. The line is omitted rather than rendered blank.
+//
+// Case 3 is the DEFAULT on an unfiltered /shop, and it is not an oversight: the
+// public catalog payload is repository.Product, which is SKU, slug, title,
+// category, price cents, status, summary and SEO description — no warehouse, no
+// on-hand, no inbound, no promise date. server/db/store.go's Catalog query selects
+// exactly those eight columns. There is no per-product hub or promise to render on
+// an unfiltered catalog, and the honest response is silence.
+//
+// PROMISE is never set here for the same reason and one more: Atlas's public
+// promise is a WINDOW published per hub ("2-4 days" on the warehouse record), not
+// a per-product date, and the catalog payload carries neither. The warehouse-scoped
+// manifest (atlasWarehouseCatalogLines) does have the hub record and does print it.
+//
+// If a future payload adds per-row availability, populate productCard.WarehouseID /
+// Available / Inbound and every branch here starts working with no markup change —
+// which is why case 1 is written first even though today it only fires off /shop.
+//
+// Case 2 is also currently unreachable on /shop for a reason that lives outside this
+// file: filterCatalogItems (products_cms.go) re-applies the hub filter on the client
+// against productCard.WarehouseID, which the public catalog payload never sets, so a
+// hub-filtered /shop drops every row before it reaches here. That is a pre-existing
+// behaviour bug in another surface, not something this markup pass introduced or is
+// allowed to fix; the branch is written correctly so it starts working the day that
+// filter does.
+//
+// # The thumbnail plate reads "DESK", not "40192"
+//
+// design.CatalogThumbPlate prints the SKU's tail after the last hyphen, on the
+// assumption of "SKU-40192" — a code with a numeric distinguishing tail. Atlas's
+// SKUs are noun-phrase slugs ("frame-desk", "cable-bridge"), so the tail is the
+// CATEGORY noun and the head is the distinguishing word. The plates therefore read
+// DESK / CONSOLE / BENCH / BRIDGE. That is legible, true, and unique across the
+// current four products, so it is kept rather than worked around — but it is exactly
+// backwards from the primitive's intent and it collides the moment a second desk
+// ships. The fix belongs in design (a plate-code override on CatalogItem, or falling
+// back to the leading segment when the tail is not numeric), not in a caller
+// reshaping a SKU it also has to print correctly in the meta line.
+//
+// Note also what is NOT set: no ThumbSrc (repository.Product has no image, so the
+// slot falls back to the SKU bin plate) and no per-item editorial copy. Summary is
+// passed through verbatim and clamped by the primitive; the SEO description is not
+// repeated under it.
+//
+// SKU is uppercased because Atlas's SKUs are slugs. The mono column and the bin
+// plate both want a code, and "FRAME-DESK" reads as one where "frame-desk" reads
+// as a URL fragment.
+func atlasCatalogLines(parseItems []productCard, parseHubFilter string) []design.CatalogItem {
+	parseFilterHub := ""
+	if parseNormalized := atlasNormalizedFilterValue(parseHubFilter); parseNormalized != "" && parseNormalized != "all" {
+		parseFilterHub = atlasLineHub(parseNormalized)
+	}
+	parseLines := make([]design.CatalogItem, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseHub := atlasLineHub(parseItem.WarehouseID)
+		if parseHub == "" {
+			parseHub = parseFilterHub
+		}
+		parseLines = append(parseLines, design.CatalogItem{
+			Href:     RouteCatalog + "/" + parseItem.Slug,
+			Title:    parseItem.Title,
+			SKU:      atlasSKUCode(parseItem.SKU),
+			Category: parseItem.Category,
+			Price:    formatPrice(parseItem.PriceCents),
+			Summary:  parseItem.Summary,
+			Avail:    atlasProductAvailability(parseItem),
+			Hub:      parseHub,
+		})
+	}
+	return parseLines
 }
 
-func publicCatalogStory(parseItem productCard) ui.Node {
-	return html.Div(html.Props{Class: "relative overflow-hidden rounded-[1.55rem] border border-white/8 bg-[linear-gradient(160deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)_58%,rgba(245,158,11,0.05))] px-5 py-6"},
-		html.Div(html.Props{Class: "pointer-events-none absolute -right-6 top-5 h-24 w-24 rounded-full bg-amber-300/12 blur-2xl"}),
-		html.Div(html.Props{Class: "relative z-[1] grid gap-4"},
-			html.Div(html.Props{Class: "flex flex-wrap items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-400"},
-				html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/8 px-3 py-1 text-stone-300"}, html.Text(publicAtlasSystemLabel)),
-				html.Span(html.Props{}, html.Text(catalogPromiseCopy(parseItem.Status))),
-			),
-			html.Div(html.Props{Class: "grid gap-3"},
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.04em] text-white transition group-hover:text-stone-100"}, html.Text(parseItem.Title)),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseItem.Summary)),
-			),
-			html.P(html.Props{Class: "text-sm leading-6 text-stone-400"}, html.Text(catalogEditorialCopy(parseItem))),
-		),
-	)
+// atlasCatalogFilterSummary formats the active filter for the manifest's result
+// note, in Data voice because a filter expression is a machine fact.
+//
+// It returns "" when nothing is narrowed. That is the whole trick: a note that
+// says "everything" on every visit is invisible by the time it says "twelve".
+func atlasCatalogFilterSummary(parseFilters atlasListFilterState) string {
+	parseParts := make([]string, 0, 3)
+	if parseQuery := strings.TrimSpace(parseFilters.Query); parseQuery != "" {
+		parseParts = append(parseParts, "MATCHING "+strings.ToUpper(parseQuery))
+	}
+	if parseCategory := atlasNormalizedFilterValue(parseFilters.Category); parseCategory != "" && parseCategory != "all" {
+		parseParts = append(parseParts, "CATEGORY "+strings.ToUpper(parseCategory))
+	}
+	if parseWarehouse := atlasNormalizedFilterValue(parseFilters.Warehouse); parseWarehouse != "" && parseWarehouse != "all" {
+		parseParts = append(parseParts, "HUB "+atlasLineHub(parseWarehouse))
+	}
+	return strings.Join(parseParts, " · ")
 }
 
-func publicCatalogPriceRail(parseItem productCard, parseActionLabel string, parseActionCopy string) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.5rem] border border-white/8 bg-white/5 p-4"},
-		html.Div(html.Props{Class: "flex items-end justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-1"},
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-400"}, html.Text(publicStartingAtLabel)),
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.04em] text-white"}, html.Text(formatPrice(parseItem.PriceCents))),
-				html.P(html.Props{Class: "text-sm leading-6 text-stone-400"}, html.Text(parseActionCopy)),
-			),
-			html.Span(html.Props{Class: "inline-flex items-center rounded-full border border-amber-300/50 bg-amber-300/12 px-4 py-2 text-sm font-semibold text-amber-100 transition group-hover:border-amber-300/70 group-hover:bg-amber-300/18"}, html.Text(parseActionLabel)),
-		),
-		html.Div(html.Props{Class: "grid gap-2 text-sm text-stone-300 sm:grid-cols-2"},
-			html.P(html.Props{Class: "rounded-full border border-white/10 bg-white/6 px-3 py-2"}, html.Text(productCategoryCue(parseItem.Category))),
-			html.P(html.Props{Class: "rounded-full border border-white/10 bg-white/6 px-3 py-2"}, html.Text(productSupportCue(parseItem.Status))),
-		),
-	)
-}
-
+// publicLazySectionFallback is the placeholder a deferred section shows before it
+// mounts. One surface, one eyebrow, one title, one sentence.
 func publicLazySectionFallback(parseEyebrow, parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 " + publicGlassCardClass()},
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseEyebrow)),
-		html.H3(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(parseTitle)),
-		html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseCopy)),
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))},
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(parseEyebrow)),
+		html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text(parseTitle)),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())}, html.Text(parseCopy)),
 	)
 }
+
+// =============================================================================
+// PRODUCT DETAIL (/shop/{slug})
+// =============================================================================
 
 func renderProductContent(parsePage productDetailPage, parsePayload Payload) ui.Node {
 	parseProduct := parsePage.Product
-	return html.Section(html.Props{Class: "grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(21rem,0.78fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-6"},
+	return html.Section(html.Props{Class: atlasBuyingPageClass()},
+		html.Div(html.Props{Class: design.Class(design.Stack(design.Space5))},
 			publicProductHeroCard(parseProduct),
-			html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"},
-				publicProductMetrics(),
-				publicProductFeatureStrip(),
-			),
 			atlasLazySection(func() ui.Node {
 				return publicProductFeedbackSection(parseProduct, parsePage.Comments, parsePayload)
 			}, publicLazySectionFallback("Customer reviews and questions", "Loading buyer feedback", "Atlas waits until the primary product story is stable before mounting the heavier review and question workflow."), parseProduct.Slug, commentRecordsSignature(parsePage.Comments)),
@@ -189,6 +603,341 @@ type relatedProductRecord struct {
 	WarehouseName string `json:"warehouseName"`
 	Reason        string `json:"reason"`
 }
+
+// publicProductHeroCard is the product's one surface: what it is, what it costs,
+// and whether it can ship.
+//
+// It does NOT repeat the product name. The route's <h1> is already "Atlas Frame
+// Desk" (server.go builds it from the product title), and the old page printed
+// that name again as an <h2> immediately underneath — one of the three heroes.
+// One page, one title.
+//
+// What else came off: three "signal pills" of status-derived filler, a nested
+// price card, and the SEO description printed under the summary that already
+// said the same thing.
+func publicProductHeroCard(parseProduct productCard) ui.Node {
+	parseAvail := atlasProductAvailability(parseProduct)
+	parseChildren := []ui.Node{
+		publicProductIdentity(parseProduct),
+	}
+	if strings.TrimSpace(parseProduct.Summary) != "" {
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepLede), design.Measure())}, html.Text(parseProduct.Summary)),
+		)
+	}
+	parseChildren = append(parseChildren,
+		html.Div(html.Props{Class: design.Class(design.ManifestRule())}),
+		// The price is the row a buyer came for, so it gets the heavy rule above it
+		// and the only StepLede mono figure on the page. Data, not Prose: a price is
+		// a machine fact, and tabular figures make two prices comparable.
+		html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space4))},
+			html.Div(html.Props{Class: design.Class(design.Stack(design.Space1))},
+				html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(publicStartingAtLabel)),
+				html.Span(html.Props{Class: design.Class(design.Data(design.StepHead))}, html.Text(formatPrice(parseProduct.PriceCents))),
+			),
+			html.Span(html.Props{Class: design.Class(design.StatusChip(parseAvail.Tone()))}, html.Text(parseAvail.Label())),
+		),
+	)
+	if parseFinish := strings.TrimSpace(parseProduct.Finish); parseFinish != "" {
+		parseChildren = append(parseChildren, publicProductContextColumn("Finish", parseFinish))
+	}
+	if parseDetails := strings.TrimSpace(parseProduct.Details); parseDetails != "" {
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())}, html.Text(parseDetails)),
+		)
+	}
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space4))}, parseChildren...)
+}
+
+// publicProductIdentity is the mono identity line: SKU, then category. Both are
+// machine facts, so both are Data, and being mono they align with the same pair
+// on every catalog row the buyer just came from.
+//
+// The category used to appear twice here (an amber eyebrow AND a slug line) plus
+// an "Atlas system" badge on every product. Once.
+func publicProductIdentity(parseProduct productCard) ui.Node {
+	parseParts := make([]ui.Node, 0, 3)
+	if parseSKU := atlasSKUCode(parseProduct.SKU); parseSKU != "" {
+		parseParts = append(parseParts, html.Span(html.Props{}, html.Text(parseSKU)))
+	}
+	if parseCategory := strings.TrimSpace(parseProduct.Category); parseCategory != "" {
+		if len(parseParts) > 0 {
+			parseParts = append(parseParts,
+				html.Span(html.Props{Aria: map[string]string{"hidden": "true"}}, html.Text("·")))
+		}
+		parseParts = append(parseParts, html.Span(html.Props{}, html.Text(strings.ToUpper(parseCategory))))
+	}
+	return html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2), design.Data(design.StepFine))}, parseParts...)
+}
+
+// publicProductContextColumn is a label/value pair, not a card.
+//
+// It used to be a bordered, shadowed, radiused box, which is how a page ends up
+// with four nested frames. A label in Eyebrow voice above a value needs no frame
+// to read as a pair.
+func publicProductContextColumn(parseLabel string, parseCopy string) ui.Node {
+	return html.Div(html.Props{Class: design.Class(design.Stack(design.Space1))},
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(parseLabel)),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseCopy)),
+	)
+}
+
+// publicProductPromiseLanesIsland is unchanged behaviour: an error boundary
+// around a resource-backed async boundary, keyed on the product.
+func publicProductPromiseLanesIsland(parseProduct productCard) ui.Node {
+	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
+		ResetKeys: []any{parseProduct.Slug, parseProduct.Status},
+		ErrorFallback: func(parseErr error, reset func()) ui.Node {
+			return publicProductPromiseLanesError(parseProduct, parseErr, reset)
+		},
+		Child: ui.CreateElement(func() ui.Node {
+			// A TYPED SERVER FUNCTION, not a URL and a decode.
+			//
+			// This used to read:
+			//
+			//	fetchAtlasJSON[warehouseDirectoryPage](parseCtx, "/api/public/warehouses")
+			//
+			// Three things were wrong with that and none of them were visible here.
+			// The path was a string, so a route rename broke it at runtime. The
+			// response type was asserted by the caller rather than agreed with the
+			// server, so a renamed JSON field decoded to a zero value and rendered as
+			// an empty region. And warehouseDirectoryPage carried operator-only fields
+			// (Pressure, Staffing, Backlog, Focus) that the public endpoint never
+			// populates — which is exactly how this page ended up printing a hardcoded
+			// "Core team assigned" to buyers for every hub.
+			//
+			// api.ListWarehouses is one Go signature that `gwc server gen` turns into
+			// both the server registration and this call. The compiler checks it, and
+			// api.Warehouse is the PUBLIC shape, so the operator fields cannot be
+			// reached from here even by accident.
+			parseResource := useAtlasResource(func(parseCtx context.Context) (api.ListWarehousesResponse, error) {
+				return api.ListWarehouses(parseCtx, api.ListWarehousesRequest{})
+			}, parseProduct.Slug)
+			parseState := parseResource.Get()
+			parseContent := publicProductPromiseLanesCard(parseProduct, parseState.Value.Warehouses, parseState.Loading && parseState.Ready)
+			return ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
+				Pending:  !parseState.Ready && parseState.Error == nil,
+				Error:    parseState.Error,
+				Fallback: publicProductPromiseLanesFallback(parseProduct),
+				ErrorFallback: func(parseErr2 error) ui.Node {
+					return publicProductPromiseLanesError(parseProduct, parseErr2, parseResource.Reload)
+				},
+				Content: parseContent,
+			})
+		}),
+	})
+}
+
+// publicProductPromiseLanesCard lists the hubs that can serve this product.
+//
+// NO lane placard here, deliberately, and it is worth saying why given that a
+// placard is the signature device and this section is about lanes: the placard
+// prints a POSTURE, and /api/public/warehouses returns id, slug, name, region,
+// service_level and public_summary — no stock, no inbound, no promise. A posture
+// derived from nothing is a claim the payload cannot back, so this stays a ruled
+// list of hub rows and the placard appears one route deeper, on the availability
+// page, where the counts are real.
+// The parameter is []api.Warehouse — the public wire type — rather than the
+// internal warehouseCard. This card reads exactly three fields (Slug, Name,
+// ServiceLevel) and api.Warehouse carries exactly what a buyer may see, so taking
+// the narrower type makes it impossible for this surface to grow a dependency on
+// an operator-only field the public payload never fills.
+func publicProductPromiseLanesCard(parseProduct productCard, parseWarehouses []api.Warehouse, isRefreshing bool) ui.Node {
+	parseRows := make([]ui.Node, 0, 3)
+	for _, parseItem := range parseWarehouses {
+		parseRows = append(parseRows, html.Li(html.Props{},
+			html.A(html.Props{
+				Href:  RouteWarehouses + "/" + parseItem.Slug + "/availability/" + parseProduct.Slug,
+				Class: atlasRuledRowClass(),
+			},
+				html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space3))},
+					html.Span(html.Props{Class: design.Class(design.Prose(design.StepBase)), Style: map[string]string{"font-weight": "600"}}, html.Text(parseItem.Name)),
+					html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(atlasLineHub(parseItem.Slug))),
+				),
+				html.Span(html.Props{Class: design.Class(design.Prose(design.StepFine))}, html.Text(fallback(parseItem.ServiceLevel, "Regional service posture"))),
+				html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Open "+parseItem.Name+" availability")),
+			),
+		))
+		if len(parseRows) == 3 {
+			break
+		}
+	}
+	parseChildren := []ui.Node{
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Regional promise lanes")),
+		html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text("Pick the hub that serves you")),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())},
+			html.Text("This below-the-fold module loads after the main product story, so route-critical content stays stable while the regional availability lanes resolve independently."),
+		),
+	}
+	if isRefreshing {
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Recess(), design.Prose(design.StepFine))},
+				html.Text("Refreshing the regional lane list in the background while the current panel stays visible."),
+			),
+		)
+	}
+	if len(parseRows) == 0 {
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())},
+				html.Text("Atlas is still resolving warehouse lanes for this product."),
+			),
+		)
+	} else {
+		parseChildren = append(parseChildren,
+			html.Ul(html.Props{Class: atlasRuledListClass(), Role: "list"}, parseRows...),
+		)
+	}
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))}, parseChildren...)
+}
+
+func publicProductPromiseLanesFallback(parseProduct productCard) ui.Node {
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))},
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Regional promise lanes")),
+		html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text("Pick the hub that serves you")),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())},
+			html.Text("Atlas defers this secondary lane module until after hydration so loading stays local to the panel instead of blocking the product route."),
+		),
+		html.Div(html.Props{Class: design.Class(design.Stack(design.Space2))},
+			html.Div(html.Props{Class: design.Class(atlasSkeletonBundle)}),
+			html.Div(html.Props{Class: design.Class(atlasSkeletonBundle)}),
+			html.Div(html.Props{Class: design.Class(atlasSkeletonBundle)}),
+		),
+		html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(atlasSKUCode(parseProduct.SKU))),
+	)
+}
+
+// publicProductPromiseLanesError is a COMPONENT because it is an ERROR FALLBACK.
+//
+// publicProductPromiseLanesIsland hands it to both an ui.ErrorBoundary
+// ErrorFallback and an ui.AsyncBoundary ErrorFallback. The runtime calls those
+// from recovery bookkeeping (internal/runtime/error_boundary.go and
+// internal/runtime/async_boundary.go), not from a component render, so no fiber is
+// current and a hook in the callback body panics.
+//
+// Observable failure: the storefront product page looks fine until
+// /api/public/warehouses fails, and then the code meant to REPORT that failure
+// panics instead — replacing a recoverable "could not load lanes" panel with a
+// re-thrown "async boundary fallback panic" at the next boundary out.
+//
+// The retry button does not need a stable hook slot for correctness, only to avoid
+// re-wrapping a js.Func on every commit; ui.CreateElement keeps ui.UseEvent (and
+// therefore that caching) while giving the hook a fiber to live in. Do NOT reach
+// for ui.WrapHandler with a raw closure here — that leaks one js.Func per call.
+//
+// Styling note: the error surface is a plain Surface with an exception CHIP, not
+// an oxide-tinted panel. A whole panel painted in the exception hue spends the
+// design system's scarcest resource on a recoverable network hiccup; the chip
+// says the same thing and leaves oxide meaning something.
+func publicProductPromiseLanesError(parseProduct productCard, parseErr error, parseRetry func()) ui.Node {
+	return ui.CreateElement(func() ui.Node {
+		return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))},
+			html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2))},
+				html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Regional promise lanes")),
+				html.Span(html.Props{Class: design.Class(design.StatusChip(design.ToneException))}, html.Text("LANES UNAVAILABLE")),
+			),
+			html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text("Atlas could not load the lane panel.")),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseErr.Error())),
+			html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2))},
+				html.Button(html.Props{
+					Type:    "button",
+					Class:   design.Class(design.ButtonSecondary()),
+					OnClick: ui.UseEvent(func() { parseRetry() }),
+				}, html.Text("Retry lane panel")),
+				html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(parseProduct.Title)),
+			),
+		)
+	})
+}
+
+// publicProductActionRail is the buying column. Structure and hooks unchanged —
+// including the reason buildRailChildren's children must each own a fiber.
+func publicProductActionRail(parseProduct productCard, parsePayload Payload) ui.Node {
+	parseProductSupportTitle, parseProductSupportCopy, parseProductSupportPoints := publicBuyerNextStep(parseProduct.Status)
+	return ui.CreateElement(func() ui.Node {
+		parseOpen := ui.UseState(false)
+		parseSheetID := ui.UseId() + "-public-action-rail"
+		parseTitleID := parseSheetID + "-title"
+		parseDescriptionID := parseSheetID + "-description"
+		parseCloseID := parseSheetID + "-close"
+		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
+		parseCloseDrawer := func() { parseOpen.Set(false) }
+		// buildRailChildren is invoked TWICE per render — once for the desktop column
+		// and once for the mobile drawer — so everything it returns must be a COMPONENT.
+		//
+		// This is the failure that made the rule concrete. productPrimaryActionForm's
+		// fields used to be plain helpers calling ui.UseId, so both invocations drew
+		// from THIS fiber's single id sequence: the desktop email input got gwc-7-3 and
+		// the drawer's got a different id, while the count itself varied because
+		// productPrimaryActionForm switches on product status and emits two fields for
+		// constrained stock and five for available stock. Result: aria-labelledby in the
+		// drawer pointed at the desktop copy's label, and the parent's hook count moved
+		// with product status.
+		//
+		// Now every child owns a fiber (productPrimaryActionForm's fields, publicRelatedProductsCard,
+		// productSecondaryActionCard), so the two copies are independent and internally
+		// consistent, and this component's own hook count is fixed at three.
+		buildRailChildren := func() []ui.Node {
+			return []ui.Node{
+				html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))},
+					html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(publicBuyerNextStepLabel)),
+					html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text(parseProductSupportTitle)),
+					html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())}, html.Text(parseProductSupportCopy)),
+					html.Ul(html.Props{Class: design.Class(design.Stack(design.Space2)), Role: "list"}, publicSupportPoints(parseProductSupportPoints)...),
+				),
+				productPrimaryActionForm(parseProduct, parsePayload),
+				publicRelatedProductsCard(parseProduct),
+				productSecondaryActionCard(parseProduct),
+			}
+		}
+		return html.Div(html.Props{Class: atlasBuyingRailClass()},
+			html.Button(html.Props{Type: "button", Class: design.Class(design.ButtonSecondary()), OnClick: parseOpenDrawer}, html.Text("Open buying drawer")),
+			html.Div(html.Props{Class: design.Class(design.Stack(design.Space5))}, buildRailChildren()...),
+			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: design.Class(design.Stack(design.Space5))},
+				html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space3))},
+					html.Div(html.Props{Class: design.Class(design.Stack(design.Space1))},
+						html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(publicBuyerNextStepLabel)),
+						html.H3(html.Props{ID: parseTitleID, Class: design.Class(design.SectionTitle())}, html.Text(parseProductSupportTitle)),
+						html.P(html.Props{ID: parseDescriptionID, Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseProductSupportCopy)),
+					),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: design.Class(design.ButtonQuiet()), OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
+				),
+				html.Div(html.Props{Class: design.Class(design.Stack(design.Space5))}, buildRailChildren()...),
+			)),
+		)
+	})
+}
+
+// publicBuyerNextStep is the buying guidance for a product status.
+//
+// It replaces derived_state.go's productSupportPlan at this call site, and the
+// reason is the copy, not the shape: that function hands the BUYER sentences
+// written for the team building the page ("Use the quote form as the primary
+// action for real project intent.", "Explain that inventory is constrained in
+// plain buyer language."). Those are design notes. A buyer needs plain verbs and
+// what happens next.
+func publicBuyerNextStep(parseStatus string) (string, string, []string) {
+	switch normalizedAtlasStatus(parseStatus) {
+	case "in_stock", "healthy", "approved", "available":
+		return "Ask for a price", "This system is on hand, so a quote can go out today.", []string{
+			"Send quantity and install dates and you get a price back.",
+			"Pick a delivery region first if the date matters more than the price.",
+		}
+	case "low_stock", "pending", "submitted", "in_review":
+		return "Reserve the next units", "Stock is thin. Reserving holds your place in the next batch.", []string{
+			"Reserving costs nothing and does not commit you to buy.",
+			"Name a hub and you get the window that hub can hit.",
+		}
+	default:
+		return "Get told when it lands", "Nothing is on hand and no batch is booked yet.", []string{
+			"Leave an email and you hear the day stock arrives.",
+			"Browse the same category for something you can buy now.",
+		}
+	}
+}
+
+// =============================================================================
+// PRODUCT FEEDBACK — reviews and questions
+// =============================================================================
 
 func publicProductFeedbackSection(parseProduct productCard, parseComments []commentRecord, parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
@@ -264,69 +1013,81 @@ func publicProductFeedbackSection(parseProduct productCard, parseComments []comm
 				parseSubmittingState.Set(false)
 			}()
 		})
-		return html.Div(html.Props{Class: "grid gap-5 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-			html.Div(html.Props{Class: "grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"},
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Customer reviews and questions")),
-					html.H3(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("What buyers are asking before they commit.")),
-					html.P(html.Props{Class: "max-w-3xl text-sm leading-7 text-stone-300"}, html.Text("Reviews, questions, and sentiment stay below the core product information in a standard decision flow, so buyers can scan the essentials first and validate with social proof second.")),
+		return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space4))},
+			html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space3))},
+				html.Div(html.Props{Class: design.Class(design.Stack(design.Space1))},
+					html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Customer reviews and questions")),
+					html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text("What buyers are asking before they commit.")),
 				),
-				html.Div(html.Props{Class: "rounded-[1.2rem] border border-white/10 bg-white/8 px-4 py-3 text-sm font-semibold text-stone-200"}, html.Text(parseCountLabel)),
+				// The count is Data: it is a computed fact, and in mono it stays
+				// readable as a number instead of reading as a sentence fragment.
+				html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(parseCountLabel)),
 			),
-			html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(19rem,0.8fr)] lg:items-start"},
-				publicProductFeedbackList(parseVisibleComments, isParseRefreshing),
-				publicProductFeedbackForm(parseProduct, parsePayload, parseForm, parseValue, parseSubmitting, parseSubmissionMessage, setAuthorName, setSubject, setBody, setReaction, parseSubmit),
-			),
+			html.Div(html.Props{Class: design.Class(design.Divider())}),
+			publicProductFeedbackList(parseVisibleComments, isParseRefreshing),
+			publicProductFeedbackForm(parseProduct, parsePayload, parseForm, parseValue, parseSubmitting, parseSubmissionMessage, setAuthorName, setSubject, setBody, setReaction, parseSubmit),
 		)
 	})
 }
 
+// publicProductFeedbackList is the sentiment read plus the notes themselves.
+//
+// The notes are ruled rows, not eight more bordered cards. The sentiment summary
+// keeps one meter and one figure where it used to have a 3xl percentage, two
+// tinted count cards and a paragraph explaining what a percentage is.
 func publicProductFeedbackList(parseComments []commentRecord, isRefreshing bool) ui.Node {
 	parseThumbsUp, parseThumbsDown := publicCommentReactionCounts(parseComments)
 	parseRatioLabel, parseRatioValue := publicCommentRatioSummary(parseThumbsUp, parseThumbsDown)
 	parseNodes := make([]ui.Node, 0, len(parseComments))
 	for _, parseItem := range parseComments {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "grid gap-3 rounded-[1.4rem] border border-white/10 bg-white/6 p-5 shadow-[0_14px_30px_rgba(0,0,0,0.14)]"},
-			html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-3"},
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.P(html.Props{Class: "text-base font-semibold text-white"}, html.Text(parseItem.Subject)),
+		parseNodes = append(parseNodes, html.Li(html.Props{Class: design.Class(atlasRuledRowBundle)},
+			html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space2))},
+				html.Span(html.Props{Class: design.Class(design.Prose(design.StepBase)), Style: map[string]string{"font-weight": "600"}}, html.Text(parseItem.Subject)),
+				html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2))},
 					publicCommentReactionBadge(parseItem.Reaction),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap items-center gap-2"},
-					html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-stone-400"}, html.Text(strings.ReplaceAll(parseItem.AuthorType, "_", " "))),
 					publicCommentStatusBadge(parseItem.Status),
 				),
 			),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseItem.Body)),
-			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.24em] text-amber-700"}, html.Text(parseItem.AuthorName+" · shared on "+formatPublicCommentDate(parseItem.CreatedAt))),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseItem.Body)),
+			html.Span(html.Props{Class: design.Class(design.Data(design.StepMicro))},
+				html.Text(parseItem.AuthorName+" · "+strings.ToUpper(strings.ReplaceAll(parseItem.AuthorType, "_", " "))+" · "+formatPublicCommentDate(parseItem.CreatedAt)),
+			),
 		))
 	}
-	if len(parseNodes) == 0 {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-[1.4rem] border border-white/10 bg-white/6 p-5 text-sm leading-7 text-stone-300 shadow-[0_14px_30px_rgba(0,0,0,0.14)]"}, html.Text("No buyer notes have been shared yet. The first approved question or review will appear here once Atlas has it.")))
-	}
 	parseChildren := []ui.Node{
-		html.Div(html.Props{Class: "grid gap-4 rounded-[1.4rem] border border-white/10 bg-white/6 p-5 shadow-[0_14px_30px_rgba(0,0,0,0.14)]"},
-			html.Div(html.Props{Class: "grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end sm:gap-4"},
-				html.Div(html.Props{Class: "text-3xl font-black tracking-[-0.05em] text-white"}, html.Text(parseRatioLabel)),
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text("Buyer sentiment snapshot")),
-					html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("A quick read on whether approved feedback leans positive or points to delivery and fit concerns buyers should consider.")),
-				),
+		html.Div(html.Props{Class: design.Class(design.Stack(design.Space2))},
+			html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space3))},
+				html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Buyer sentiment")),
+				html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(parseRatioLabel)),
 			),
-			html.Div(html.Props{Class: "h-3 overflow-hidden rounded-full bg-white/10"},
-				html.Div(html.Props{Class: "h-full rounded-full bg-emerald-600", Style: map[string]string{"width": fmt.Sprintf("%d%%", parseRatioValue)}}),
+			html.Div(html.Props{Class: design.Class(atlasMeterTrackBundle)},
+				html.Div(html.Props{
+					Class: design.Class(atlasMeterFillBundle),
+					Style: map[string]string{"width": fmt.Sprintf("%d%%", parseRatioValue)},
+				}),
 			),
-			html.Div(html.Props{Class: "grid gap-3 text-sm text-stone-300 sm:grid-cols-2"},
-				html.P(html.Props{Class: "rounded-[1.1rem] border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 font-semibold text-emerald-200"}, html.Text(fmt.Sprintf("%d thumbs up", parseThumbsUp))),
-				html.P(html.Props{Class: "rounded-[1.1rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 font-semibold text-rose-200"}, html.Text(fmt.Sprintf("%d thumbs down", parseThumbsDown))),
+			html.Span(html.Props{Class: design.Class(design.Data(design.StepMicro))},
+				html.Text(fmt.Sprintf("%d UP · %d DOWN", parseThumbsUp, parseThumbsDown)),
 			),
 		),
 	}
 	if isRefreshing {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.1rem] border border-white/10 bg-white/8 px-4 py-3 text-sm font-medium text-stone-200"}, html.Text("Refreshing buyer notes...")))
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Recess(), design.Prose(design.StepFine))}, html.Text("Refreshing buyer notes...")),
+		)
 	}
-	parseChildren = append(parseChildren, html.Div(html.Props{Class: "grid gap-4"}, parseNodes...))
-	return html.Div(html.Props{Class: "grid gap-4"}, parseChildren...)
+	if len(parseNodes) == 0 {
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())},
+				html.Text("No buyer notes have been shared yet. The first approved question or review will appear here once Atlas has it."),
+			),
+		)
+	} else {
+		parseChildren = append(parseChildren,
+			html.Ul(html.Props{Class: atlasRuledListClass(), Role: "list"}, parseNodes...),
+		)
+	}
+	return html.Div(html.Props{Class: design.Class(design.Stack(design.Space3))}, parseChildren...)
 }
 
 func publicCommentReactionCounts(parseComments []commentRecord) (int, int) {
@@ -351,14 +1112,17 @@ func publicCommentRatioSummary(parseThumbsUp int, parseThumbsDown int) (string, 
 	return fmt.Sprintf("%d%% thumbs up", parsePercentage), parsePercentage
 }
 
+// publicCommentReactionBadge is a StatusChip driven by a tone, not a hue.
+//
+// Thumbs up is ToneVerified and thumbs down is ToneNeutral rather than
+// ToneException, on the same argument design.Availability makes about
+// out-of-stock: nothing has gone wrong because a buyer disliked a finish, and
+// oxide has to stay rare to stay loud. The WORDS carry the difference.
 func publicCommentReactionBadge(parseReaction string) ui.Node {
-	parseLabel := "Thumbs up"
-	parseClassName := "inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-emerald-200"
 	if strings.TrimSpace(strings.ToLower(parseReaction)) == "down" {
-		parseLabel = "Thumbs down"
-		parseClassName = "inline-flex items-center rounded-full border border-rose-400/25 bg-rose-400/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-rose-200"
+		return html.Span(html.Props{Class: design.Class(design.StatusChip(design.ToneNeutral))}, html.Text("Thumbs down"))
 	}
-	return html.Span(html.Props{Class: parseClassName}, html.Text(parseLabel))
+	return html.Span(html.Props{Class: design.Class(design.StatusChip(design.ToneVerified))}, html.Text("Thumbs up"))
 }
 
 type publicCommentFormState struct {
@@ -386,46 +1150,58 @@ func validatePublicCommentForm(parseValue publicCommentFormState) ui.FieldErrors
 	return parseErrors
 }
 
+// publicProductFeedbackForm is a COMPONENT: it calls ui.UseId four times.
+//
+// As a plain helper those four id slots were drawn from publicProductFeedbackSection's
+// fiber, interleaved with that component's UseForm/UseState/UseEvent slots — and it is
+// itself built inside an atlasLazySection loader, so on the browser path there was no
+// fiber to draw them from at all. Owning a fiber makes the four ids stable and local.
+//
+// The field ids, name attributes and aria wiring below are byte-identical to what
+// shipped: browser specs assert the `name` values, and one of them broke earlier
+// today. Only the classes changed.
 func publicProductFeedbackForm(parseProduct productCard, parsePayload Payload, parseForm ui.Form[publicCommentFormState], parseValue publicCommentFormState, isSubmitting bool, parseSubmissionMessage string, setAuthorName ui.Handler, setSubject ui.Handler, setBody ui.Handler, setReaction ui.Handler, parseSubmit ui.Handler) ui.Node {
-	parseAuthorInputID := ui.UseId()
-	parseAuthorErrorID := parseAuthorInputID + "-error"
-	parseReactionFieldID := ui.UseId()
-	parseReactionErrorID := parseReactionFieldID + "-error"
-	parseSubjectInputID := ui.UseId()
-	parseSubjectErrorID := parseSubjectInputID + "-error"
-	parseBodyInputID := ui.UseId()
-	parseBodyErrorID := parseBodyInputID + "-error"
-	parseChildren := []ui.Node{
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Share your review or question")),
-		html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("Use the same product page to leave a quick review or ask a buying question without opening a separate support flow.")),
-	}
-	if strings.TrimSpace(parseSubmissionMessage) != "" {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.1rem] border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm font-medium text-emerald-100"}, html.Text(parseSubmissionMessage)))
-	}
-	if strings.TrimSpace(parseForm.FormError()) != "" {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.1rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-100"}, html.Text(parseForm.FormError())))
-	}
-	parseChildren = append(parseChildren, prependCSRFToken(parsePayload.CSRF)...)
-	parseChildren = append(parseChildren,
-		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-			html.Span(html.Props{ID: parseAuthorInputID + "-label"}, html.Text("Name")),
-			html.Input(html.Props{ID: parseAuthorInputID, Name: "author_name", Value: parseValue.AuthorName, AutoComplete: "name", OnInput: setAuthorName, Class: publicCommentFieldClass(parseForm.Error("AuthorName") != ""), Raw: map[string]any{"aria-labelledby": parseAuthorInputID + "-label", "aria-describedby": parseAuthorErrorID, "aria-invalid": parseForm.Error("AuthorName") != ""}}),
-			publicCommentFieldError(parseAuthorErrorID, parseForm.Error("AuthorName")),
-		),
-		publicCommentReactionInput(parseReactionFieldID, parseReactionErrorID, parseValue.Reaction, setReaction, parseForm.Error("Reaction")),
-		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-			html.Span(html.Props{ID: parseSubjectInputID + "-label"}, html.Text("Headline")),
-			html.Input(html.Props{ID: parseSubjectInputID, Name: "subject", Value: parseValue.Subject, OnInput: setSubject, Class: publicCommentFieldClass(parseForm.Error("Subject") != ""), Raw: map[string]any{"aria-labelledby": parseSubjectInputID + "-label", "aria-describedby": parseSubjectErrorID, "aria-invalid": parseForm.Error("Subject") != ""}}),
-			publicCommentFieldError(parseSubjectErrorID, parseForm.Error("Subject")),
-		),
-		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-			html.Span(html.Props{ID: parseBodyInputID + "-label"}, html.Text("Comment")),
-			html.Textarea(html.Props{ID: parseBodyInputID, Name: "body", OnInput: setBody, Class: publicCommentTextareaClass(parseForm.Error("Body") != ""), Raw: map[string]any{"aria-labelledby": parseBodyInputID + "-label", "aria-describedby": parseBodyErrorID, "aria-invalid": parseForm.Error("Body") != ""}}, html.Text(parseValue.Body)),
-			publicCommentFieldError(parseBodyErrorID, parseForm.Error("Body")),
-		),
-		html.Button(html.Props{Type: "submit", Disabled: isSubmitting, Class: publicCommentSubmitClass(isSubmitting)}, html.Text(publicCommentSubmitLabel(isSubmitting))),
-	)
-	return html.Form(html.Props{Action: "/api/public/products/" + parseProduct.Slug + "/comments", Method: "post", OnSubmit: parseSubmit, Class: "grid gap-4 rounded-[1.6rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, parseChildren...)
+	return ui.CreateElement(func() ui.Node {
+		parseAuthorInputID := ui.UseId()
+		parseAuthorErrorID := parseAuthorInputID + "-error"
+		parseReactionFieldID := ui.UseId()
+		parseReactionErrorID := parseReactionFieldID + "-error"
+		parseSubjectInputID := ui.UseId()
+		parseSubjectErrorID := parseSubjectInputID + "-error"
+		parseBodyInputID := ui.UseId()
+		parseBodyErrorID := parseBodyInputID + "-error"
+		parseChildren := []ui.Node{
+			html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Share your review or question")),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text("Leave a review or ask a buying question here and it stays attached to this product.")),
+		}
+		if strings.TrimSpace(parseSubmissionMessage) != "" {
+			parseChildren = append(parseChildren, html.P(html.Props{Class: design.Class(design.Recess(), design.Prose(design.StepFine))}, html.Text(parseSubmissionMessage)))
+		}
+		if strings.TrimSpace(parseForm.FormError()) != "" {
+			parseChildren = append(parseChildren, html.P(html.Props{Class: design.Class(design.FieldError())}, html.Text(parseForm.FormError())))
+		}
+		parseChildren = append(parseChildren, prependCSRFToken(parsePayload.CSRF)...)
+		parseChildren = append(parseChildren,
+			html.Label(html.Props{Class: design.Class(design.Field())},
+				html.Span(html.Props{ID: parseAuthorInputID + "-label", Class: design.Class(design.FieldLabel())}, html.Text("Name")),
+				html.Input(html.Props{ID: parseAuthorInputID, Name: "author_name", Value: parseValue.AuthorName, AutoComplete: "name", OnInput: setAuthorName, Class: publicCommentFieldClass(parseForm.Error("AuthorName") != ""), Raw: map[string]any{"aria-labelledby": parseAuthorInputID + "-label", "aria-describedby": parseAuthorErrorID, "aria-invalid": parseForm.Error("AuthorName") != ""}}),
+				publicCommentFieldError(parseAuthorErrorID, parseForm.Error("AuthorName")),
+			),
+			publicCommentReactionInput(parseReactionFieldID, parseReactionErrorID, parseValue.Reaction, setReaction, parseForm.Error("Reaction")),
+			html.Label(html.Props{Class: design.Class(design.Field())},
+				html.Span(html.Props{ID: parseSubjectInputID + "-label", Class: design.Class(design.FieldLabel())}, html.Text("Headline")),
+				html.Input(html.Props{ID: parseSubjectInputID, Name: "subject", Value: parseValue.Subject, OnInput: setSubject, Class: publicCommentFieldClass(parseForm.Error("Subject") != ""), Raw: map[string]any{"aria-labelledby": parseSubjectInputID + "-label", "aria-describedby": parseSubjectErrorID, "aria-invalid": parseForm.Error("Subject") != ""}}),
+				publicCommentFieldError(parseSubjectErrorID, parseForm.Error("Subject")),
+			),
+			html.Label(html.Props{Class: design.Class(design.Field())},
+				html.Span(html.Props{ID: parseBodyInputID + "-label", Class: design.Class(design.FieldLabel())}, html.Text("Comment")),
+				html.Textarea(html.Props{ID: parseBodyInputID, Name: "body", OnInput: setBody, Class: publicCommentTextareaClass(parseForm.Error("Body") != ""), Raw: map[string]any{"aria-labelledby": parseBodyInputID + "-label", "aria-describedby": parseBodyErrorID, "aria-invalid": parseForm.Error("Body") != ""}}, html.Text(parseValue.Body)),
+				publicCommentFieldError(parseBodyErrorID, parseForm.Error("Body")),
+			),
+			html.Button(html.Props{Type: "submit", Disabled: isSubmitting, Class: publicCommentSubmitClass(isSubmitting)}, html.Text(publicCommentSubmitLabel(isSubmitting))),
+		)
+		return html.Form(html.Props{Action: "/api/public/products/" + parseProduct.Slug + "/comments", Method: "post", OnSubmit: parseSubmit, Class: design.Class(design.Recess(), design.Stack(design.Space3))}, parseChildren...)
+	})
 }
 
 func cloneCommentRecords(parseItems []commentRecord) []commentRecord {
@@ -499,21 +1275,23 @@ func mergePublicCommentList(parseItems []commentRecord, parsePendingComment comm
 	return append([]commentRecord{parsePendingComment}, parseMerged...)
 }
 
+// publicCommentStatusBadge shows a moderation state, and only when there is one:
+// an approved note needs no badge, because "approved" is the default a reader
+// already assumes. Pending is TonePending; flagged and rejected are the one
+// moderation case that genuinely needs a human, so they get ToneException.
 func publicCommentStatusBadge(parseStatus string) ui.Node {
 	parseTrimmed := strings.TrimSpace(strings.ToLower(parseStatus))
 	if parseTrimmed == "" || parseTrimmed == "approved" {
 		return nil
 	}
-	parseClassName := "rounded-full border px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em]"
+	parseTone := design.ToneNeutral
 	switch parseTrimmed {
 	case "pending":
-		parseClassName += " border-amber-400/25 bg-amber-400/10 text-amber-200"
+		parseTone = design.TonePending
 	case "flagged", "rejected":
-		parseClassName += " border-rose-400/25 bg-rose-400/10 text-rose-200"
-	default:
-		parseClassName += " border-white/10 bg-white/8 text-stone-300"
+		parseTone = design.ToneException
 	}
-	return html.Span(html.Props{Class: parseClassName}, html.Text(strings.ReplaceAll(parseTrimmed, "_", " ")))
+	return html.Span(html.Props{Class: design.Class(design.StatusChip(parseTone))}, html.Text(strings.ReplaceAll(parseTrimmed, "_", " ")))
 }
 
 func fetchPublicProductComments(parseCtx context.Context, parseSlug string) ([]commentRecord, error) {
@@ -560,12 +1338,20 @@ func normalizePublicCommentFieldErrors(parseFields ui.FieldErrors) ui.FieldError
 	return parseNormalized
 }
 
+// publicCommentSubmitBusyBundle is the in-flight look for the submit button:
+// wait cursor and reduced opacity over ButtonPrimary. No second button style —
+// the design system has exactly three buttons and a fourth "sending" variant
+// would be a fourth.
+var publicCommentSubmitBusyBundle = css.Rules(
+	css.Cursor.Wait,
+	css.OpacityNum(css.Num(0.7)),
+)
+
 func publicCommentSubmitClass(isSubmitting bool) string {
-	parseClassName := "rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-200"
 	if isSubmitting {
-		return parseClassName + " cursor-wait opacity-70"
+		return design.Class(design.ButtonPrimary(), publicCommentSubmitBusyBundle)
 	}
-	return parseClassName
+	return design.Class(design.ButtonPrimary())
 }
 
 func publicCommentSubmitLabel(isSubmitting bool) string {
@@ -575,53 +1361,68 @@ func publicCommentSubmitLabel(isSubmitting bool) string {
 	return "Share feedback"
 }
 
+// publicCommentReactionInput keeps its fieldset/legend/radio structure, its ids
+// and its `name="reaction"` values exactly as they were — a browser spec drives
+// these controls by name — and drops the two tinted, bordered, radiused label
+// boxes. A radio with a label beside it does not need a card around it.
 func publicCommentReactionInput(parseFieldID string, parseErrorID string, parseSelected string, parseHandler ui.Handler, parseErrorText string) ui.Node {
 	if strings.TrimSpace(parseSelected) == "" {
 		parseSelected = "up"
 	}
-	return html.Fieldset(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-white/5 p-4", Raw: map[string]any{"aria-describedby": parseErrorID, "aria-invalid": strings.TrimSpace(parseErrorText) != ""}},
-		html.Legend(html.Props{ID: parseFieldID + "-legend", Class: "px-1 text-sm font-medium text-stone-300"}, html.Text("Your reaction")),
-		html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
-			html.Label(html.Props{Class: "flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-emerald-400/25 bg-white/6 px-4 py-3 text-sm text-stone-300"},
-				html.Input(html.Props{ID: parseFieldID + "-up", Type: "radio", Name: "reaction", Value: "up", Checked: strings.TrimSpace(parseSelected) == "up", OnChange: parseHandler, Class: "mt-1 h-4 w-4 border-stone-300 text-emerald-600", Raw: map[string]any{"aria-labelledby": parseFieldID + "-legend", "aria-describedby": parseErrorID}}),
-				html.Span(html.Props{Class: "grid gap-1"},
-					html.Span(html.Props{Class: "font-semibold text-white"}, html.Text("Thumbs up")),
-					html.Span(html.Props{Class: "text-xs leading-6 text-stone-400"}, html.Text("Recommend it or confirm the setup met expectations.")),
-				),
-			),
-			html.Label(html.Props{Class: "flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-rose-400/25 bg-white/6 px-4 py-3 text-sm text-stone-300"},
-				html.Input(html.Props{ID: parseFieldID + "-down", Type: "radio", Name: "reaction", Value: "down", Checked: strings.TrimSpace(parseSelected) == "down", OnChange: parseHandler, Class: "mt-1 h-4 w-4 border-stone-300 text-rose-600", Raw: map[string]any{"aria-labelledby": parseFieldID + "-legend", "aria-describedby": parseErrorID}}),
-				html.Span(html.Props{Class: "grid gap-1"},
-					html.Span(html.Props{Class: "font-semibold text-white"}, html.Text("Thumbs down")),
-					html.Span(html.Props{Class: "text-xs leading-6 text-stone-400"}, html.Text("Call out delivery friction, finish issues, or fit concerns buyers should know.")),
-				),
-			),
+	return html.Fieldset(html.Props{Class: design.Class(design.Field()), Raw: map[string]any{"aria-describedby": parseErrorID, "aria-invalid": strings.TrimSpace(parseErrorText) != ""}},
+		html.Legend(html.Props{ID: parseFieldID + "-legend", Class: design.Class(design.FieldLabel())}, html.Text("Your reaction")),
+		html.Div(html.Props{Class: design.Class(design.Stack(design.Space2))},
+			publicCommentReactionChoice(parseFieldID, parseErrorID, "up", "Thumbs up", "Recommend it or confirm the setup met expectations.", parseSelected, parseHandler),
+			publicCommentReactionChoice(parseFieldID, parseErrorID, "down", "Thumbs down", "Call out delivery friction, finish issues, or fit concerns buyers should know.", parseSelected, parseHandler),
 		),
 		publicCommentFieldError(parseErrorID, parseErrorText),
 	)
 }
 
+func publicCommentReactionChoice(parseFieldID string, parseErrorID string, parseValue string, parseLabel string, parseHint string, parseSelected string, parseHandler ui.Handler) ui.Node {
+	return html.Label(html.Props{Class: design.Class(design.Cluster(design.Space2)), Style: map[string]string{"align-items": "start", "cursor": "pointer"}},
+		html.Input(html.Props{ID: parseFieldID + "-" + parseValue, Type: "radio", Name: "reaction", Value: parseValue, Checked: strings.TrimSpace(parseSelected) == parseValue, OnChange: parseHandler, Raw: map[string]any{"aria-labelledby": parseFieldID + "-legend", "aria-describedby": parseErrorID}}),
+		html.Span(html.Props{Class: design.Class(design.Stack(design.Space1))},
+			html.Span(html.Props{Class: design.Class(design.Prose(design.StepFine)), Style: map[string]string{"font-weight": "600"}}, html.Text(parseLabel)),
+			html.Span(html.Props{Class: design.Class(design.FieldHint())}, html.Text(parseHint)),
+		),
+	)
+}
+
+// publicCommentFieldErrorBundle marks an invalid control by re-drawing its border
+// in the exception tone. Border, not background: an oxide-filled input is
+// unreadable in dark mode and it is the same "paint the whole thing" move the
+// design system removed everywhere else.
+var publicCommentFieldErrorBundle = css.Rules(
+	css.Border(design.HairlineWidth, design.StatusException()),
+)
+
+// publicCommentTextareaBundle is the one thing a textarea needs that an input
+// does not: room for more than one line. Same primitive otherwise, so the two
+// controls cannot drift apart.
+var publicCommentTextareaBundle = css.Rules(
+	css.MinHeight(css.RawLength("7rem")),
+)
+
 func publicCommentFieldClass(hasError bool) string {
-	parseClassName := "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]"
 	if hasError {
-		return parseClassName + " border-rose-300 bg-rose-50/60 focus:border-rose-400"
+		return design.Class(design.Input(), publicCommentFieldErrorBundle)
 	}
-	return parseClassName
+	return design.Class(design.Input())
 }
 
 func publicCommentTextareaClass(hasError bool) string {
-	parseClassName := "min-h-28 rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]"
 	if hasError {
-		return parseClassName + " border-rose-300 bg-rose-50/60 focus:border-rose-400"
+		return design.Class(design.Input(), publicCommentTextareaBundle, publicCommentFieldErrorBundle)
 	}
-	return parseClassName
+	return design.Class(design.Input(), publicCommentTextareaBundle)
 }
 
 func publicCommentFieldError(parseId string, parseMessage string) ui.Node {
 	if strings.TrimSpace(parseMessage) == "" {
 		return nil
 	}
-	return html.P(html.Props{ID: parseId, Class: "text-sm font-medium text-rose-600"}, html.Text(parseMessage))
+	return html.P(html.Props{ID: parseId, Class: design.Class(design.FieldError())}, html.Text(parseMessage))
 }
 
 func formatPublicCommentDate(parseValue string) string {
@@ -635,204 +1436,9 @@ func formatPublicCommentDate(parseValue string) string {
 	return parseTrimmed
 }
 
-func publicProductHeroCard(parseProduct productCard) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 " + publicHeroSurfaceClass() + " lg:p-7"},
-		html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.8fr)] lg:items-start"},
-			html.Div(html.Props{Class: "grid gap-5"},
-				publicProductIdentity(parseProduct),
-				publicProductStory(parseProduct),
-				html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-3"},
-					publicSignalPill(productCategoryCue(parseProduct.Category)),
-					publicSignalPill(productSupportCue(parseProduct.Status)),
-					publicSignalPill(productBuyingMotion(parseProduct.Status)),
-				),
-			),
-			html.Div(html.Props{Class: "grid gap-4 rounded-[1.5rem] border border-white/10 bg-white/6 p-5"},
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-400"}, html.Text(publicStartingAtLabel)),
-				html.P(html.Props{Class: "text-4xl font-black tracking-[-0.05em] text-white"}, html.Text(formatPrice(parseProduct.PriceCents))),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("A standard product summary keeps price, stock posture, and next steps visible before buyers move into reviews or delivery planning.")),
-				html.Div(html.Props{Class: "grid gap-3"},
-					html.P(html.Props{Class: "rounded-[1.1rem] border border-white/10 bg-white/6 px-4 py-3 text-sm text-stone-300"}, html.Text(catalogEditorialCopy(parseProduct))),
-				),
-			),
-		),
-	)
-}
-
-func publicProductIdentity(parseProduct productCard) ui.Node {
-	return html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseProduct.Category)),
-		html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-300"}, html.Text(parseProduct.SKU)),
-		html.Span(html.Props{Class: publicStatusClass(parseProduct.Status)}, html.Text(publicStatusLabel(parseProduct.Status))),
-	)
-}
-
-func publicProductStory(parseProduct productCard) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.H2(html.Props{Class: "max-w-4xl text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl lg:text-[3rem]"}, html.Text(parseProduct.Title)),
-		html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-300"}, html.Text(parseProduct.Summary)),
-	)
-}
-
-func publicProductContextColumn(parseLabel string, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.25rem] border border-white/10 bg-white/6 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.12)]"},
-		html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-400"}, html.Text(parseLabel)),
-		html.P(html.Props{Class: "text-sm leading-6 text-stone-200"}, html.Text(parseCopy)),
-	)
-}
-
-func publicProductMetrics() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Why this product page is easier to use")),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-			publicMetricCard(publicRegionalPromiseLabel, "Availability, delivery timing, and status stay grouped together instead of being buried below the fold."),
-			publicMetricCard(publicCommercialSupportLabel, "Primary quote and availability actions stay in a dedicated rail that matches common commerce layouts."),
-			publicMetricCard(publicOperationalContinuityLabel, "The same summary, pricing, and review signals stay visible from SSR through client takeover."),
-		),
-	)
-}
-
-func publicProductFeatureStrip() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Quick buying notes")),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-			publicFeatureCard(publicQuietHierarchyLabel, "Core product details lead, support actions stay to the side, and reviews sit below in a familiar reading order."),
-			publicFeatureCard(publicProgressiveFormsLabel, "Pricing, availability, and feedback all stay attached to the product instead of splitting across routes."),
-			publicFeatureCard(publicPremiumUtilityLabel, "The darker palette reduces visual noise and puts emphasis on product title, price, and action labels."),
-		),
-	)
-}
-
-func publicProductPromiseLanesIsland(parseProduct productCard) ui.Node {
-	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
-		ResetKeys: []any{parseProduct.Slug, parseProduct.Status},
-		ErrorFallback: func(parseErr error, reset func()) ui.Node {
-			return publicProductPromiseLanesError(parseProduct, parseErr, reset)
-		},
-		Child: ui.CreateElement(func() ui.Node {
-			parseResource := useAtlasResource(func(parseCtx context.Context) (warehouseDirectoryPage, error) {
-				return fetchAtlasJSON[warehouseDirectoryPage](parseCtx, "/api/public/warehouses")
-			}, parseProduct.Slug)
-			parseState := parseResource.Get()
-			parseContent := publicProductPromiseLanesCard(parseProduct, parseState.Value.Items, parseState.Loading && parseState.Ready)
-			return ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
-				Pending:  !parseState.Ready && parseState.Error == nil,
-				Error:    parseState.Error,
-				Fallback: publicProductPromiseLanesFallback(parseProduct),
-				ErrorFallback: func(parseErr2 error) ui.Node {
-					return publicProductPromiseLanesError(parseProduct, parseErr2, parseResource.Reload)
-				},
-				Content: parseContent,
-			})
-		}),
-	})
-}
-
-func publicProductPromiseLanesCard(parseProduct productCard, parseWarehouses []warehouseCard, isRefreshing bool) ui.Node {
-	parseNodes := make([]ui.Node, 0, 3)
-	for _, parseItem := range parseWarehouses {
-		parseNodes = append(parseNodes, html.A(html.Props{Href: RouteWarehouses + "/" + parseItem.Slug + "/availability/" + parseProduct.Slug, Class: "grid gap-2 rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 transition hover:border-amber-300/35 hover:bg-white/10"},
-			html.Div(html.Props{Class: "flex items-center justify-between gap-3"},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Name)),
-				html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-stone-300"}, html.Text(parseItem.Region)),
-			),
-			html.P(html.Props{Class: "text-sm leading-6 text-stone-300"}, html.Text(fallback(parseItem.ServiceLevel, "Regional service posture"))),
-			html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-amber-200"}, html.Text("Open "+parseItem.Name+" availability")),
-		))
-		if len(parseNodes) == 3 {
-			break
-		}
-	}
-	parseChildren := []ui.Node{
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Regional promise lanes")),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Check the warehouse route that matches this product.")),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("This below-the-fold module loads after the main product story, so route-critical content stays stable while the regional availability lanes resolve independently.")),
-		),
-	}
-	if isRefreshing {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.2rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100"}, html.Text("Refreshing the regional lane list in the background while the current panel stays visible.")))
-	}
-	if len(parseNodes) == 0 {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 text-sm leading-7 text-stone-300"}, html.Text("Atlas is still resolving warehouse lanes for this product.")))
-	}
-	parseChildren = append(parseChildren, parseNodes...)
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, parseChildren...)
-}
-
-func publicProductPromiseLanesFallback(parseProduct productCard) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Regional promise lanes")),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Check the warehouse route that matches this product.")),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("Atlas defers this secondary lane module until after hydration so loading stays local to the panel instead of blocking the product route.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-			html.Div(html.Props{Class: "h-24 rounded-[1.3rem] border border-white/10 bg-white/6"}),
-			html.Div(html.Props{Class: "h-24 rounded-[1.3rem] border border-white/10 bg-white/6"}),
-			html.Div(html.Props{Class: "h-24 rounded-[1.3rem] border border-white/10 bg-white/6"}),
-		),
-		html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-stone-500"}, html.Text("Product: "+parseProduct.Title)),
-	)
-}
-
-func publicProductPromiseLanesError(parseProduct productCard, parseErr error, parseRetry func()) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-rose-400/25 bg-rose-400/10 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-rose-200"}, html.Text("Regional promise lanes")),
-			html.P(html.Props{Class: "text-xl font-black tracking-[-0.03em] text-white"}, html.Text("Atlas could not load the lane panel.")),
-			html.P(html.Props{Class: "text-sm leading-7 text-rose-100"}, html.Text(parseErr.Error())),
-		),
-		html.Button(html.Props{
-			Type:    "button",
-			Class:   "inline-flex items-center justify-center rounded-full border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-200/20",
-			OnClick: ui.UseEvent(func() { parseRetry() }),
-		}, html.Text("Retry lane panel")),
-		html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-rose-100/80"}, html.Text("Product: "+parseProduct.Title)),
-	)
-}
-
-func publicProductActionRail(parseProduct productCard, parsePayload Payload) ui.Node {
-	parseProductSupportTitle, parseProductSupportCopy, parseProductSupportPoints := productSupportPlan(parseProduct.Status)
-	return ui.CreateElement(func() ui.Node {
-		parseOpen := ui.UseState(false)
-		parseSheetID := ui.UseId() + "-public-action-rail"
-		parseTitleID := parseSheetID + "-title"
-		parseDescriptionID := parseSheetID + "-description"
-		parseCloseID := parseSheetID + "-close"
-		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
-		parseCloseDrawer := func() { parseOpen.Set(false) }
-		buildRailChildren := func() []ui.Node {
-			return []ui.Node{
-				html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicBuyerNextStepLabel)),
-					html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(parseProductSupportTitle)),
-					html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseProductSupportCopy)),
-					html.Div(html.Props{Class: "grid gap-3 text-sm text-stone-300"}, publicSupportPoints(parseProductSupportPoints)...),
-				),
-				productPrimaryActionForm(parseProduct, parsePayload),
-				publicRelatedProductsCard(parseProduct),
-				productSecondaryActionCard(parseProduct),
-			}
-		}
-		return html.Div(html.Props{Class: "grid gap-5 xl:sticky xl:top-24"},
-			html.Button(html.Props{Type: "button", Class: "inline-flex w-fit items-center rounded-full border border-amber-300/45 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100 xl:hidden", OnClick: parseOpenDrawer}, html.Text("Open buying drawer")),
-			html.Div(html.Props{Class: "hidden gap-5 xl:grid"}, buildRailChildren()...),
-			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: "grid gap-5"},
-				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-					html.Div(html.Props{Class: "grid gap-2"},
-						html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicBuyerNextStepLabel)),
-						html.P(html.Props{ID: parseTitleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(parseProductSupportTitle)),
-						html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-7 text-stone-300"}, html.Text(parseProductSupportCopy)),
-					),
-					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-stone-200", OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
-				),
-				html.Div(html.Props{Class: "grid gap-5"}, buildRailChildren()...),
-			)),
-		)
-	})
-}
-
+// publicRelatedProductsCard keeps its cached-resource behaviour and its copy —
+// two browser-facing tests read the cache-reuse sentence as evidence the second
+// open did not refetch — and becomes one surface with ruled rows.
 func publicRelatedProductsCard(parseProduct productCard) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		parseResource := useAtlasCachedResource(CachedRequestResourceKey("/api/public/products/"+parseProduct.Slug+"/related-products", "items"), func(parseCtx context.Context) ([]relatedProductRecord, error) {
@@ -850,233 +1456,224 @@ func publicRelatedProductsCard(parseProduct productCard) ui.Node {
 			parseDescription = "Atlas could not load related systems right now. Reopen the route to retry."
 		}
 		parseChildren := []ui.Node{
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Related systems")),
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Stay inside the same Atlas family.")),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseDescription)),
-			),
+			html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Related systems")),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseDescription)),
 		}
 		parseChildren = append(parseChildren, publicRelatedProductNodes(parseItems)...)
-		return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, parseChildren...)
+		return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))}, parseChildren...)
 	})
 }
 
 func publicRelatedProductNodes(parseItems []relatedProductRecord) []ui.Node {
 	if len(parseItems) == 0 {
 		return []ui.Node{
-			html.Div(html.Props{Class: "rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 text-sm leading-7 text-stone-300"}, html.Text("Repeat-open visits can reuse the cached related-product list after the first lookup, so Atlas does not need to rebuild this secondary panel every time.")),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())},
+				html.Text("Repeat-open visits can reuse the cached related-product list after the first lookup, so Atlas does not need to rebuild this secondary panel every time."),
+			),
 		}
 	}
-	parseNodes := make([]ui.Node, 0, len(parseItems))
+	parseRows := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
-		parseNodes = append(parseNodes, html.A(html.Props{Href: RouteCatalog + "/" + parseItem.Slug, Class: "grid gap-2 rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 transition hover:border-amber-300/35 hover:bg-white/10"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Title)),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-400"}, html.Text(parseItem.Category+" · "+parseItem.SKU)),
-			html.P(html.Props{Class: "text-sm leading-6 text-stone-300"}, html.Text(fallback(parseItem.Reason, parseItem.Summary))),
-			html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-amber-200"}, html.Text(fallback(parseItem.WarehouseName, parseItem.WarehouseID))),
+		parseRows = append(parseRows, html.Li(html.Props{},
+			html.A(html.Props{Href: RouteCatalog + "/" + parseItem.Slug, Class: atlasRuledRowClass()},
+				html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space2))},
+					html.Span(html.Props{Class: design.Class(design.Prose(design.StepFine)), Style: map[string]string{"font-weight": "600"}}, html.Text(parseItem.Title)),
+					html.Span(html.Props{Class: design.Class(design.Data(design.StepMicro))}, html.Text(atlasSKUCode(parseItem.SKU))),
+				),
+				html.Span(html.Props{Class: design.Class(design.Prose(design.StepFine))}, html.Text(fallback(parseItem.Reason, parseItem.Summary))),
+				html.Span(html.Props{Class: design.Class(design.Data(design.StepMicro))}, html.Text(fallback(parseItem.WarehouseName, parseItem.WarehouseID))),
+			),
 		))
 	}
-	return parseNodes
+	return []ui.Node{html.Ul(html.Props{Class: atlasRuledListClass(), Role: "list"}, parseRows...)}
 }
 
+// publicSupportPoints returns <li> items now, so its caller can put them in a
+// real list. Each point used to be a bordered pill; a list of short sentences is
+// a list.
 func publicSupportPoints(parsePoints []string) []ui.Node {
 	parseNodes := make([]ui.Node, 0, len(parsePoints))
 	for _, parsePoint := range parsePoints {
-		parseNodes = append(parseNodes, html.P(html.Props{Class: "rounded-[1.2rem] border border-white/10 bg-white/6 px-4 py-3"}, html.Text(parsePoint)))
+		parseNodes = append(parseNodes, html.Li(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parsePoint)))
 	}
 	return parseNodes
 }
 
+// =============================================================================
+// WAREHOUSE DIRECTORY (/warehouses)
+// =============================================================================
+
+// renderWarehouseDirectoryContent is one surface holding a ruled list of hubs.
+//
+// What came off, and why: the overview band carried FOUR stat cards, two of
+// which ("%d stocked units", "%d inbound units") summed fields that
+// /api/public/warehouses does not return — so in production they printed "0
+// stocked units" under a heading claiming a merchandised network. A number that
+// is always zero is worse than no number, because a reader believes it. The two
+// duplicate call-to-action buttons also came off: the route hero already offers
+// the catalog, and every row already links to its hub.
 func renderWarehouseDirectoryContent(parsePage warehouseDirectoryPage) ui.Node {
-	parseNodes := make([]ui.Node, 0, len(parsePage.Items))
-	for _, parseItem := range parsePage.Items {
-		parseNodes = append(parseNodes, publicWarehouseDirectoryCard(parseItem))
-	}
-	if len(parseNodes) == 0 {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-[1.8rem] border border-stone-200/80 bg-white/80 p-6 text-sm leading-7 text-stone-600 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"}, html.Text("No delivery regions are available right now. Retry the page or return to the storefront.")))
-	}
-	return html.Section(html.Props{Class: "grid gap-8"},
+	return html.Section(html.Props{Class: design.Class(design.Stack(design.Space5))},
 		publicWarehouseDirectoryOverview(parsePage),
-		html.Div(html.Props{Class: "flex flex-col gap-4"}, parseNodes...),
 	)
 }
 
 func publicWarehouseDirectoryOverview(parsePage warehouseDirectoryPage) ui.Node {
-	parsePrimaryHref := RouteCatalog
-	if len(parsePage.Items) > 0 {
-		parsePrimaryHref = RouteWarehouses + "/" + parsePage.Items[0].Slug
+	parseChildren := []ui.Node{
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Atlas delivery regions")),
+		html.H2(html.Props{Class: design.Class(design.SectionTitle())}, html.Text("Pick the hub that serves your site")),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())},
+			html.Text("Each hub publishes its own delivery window. Open one to see what it holds for a product."),
+		),
 	}
-	return html.Div(html.Props{Class: "relative overflow-hidden grid gap-5 rounded-[2.35rem] border border-stone-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(246,238,227,0.94)_55%,rgba(233,222,205,0.9))] p-7 shadow-[0_26px_60px_rgba(120,107,82,0.12)] lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:items-end"},
-		html.Div(html.Props{Class: "pointer-events-none absolute -right-12 top-0 h-44 w-44 rounded-full bg-amber-200/35 blur-3xl"}),
-		html.Div(html.Props{Class: "pointer-events-none absolute bottom-0 left-10 h-32 w-32 rounded-full bg-stone-200/40 blur-3xl"}),
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-500"}, html.Text("Atlas delivery regions")),
-			html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-stone-950"}, html.Text("Choose the warehouse route that matches your delivery window.")),
-			html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-600"}, html.Text("Compare regional service posture, stocked volume, and warehouse-specific focus before you open the route that best fits the project timeline in front of you.")),
-			html.Div(html.Props{Class: "flex flex-wrap items-center gap-3 pt-2"},
-				html.A(html.Props{Href: parsePrimaryHref, Class: "rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-stone-50 transition hover:bg-stone-800"}, html.Text("Open featured region")),
-				html.A(html.Props{Href: RouteCatalog, Class: "rounded-full border border-stone-300 bg-white/75 px-5 py-3 text-sm font-semibold text-stone-900 transition hover:border-stone-500 hover:bg-white"}, html.Text("Browse all systems")),
+	if len(parsePage.Items) == 0 {
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())},
+				html.Text("No delivery regions are available right now. Retry the page or return to the storefront."),
 			),
-		),
-		html.Div(html.Props{Class: "relative z-[1] grid gap-3"},
-			html.Div(html.Props{Class: "grid gap-3 rounded-[1.8rem] border border-white/75 bg-white/68 p-5 backdrop-blur-sm"},
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-amber-700"}, html.Text("Regional commerce board")),
-				html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
-					publicMetricCard(fmt.Sprintf("%d delivery regions", len(parsePage.Items)), "Each route ties promise language to a real Atlas facility rather than a generic shipping estimate."),
-					publicMetricCard(primaryWarehouseServiceLevel(parsePage.Items), "Use service level as the first cue, then open the warehouse detail for stocked highlights and product-specific availability."),
-					publicMetricCard(fmt.Sprintf("%d stocked units", publicWarehouseUnitsTotal(parsePage.Items)), "Available volume stays visible so the directory feels like a real merchandised network, not only a list of names."),
-					publicMetricCard(fmt.Sprintf("%d inbound units", publicWarehouseInboundTotal(parsePage.Items)), "Inbound posture makes the next-best regional choice visible before the buyer drills into product-level availability."),
-				),
-			),
-		),
+		)
+		return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))}, parseChildren...)
+	}
+	parseRows := make([]ui.Node, 0, len(parsePage.Items))
+	for _, parseItem := range parsePage.Items {
+		parseRows = append(parseRows, publicWarehouseDirectoryCard(parseItem))
+	}
+	parseChildren = append(parseChildren,
+		html.Ul(html.Props{Class: atlasRuledListClass(), Role: "list"}, parseRows...),
 	)
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))}, parseChildren...)
 }
 
+// publicWarehouseDirectoryCard is one hub row.
+//
+// It used to print the hub name THREE times (a badge, a heading, and a metric
+// labelled "Region" whose value was the region) plus six metric boxes, three of
+// which were zero-valued or fallback strings. Now: name, hub code, the real
+// delivery window, the hub's own summary, and one action.
 func publicWarehouseDirectoryCard(parseItem warehouseCard) ui.Node {
-	return html.A(html.Props{Href: RouteWarehouses + "/" + parseItem.Slug, Class: "group flex flex-col gap-5 rounded-[2rem] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,244,238,0.9))] p-6 shadow-[0_20px_48px_rgba(120,107,82,0.09)] transition hover:border-stone-300 hover:bg-white hover:shadow-[0_28px_65px_rgba(120,107,82,0.14)] lg:flex-row lg:items-start lg:justify-between"},
-		html.Div(html.Props{Class: "flex flex-1 flex-col gap-4"},
-			html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-				html.Div(html.Props{Class: "flex flex-col gap-2"},
-					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseItem.Region)),
-					html.P(html.Props{Class: "text-[0.68rem] font-medium uppercase tracking-[0.28em] text-stone-500"}, html.Text(parseItem.ServiceLevel)),
-				),
-				html.Span(html.Props{Class: "rounded-full border border-stone-200 bg-white/85 px-4 py-2 text-sm font-semibold text-stone-800"}, html.Text(parseItem.Name)),
-			),
-			html.Div(html.Props{Class: "flex flex-col gap-3"},
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950 transition group-hover:text-stone-800"}, html.Text(parseItem.Name)),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(parseItem.PublicSummary)),
-			),
-			html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-3"},
-				publicWarehouseDirectoryMetric("Available", fmt.Sprintf("%d units", parseItem.Available)),
-				publicWarehouseDirectoryMetric("Inbound", fmt.Sprintf("%d units", parseItem.Inbound)),
-				publicWarehouseDirectoryMetric("Pressure", fallback(parseItem.Pressure, "Balanced posture")),
-			),
-			html.Div(html.Props{Class: "flex items-center justify-between gap-4 rounded-[1.45rem] border border-stone-200/75 bg-white/75 p-4 text-sm text-stone-600"},
-				html.Div(html.Props{Class: "grid gap-1"},
-					html.P(html.Props{Class: "leading-6"}, html.Text("Open the warehouse route for stocked highlights, regional service details, and product-by-product availability.")),
-					html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-stone-500"}, html.Text(fallback(parseItem.Focus, "Regional project fit")+" | "+fallback(parseItem.Backlog, "Backlog controlled"))),
-				),
-				html.Span(html.Props{Class: "font-semibold text-stone-900 transition group-hover:text-stone-700"}, html.Text("Open warehouse route")),
-			),
+	parseChildren := []ui.Node{
+		html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space3))},
+			html.Span(html.Props{Class: design.Class(design.Prose(design.StepBase)), Style: map[string]string{"font-weight": "600"}}, html.Text(parseItem.Name)),
+			html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(atlasLineHub(parseItem.ID))),
 		),
-		html.Div(html.Props{Class: "flex flex-col gap-3 lg:min-w-[22rem] lg:max-w-[24rem]"},
-			html.Div(html.Props{Class: "flex flex-wrap gap-3 lg:flex-col"},
-				publicWarehouseDirectoryMetric("Region", fallback(parseItem.Region, "Regional lane")),
-				publicWarehouseDirectoryMetric("Service level", fallback(parseItem.ServiceLevel, "Standard coverage")),
-				publicWarehouseDirectoryMetric("Best for", warehouseRegionCue(parseItem.Region)),
-			),
-		),
+	}
+	if parseSummary := strings.TrimSpace(parseItem.PublicSummary); parseSummary != "" {
+		parseChildren = append(parseChildren,
+			html.Span(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseSummary)),
+		)
+	}
+	parseMeta := make([]ui.Node, 0, 2)
+	if parseWindow := atlasPromiseWindow(parseItem.ServiceLevel); parseWindow != "" {
+		parseMeta = append(parseMeta, html.Span(html.Props{}, html.Text(parseWindow)))
+	}
+	if parseRegion := strings.TrimSpace(parseItem.Region); parseRegion != "" {
+		if len(parseMeta) > 0 {
+			parseMeta = append(parseMeta,
+				html.Span(html.Props{Aria: map[string]string{"hidden": "true"}}, html.Text("·")))
+		}
+		parseMeta = append(parseMeta, html.Span(html.Props{}, html.Text(strings.ToUpper(parseRegion))))
+	}
+	if len(parseMeta) > 0 {
+		parseChildren = append(parseChildren,
+			html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2), design.Data(design.StepMicro))}, parseMeta...),
+		)
+	}
+	parseChildren = append(parseChildren,
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Open warehouse route")),
+	)
+	return html.Li(html.Props{},
+		html.A(html.Props{Href: RouteWarehouses + "/" + parseItem.Slug, Class: atlasRuledRowClass()}, parseChildren...),
 	)
 }
 
+// publicWarehouseDirectoryMetric is a label/value line, used where a hub really
+// does publish a value. Not a box: a SplitRow with a Data value on the right
+// lines up down the page for free.
 func publicWarehouseDirectoryMetric(parseLabel string, parseValue string) ui.Node {
-	return html.Div(html.Props{Class: "flex min-w-[10rem] flex-1 items-center justify-between gap-4 rounded-[1.2rem] border border-stone-200/75 bg-white/75 px-4 py-3 lg:min-w-0"},
-		html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-500"}, html.Text(parseLabel)),
-		html.P(html.Props{Class: "text-right text-sm font-semibold leading-6 text-stone-900"}, html.Text(parseValue)),
+	return html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space3))},
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(parseLabel)),
+		html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(parseValue)),
 	)
 }
 
-func primaryWarehouseServiceLevel(parseItems []warehouseCard) string {
-	if len(parseItems) == 0 {
-		return "Regional service posture"
-	}
-	return fallback(parseItems[0].ServiceLevel, "Regional service posture")
-}
+// primaryWarehouseServiceLevel, publicWarehouseUnitsTotal and
+// publicWarehouseInboundTotal were deleted with the directory's stat block.
+//
+// The two totals summed warehouseCard.Available and .Inbound across the hubs, and
+// store.Warehouses selects id, slug, name, region, service_level and public_summary
+// — so on the live storefront they always summed zero and the directory advertised
+// "0 stocked units" and "0 inbound units". The third picked the FIRST hub's service
+// level and printed it as if it described the network. All three are gone rather
+// than fixed here, because the fix is a payload that carries stock, not a caller
+// that averages what it does not have.
 
-func publicWarehouseUnitsTotal(parseItems []warehouseCard) int {
-	parseTotal := 0
-	for _, parseItem := range parseItems {
-		parseTotal += parseItem.Available
-	}
-	return parseTotal
-}
-
-func publicWarehouseInboundTotal(parseItems []warehouseCard) int {
-	parseTotal := 0
-	for _, parseItem := range parseItems {
-		parseTotal += parseItem.Inbound
-	}
-	return parseTotal
-}
+// =============================================================================
+// WAREHOUSE DETAIL (/warehouses/{slug})
+// =============================================================================
 
 func renderWarehouseDetailContent(parsePage warehouseDetailPage, parsePayload Payload) ui.Node {
 	parseWarehouse := parsePage.Warehouse
-	return html.Section(html.Props{Class: "grid gap-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(19rem,0.82fr)] lg:items-start"},
-		html.Div(html.Props{Class: "grid gap-8"},
+	return html.Section(html.Props{Class: atlasBuyingPageClass()},
+		html.Div(html.Props{Class: design.Class(design.Stack(design.Space5))},
 			publicWarehouseDetailHero(parseWarehouse),
-			publicWarehouseDetailFeatureStrip(),
-			publicWarehouseStoryBand(parsePage),
 			publicWarehouseRegionalProductShowcase(parseWarehouse, parsePage.Products),
 		),
 		publicWarehouseSideDataCard(parsePage, parsePayload),
 	)
 }
 
+// publicWarehouseDetailHero is the hub's one surface.
+//
+// The old version was a gradient panel with two blurred glow divs, three chips,
+// two "context columns" whose copy came from a switch that never matched the real
+// region strings (so it always printed the same fallback paragraph), three metric
+// cards repeating the region and service level a third time, and two buttons. It
+// is now the hub's name, its window, its own summary, and one action — plus a
+// three-card feature strip that has been deleted outright, because "Regional
+// pages stay calm and readable instead of collapsing into shipping jargon" is the
+// page grading itself.
 func publicWarehouseDetailHero(parseWarehouse warehouseCard) ui.Node {
-	return html.Div(html.Props{Class: "relative overflow-hidden rounded-[2.3rem] border border-stone-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(244,236,224,0.94)_55%,rgba(231,220,202,0.92))] p-7 shadow-[0_28px_65px_rgba(120,107,82,0.14)]"},
-		html.Div(html.Props{Class: "pointer-events-none absolute -right-10 top-6 h-36 w-36 rounded-full bg-amber-200/35 blur-3xl"}),
-		html.Div(html.Props{Class: "relative z-[1] grid gap-7 lg:grid-cols-[minmax(0,1.05fr)_minmax(15rem,0.72fr)]"},
-			html.Div(html.Props{Class: "grid gap-5"},
-				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
-					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseWarehouse.Region)),
-					html.Span(html.Props{Class: "rounded-full border border-white/80 bg-white/70 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-500"}, html.Text(publicRegionalHubLabel)),
-					html.Span(html.Props{Class: "rounded-full border border-stone-200 bg-white/85 px-4 py-2 text-sm font-semibold text-stone-800"}, html.Text(parseWarehouse.ServiceLevel)),
-				),
-				html.H2(html.Props{Class: "text-4xl font-black tracking-[-0.04em] text-stone-950"}, html.Text(parseWarehouse.Name)),
-				html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-600"}, html.Text(parseWarehouse.PublicSummary)),
-				html.Div(html.Props{Class: "grid gap-4 rounded-[1.75rem] border border-white/75 bg-white/55 p-5 backdrop-blur-sm sm:grid-cols-2"},
-					publicProductContextColumn(publicRegionalReadLabel, warehouseRegionCue(parseWarehouse.Region)),
-					publicProductContextColumn(publicServicePostureLabel, warehouseServiceTone(parseWarehouse.ServiceLevel)),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
-					html.A(html.Props{Href: RouteCatalog + "?warehouse=" + url.QueryEscape(parseWarehouse.ID), Class: "rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-stone-50 transition hover:bg-stone-800"}, html.Text(publicBrowseRegionalProductsLabel)),
-					html.A(html.Props{Href: RouteCatalog, Class: "rounded-full border border-stone-300 bg-white/75 px-5 py-3 text-sm font-semibold text-stone-900 transition hover:border-stone-500 hover:bg-white"}, html.Text(publicCompareAllSystemsLabel)),
-				),
-			),
-			html.Div(html.Props{Class: "grid gap-4 rounded-[1.9rem] border border-stone-200/80 bg-white/78 p-5 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"},
-				publicMetricCard(publicRegionalFocusLabel, parseWarehouse.Region),
-				publicMetricCard(publicServiceLevelLabel, parseWarehouse.ServiceLevel),
-				publicMetricCard(publicPromiseLensLabel, "Use this region when you want the clearest path to timing and availability for nearby projects."),
-			),
+	parseChildren := []ui.Node{
+		html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2), design.Data(design.StepFine))},
+			html.Span(html.Props{}, html.Text(atlasLineHub(parseWarehouse.ID))),
+			html.Span(html.Props{Aria: map[string]string{"hidden": "true"}}, html.Text("·")),
+			html.Span(html.Props{}, html.Text(publicRegionalHubLabel)),
+		),
+		html.H2(html.Props{Class: design.Class(design.SectionTitle())}, html.Text(parseWarehouse.Name)),
+	}
+	if parseSummary := strings.TrimSpace(parseWarehouse.PublicSummary); parseSummary != "" {
+		parseChildren = append(parseChildren,
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepLede), design.Measure())}, html.Text(parseSummary)),
+		)
+	}
+	parseChildren = append(parseChildren, html.Div(html.Props{Class: design.Class(design.ManifestRule())}))
+	if parseWindow := atlasPromiseWindow(parseWarehouse.ServiceLevel); parseWindow != "" {
+		parseChildren = append(parseChildren, publicWarehouseDirectoryMetric(publicServiceLevelLabel, parseWindow))
+	}
+	if parseRegion := strings.TrimSpace(parseWarehouse.Region); parseRegion != "" {
+		parseChildren = append(parseChildren, publicWarehouseDirectoryMetric(publicRegionalFocusLabel, parseRegion))
+	}
+	if parseFocus := strings.TrimSpace(parseWarehouse.Focus); parseFocus != "" {
+		parseChildren = append(parseChildren, publicProductContextColumn(publicPromiseLensLabel, parseFocus))
+	}
+	parseChildren = append(parseChildren,
+		html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2))},
+			html.A(html.Props{
+				Href:  RouteCatalog + "?warehouse=" + url.QueryEscape(parseWarehouse.ID),
+				Class: design.Class(design.ButtonPrimary()),
+			}, html.Text(publicBrowseRegionalProductsLabel)),
 		),
 	)
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space4))}, parseChildren...)
 }
 
-func publicWarehouseDetailFeatureStrip() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3 lg:col-span-2"},
-		publicFeatureCard("Clear regional choices", "Regional pages stay calm and readable instead of collapsing into shipping jargon."),
-		publicFeatureCard("Regional trust", "Coverage, speed, and product fit stay legible before a buyer ever opens a detailed delivery route."),
-		publicFeatureCard("Connected discovery", "You can move from region details into matching products without losing pricing or delivery context."),
-	)
-}
-
-func publicWarehouseStoryBand(parsePage warehouseDetailPage) ui.Node {
-	parseWarehouse := parsePage.Warehouse
-	return html.Div(html.Props{Class: "grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]"},
-		html.Div(html.Props{Class: "grid gap-4 rounded-[1.95rem] border border-stone-200/80 bg-white/82 p-6 shadow-[0_18px_45px_rgba(120,107,82,0.08)]"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Regional capability summary")),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(fallback(parseWarehouse.Focus, "Regional warehouse posture"))),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text("This warehouse route should feel like a merchandised regional story: clear service posture, visible stocked volume, and one obvious next step into product-specific availability.")),
-			html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-3"},
-				publicWarehouseDirectoryMetric("Staffing", fallback(parseWarehouse.Staffing, "Core team assigned")),
-				publicWarehouseDirectoryMetric("Backlog", fallback(parseWarehouse.Backlog, "Backlog under control")),
-				publicWarehouseDirectoryMetric("Risk lanes", fmt.Sprintf("%d flagged", parseWarehouse.RiskCount)),
-			),
-		),
-		html.Div(html.Props{Class: "grid gap-4"},
-			html.Div(html.Props{Class: "grid gap-3 rounded-[1.95rem] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(246,238,227,0.92))] p-6 shadow-[0_18px_45px_rgba(120,107,82,0.08)]"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-500"}, html.Text("Product volume story")),
-				html.P(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(fmt.Sprintf("%d stocked highlights", len(parsePage.Products)))),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text("Use this route when the buyer wants a region-first answer before choosing the exact product availability lane.")),
-			),
-			html.Div(html.Props{Class: "flex flex-wrap gap-3 rounded-[1.8rem] border border-stone-200/80 bg-white/75 p-5 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"},
-				html.A(html.Props{Href: RouteCatalog + "?warehouse=" + url.QueryEscape(parseWarehouse.ID), Class: "rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-stone-50 transition hover:bg-stone-800"}, html.Text(publicBrowseRegionalProductsLabel)),
-				html.A(html.Props{Href: RouteCatalog, Class: "rounded-full border border-stone-300 bg-white/85 px-5 py-3 text-sm font-semibold text-stone-900 transition hover:border-stone-500 hover:bg-white"}, html.Text(publicCompareAllSystemsLabel)),
-			),
-		),
-	)
-}
-
+// publicWarehouseSideDataCard keeps its startup-resource behaviour and the
+// cache-reuse sentence a contract test reads as evidence of it.
+//
+// The five metric cards under it are gone. Pressure, staffing, backlog and
+// regional focus are OPERATOR fields, and store.WarehouseBySlug does not select
+// them for the public route — so every one of them rendered its "Core team
+// assigned" style fallback, on a buyer-facing page, forever.
 func publicWarehouseSideDataCard(parsePage warehouseDetailPage, parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		parseResource := useAtlasStartupPageResource(parsePayload)
@@ -1089,282 +1686,329 @@ func publicWarehouseSideDataCard(parsePage warehouseDetailPage, parsePayload Pay
 			}
 		}
 		parseWarehouse := parseCurrent.Warehouse
-		parseStatusCopy := "Warehouse posture stays cached for repeat-open reviews of staffing, backlog, and regional focus."
+		parseStatusCopy := "Repeat-open visits can reuse this side snapshot without waiting for the whole warehouse route to rebuild."
 		if parseState.Loading && parseState.Ready {
 			parseStatusCopy = "Refreshing the latest warehouse posture..."
 		} else if parseState.Error != nil && !parseState.Ready {
 			parseStatusCopy = "Showing the SSR warehouse snapshot until Atlas can reload the side data."
 		}
-		return html.Div(html.Props{Class: "grid gap-4 lg:sticky lg:top-24"},
-			html.Div(html.Props{Class: "grid gap-3 rounded-[1.9rem] border border-stone-200/80 bg-white/80 p-6 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Warehouse side data")),
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(fallback(parseWarehouse.Name, "Regional hub posture"))),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(parseStatusCopy)),
-			),
-			publicMetricCard("Pressure", fallback(parseWarehouse.Pressure, "Balanced regional pressure")),
-			publicMetricCard("Staffing", fallback(parseWarehouse.Staffing, "Core team assigned")),
-			publicMetricCard("Backlog", fallback(parseWarehouse.Backlog, "Backlog is under control")),
-			publicMetricCard("Regional focus", fallback(parseWarehouse.Focus, "Regional delivery planning")),
-			publicMetricCard(fmt.Sprintf("%d stocked highlights", len(parseCurrent.Products)), "Repeat-open visits can reuse this side snapshot without waiting for the whole warehouse route to rebuild."),
+		parseChildren := []ui.Node{
+			html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Warehouse side data")),
+			html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text(fallback(parseWarehouse.Name, "Regional hub posture"))),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseStatusCopy)),
+		}
+		if parseWindow := atlasPromiseWindow(parseWarehouse.ServiceLevel); parseWindow != "" {
+			parseChildren = append(parseChildren, html.Div(html.Props{Class: design.Class(design.Divider())}))
+			parseChildren = append(parseChildren, publicWarehouseDirectoryMetric(publicServiceLevelLabel, parseWindow))
+		}
+		if parseCount := len(parseCurrent.Products); parseCount > 0 {
+			parseChildren = append(parseChildren, publicWarehouseDirectoryMetric("Stocked lines", fmt.Sprintf("%d", parseCount)))
+		}
+		return html.Div(html.Props{Class: atlasBuyingRailClass()},
+			html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))}, parseChildren...),
 		)
 	})
 }
 
-func publicWarehouseRegionalProducts(parseWarehouse warehouseCard, parseProducts []productCard) []ui.Node {
-	parseNodes := make([]ui.Node, 0, len(parseProducts))
-	for _, parseItem := range parseProducts {
-		parseNodes = append(parseNodes, html.A(html.Props{Href: RouteWarehouses + "/" + parseWarehouse.Slug + "/availability/" + parseItem.Slug, Class: "grid gap-3 rounded-[1.6rem] border border-stone-200/75 bg-white/75 p-5 transition hover:border-stone-300 hover:bg-white"},
-			html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.P(html.Props{Class: "text-lg font-semibold text-stone-950"}, html.Text(parseItem.Title)),
-					html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-500"}, html.Text(parseItem.SKU+" · "+parseItem.Category)),
-				),
-				html.Span(html.Props{Class: publicStatusClass(parseItem.Status)}, html.Text(publicStatusLabel(parseItem.Status))),
-			),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(parseItem.Summary)),
-			html.Div(html.Props{Class: "flex items-end justify-between gap-3"},
-				html.Div(html.Props{Class: "grid gap-1"},
-					html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-500"}, html.Text(publicStartingAtLabel)),
-					html.P(html.Props{Class: "text-xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(formatPrice(parseItem.PriceCents))),
-				),
-				html.Span(html.Props{Class: "text-sm font-semibold text-stone-900"}, html.Text(publicOpenRegionalAvailabilityLabel)),
-			),
-		))
-	}
-	return parseNodes
+// publicWarehouseRegionalProductShowcase is the hub's product list — and it is
+// the same manifest primitive /shop uses, on purpose.
+//
+// It used to be a fourth card style: bordered product cards inside a bordered
+// showcase panel inside the page. Reusing design.Catalog means the buyer reads
+// the same row shape, the same column order and the same availability column
+// they just read on /shop, and the only difference is where the row goes: each
+// href is this hub's availability route for that product.
+func publicWarehouseRegionalProductShowcase(parseWarehouse warehouseCard, parseProducts []productCard) ui.Node {
+	return html.Div(html.Props{Class: design.Class(design.Stack(design.Space3))},
+		html.Div(html.Props{Class: design.Class(design.Stack(design.Space1))},
+			html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(publicRegionalAvailabilityPicksLabel)),
+			html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text("Open stocked systems that fit this regional route.")),
+		),
+		html.Div(html.Props{Class: design.Class(design.SurfaceFlush())},
+			design.Catalog(design.CatalogSpec{
+				Items:      atlasWarehouseCatalogLines(parseWarehouse, parseProducts),
+				Label:      "Products stocked at " + parseWarehouse.Name,
+				EmptyTitle: "No stocked lines at this hub",
+				EmptyBody:  "This hub has nothing on the manifest right now. Compare another region or browse the full catalog.",
+				// The recovery action is the catalog, because the buyer's problem
+				// here is "this hub cannot help me", not "my filter is too narrow".
+				EmptyActionLabel: "Browse the catalog",
+				EmptyActionHref:  RouteCatalog,
+			}),
+		),
+	)
 }
 
-func publicWarehouseRegionalProductShowcase(parseWarehouse warehouseCard, parseProducts []productCard) ui.Node {
-	parseNodes := publicWarehouseRegionalProducts(parseWarehouse, parseProducts)
-	if len(parseNodes) == 0 {
-		parseNodes = []ui.Node{
-			html.Div(html.Props{Class: "rounded-[1.7rem] border border-stone-200/80 bg-white/80 p-5 text-sm leading-7 text-stone-600"}, html.Text("No stocked highlights are available for this warehouse right now. Return to the catalog or compare another regional route.")),
-		}
+// atlasWarehouseCatalogLines builds manifest lines that point at this hub's
+// availability route rather than at the product page, and label the action
+// accordingly. The hub column is this hub, which is the one fact this list adds
+// over the storefront catalog.
+func atlasWarehouseCatalogLines(parseWarehouse warehouseCard, parseProducts []productCard) []design.CatalogItem {
+	parseLines := make([]design.CatalogItem, 0, len(parseProducts))
+	for _, parseItem := range parseProducts {
+		parseLines = append(parseLines, design.CatalogItem{
+			Href:        RouteWarehouses + "/" + parseWarehouse.Slug + "/availability/" + parseItem.Slug,
+			Title:       parseItem.Title,
+			SKU:         atlasSKUCode(parseItem.SKU),
+			Category:    parseItem.Category,
+			Price:       formatPrice(parseItem.PriceCents),
+			Summary:     parseItem.Summary,
+			Avail:       atlasProductAvailability(parseItem),
+			Hub:         atlasLineHub(parseWarehouse.ID),
+			Promise:     atlasPromiseWindow(parseWarehouse.ServiceLevel),
+			ActionLabel: "AVAILABILITY",
+			Label:       parseItem.Title + ", " + formatPrice(parseItem.PriceCents) + ", availability at " + parseWarehouse.Name,
+		})
 	}
-	parseChildren := []ui.Node{
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicRegionalAvailabilityPicksLabel)),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950"}, html.Text("Open stocked systems that fit this regional route.")),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text("These product cards keep the warehouse route feeling merchandised instead of reading like a detached logistics utility page.")),
-		),
-	}
-	parseChildren = append(parseChildren, parseNodes...)
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[2rem] border border-stone-200/80 bg-white/78 p-6 shadow-[0_18px_45px_rgba(120,107,82,0.08)]"}, parseChildren...)
+	return parseLines
 }
+
+// =============================================================================
+// PRODUCT AVAILABILITY (/warehouses/{slug}/availability/{productSlug})
+// =============================================================================
+//
+// This is the lane placard's home surface. It is the one public route where the
+// payload carries real counts (store.Availability returns available, inbound and
+// a status), so it is the one public route that can honestly print a posture.
 
 func renderAvailabilityContent(parseAvailability availabilityPage, parsePayload Payload) ui.Node {
-	return html.Section(html.Props{Class: "grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(21rem,0.78fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-6"},
+	return html.Section(html.Props{Class: atlasBuyingPageClass()},
+		html.Div(html.Props{Class: design.Class(design.Stack(design.Space5))},
 			publicAvailabilityHero(parseAvailability),
-			html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"},
-				publicAvailabilityMetrics(parseAvailability),
-				publicAvailabilityFeatureStrip(),
-			),
 			publicAvailabilityPromiseBand(parseAvailability),
 		),
 		publicAvailabilityActionRail(parseAvailability, parsePayload),
 	)
 }
 
+// publicAvailabilityHero leads with the lane placard.
+//
+// The placard is the design system's one heavy signature device and this is what
+// it is for: ORIGIN -> DEST, the promise, the posture, on an inked perforated
+// dock tag. The origin is the hub; the destination is the buyer (see
+// atlasBuyerDestination for why that is the honest label when Atlas does not know
+// the buyer's address); the promise is the hub's published window; and the
+// posture comes from the real counts, so PostureShort — the only oxide on the
+// storefront — appears exactly when the promise cannot be met.
+//
+// Everything under it is the two numbers that back the placard, in Data so they
+// align, and one sentence. What came off: two "context columns" of generated
+// filler, three metric cards restating the same two numbers, and the
+// "Why this availability page is easier to use" strip.
 func publicAvailabilityHero(parseAvailability availabilityPage) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 rounded-[1.9rem] border border-white/10 bg-[linear-gradient(145deg,rgba(13,18,30,0.96),rgba(18,25,40,0.9))] p-6 shadow-[0_28px_65px_rgba(0,0,0,0.22)] lg:p-7"},
-		html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.8fr)] lg:items-start"},
-			html.Div(html.Props{Class: "grid gap-5"},
-				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
-					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseAvailability.Warehouse.Name)),
-					html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-300"}, html.Text(parseAvailability.Warehouse.Region)),
-					html.Span(html.Props{Class: publicStatusClass(parseAvailability.Status)}, html.Text(publicStatusLabel(parseAvailability.Status))),
-				),
-				html.H2(html.Props{Class: "max-w-4xl text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl lg:text-[3rem]"}, html.Text(parseAvailability.Product.Title)),
-				html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-300"}, html.Text(fmt.Sprintf("%d available now with %d inbound at %s.", parseAvailability.Available, parseAvailability.Inbound, parseAvailability.Warehouse.Name))),
-				html.Div(html.Props{Class: "grid gap-4 rounded-[1.75rem] border border-white/10 bg-white/6 p-5 backdrop-blur-sm sm:grid-cols-2"},
-					publicProductContextColumn(publicAvailabilityStoryLabel, availabilityStoryCopy(parseAvailability.Available, parseAvailability.Inbound)),
-					publicProductContextColumn(publicWhyThisMattersLabel, "Product demand stays tied to a named hub, so promise language feels concrete instead of generic."),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
-					html.A(html.Props{Href: RouteCatalog + "/" + parseAvailability.Product.Slug, Class: "rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-200"}, html.Text("Back to product detail")),
-					html.A(html.Props{Href: RouteWarehouses + "/" + parseAvailability.Warehouse.Slug, Class: "rounded-full border border-white/12 bg-white/6 px-5 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text("See warehouse route")),
-				),
+	parseAvail := atlasStockAvailability(parseAvailability.Available, parseAvailability.Inbound)
+	return html.Div(html.Props{Class: design.Class(design.Stack(design.Space4))},
+		// The placard sits directly on Paper, not inside the Surface below it: its
+		// punched hole and torn edge are painted in the paper token, so on any other
+		// background they read a shade off.
+		design.LanePlacard(design.PlacardSpec{
+			OriginHub: atlasLineHub(parseAvailability.Warehouse.ID),
+			DestHub:   atlasBuyerDestination,
+			Promise:   atlasPromiseWindow(parseAvailability.Warehouse.ServiceLevel),
+			Posture:   atlasStockPosture(parseAvailability.Available, parseAvailability.Inbound),
+		}),
+		html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space4))},
+			html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2), design.Data(design.StepFine))},
+				html.Span(html.Props{}, html.Text(atlasSKUCode(parseAvailability.Product.SKU))),
+				html.Span(html.Props{Aria: map[string]string{"hidden": "true"}}, html.Text("·")),
+				html.Span(html.Props{}, html.Text(atlasLineHub(parseAvailability.Warehouse.ID))),
 			),
-			html.Div(html.Props{Class: "grid gap-4 rounded-[1.5rem] border border-white/10 bg-white/6 p-5"},
-				publicMetricCard(fmt.Sprintf("%d available", parseAvailability.Available), "Available now in this region."),
-				publicMetricCard(fmt.Sprintf("%d inbound", parseAvailability.Inbound), "More units already scheduled for upcoming orders."),
-				publicMetricCard(publicStatusLabel(parseAvailability.Status), "Status stays explicit so buyers know whether to quote now or plan ahead."),
+			html.H2(html.Props{Class: design.Class(design.SectionTitle())}, html.Text(parseAvailability.Product.Title)),
+			html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2))},
+				html.Span(html.Props{Class: design.Class(design.StatusChip(parseAvail.Tone()))}, html.Text(parseAvail.Label())),
+				html.Span(html.Props{Class: design.Class(design.StatusChip(design.ToneNeutral))}, html.Text(publicStatusLabel(parseAvailability.Status))),
+			),
+			html.Div(html.Props{Class: design.Class(design.ManifestRule())}),
+			publicWarehouseDirectoryMetric("On hand", fmt.Sprintf("%d", parseAvailability.Available)),
+			publicWarehouseDirectoryMetric("Inbound", fmt.Sprintf("%d", parseAvailability.Inbound)),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())},
+				html.Text(fmt.Sprintf("%d on hand and %d inbound at %s.", parseAvailability.Available, parseAvailability.Inbound, parseAvailability.Warehouse.Name)),
+			),
+			html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2))},
+				html.A(html.Props{Href: RouteCatalog + "/" + parseAvailability.Product.Slug, Class: design.Class(design.ButtonSecondary())}, html.Text("Back to product detail")),
+				html.A(html.Props{Href: RouteWarehouses + "/" + parseAvailability.Warehouse.Slug, Class: design.Class(design.ButtonQuiet())}, html.Text("See warehouse route")),
 			),
 		),
 	)
 }
 
-func publicAvailabilityFeatureStrip() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Quick buying notes")),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-			publicFeatureCard("Concrete promise", "Availability is framed around a real delivery region, which makes timing confidence easier to evaluate."),
-			publicFeatureCard("Keep your place", "Availability capture stays next to the delivery story so buyer intent does not vanish when stock tightens."),
-			publicFeatureCard("Clear next steps", "The route stays calm and practical without forcing buyers to learn Atlas operations language."),
-		),
-	)
-}
-
-func publicAvailabilityMetrics(parseAvailability availabilityPage) ui.Node {
-	_ = parseAvailability
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Why this availability page is easier to use")),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-			publicMetricCard("Regional promise", "The route keeps one warehouse, one SKU, and one timing read in the same first screenful."),
-			publicMetricCard("Action rail", "Quote, reserve, and support actions stay in a dedicated side rail instead of being split into detached utility blocks."),
-			publicMetricCard("Consistent scaffold", "The same hero, metrics, and side-rail reading order as product detail reduces route-switching friction."),
-		),
-	)
-}
-
+// publicAvailabilityActionRail is the capture column. The two forms come from
+// page.go untouched — their field names are asserted by a browser spec — and the
+// duplicate "keep warehouse context visible" card came off, because the hero
+// already links both routes it offered.
 func publicAvailabilityActionRail(parseAvailability availabilityPage, parsePayload Payload) ui.Node {
 	parseAvailabilityTitle, parseAvailabilityCopy := availabilitySupportPlan(parseAvailability.Available, parseAvailability.Inbound)
-	return html.Div(html.Props{Class: "grid gap-5 xl:sticky xl:top-24"},
-		html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicRegionalNextStepLabel)),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(parseAvailabilityTitle)),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseAvailabilityCopy)),
-			html.Div(html.Props{Class: "grid gap-3 text-sm text-stone-300"}, publicSupportPoints(publicAvailabilitySupportPoints(parseAvailability))...),
+	return html.Div(html.Props{Class: atlasBuyingRailClass()},
+		html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))},
+			html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(publicRegionalNextStepLabel)),
+			html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text(parseAvailabilityTitle)),
+			html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())}, html.Text(parseAvailabilityCopy)),
+			html.Ul(html.Props{Class: design.Class(design.Stack(design.Space2)), Role: "list"}, publicSupportPoints(publicAvailabilitySupportPoints(parseAvailability))...),
 		),
 		availabilityPrimaryActionForm(parseAvailability, parsePayload),
 		availabilityQuestionActionForm(parseAvailability, parsePayload),
-		html.Div(html.Props{Class: "grid gap-3 rounded-[1.7rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-			html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text("Keep warehouse context visible")),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("Use the product route for broader comparison or move into the warehouse route if the buyer needs more regional confidence before requesting follow-up.")),
-			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-				html.A(html.Props{Href: RouteCatalog + "/" + parseAvailability.Product.Slug, Class: "rounded-full border border-white/12 bg-white/6 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text("Product route")),
-				html.A(html.Props{Href: RouteWarehouses + "/" + parseAvailability.Warehouse.Slug, Class: "rounded-full border border-white/12 bg-white/6 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text("Warehouse route")),
-			),
-		),
 	)
 }
 
+// publicAvailabilityPromiseBand is what this hub can say about this product.
+//
+// It keeps the hub's own words (Focus and PublicSummary are real, editor-written
+// fields) and replaces three metric cards of generated cue copy with the two
+// facts a buyer can act on: the delivery window and the region.
 func publicAvailabilityPromiseBand(parseAvailability availabilityPage) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Warehouse-specific promise")),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(parseAvailability.Warehouse.Focus, "Regional delivery posture"))),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(fallback(parseAvailability.Warehouse.PublicSummary, "This route should explain what this warehouse can realistically support for this product before the buyer submits follow-up."))),
+	parseChildren := []ui.Node{
+		html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Warehouse-specific promise")),
+		html.H3(html.Props{Class: design.Class(design.SectionTitle())}, html.Text(fallback(parseAvailability.Warehouse.Focus, "Regional delivery posture"))),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepBase), design.Measure())},
+			html.Text(fallback(parseAvailability.Warehouse.PublicSummary, "This route should explain what this warehouse can realistically support for this product before the buyer submits follow-up.")),
 		),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-			publicMetricCard(publicRegionalReadLabel, warehouseRegionCue(parseAvailability.Warehouse.Region)),
-			publicMetricCard(publicServicePostureLabel, warehouseServiceTone(parseAvailability.Warehouse.ServiceLevel)),
-			publicMetricCard(publicPromiseLensLabel, availabilityStoryCopy(parseAvailability.Available, parseAvailability.Inbound)),
-		),
+		html.Div(html.Props{Class: design.Class(design.Divider())}),
+	}
+	if parseWindow := atlasPromiseWindow(parseAvailability.Warehouse.ServiceLevel); parseWindow != "" {
+		parseChildren = append(parseChildren, publicWarehouseDirectoryMetric(publicServicePostureLabel, parseWindow))
+	}
+	if parseRegion := strings.TrimSpace(parseAvailability.Warehouse.Region); parseRegion != "" {
+		parseChildren = append(parseChildren, publicWarehouseDirectoryMetric(publicRegionalReadLabel, parseRegion))
+	}
+	parseChildren = append(parseChildren,
+		publicProductContextColumn(publicPromiseLensLabel, availabilityStoryCopy(parseAvailability.Available, parseAvailability.Inbound)),
 	)
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Stack(design.Space3))}, parseChildren...)
 }
 
+// publicAvailabilitySupportPoints is the capture column's bullet list.
+//
+// It used to route two of its three points through derived_state.go's
+// warehouseRegionCue and warehouseServiceTone, which switch on short region
+// names ("west", "midwest", "east") that the real payload never contains — the
+// seed's regions are sentences like "East coast fast-turn fulfillment". So in
+// production both points printed the same default paragraph on every hub. These
+// points now print the hub's actual name, window and region, and one plain
+// sentence about what the buyer can do next.
 func publicAvailabilitySupportPoints(parseAvailability availabilityPage) []string {
-	parsePoints := []string{
-		warehouseRegionCue(parseAvailability.Warehouse.Region),
-		warehouseServiceTone(parseAvailability.Warehouse.ServiceLevel),
+	parsePoints := make([]string, 0, 3)
+	parseName := strings.TrimSpace(parseAvailability.Warehouse.Name)
+	parseWindow := strings.TrimSpace(parseAvailability.Warehouse.ServiceLevel)
+	switch {
+	case parseName != "" && parseWindow != "":
+		parsePoints = append(parsePoints, "Ships from "+parseName+" in "+parseWindow+".")
+	case parseName != "":
+		parsePoints = append(parsePoints, "Ships from "+parseName+".")
+	case parseWindow != "":
+		parsePoints = append(parsePoints, "Delivery window is "+parseWindow+".")
 	}
-	if strings.TrimSpace(parseAvailability.Warehouse.Backlog) != "" {
-		parsePoints = append(parsePoints, "Warehouse posture: "+parseAvailability.Warehouse.Backlog+".")
+	if parseRegion := strings.TrimSpace(parseAvailability.Warehouse.Region); parseRegion != "" {
+		parsePoints = append(parsePoints, "Serves "+parseRegion+".")
 	}
-	if parseAvailability.Available > 0 {
-		parsePoints = append(parsePoints, "Quote now if the project can move on this region's current stock posture.")
-	} else if parseAvailability.Inbound > 0 {
-		parsePoints = append(parsePoints, "Use reserve capture to hold buyer intent against the inbound recovery window for this specific hub.")
-	} else {
-		parsePoints = append(parsePoints, "Use the support path to discuss substitutions or a different warehouse before promising timing.")
+	switch {
+	case parseAvailability.Available > 0:
+		parsePoints = append(parsePoints, "Ask for a price now: this hub can fill the order from stock.")
+	case parseAvailability.Inbound > 0:
+		parsePoints = append(parsePoints, "Reserve now and you hold your place in the next inbound batch for this hub.")
+	default:
+		parsePoints = append(parsePoints, "Nothing is on hand here. Ask about another hub or a substitute.")
 	}
 	return parsePoints
 }
 
+// =============================================================================
+// THE ONE PAGE HEAD
+// =============================================================================
+
+// renderPublicHero is the storefront's single page head: eyebrow, title, one
+// sentence, and at most two actions.
+//
+// This replaces two hero variants (a large one for list routes and a compact one
+// for detail routes) that between them shipped four gradients, three blurred glow
+// divs, a second eyebrow chip, three metric cards and three "signal pills". Two
+// of those pills and one of those cards printed "24 workspace products" — a
+// hardcoded number, on a storefront that has four, directly above a computed
+// count that said 4. Both are gone: the catalog's own result note is the count of
+// record, because it is derived from the payload and cannot drift.
+//
+// design.PageHead supplies the heavy ink rule under the title. That rule is the
+// mark that makes the page START, and it is why the route content below needs no
+// second banner to separate itself.
 func renderPublicHero(parsePayload Payload) ui.Node {
 	parseConfig := publicHeroConfig(parsePayload.Route.Path)
-	if isPublicDetailRoute(parsePayload.Route.Path) {
-		return html.Section(html.Props{Class: "relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-[linear-gradient(140deg,rgba(12,17,28,0.98),rgba(15,21,34,0.95)_58%,rgba(21,28,44,0.92)_100%)] px-6 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)] sm:px-8 lg:px-10"},
-			html.Div(html.Props{Class: "pointer-events-none absolute inset-y-0 right-0 hidden w-[28%] bg-[radial-gradient(circle_at_center,_rgba(245,158,11,0.12),_transparent_70%)] lg:block"}),
-			html.Div(html.Props{Class: "relative z-[1] grid gap-5"},
-				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.34em] text-amber-300"},
-					html.Span(html.Props{Class: "rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1"}, html.Text(parseConfig.kicker)),
-					html.Span(html.Props{}, html.Text(publicRequestTimeSSRLabel)),
-				),
-				html.Div(html.Props{Class: "grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-6"},
-					html.Div(html.Props{Class: "grid gap-3"},
-						html.H1(html.Props{Class: "max-w-4xl text-4xl font-black tracking-[-0.04em] text-white sm:text-[3rem] lg:text-[3.35rem]"}, html.Text(fallback(parsePayload.Route.Title, "Atlas"))),
-						html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-300"}, html.Text(routeSummary(parsePayload.Route.Path))),
-					),
-					html.Div(html.Props{Class: "flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end"},
-						html.A(html.Props{Href: parseConfig.primaryHref, Class: "inline-flex items-center justify-center rounded-full bg-amber-300 px-6 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-200"}, html.Text(parseConfig.primaryLabel)),
-						html.A(html.Props{Href: parseConfig.secondaryHref, Class: "inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-6 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text(parseConfig.secondaryLabel)),
-					),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-					publicSignalPill("24 workspace products"),
-					publicSignalPill("3 delivery regions"),
-					publicSignalPill(publicProgressiveFormsLabel),
-				),
-			),
+	parseChildren := []ui.Node{
+		html.Div(html.Props{Class: design.Class(design.PageHead())},
+			html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text(parseConfig.kicker)),
+			html.H1(html.Props{Class: design.Class(design.PageTitle())}, html.Text(fallback(parsePayload.Route.Title, "Atlas"))),
+		),
+		html.P(html.Props{Class: design.Class(design.Prose(design.StepLede), design.Measure())}, html.Text(parseConfig.summary)),
+	}
+	parseActions := make([]ui.Node, 0, 2)
+	if parseConfig.primaryLabel != "" {
+		parseActions = append(parseActions,
+			html.A(html.Props{Href: parseConfig.primaryHref, Class: design.Class(design.ButtonPrimary())}, html.Text(parseConfig.primaryLabel)),
 		)
 	}
-	return html.Section(html.Props{Class: "relative overflow-hidden rounded-[2.1rem] border border-white/10 bg-[linear-gradient(140deg,rgba(12,17,28,0.98),rgba(16,22,36,0.95)_52%,rgba(20,27,42,0.92)_100%)] px-6 py-8 shadow-[0_35px_80px_rgba(0,0,0,0.24)] sm:px-8 lg:px-10 lg:py-10"},
-		html.Div(html.Props{Class: "pointer-events-none absolute inset-y-0 right-0 hidden w-[36%] bg-[radial-gradient(circle_at_center,_rgba(245,158,11,0.18),_transparent_68%)] lg:block"}),
-		html.Div(html.Props{Class: "pointer-events-none absolute -left-10 top-10 h-28 w-28 rounded-full bg-amber-300/14 blur-3xl"}),
-		html.Div(html.Props{Class: "grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)] lg:items-end"},
-			html.Div(html.Props{Class: "relative z-[1] grid gap-5"},
-				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.34em] text-amber-300"},
-					html.Span(html.Props{Class: "rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1"}, html.Text(parseConfig.kicker)),
-					html.Span(html.Props{}, html.Text(publicRequestTimeSSRLabel)),
-				),
-				html.H1(html.Props{Class: "max-w-4xl text-4xl font-black tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl"}, html.Text(fallback(parsePayload.Route.Title, "Atlas"))),
-				html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-300 sm:text-lg"}, html.Text(routeSummary(parsePayload.Route.Path))),
-				html.Div(html.Props{Class: "flex flex-col gap-3 sm:flex-row sm:flex-wrap"},
-					html.A(html.Props{Href: parseConfig.primaryHref, Class: "inline-flex items-center justify-center rounded-full bg-amber-300 px-6 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-200"}, html.Text(parseConfig.primaryLabel)),
-					html.A(html.Props{Href: parseConfig.secondaryHref, Class: "inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-6 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text(parseConfig.secondaryLabel)),
-				),
-			),
-			html.Div(html.Props{Class: "relative z-[1] grid gap-4 lg:justify-self-end lg:min-w-[19rem]"},
-				publicMetricCard("24 workspace products", "Desks, storage, seating, and accessories organized for quick scanability."),
-				publicMetricCard("3 delivery regions", "Nevada, Illinois, and New Jersey stay visible across delivery and availability flows."),
-				publicMetricCard(publicProgressiveFormsLabel, "Quotes, availability requests, and product questions stay close to the buying decision."),
-			),
-		),
-	)
-}
-
-func isPublicDetailRoute(parsePath string) bool {
-	if strings.HasPrefix(parsePath, RouteCatalog+"/") {
-		return true
+	if parseConfig.secondaryLabel != "" {
+		parseActions = append(parseActions,
+			html.A(html.Props{Href: parseConfig.secondaryHref, Class: design.Class(design.ButtonSecondary())}, html.Text(parseConfig.secondaryLabel)),
+		)
 	}
-	if strings.Contains(parsePath, "/availability/") {
-		return true
+	if len(parseActions) > 0 {
+		parseChildren = append(parseChildren,
+			html.Div(html.Props{Class: design.Class(design.Cluster(design.Space2))}, parseActions...),
+		)
 	}
-	return strings.HasPrefix(parsePath, RouteWarehouses+"/") && parsePath != RouteWarehouses
+	return html.Section(html.Props{Class: design.Class(design.Stack(design.Space3))}, parseChildren...)
 }
 
 type publicHeroState struct {
 	kicker         string
+	summary        string
 	primaryLabel   string
 	primaryHref    string
 	secondaryLabel string
 	secondaryHref  string
 }
 
+// publicHeroConfig is the per-route head copy.
+//
+// The sentence is written here rather than taken from page.go's routeSummary
+// because that function's storefront copy is corporate mush ("Browse workspace
+// systems with clear pricing cues, delivery context, and straightforward next
+// steps") — three abstract nouns and no verb the reader can act on. Each sentence
+// below names something the buyer controls and says what they will see.
+//
+// A route omits an action rather than offering one that points at itself: on
+// /shop the primary action is not "browse the catalog", because the catalog is
+// already on screen.
 func publicHeroConfig(parsePath string) publicHeroState {
 	parseState := publicHeroState{
-		kicker:         "Warehouse-backed design systems",
-		primaryLabel:   "Shop workspace systems",
+		kicker:         "Warehouse-backed workspace systems",
+		summary:        "Compare workspace systems with the delivery window attached to every line.",
+		primaryLabel:   "Browse the catalog",
 		primaryHref:    RouteCatalog,
-		secondaryLabel: "Explore warehouse network",
+		secondaryLabel: "Compare delivery regions",
 		secondaryHref:  RouteWarehouses,
 	}
 	switch {
 	case parsePath == RouteCatalog:
-		parseState.kicker = "Curated modular workspace catalog"
+		parseState.kicker = "Catalog"
+		parseState.summary = "Filter the manifest, then compare price and availability line by line."
+		parseState.primaryLabel = ""
+		parseState.secondaryLabel = "Compare delivery regions"
+		parseState.secondaryHref = RouteWarehouses
 	case strings.HasPrefix(parsePath, RouteCatalog+"/"):
-		parseState.kicker = "Product detail with delivery context"
-		parseState.primaryLabel = "Browse more products"
-		parseState.secondaryLabel = "See delivery by region"
+		parseState.kicker = "Product"
+		parseState.summary = "Check the price, then check which hub can ship it to you."
+		parseState.primaryLabel = ""
+		parseState.secondaryLabel = "Back to the catalog"
+		parseState.secondaryHref = RouteCatalog
 	case parsePath == RouteWarehouses:
-		parseState.kicker = "Regional delivery options"
-		parseState.primaryLabel = "See stocked products"
-	case strings.HasPrefix(parsePath, RouteWarehouses+"/"):
-		parseState.kicker = "Regional delivery and availability"
+		parseState.kicker = "Delivery regions"
+		parseState.summary = "Pick the hub that serves your site, then see what it holds."
 		parseState.primaryLabel = "Browse the catalog"
+		parseState.secondaryLabel = ""
+	case strings.HasPrefix(parsePath, RouteWarehouses+"/"):
+		parseState.kicker = "Delivery region"
+		parseState.summary = "What this hub holds, and how long it takes to reach you."
+		parseState.primaryLabel = "Browse the catalog"
+		parseState.secondaryLabel = ""
 	}
 	return parseState
 }

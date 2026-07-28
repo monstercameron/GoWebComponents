@@ -5,14 +5,13 @@ import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // TestInventoryThresholdHistoryPanelRendersRouteOverlay verifies the SKU threshold workflow renders as a route-owned overlay sheet.
 func TestInventoryThresholdHistoryPanelRendersRouteOverlay(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(inventoryThresholdHistoryPanel(
+	parseMarkup, parseErr := renderAtlasNodeForTest(inventoryThresholdHistoryPanel(
 		inventoryThresholdHistoryPanelPage{
 			SKU: "frame-desk",
 			Items: []inventoryThresholdHistoryItem{
@@ -46,7 +45,7 @@ func TestInventoryThresholdHistoryPanelRendersRouteOverlay(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("inventoryThresholdHistoryPanel render failed: %v", parseErr)
 	}
-	if !strings.Contains(parseMarkup, "Route overlay") || !strings.Contains(parseMarkup, "Threshold history") {
+	if !strings.Contains(parseMarkup, "Threshold changes") || !strings.Contains(parseMarkup, "Threshold history") {
 		parseT.Fatalf("expected threshold overlay heading copy, got %q", parseMarkup)
 	}
 	if !strings.Contains(parseMarkup, `data-atlas-route-overlay="threshold-history"`) {
@@ -61,7 +60,7 @@ func TestInventoryThresholdHistoryPanelRendersRouteOverlay(parseT *testing.T) {
 func TestAtlasConfirmationDialogRendersWorkflowVariants(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseTransferMarkup, parseErr := ui.RenderToString(atlasConfirmationDialog(
+	parseTransferMarkup, parseErr := renderAtlasNodeForTest(atlasConfirmationDialog(
 		true,
 		"atlas-transfer-confirm",
 		"Confirm transfer plan",
@@ -82,7 +81,7 @@ func TestAtlasConfirmationDialogRendersWorkflowVariants(parseT *testing.T) {
 		}
 	}
 
-	parseReceivingMarkup, parseErr := ui.RenderToString(atlasConfirmationDialog(
+	parseReceivingMarkup, parseErr := renderAtlasNodeForTest(atlasConfirmationDialog(
 		true,
 		"atlas-receiving-confirm",
 		"Confirm receiving closeout",
@@ -98,7 +97,7 @@ func TestAtlasConfirmationDialogRendersWorkflowVariants(parseT *testing.T) {
 		parseT.Fatalf("expected receiving confirmation copy, got %q", parseReceivingMarkup)
 	}
 
-	parseModerationMarkup, parseErr := ui.RenderToString(atlasConfirmationDialog(
+	parseModerationMarkup, parseErr := renderAtlasNodeForTest(atlasConfirmationDialog(
 		true,
 		"atlas-comment-review-confirm",
 		"Confirm buyer review",
@@ -119,7 +118,7 @@ func TestAtlasConfirmationDialogRendersWorkflowVariants(parseT *testing.T) {
 func TestAtlasDismissibleSheetRendersSideSheet(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(atlasDismissibleSheet(
+	parseMarkup, parseErr := renderAtlasNodeForTest(atlasDismissibleSheet(
 		true,
 		"atlas-sheet",
 		"atlas-sheet-title",

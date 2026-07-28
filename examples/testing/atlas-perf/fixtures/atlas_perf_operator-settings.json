@@ -1,0 +1,113 @@
+{
+  "name": "operator-settings",
+  "route": "/app/settings",
+  "role": "inventory_manager",
+  "bootstrap": {
+    "version": 1,
+    "route": {
+      "path": "/app/settings"
+    },
+    "data": {
+      "atlas": {
+        "route": {
+          "path": "/app/settings",
+          "surface": "internal",
+          "screen": "settings",
+          "title": "Atlas Settings",
+          "description": "Manage theme, locale, density, default warehouse, and saved-view preferences.",
+          "canonical": "/app/settings"
+        },
+        "preferences": {
+          "theme": "dark",
+          "locale": "en",
+          "density": "compact",
+          "defaultWarehouse": "new-jersey-hub"
+        },
+        "i18n": {
+          "locale": "en",
+          "supportedLocales": [
+            "en",
+            "fr",
+            "ar"
+          ],
+          "direction": "ltr"
+        },
+        "theme": {
+          "mode": "dark",
+          "prefersReducedMotion": false
+        },
+        "data": {
+          "page": {
+            "summary": {
+              "headline": "Workspace preferences and transfer tools",
+              "items": [
+                {
+                  "label": "Theme",
+                  "value": "dark",
+                  "detail": "Theme stays in bootstrap so SSR and hydration read the same shell styling."
+                },
+                {
+                  "label": "Locale",
+                  "value": "en",
+                  "detail": "Locale drives document direction and route copy from the first server render."
+                },
+                {
+                  "label": "Saved views",
+                  "value": "2",
+                  "detail": "Export and import let Atlas carry operator view presets between runs without manual recreation."
+                },
+                {
+                  "label": "Default warehouse",
+                  "value": "new-jersey-hub",
+                  "detail": "The shell keeps one facility ready as the fallback for product and inventory workflows."
+                }
+              ]
+            }
+          }
+        },
+        "requests": {
+          "page": {
+            "method": "GET",
+            "url": "/api/app/settings",
+            "status": 200
+          }
+        },
+        "savedViews": [
+          {
+            "name": "East coast shortages",
+            "scope": "inventory",
+            "sortKey": "available",
+            "sortDirection": "asc",
+            "filters": {
+              "density": "compact",
+              "warehouse": "new-jersey-hub"
+            }
+          },
+          {
+            "name": "Low stock triage",
+            "scope": "inventory",
+            "sortKey": "status",
+            "sortDirection": "asc",
+            "filters": {
+              "density": "compact",
+              "warehouse": "illinois-hub"
+            }
+          }
+        ],
+        "csrf": "bbVgs0YfAaLEkVuK7nv41L0Z8Kqep3GJNkT4Bqv5rXc",
+        "user": {
+          "id": "demo-operator",
+          "displayName": "Atlas Demo Operator",
+          "role": "inventory_manager",
+          "defaultWarehouse": "new-jersey-hub"
+        }
+      }
+    },
+    "i18n": {
+      "locale": "en",
+      "fallbackLocale": "en",
+      "direction": "ltr"
+    }
+  },
+  "shape": "screen=settings surface=internal session=inventory_manager"
+}

@@ -411,6 +411,11 @@ func TestPublicSSRLocaleQueryControlsDocumentAndBootstrap(parseT *testing.T) {
 	parseBody := parseRes.Body.String()
 	for _, parseExpected := range []string{
 		`<html lang="ar"`,
+		// dir is the half that used to be missing. Payload.I18n carried a direction
+		// field from the beginning and the document never emitted it, so Arabic
+		// rendered left-to-right and the client's own hydration audit logged a
+		// lang/dir mismatch against the payload it had just been handed.
+		`dir="rtl"`,
 		`"locale":"ar"`,
 		`"direction":"rtl"`,
 		`"locale":["ar"]`,
@@ -429,6 +434,104 @@ func TestPublicSSRLocaleQueryControlsDocumentAndBootstrap(parseT *testing.T) {
 	}
 	if !strings.Contains(parseFallbackRes.Body.String(), `<html lang="en"`) {
 		parseT.Fatalf("expected unsupported public locale to fall back to en, got %q", parseFallbackRes.Body.String())
+	}
+	if !strings.Contains(parseFallbackRes.Body.String(), `dir="ltr"`) {
+		parseT.Fatalf("expected the fallback locale to emit dir=ltr, got %q", parseFallbackRes.Body.String())
+	}
+	// An unsupported tag must never reach the two places the resolved locale lands:
+	// the <html> attributes and a Set-Cookie value. (It IS echoed inside the
+	// bootstrap payload's route query, which is a faithful copy of the request URL
+	// and is consumed as data, not as a language.)
+	if strings.Contains(parseFallbackRes.Body.String(), `lang="zz"`) {
+		parseT.Fatalf("unsupported locale tag must not reach <html lang>, got %q", parseFallbackRes.Body.String())
+	}
+	for _, parseCookie := range parseFallbackRes.Result().Cookies() {
+		if parseCookie.Name == atlasLocaleCookieName {
+			parseT.Fatalf("an unsupported locale must not be persisted, got %+v", parseCookie)
+		}
+	}
+}
+
+// TestLocaleContractPrecedence pins the four levels documented on
+// resolveRequestLocale, in order, because the precedence between a query parameter,
+// a cookie and a stored preference is exactly the kind of contract that rots: every
+// individual level looks reasonable on its own and only the ORDER is load-bearing.
+func TestLocaleContractPrecedence(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
+
+	parseGet := func(parseURL string, parseCookies ...*http.Cookie) *httptest.ResponseRecorder {
+		parseReq := httptest.NewRequest(http.MethodGet, parseURL, nil)
+		for _, parseCookie := range parseCookies {
+			parseReq.AddCookie(parseCookie)
+		}
+		parseRes := httptest.NewRecorder()
+		parseServer.routes().ServeHTTP(parseRes, parseReq)
+		if parseRes.Code != http.StatusOK {
+			parseT.Fatalf("GET %s: expected %d, got %d", parseURL, http.StatusOK, parseRes.Code)
+		}
+		return parseRes
+	}
+
+	// (4) default: nothing supplied anywhere.
+	if parseBody := parseGet("/shop").Body.String(); !strings.Contains(parseBody, `<html lang="en" dir="ltr"`) {
+		parseT.Fatalf("expected the default locale to be en/ltr, got %q", parseBody)
+	}
+
+	// (2) cookie, with no query parameter present.
+	parseCookieOnly := parseGet("/shop", &http.Cookie{Name: atlasLocaleCookieName, Value: "fr"})
+	if parseBody := parseCookieOnly.Body.String(); !strings.Contains(parseBody, `<html lang="fr" dir="ltr"`) {
+		parseT.Fatalf("expected the cookie to carry the locale when no query parameter is present, got %q", parseBody)
+	}
+
+	// (1) beats (2): the URL is the visible thing, so it is the authoritative thing.
+	// The inverse arrangement is the classic unreproducible bug — a link shared into a
+	// French chat renders English for everyone who ever clicked EN.
+	parseQueryWins := parseGet("/shop?locale=ar", &http.Cookie{Name: atlasLocaleCookieName, Value: "fr"})
+	if parseBody := parseQueryWins.Body.String(); !strings.Contains(parseBody, `<html lang="ar" dir="rtl"`) {
+		parseT.Fatalf("expected the query parameter to beat the cookie, got %q", parseBody)
+	}
+
+	// (1) is made sticky, so the next link — which carries no locale parameter,
+	// because publicLocaleHref only decorates the current path — keeps the language.
+	var parseWritten *http.Cookie
+	for _, parseCookie := range parseQueryWins.Result().Cookies() {
+		if parseCookie.Name == atlasLocaleCookieName {
+			parseWritten = parseCookie
+		}
+	}
+	if parseWritten == nil {
+		parseT.Fatalf("expected ?locale=ar to persist the choice, got %+v", parseQueryWins.Result().Cookies())
+	}
+	if parseWritten.Value != "ar" || parseWritten.Path != "/" || parseWritten.SameSite != http.SameSiteLaxMode {
+		parseT.Fatalf("unexpected locale cookie: %+v", parseWritten)
+	}
+	if parseWritten.HttpOnly {
+		// The wasm client writes this same cookie on a client-side locale change; an
+		// HttpOnly cookie would make a single-page navigation and a reload disagree.
+		parseT.Fatalf("the locale cookie must be readable by the wasm client: %+v", parseWritten)
+	}
+
+	// A request WITHOUT a locale parameter must not refresh the cookie: level (2)
+	// would then keep renewing itself forever and outlive the choice that made it.
+	for _, parseCookie := range parseCookieOnly.Result().Cookies() {
+		if parseCookie.Name == atlasLocaleCookieName {
+			parseT.Fatalf("the locale cookie must only be written from an explicit ?locale=, got %+v", parseCookie)
+		}
+	}
+
+	// The contract is surface-independent. It used to be gated on
+	// `parseSession == nil && Surface == "public"`, so an operator who pasted
+	// ?locale=ar into an /app URL got English and the storefront got Arabic.
+	parseInternalReq := httptest.NewRequest(http.MethodGet, "/app/dashboard?locale=ar", nil)
+	parseInternalReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseInternalRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseInternalRes, parseInternalReq)
+	if parseInternalRes.Code != http.StatusOK {
+		parseT.Fatalf("expected internal locale route status %d, got %d", http.StatusOK, parseInternalRes.Code)
+	}
+	if !strings.Contains(parseInternalRes.Body.String(), `<html lang="ar" dir="rtl"`) {
+		parseT.Fatalf("expected the locale contract to apply on internal surfaces too, got %q", parseInternalRes.Body.String())
 	}
 }
 
@@ -982,7 +1085,7 @@ func TestDirectEntrySSRUsesFreshBootstrapAfterPreferenceSave(parseT *testing.T) 
 	}
 	parseBody := parseDirectRes.Body.String()
 	for _, parseExpected := range []string{
-		`<html lang="ar" class="atlas-theme-light atlas-density-comfortable"`,
+		`<html lang="ar" dir="rtl" class="atlas-theme-light atlas-density-comfortable"`,
 		`"locale":"ar"`,
 		`"direction":"rtl"`,
 		`"defaultWarehouse":"illinois-hub"`,

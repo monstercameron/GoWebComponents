@@ -40,6 +40,7 @@ const defaultMaxLogEntries = 200
 // maxProfilingEvents: RuntimeLimits.MaxLogEntries was a public field nothing
 // read. Written only under logsMu, which guards the buffer.
 var maxLogEntries = defaultMaxLogEntries
+
 const defaultMaxDiagnosticEntries = 500
 
 var maxDiagnosticEntries = defaultMaxDiagnosticEntries

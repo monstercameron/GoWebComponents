@@ -98,6 +98,106 @@ test('M2 passes on a real zero from a working observer', () => {
   assert.equal(gate(report, BUDGETS).passed, true);
 });
 
+// Both guards below exist because a metric that cannot tell "zero" from "not
+// measured" reports a dead probe as a perfect score. Measured 2026-07-26: a
+// headless run reported 0 long frames and 0ms GC pause while six deliberately
+// injected 180ms main-thread blocks went uncounted.
+
+test('M1 fails when no interactions were recorded, however equivalent the frames look', () => {
+  // The trap this closes. Two arms that both did nothing are perfectly
+  // equivalent, so M1 scored an idle page as a pass for as long as the typing
+  // probe typed nothing. Equivalence is only evidence when something was running.
+  const result = gate(healthyReport({
+    metrics: {
+      ...healthyReport().metrics,
+      m1_frameTimeEquivalence: { equivalent: true, marginMs: 1.0, ci: { upper: 0.05 } },
+      m3_interactionLatency: { n: 0, note: 'no interactions recorded' },
+    },
+  }), BUDGETS);
+  assert.equal(result.passed, false);
+  assert.ok(failureMetrics(result).includes('M1'), JSON.stringify(result.failures));
+  assert.match(result.failures.find((f) => f.metric === 'M1').reason, /UNMEASURED/);
+});
+
+test('M2 fails when the observer reports zero but the frame timeline saw a long frame', () => {
+  // Two instruments disagreeing is the evidence. The frame timeline is collected
+  // independently of the long-frame observer, so a 96ms frame recorded there with
+  // zero long frames reported means the observer is not firing.
+  const result = gate(healthyReport({
+    metrics: {
+      ...healthyReport().metrics,
+      m1_frameTimeEquivalence: {
+        equivalent: true, marginMs: 1.0, ci: { upper: 0.3 },
+        loaded: { max: 96.2, n: 1440 },
+      },
+      m2_longFrames: { count: 0, worstMs: 0, totalBlockingMs: 0, source: 'long-animation-frame' },
+    },
+  }), BUDGETS);
+  assert.equal(result.passed, false);
+  assert.ok(failureMetrics(result).includes('M2'), JSON.stringify(result.failures));
+  assert.match(result.failures.find((f) => f.metric === 'M2').reason, /UNMEASURED/);
+});
+
+test('M2 still passes on a real zero when the frame timeline agrees', () => {
+  // The other half: a genuine zero must not be punished. A uniform, short frame
+  // timeline is consistent with no long frames, and an earlier version of this
+  // guard rejected exactly this case by inferring blindness from low variance.
+  const result = gate(healthyReport({
+    metrics: {
+      ...healthyReport().metrics,
+      m1_frameTimeEquivalence: {
+        equivalent: true, marginMs: 1.0, ci: { upper: 0.3 },
+        loaded: { max: 16.8, n: 1440 },
+      },
+    },
+  }), BUDGETS);
+  assert.equal(result.passed, true, JSON.stringify(result.failures));
+});
+
+test('M7 fails when a zero pause came from a probe that recorded nothing', () => {
+  // Blind: no collections AND no commits AND no render time. Nothing was watching.
+  const result = gate(healthyReport({
+    metrics: {
+      ...healthyReport().metrics,
+      m7_maxGCPauseMs: 0,
+      m7_collectionsObserved: 0,
+      m7_probeLive: false,
+    },
+  }), BUDGETS);
+  assert.equal(result.passed, false);
+  assert.ok(failureMetrics(result).includes('M7'), JSON.stringify(result.failures));
+  assert.match(result.failures.find((f) => f.metric === 'M7').reason, /UNMEASURED/);
+});
+
+test('M7 passes when a LIVE probe observed zero collections', () => {
+  // The distinction that makes the guard correct rather than merely cautious.
+  // Zero collections is M7's success condition: the metric bounds GC pressure
+  // that residency re-imports onto the render thread, and a render thread that
+  // never collects has none. A probe that recorded commits and still saw no
+  // collection is reporting the outcome the architecture exists to produce.
+  const result = gate(healthyReport({
+    metrics: {
+      ...healthyReport().metrics,
+      m7_maxGCPauseMs: 0,
+      m7_collectionsObserved: 0,
+      m7_probeLive: true,
+    },
+  }), BUDGETS);
+  assert.equal(result.passed, true, JSON.stringify(result.failures));
+});
+
+test('M7 passes on a zero pause when collections were actually observed', () => {
+  // Zero is a legitimate result when something was watching.
+  const result = gate(healthyReport({
+    metrics: {
+      ...healthyReport().metrics,
+      m7_maxGCPauseMs: 0,
+      m7_collectionsObserved: 14,
+    },
+  }), BUDGETS);
+  assert.equal(result.passed, true, JSON.stringify(result.failures));
+});
+
 test('M2 fails on any long frame', () => {
   const report = healthyReport();
   report.metrics.m2_longFrames = { count: 3, worstMs: 210, totalBlockingMs: 480, source: 'long-animation-frame' };

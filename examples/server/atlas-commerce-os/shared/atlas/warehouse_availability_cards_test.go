@@ -1,10 +1,9 @@
 package atlas
 
 import (
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/api"
 	"strings"
 	"testing"
-
-	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // TestPublicProductPromiseLanesCardRendersWarehouseCards verifies warehouse-specific promise cards and service-level fallback copy.
@@ -12,11 +11,15 @@ func TestPublicProductPromiseLanesCardRendersWarehouseCards(parseT *testing.T) {
 	parseT.Parallel()
 
 	parseProduct := sampleProductCards()[0]
-	parseWarehouses := []warehouseCard{
+	// api.Warehouse, not warehouseCard: this card now takes the public wire type
+	// that the ListWarehouses server function returns. The fixture shrank because
+	// the operator-only fields it used to be able to set do not exist on the public
+	// shape — which is the point of the narrower type, not a loss of coverage.
+	parseWarehouses := []api.Warehouse{
 		{Name: "New Jersey Hub", Slug: "new-jersey-hub", Region: "East", ServiceLevel: "next-day"},
 		{Name: "Illinois Hub", Slug: "illinois-hub", Region: "Midwest", ServiceLevel: ""},
 	}
-	parseMarkup, parseErr := ui.RenderToString(publicProductPromiseLanesCard(parseProduct, parseWarehouses, false))
+	parseMarkup, parseErr := renderAtlasNodeForTest(publicProductPromiseLanesCard(parseProduct, parseWarehouses, false))
 	if parseErr != nil {
 		parseT.Fatalf("publicProductPromiseLanesCard render failed: %v", parseErr)
 	}
@@ -35,7 +38,7 @@ func TestPublicProductPromiseLanesCardRendersWarehouseCards(parseT *testing.T) {
 func TestPublicProductPromiseLanesCardRendersRefreshAndEmptyState(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(publicProductPromiseLanesCard(sampleProductCards()[0], nil, true))
+	parseMarkup, parseErr := renderAtlasNodeForTest(publicProductPromiseLanesCard(sampleProductCards()[0], nil, true))
 	if parseErr != nil {
 		parseT.Fatalf("publicProductPromiseLanesCard empty render failed: %v", parseErr)
 	}
@@ -64,7 +67,7 @@ func TestPublicAvailabilityPromiseBandRendersWarehouseSpecificCopy(parseT *testi
 		Inbound:   5,
 		Status:    "promise_risk",
 	}
-	parseMarkup, parseErr := ui.RenderToString(publicAvailabilityPromiseBand(parseAvailability))
+	parseMarkup, parseErr := renderAtlasNodeForTest(publicAvailabilityPromiseBand(parseAvailability))
 	if parseErr != nil {
 		parseT.Fatalf("publicAvailabilityPromiseBand render failed: %v", parseErr)
 	}
@@ -88,8 +91,23 @@ func TestPublicAvailabilitySupportPointsCoverAvailabilityStates(parseT *testing.
 		Available: 4,
 		Inbound:   0,
 	})
-	if !strings.Contains(strings.Join(parseInStock, " "), "Quote now if the project can move on this region's current stock posture.") {
+	// The three expectations below are the REWRITTEN support points. The old ones
+	// ("Quote now if the project can move on this region's current stock posture.",
+	// "Use reserve capture to hold buyer intent against the inbound recovery window
+	// for this specific hub.", "Use the support path to discuss substitutions...")
+	// were instructions to the team building the page rather than sentences a buyer
+	// can act on, and two of the three points this function emits used to come from
+	// derived_state.go cue helpers that never matched the real region strings — so
+	// in production every hub printed the same paragraph. The assertions still pin
+	// one point per stock state, which is what the test was actually protecting.
+	if !strings.Contains(strings.Join(parseInStock, " "), "Ask for a price now: this hub can fill the order from stock.") {
 		parseT.Fatalf("expected in-stock support point, got %#v", parseInStock)
+	}
+	// The fixture has no warehouse Name, so the lead point falls back to the
+	// window — which is the branch worth pinning: the points print real hub fields
+	// and omit the ones the payload does not carry.
+	if !strings.Contains(strings.Join(parseInStock, " "), "next-day") {
+		parseT.Fatalf("expected the in-stock points to name the delivery window, got %#v", parseInStock)
 	}
 
 	parseInboundOnly := publicAvailabilitySupportPoints(availabilityPage{
@@ -97,7 +115,7 @@ func TestPublicAvailabilitySupportPointsCoverAvailabilityStates(parseT *testing.
 		Available: 0,
 		Inbound:   6,
 	})
-	if !strings.Contains(strings.Join(parseInboundOnly, " "), "Use reserve capture to hold buyer intent against the inbound recovery window for this specific hub.") {
+	if !strings.Contains(strings.Join(parseInboundOnly, " "), "Reserve now and you hold your place in the next inbound batch for this hub.") {
 		parseT.Fatalf("expected inbound support point, got %#v", parseInboundOnly)
 	}
 
@@ -106,7 +124,7 @@ func TestPublicAvailabilitySupportPointsCoverAvailabilityStates(parseT *testing.
 		Available: 0,
 		Inbound:   0,
 	})
-	if !strings.Contains(strings.Join(parseConstrained, " "), "Use the support path to discuss substitutions or a different warehouse before promising timing.") {
+	if !strings.Contains(strings.Join(parseConstrained, " "), "Nothing is on hand here. Ask about another hub or a substitute.") {
 		parseT.Fatalf("expected constrained support point, got %#v", parseConstrained)
 	}
 }

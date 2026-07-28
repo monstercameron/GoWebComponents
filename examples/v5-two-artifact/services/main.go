@@ -71,6 +71,7 @@ func (parseWorker *worker) handlers() map[string]commandHandler {
 	return map[string]commandHandler{
 		"addRow":    parseWorker.handleAddRow,
 		"removeRow": parseWorker.handleRemoveRow,
+		"heavyWork": parseWorker.handleHeavyWork,
 	}
 }
 
@@ -99,6 +100,10 @@ func (parseWorker *worker) handleAddRow(parseCtx context.Context, parseRequest [
 		return nil, fmt.Errorf("addRow: %w", parseErr)
 	}
 
+	// Publish AFTER the write commits, so the app's projection can never show a
+	// row the database does not have.
+	parseWorker.publishRows(parseCtx)
+
 	return json.Marshal(addRowResult{ID: parseRowID})
 }
 
@@ -116,7 +121,156 @@ func (parseWorker *worker) handleRemoveRow(parseCtx context.Context, parseReques
 	}); parseErr != nil {
 		return nil, fmt.Errorf("removeRow: %w", parseErr)
 	}
+	parseWorker.publishRows(parseCtx)
 	return json.Marshal(struct{}{})
+}
+
+type heavyWorkArgs struct {
+	Rows int `json:"rows"`
+}
+
+// handleHeavyWork is the experiment: a deliberately expensive domain operation,
+// run where v5 says domain work belongs.
+//
+// It does real database writes AND real CPU, because those block differently and
+// the thesis has to survive both. If the two-artifact split works, the render
+// thread should not be able to tell this is happening.
+func (parseWorker *worker) handleHeavyWork(parseCtx context.Context, parseRequest []byte) ([]byte, error) {
+	var parseArgs heavyWorkArgs
+	if parseErr := json.Unmarshal(parseRequest, &parseArgs); parseErr != nil {
+		return nil, fmt.Errorf("heavyWork: %w", parseErr)
+	}
+	if parseArgs.Rows <= 0 {
+		parseArgs.Rows = 2000
+	}
+
+	for parseIndex := 0; parseIndex < parseArgs.Rows; parseIndex++ {
+		parseWorker.mutex.Lock()
+		parseWorker.nextID++
+		parseRowID := strconv.Itoa(parseWorker.nextID)
+		parseWorker.mutex.Unlock()
+
+		// CPU alongside the I/O. A pure INSERT loop would mostly measure SQLite,
+		// and the question is whether ANY sustained Go work in the worker reaches
+		// the render thread.
+		parseChurn := 0
+		for parseInner := 0; parseInner < 20000; parseInner++ {
+			parseChurn = (parseChurn*31 + parseInner) % 1000003
+		}
+
+		if _, parseErr := parseWorker.db.Exec(parseCtx,
+			`INSERT INTO rows_t (id, name, total) VALUES (?, ?, ?)`,
+			parseRowID, fmt.Sprintf("bulk-%s", parseRowID), parseChurn); parseErr != nil {
+			return nil, fmt.Errorf("heavyWork insert: %w", parseErr)
+		}
+	}
+
+	parseWorker.publishRows(parseCtx)
+	return json.Marshal(struct {
+		Inserted int `json:"inserted"`
+	}{Inserted: parseArgs.Rows})
+}
+
+// hashPayload derives a delta.Row version from the payload bytes.
+//
+// FNV-1a rather than a counter because the engine treats an unchanged version as
+// "this row did not change". Deriving it from the content makes that true by
+// construction: a row republishes exactly when its bytes differ, so a full
+// re-publish of an unchanged table produces zero ops and zero messages.
+//
+// A collision would suppress a real update. For a 64-bit hash over small JSON
+// payloads that is not a practical concern here, but it IS the failure mode to
+// remember before reusing this on data where a missed update is unacceptable —
+// there, carry a real version from the row itself.
+func hashPayload(parsePayload []byte) uint64 {
+	const parseOffset uint64 = 14695981039346656037
+	const parsePrime uint64 = 1099511628211
+	parseHash := parseOffset
+	for _, parseByte := range parsePayload {
+		parseHash = (parseHash ^ uint64(parseByte)) * parsePrime
+	}
+	return parseHash
+}
+
+// publishRows recomputes the published projection and posts the DELTA to the app.
+//
+// This is the return half of the two-artifact split, and it is the half that was
+// missing: without it the app can tell the domain to do something but can never
+// learn what the domain now knows. The command reply carries an id, not state, so
+// a page rendering from a projection stayed empty forever while every command
+// succeeded — a failure that produces no error anywhere.
+//
+// Deltas rather than a snapshot, which is the entire reason delta.Engine exists:
+// re-sending 20,000 rows because one changed is what makes a worker-backed list
+// feel worse than no worker at all. The engine holds one integer per key and
+// resends payloads only for inserts and updates — a reorder or a delete carries no
+// data.
+//
+// Posted WITHOUT a request id. Ids correlate replies to waiting callers; this is
+// unsolicited, so it is tagged by shape ("ops") and the app routes on that. Giving
+// it id 0 would look like a reply to an unknown request, which is exactly how the
+// worker-death path is signalled.
+func (parseWorker *worker) publishRows(parseCtx context.Context) {
+	parseCursor, parseErr := parseWorker.db.Query(parseCtx, `SELECT id, name, total FROM rows_t ORDER BY id`)
+	if parseErr != nil {
+		// Reported, not swallowed: a publication that silently stops leaves the UI
+		// frozen on stale data with nothing to indicate it.
+		js.Global().Get("console").Call("error", "publishRows query failed: "+parseErr.Error())
+		return
+	}
+	defer parseCursor.Close()
+
+	type publishedRow struct {
+		Name  string `json:"name"`
+		Total int    `json:"total"`
+	}
+	parseRows := []delta.Row{}
+	for parseCursor.Next() {
+		var parseID, parseName string
+		var parseTotal int
+		if parseScanErr := parseCursor.Scan(&parseID, &parseName, &parseTotal); parseScanErr != nil {
+			js.Global().Get("console").Call("error", "publishRows scan failed: "+parseScanErr.Error())
+			return
+		}
+		parseEncoded, parseEncodeErr := json.Marshal(publishedRow{Name: parseName, Total: parseTotal})
+		if parseEncodeErr != nil {
+			js.Global().Get("console").Call("error", "publishRows encode failed: "+parseEncodeErr.Error())
+			return
+		}
+		parseRows = append(parseRows, delta.Row{
+			Key: delta.Key(parseID),
+			// Version is the producer's responsibility and the engine's ONLY way to
+			// notice an update. Hashing the payload means it changes exactly when the
+			// data changes: a counter would republish unchanged rows, and a constant
+			// would never republish changed ones.
+			Version: hashPayload(parseEncoded),
+			Payload: parseEncoded,
+		})
+	}
+	if parseRowsErr := parseCursor.Err(); parseRowsErr != nil {
+		js.Global().Get("console").Call("error", "publishRows iterate failed: "+parseRowsErr.Error())
+		return
+	}
+
+	parseOps, parseOpsBuildErr := parseWorker.engine.Publish(parseRows)
+	if parseOpsBuildErr != nil {
+		js.Global().Get("console").Call("error", "publishRows delta failed: "+parseOpsBuildErr.Error())
+		return
+	}
+	if len(parseOps) == 0 {
+		// Nothing changed. Saying so costs a message; saying nothing costs nothing
+		// and is correct — the app's projection already matches.
+		return
+	}
+
+	parseEncodedOps, parseOpsErr := json.Marshal(parseOps)
+	if parseOpsErr != nil {
+		js.Global().Get("console").Call("error", "publishRows marshal ops failed: "+parseOpsErr.Error())
+		return
+	}
+	parseMessage := js.Global().Get("Object").New()
+	parseMessage.Set("ops", string(parseEncodedOps))
+	js.Global().Call("postMessage", parseMessage)
 }
 
 // postReply answers one request. Every path through the handler must reach this

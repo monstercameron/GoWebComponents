@@ -83,6 +83,98 @@ marked void where it appears.
 | M3 interaction p95 | 56.0 ms | < 50 ms | ❌ missed |
 | M7 max GC pause | ~5.5 ms | < 3 ms | ❌ missed |
 
+### M2 root cause, isolated (2026-07-26)
+
+M2's long frames are **coalesced update batches**, not slow rendering. Measured with
+real trusted keystrokes, per-keystroke Go phase totals sampled around every key:
+
+| | commits | work units | time |
+|---|---:|---:|---:|
+| typical keystroke | 2.2 | 89 | **8.2 ms** |
+| worst keystrokes | 4–5 | 153–154 | **82–131 ms** |
+
+2.3x the commits and 1.7x the work produce **16x the time**. That superlinearity is
+the finding: when keystrokes arrive faster than the loop drains them, updates queue
+and several commits then execute inside ONE frame. Roughly 2-5% of keystrokes hit
+this; the rest are comfortably inside budget.
+
+Four hypotheses were tested and **refuted**, each with a control:
+
+- *Worker chatter floods the render thread.* Measured **2 messages/second**. The
+  handler is cheap and the rate is negligible.
+- *GC pauses cause it.* The worst frames show `gc=0`. The Go heap sits at 1-2 MB
+  against a 12.6 MB next-GC threshold and never grows.
+- *Style/layout is the cost.* `styleAndLayoutDuration = 0` on every long frame.
+- *The environment preempts the main thread.* An idle page produced **1200 frames
+  in 20s with zero long frames**. The environment floor is clean.
+
+Also refuted: that load causes it. Typing with NO background load still produces
+long frames at a similar rate, and M1 (frame-time equivalence under load) passes
+4/4. Load is not the variable; input arrival rate is.
+
+**This is a scheduler problem, and the mechanism meant to solve it makes it worse.**
+Draining a queued batch across several frames is exactly what `FrameBudgetMs` is
+for. It is disabled by default because time-slicing broke rendering outright, and
+enabling it now (`?v5=1`, which also turns on `PassiveEffectsAfterPaint` and
+`LaneQueues`) measurably degrades the metric: 36 long frames instead of 28, worst
+119 ms instead of 82 ms, blocking 457 ms instead of 70 ms. Two independent
+attempts at scheduling have now produced the same answer.
+
+So M2 needs the coalescing path fixed — bounding how many commits may execute in
+one frame, and yielding between them — not a faster reconciler. `internal/runtime`
+is 0.43% of the native render path; there is no constant factor there worth the
+16x.
+
+### M2's cause was misdiagnosed, and the real one is fixed (2026-07-26)
+
+This section's own conclusion — "closing it means making reconciliation and commit
+faster, not rescheduling them" — was **wrong about which code is responsible**,
+and the misdiagnosis is why both scheduling directions failed to move it.
+
+Measured on the two-artifact example with a real domain workload (N SQLite inserts
+plus sustained CPU in `services.wasm`), reading main-thread event-loop lag:
+
+| worker load | p50 | p95 | max | frames >50 ms |
+|---|---:|---:|---:|---:|
+| idle control | 4.2 | 5.1 | 6.1 | 0 |
+| 50 rows | 4.2 | 5.2 | 25.7 | 0 |
+| 200 rows | 4.2 | 5.1 | 18.1 | 0 |
+| 800 rows | 4.2 | 5.1 | **53.8** | **1** |
+
+p50 and p95 do not move at all under any load — the thesis holds and domain work
+is genuinely off the render thread. **The long frames scale with the RESULT, not
+the work.** Phase timing isolated it: `projection.Apply` cost 6.6 ms for 50 ops,
+12.2 ms for 200, and 33.3 ms for 800.
+
+**Root cause: `Projection.Apply` was O(n²).** Every structural op set
+`indexStale`, and the next op's `lookup` called `rebuildIndex`, which clears and
+refills the whole key map — so applying n ops performed n full rebuilds. At the
+package's own `DefaultResident` of 20,000 rows that shape is ~200 million map
+writes in one uninterrupted turn.
+
+Fixed by repairing the index incrementally (`reindexFrom`) instead of
+invalidating it. An in-order publish appends, so the common case became O(1) and
+the worst case is what a rebuild already cost. Results:
+
+| ops | Apply before | Apply after |
+|---:|---:|---:|
+| 50 | 6.6 ms | 5.2 ms |
+| 200 | 12.2 ms | 5.4 ms |
+| 800 | 33.3 ms | **9.6 ms** |
+
+Max main-thread lag at 800 rows fell 52.5 → 26.3 ms, and **frames over 50 ms went
+to zero at every load level tested.** Pinned by
+`projection.TestApplyScalesLinearlyWithOpCount`, which asserts the ratio for 8×
+the ops stays near 8× rather than near 64×.
+
+This does not by itself close M2, which is measured on Example 201's nine
+scenarios rather than on this workload — that number needs re-running. But the
+mechanism the plan named as the blocker was not the one costing the frames, and
+the one that was is now linear. Note also that this was invisible to the existing
+benchmarks: `Apply` is only expensive when a real worker publishes a real batch,
+which nothing in the repo did until the two-artifact example's publication path
+was implemented.
+
 **These are worse than the numbers this table held an hour ago, and the earlier
 ones were not real.** M3 read 40.0 ms and M2 read 4 with `FrameBudgetMs` turned
 on by default. That default has been reverted because time-slicing a render

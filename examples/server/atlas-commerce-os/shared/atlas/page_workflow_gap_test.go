@@ -20,9 +20,9 @@ func TestAtlasNestedPanelAndRouteHelperBranches(buildT *testing.T) {
 	}, nil)
 	buildWarehouseMarkup := renderAtlasMarkupForTest(buildT, warehouseOpsNestedPanelNode(buildWarehousePayload))
 	for _, buildNeedle := range []string{
-		"Warehouse items",
-		"Urgent actions",
-		"Add warehouse item",
+		"Items in this hub",
+		"Needs action",
+		"Add an item",
 	} {
 		if !strings.Contains(buildWarehouseMarkup, buildNeedle) {
 			buildT.Fatalf("expected warehouse nested panel markup to contain %q", buildNeedle)
@@ -30,13 +30,17 @@ func TestAtlasNestedPanelAndRouteHelperBranches(buildT *testing.T) {
 	}
 
 	buildWarehouseContentMarkup := renderAtlasMarkupForTest(buildT, warehouseOpsDetailContent(buildWarehousePayload))
-	if !strings.Contains(buildWarehouseContentMarkup, "Warehouse items") {
+	if !strings.Contains(buildWarehouseContentMarkup, "Items in this hub") {
 		buildT.Fatalf("expected warehouse detail content markup to contain warehouse table, got %q", buildWarehouseContentMarkup)
 	}
 
 	buildOrderPage := buildAtlasPurchaseOrderDetailPage()
 	buildOrderPayload := samplePayloadForRoute(RoutePurchaseOrderDetail, buildOrderPage, nil)
-	buildOrderMarkup := renderAtlasMarkupForTest(buildT, purchaseOrdersNestedPanelNode(buildOrderPayload))
+	// Component-shaped: this panel reaches useAtlasAtom via
+	// currentShellPresentationState, so it needs a render fiber.
+	buildOrderMarkup := renderAtlasComponentForTest(buildT, func() ui.Node {
+		return purchaseOrdersNestedPanelNode(buildOrderPayload)
+	})
 	for _, buildNeedle := range []string{
 		buildOrderPage.Order.ID,
 		"Purchase-order route refresh",
@@ -58,11 +62,16 @@ func TestAtlasNestedPanelAndRouteHelperBranches(buildT *testing.T) {
 		}
 	}
 
+	// Safe to call directly: /app/settings is not one of the sub-routes, so
+	// SettingsNestedPanel returns nil from its default branch before reaching any
+	// panel builder (and therefore any hook).
 	if settingsPanelNode(samplePayloadForRoute(RouteSettings, settingsPage{}, nil)) != nil {
 		buildT.Fatal("expected settings root route to avoid nested settings panel")
 	}
 
-	buildLocaleMarkup := renderAtlasMarkupForTest(buildT, SettingsNestedPanel(samplePayloadForRoute(RouteSettingsLocale, settingsPage{}, nil)))
+	buildLocaleMarkup := renderAtlasComponentForTest(buildT, func() ui.Node {
+		return SettingsNestedPanel(samplePayloadForRoute(RouteSettingsLocale, settingsPage{}, nil))
+	})
 	for _, buildNeedle := range []string{
 		"Locale defaults",
 		"Current locale",
@@ -73,7 +82,9 @@ func TestAtlasNestedPanelAndRouteHelperBranches(buildT *testing.T) {
 		}
 	}
 
-	buildWorkspaceMarkup := renderAtlasMarkupForTest(buildT, settingsPanelNode(samplePayloadForRoute(RouteSettingsWorkspaceDefaults, settingsPage{}, nil)))
+	buildWorkspaceMarkup := renderAtlasComponentForTest(buildT, func() ui.Node {
+		return settingsPanelNode(samplePayloadForRoute(RouteSettingsWorkspaceDefaults, settingsPage{}, nil))
+	})
 	for _, buildNeedle := range []string{
 		"Workspace defaults",
 		"Default warehouse",
@@ -170,7 +181,9 @@ func TestAtlasWorkflowAndPreviewBranches(buildT *testing.T) {
 		}
 	}
 
-	buildTransferMarkup := renderAtlasMarkupForTest(buildT, savedViewTransferCard(samplePayloadForRoute(RouteSettings, settingsPage{}, nil)))
+	buildTransferMarkup := renderAtlasComponentForTest(buildT, func() ui.Node {
+		return savedViewTransferCard(samplePayloadForRoute(RouteSettings, settingsPage{}, nil))
+	})
 	for _, buildNeedle := range []string{
 		"Export saved views",
 		"Import saved views",

@@ -321,7 +321,15 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(parseT *testing.T) {
 
 	for _, parseTc := range parseCases {
 		parsePayload := samplePayloadForRoute(parseTc.path, parseTc.page, parseTc.overlay)
-		parseMarkup, parseErr := ui.RenderToString(App(parsePayload))
+		// App must be handed to the runtime as component + props, never invoked as
+		// App(payload). Its body runs hooks (useAtlasAtom -> state.UseAtom), which
+		// require the fiber the runtime is currently rendering; calling it directly
+		// panics with GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT. This test used to do
+		// exactly that and still passed, because the native hooks were stubs -
+		// which is how client/main.go shipped the same mistake in a form that
+		// white-screened the browser. Keeping the supported form here is what makes
+		// this matrix real evidence that the app can boot.
+		parseMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parsePayload))
 		if parseErr != nil {
 			parseT.Fatalf("%s render failed: %v", parseTc.name, parseErr)
 		}
@@ -344,7 +352,7 @@ func TestAppRenderSpecialScreens(parseT *testing.T) {
 	parseMockPayload.Route.Surface = "internal"
 	parseMockPayload.User = nil
 
-	parseMockMarkup, parseErr := ui.RenderToString(App(parseMockPayload))
+	parseMockMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parseMockPayload))
 	if parseErr != nil {
 		parseT.Fatalf("mock-sign-in render failed: %v", parseErr)
 	}
@@ -368,7 +376,7 @@ func TestAppRenderSpecialScreens(parseT *testing.T) {
 		DefaultWarehouse: "new-jersey-hub",
 	}
 
-	parseRecoveryMarkup, parseErr := ui.RenderToString(App(parseRecoveryPayload))
+	parseRecoveryMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parseRecoveryPayload))
 	if parseErr != nil {
 		parseT.Fatalf("recovery render failed: %v", parseErr)
 	}

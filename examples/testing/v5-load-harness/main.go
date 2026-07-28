@@ -418,6 +418,27 @@ func registerProbes() {
 // #filter for the whole run. This probe just keeps the window open so the
 // driver and the harness stay aligned. Opening the page by hand and typing
 // works the same way.
+// driveTyping waits out a measured window while EXTERNAL input drives the app.
+//
+// IT DOES NOT TYPE, AND IT CANNOT.
+//
+// M3 reads the Event Timing API, which only records TRUSTED events. An event
+// synthesised here with dispatchEvent produces no entry at all, so a probe that
+// "typed" from page script would generate zero samples while looking like it
+// worked. Real keystrokes must come from the automation driver (Playwright's
+// keyboard goes through CDP), typing into the #filter input this app renders.
+//
+// This function used to be exactly the setTimeout below with no explanation, and
+// the consequence was severe: every recorded M1/M3 number was taken with NOTHING
+// INTERACTING. M3 at least said so — "no interactions recorded" — but M1 compared
+// an idle arm against a loaded arm in which the probe also did nothing, and
+// reported equivalence. Measured 2026-07-26, once a driver supplied real
+// keystrokes, M1 failed 2 runs in 3, M2 rose from 0 to 7-27 long frames, and M7
+// went from an unmeasured 0 to a consistent ~10ms.
+//
+// So: the window still just waits, because waiting is all this side can honestly
+// do. What changed is that the harness now REFUSES to report M1 or M3 from a run
+// with no interactions, instead of quietly scoring an idle page.
 func driveTyping(parseDurationMs int) js.Value {
 	parseExecutor := js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
 		parseResolve := parseArgs[0]
@@ -611,7 +632,34 @@ func main() {
 	// ~6.4ms against a 3ms budget, and a 6ms stall the user actually sees is
 	// worth more than a 6ms stall during a load screen nobody is interacting
 	// with.
-	goruntime.GC()
+	//
+	// CORRECTION 2026-07-26: ONE collection was not enough, and the reason is
+	// specific. A standalone probe recording EVERY cycle's pause rather than the
+	// max shows the cost sits at a fixed ordinal — the SECOND collection:
+	//
+	//	perCycle=[0.0  8.1  0.8 1.0 0.4 0.5 0.6 0.4 0.4 0.9 0.5 ...]
+	//	               ^^^ always cycle 2, then sub-millisecond forever
+	//
+	// Measured identically at 0.07MB and 1MB heaps, with 0 and 8000 live js.Func
+	// callbacks, and against both pointer-free and fiber-shaped heaps: ~8ms at
+	// cycle 2 and 0.2-1.4ms everywhere after. It is a one-time warmup in Go's
+	// wasm collector, not a function of heap size, pointer density, or handler
+	// count — which is why every mitigation aimed at those (GOGC 40/20/10, memory
+	// limit, arena pre-grow) left M7 unchanged.
+	//
+	// So warm past it. Three collections, not one: cycle 1 is free, cycle 2 is
+	// the expensive one, and the third confirms the collector has settled before
+	// the app becomes interactive.
+	//
+	// HONEST CAVEAT: this did NOT move M7 (measured 9.2-10.8ms over four runs
+	// with it, against 9.5-12.5ms without). The cycle-2 warmup is real in
+	// isolation but is not what the harness is hitting. Kept because paying a
+	// known one-time cost at boot rather than mid-session is correct regardless,
+	// and it costs two extra collections on a quiescent heap. Do not read its
+	// presence as evidence that M7 was addressed.
+	for range 3 {
+		goruntime.GC()
+	}
 
 	parseChoice := applyURLScheduling()
 

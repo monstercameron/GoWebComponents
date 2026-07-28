@@ -1,0 +1,54 @@
+{
+  "name": "public-landing",
+  "route": "/",
+  "bootstrap": {
+    "version": 1,
+    "route": {
+      "path": "/"
+    },
+    "data": {
+      "atlas": {
+        "route": {
+          "path": "/",
+          "surface": "public",
+          "screen": "landing",
+          "title": "Atlas Commerce OS",
+          "description": "Premium modular workspace systems with warehouse-aware availability.",
+          "canonical": "/"
+        },
+        "preferences": {
+          "theme": "dark",
+          "locale": "en",
+          "density": "compact",
+          "defaultWarehouse": "new-jersey-hub"
+        },
+        "i18n": {
+          "locale": "en",
+          "supportedLocales": [
+            "en",
+            "fr",
+            "ar"
+          ],
+          "direction": "ltr"
+        },
+        "theme": {
+          "mode": "dark",
+          "prefersReducedMotion": false
+        },
+        "data": {
+          "page": {
+            "message": "Atlas storefront landing"
+          }
+        },
+        "savedViews": null,
+        "csrf": "nFVCsE-1tk27yOWSzVByUjRG_YgC1KP17IA3_SkazSA"
+      }
+    },
+    "i18n": {
+      "locale": "en",
+      "fallbackLocale": "en",
+      "direction": "ltr"
+    }
+  },
+  "shape": "screen=landing surface=public session=anonymous"
+}

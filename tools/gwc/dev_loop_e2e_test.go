@@ -84,6 +84,9 @@ func TestDevLoopHotReloadAndAssetSwapE2E(parseT *testing.T) {
 	parseT.Cleanup(func() {
 		parseCancel()
 		terminateProcessTree(parseCmd)
+		// The dev server is a grandchild behind two `go run` hops, so the tree kill
+		// above routinely misses it. See killListenersOnPort.
+		killListenersOnPort(parsePort)
 		select {
 		case <-parseProcessExited:
 		case <-time.After(5 * time.Second):

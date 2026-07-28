@@ -72,17 +72,20 @@ func TestAtlasInventoryAndProductHelpersRenderMarkup(parseT *testing.T) {
 	parseRows := sampleInventoryRows()
 	parseProducts := sampleProductAdminCards()
 
-	if parseClass := marketPressureClass("hot market"); !strings.Contains(parseClass, "rose") {
-		parseT.Fatalf("expected hot market class to use rose palette, got %q", parseClass)
+	// Market pressure is a demand reading, not a status: nothing has gone wrong when a
+	// market is hot and nothing has passed a check when it is steady. It therefore gets
+	// the same quiet meta class whatever it says, and this test pins that rather than
+	// the four saturated palettes it used to assert (rose / amber / slate / emerald).
+	// Those assertions could only pass while a call site was choosing a colour by hand,
+	// which is exactly what the design system has no API for.
+	parseQuietClass := marketPressureClass("steady")
+	if parseQuietClass == "" {
+		parseT.Fatal("expected market pressure to fold to a class")
 	}
-	if parseClass := marketPressureClass("growing demand"); !strings.Contains(parseClass, "amber") {
-		parseT.Fatalf("expected growing demand class to use amber palette, got %q", parseClass)
-	}
-	if parseClass := marketPressureClass("softening"); !strings.Contains(parseClass, "slate") {
-		parseT.Fatalf("expected softening class to use slate palette, got %q", parseClass)
-	}
-	if parseClass := marketPressureClass("steady"); !strings.Contains(parseClass, "emerald") {
-		parseT.Fatalf("expected default market pressure class to use emerald palette, got %q", parseClass)
+	for _, parseLabel := range []string{"hot market", "growing demand", "softening", "steady"} {
+		if parseClass := marketPressureClass(parseLabel); parseClass != parseQuietClass {
+			parseT.Fatalf("market pressure %q returned %q, want the same neutral meta class %q", parseLabel, parseClass, parseQuietClass)
+		}
 	}
 	if parseMin := minInt(3, 7); parseMin != 3 {
 		parseT.Fatalf("minInt(3,7) = %d, want 3", parseMin)
@@ -199,20 +202,29 @@ func TestAtlasPublicCommentHelpersNormalizeAndSummarize(parseT *testing.T) {
 		parseT.Fatal("expected nil field errors to stay nil")
 	}
 
-	if parseClass := publicCommentSubmitClass(true); !strings.Contains(parseClass, "cursor-wait") {
-		parseT.Fatalf("expected submitting class to include wait state, got %q", parseClass)
+	// These three helpers now fold shared/design bundles into ONE hashed class
+	// (design.Class), so there is no literal "cursor-wait" or "border-rose-300"
+	// substring left to match — the utility strings they used to concatenate are
+	// exactly what the design-system conversion removed. What the assertions
+	// protected was that each helper's two states are DISTINGUISHABLE and neither
+	// is empty, so that is what they assert now, on the folded class name.
+	if publicCommentSubmitClass(true) == publicCommentSubmitClass(false) {
+		parseT.Fatalf("expected the submitting submit class to differ from the idle one, got %q", publicCommentSubmitClass(true))
 	}
-	if parseClass := publicCommentSubmitClass(false); strings.Contains(parseClass, "cursor-wait") {
-		parseT.Fatalf("expected idle submit class to omit wait state, got %q", parseClass)
+	if strings.TrimSpace(publicCommentSubmitClass(false)) == "" {
+		parseT.Fatal("expected the idle submit class to fold to a class name")
 	}
 	if publicCommentSubmitLabel(true) != "Sending..." || publicCommentSubmitLabel(false) != "Share feedback" {
 		parseT.Fatal("unexpected public comment submit labels")
 	}
-	if parseClass := publicCommentFieldClass(true); !strings.Contains(parseClass, "border-rose-300") {
-		parseT.Fatalf("expected error field class to include rose border, got %q", parseClass)
+	if publicCommentFieldClass(true) == publicCommentFieldClass(false) {
+		parseT.Fatalf("expected the invalid field class to differ from the valid one, got %q", publicCommentFieldClass(true))
 	}
-	if parseClass := publicCommentTextareaClass(true); !strings.Contains(parseClass, "border-rose-300") {
-		parseT.Fatalf("expected error textarea class to include rose border, got %q", parseClass)
+	if publicCommentTextareaClass(true) == publicCommentTextareaClass(false) {
+		parseT.Fatalf("expected the invalid textarea class to differ from the valid one, got %q", publicCommentTextareaClass(true))
+	}
+	if publicCommentTextareaClass(false) == publicCommentFieldClass(false) {
+		parseT.Fatal("expected the textarea class to add its own min-height on top of the shared input primitive")
 	}
 	if formatPublicCommentDate("") != "recently" || formatPublicCommentDate("2026-03-26T12:34:56Z") != "2026-03-26" || formatPublicCommentDate("short") != "short" {
 		parseT.Fatal("unexpected public comment date formatting")

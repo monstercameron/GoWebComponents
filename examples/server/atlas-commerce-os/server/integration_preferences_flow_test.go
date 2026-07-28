@@ -25,7 +25,7 @@ func TestThemeAndLocalePersistenceIntegration(parseT *testing.T) {
 	}
 	parseInitialBody := parseInitialRes.Body.String()
 	for _, parseExpected := range []string{
-		`<html lang="en" class="atlas-theme-dark atlas-density-compact"`,
+		`<html lang="en" dir="ltr" class="atlas-theme-dark atlas-density-compact"`,
 		`id="__ATLAS_BOOTSTRAP__"`,
 		`"locale":"en"`,
 		`"direction":"ltr"`,
@@ -84,7 +84,7 @@ func TestThemeAndLocalePersistenceIntegration(parseT *testing.T) {
 	}
 	parseReloadBody := parseReloadRes.Body.String()
 	for _, parseExpected := range []string{
-		`<html lang="ar" class="atlas-theme-light atlas-density-comfortable"`,
+		`<html lang="ar" dir="rtl" class="atlas-theme-light atlas-density-comfortable"`,
 		`id="__ATLAS_BOOTSTRAP__"`,
 		`"locale":"ar"`,
 		`"direction":"rtl"`,
@@ -105,7 +105,7 @@ func TestThemeAndLocalePersistenceIntegration(parseT *testing.T) {
 	}
 	parseReloadAgainBody := parseReloadAgainRes.Body.String()
 	for _, parseExpected := range []string{
-		`<html lang="ar" class="atlas-theme-light atlas-density-comfortable"`,
+		`<html lang="ar" dir="rtl" class="atlas-theme-light atlas-density-comfortable"`,
 		`"locale":"ar"`,
 		`"direction":"rtl"`,
 		`"theme":{"mode":"light"`,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,24 +24,28 @@ func main() {
 }
 
 type atlasMainDeps struct {
-	loadConfig     func() (config, error)
-	openDB         func(context.Context, string) (*sql.DB, error)
-	migrate        func(context.Context, *sql.DB, string, string) error
-	seed           func(context.Context, *sql.DB) error
-	signalNotify   func(chan<- os.Signal, ...os.Signal)
-	listenAndServe func(*http.Server) error
-	output         io.Writer
+	loadConfig   func() (config, error)
+	openDB       func(context.Context, string) (*sql.DB, error)
+	migrate      func(context.Context, *sql.DB, string, string) error
+	seed         func(context.Context, *sql.DB) error
+	signalNotify func(chan<- os.Signal, ...os.Signal)
+	listen       func(string) (net.Listener, error)
+	serve        func(*http.Server, net.Listener) error
+	output       io.Writer
 }
 
 func defaultAtlasMainDeps() atlasMainDeps {
 	return atlasMainDeps{
-		loadConfig:     loadConfig,
-		openDB:         serverdb.Open,
-		migrate:        serverdb.Migrate,
-		seed:           serverdb.Seed,
-		signalNotify:   signal.Notify,
-		listenAndServe: func(parseServer *http.Server) error { return parseServer.ListenAndServe() },
-		output:         os.Stdout,
+		loadConfig:   loadConfig,
+		openDB:       serverdb.Open,
+		migrate:      serverdb.Migrate,
+		seed:         serverdb.Seed,
+		signalNotify: signal.Notify,
+		listen:       func(parseAddr string) (net.Listener, error) { return net.Listen("tcp", parseAddr) },
+		serve: func(parseServer *http.Server, parseListener net.Listener) error {
+			return parseServer.Serve(parseListener)
+		},
+		output: os.Stdout,
 	}
 }
 
@@ -48,6 +53,10 @@ func runAtlasServer(parseDeps atlasMainDeps) error {
 	parseCfg, parseErr := parseDeps.loadConfig()
 	if parseErr != nil {
 		return parseErr
+	}
+
+	if parseWarning := atlasWASMStartupWarning(parseCfg); parseWarning != "" {
+		_, _ = fmt.Fprint(parseDeps.output, parseWarning)
 	}
 
 	parseCtx := context.Background()
@@ -71,6 +80,13 @@ func runAtlasServer(parseDeps atlasMainDeps) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	// Bind before announcing readiness: ListenAndServe would have let a port
+	// collision print a success line and then fail.
+	parseListener, parseErr4 := parseDeps.listen(parseCfg.Addr)
+	if parseErr4 != nil {
+		return fmt.Errorf("listen on %s: %w", parseCfg.Addr, parseErr4)
+	}
+
 	parseShutdown := make(chan os.Signal, 1)
 	parseDeps.signalNotify(parseShutdown, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -80,9 +96,9 @@ func runAtlasServer(parseDeps atlasMainDeps) error {
 		_ = parseHttpServer.Shutdown(parseCtx2)
 	}()
 
-	_, _ = fmt.Fprintf(parseDeps.output, "Atlas server listening on http://%s\n", parseCfg.Addr)
-	if parseErr4 := parseDeps.listenAndServe(parseHttpServer); parseErr4 != nil && parseErr4 != http.ErrServerClosed {
-		return parseErr4
+	_, _ = fmt.Fprintf(parseDeps.output, "Atlas server listening on http://%s\n", parseListener.Addr().String())
+	if parseErr5 := parseDeps.serve(parseHttpServer, parseListener); parseErr5 != nil && parseErr5 != http.ErrServerClosed {
+		return parseErr5
 	}
 	return nil
 }

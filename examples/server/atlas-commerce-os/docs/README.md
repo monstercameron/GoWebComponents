@@ -4,33 +4,33 @@ This is the kickoff scaffold for the flagship Atlas Commerce OS example.
 
 It currently establishes:
 
-- the shared Atlas SSR page tree used by both the native server and browser hydration
+- the shared Atlas page tree used for both native-server route payloads and browser hydration
 - the current product narrative and operations visual direction
 - shared bootstrap shapes, repository contracts, seed data, and token hooks
-- a native Go server with sqlite-backed mutations and request-time rendering
-- a runnable wasm hydration entrypoint for the server-rendered Atlas shell
+- a native Go server with sqlite-backed mutations and request-time route metadata plus bootstrap payloads
+- a runnable wasm hydration entrypoint that renders the Atlas shell into the server's empty app container
 
 What it shows now:
 
-- server-rendered storefront and internal Atlas routes
+- storefront and internal Atlas routes served with request-time head metadata (`<title>`, description, canonical) and a `__ATLAS_BOOTSTRAP__` payload carrying route, preferences, i18n, theme, page data, and CSRF token
 - public catalog, product, warehouse, and warehouse-specific availability surfaces
 - validated public quote, restock, and product-question forms
 - internal inventory, transfers, receiving, moderation, settings, purchase-order, and warehouse routes behind mock auth
-- shared hydration from the same Atlas payload used during SSR
+- browser hydration of the shared page tree from that same bootstrap payload; the server emits an empty `<div id="app"></div>`, so all visible markup is produced client-side and routes such as `/shop` are blank without scripting
 - sqlite-backed mutations, CSRF protection, and request-time recovery flows
 
 Current migration focus:
 
 - rewrite the Atlas public and internal shells using the React design references under `design/`
 - match the GoWebComponents HTML and CSS output to the React compositions as closely as Atlas route semantics allow
-- replicate and enhance the React interaction patterns through Atlas SSR plus WASM hydration
+- replicate and enhance the React interaction patterns through the Atlas server bootstrap plus WASM hydration
 - track execution details in `docs/ATLAS_COMMERCE_OS_TODO.md`
 
 ## Current Structure
 
-- `client/`: wasm hydration entrypoint for the server-rendered Atlas surface
-- `shared/`: shared Atlas SSR contracts and page tree, repository interfaces, seed data, design tokens, and cross-surface helpers used by both the browser and native server paths
-- `server/`: native Atlas server, auth and sqlite layers, SSR handlers, mutation endpoints, and server-owned data assets under `server/data/`
+- `client/`: wasm hydration entrypoint that renders the Atlas surface from the server bootstrap payload
+- `shared/`: shared Atlas bootstrap contracts and page tree, repository interfaces, seed data, design tokens, and cross-surface helpers used by both the browser and native server paths
+- `server/`: native Atlas server, auth and sqlite layers, route metadata and bootstrap handlers, mutation endpoints, and server-owned data assets under `server/data/`
 - `docs/`: this README plus supporting notes and local reset workflow helpers
 
 ## Support Files
@@ -39,8 +39,8 @@ Current migration focus:
 - `server/data/migrations/001_initial_schema.sql`: numbered startup migration used by the native server
 - `shared/repository/contracts.go`: repository interfaces and query contracts
 - `shared/atlas/bootstrap.go`: shared bootstrap contract now used by both the native server and the wasm client
-- `shared/atlas/page.go`: shared Atlas SSR page tree used for server rendering and browser hydration
-- `client/main.go`: js/wasm hydration entrypoint for the server-rendered Atlas surface
+- `shared/atlas/page.go`: shared Atlas page tree used for server route payloads and browser hydration
+- `client/main.go`: js/wasm hydration entrypoint that renders the Atlas surface in the browser
 - `docs/ATLAS_COMMERCE_OS_TODO.md`: active rewrite plan for React-to-GoWebComponents Atlas parity work
 - `docs/scripts/reset-seed.ps1`: removes the local Atlas sqlite path so demos can return to a clean seed baseline once persistence lands
 - The former standalone planning and review notes now live in the consolidated sections below.
@@ -53,27 +53,29 @@ From `examples/`:
 go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v
 ```
 
-Atlas now validates through the native-server SSR suite. The retired static hash-router lane has been removed so browser coverage stays aligned with the real server-rendered example.
+Atlas now validates through the native-server suite. The retired static hash-router lane has been removed so browser coverage stays aligned with the real native-server example.
 
 ## Build
 
-From the repo root:
+From the repo root. The wasm entrypoint is `client/main.go`, a `js/wasm` program, so the build needs `GOOS=js`/`GOARCH=wasm` or it fails with `build constraints exclude all Go files`. Output must land in `examples/static/bin/`, where the server looks for it and where it is served from as `/assets/bin/atlas-commerce-os.wasm`.
+
+PowerShell:
 
 ```powershell
-Set-Location .\examples
-.\build.ps1 -Example 86-atlas-commerce-os
+New-Item -ItemType Directory -Path .\examples\static\bin -Force | Out-Null
+$env:GOOS = 'js'; $env:GOARCH = 'wasm'; go build -o .\examples\static\bin\atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client; Remove-Item Env:\GOOS, Env:\GOARCH
 ```
 
-The example build script now detects the reorganized wasm entrypoint at `client/main.go`; the equivalent direct build is:
+Git Bash:
 
-```powershell
-New-Item -ItemType Directory -Path .\bin\examples -Force | Out-Null
-go build -o .\bin\examples\atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client
+```bash
+mkdir -p examples/static/bin
+GOOS=js GOARCH=wasm go build -o examples/static/bin/atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client
 ```
 
 ## Run
 
-From the repo root:
+From the repo root, after the build above. Clear `GOOS`/`GOARCH` first if they are still set, because the server must build natively:
 
 ```powershell
 go run ./examples/server/atlas-commerce-os/server
@@ -1879,15 +1881,16 @@ Current Atlas limitations after the native Go server milestone:
 
 - mock auth is now cookie-backed, but it is still a demo session model rather than a real identity system
 - locale handling remains selective and does not yet ship a full translation bundle across every internal micro-surface
-- the broader accessibility pass is still incomplete even though route-entry, form, and SSR smoke coverage exist
+- the broader accessibility pass is still incomplete even though route-entry, form, and smoke coverage exist
 - several client-side resume behaviors still lean on browser storage in addition to server-backed bootstrap state
+- the page tree is not rendered on the server: responses carry route head metadata and the bootstrap payload around an empty `<div id="app"></div>`, so routes are blank until wasm hydration runs
 
 What is now shipped:
 
 - sqlite persistence with numbered startup migrations
-- request-time SSR from the example 86 Go server
+- request-time route metadata and bootstrap payloads from the example 86 Go server
 - public and internal JSON endpoints behind one process
-- branded recovery pages for missing SSR routes and records
+- branded recovery pages for missing routes and records
 - mock sign-in and recovery flow for internal routes
 - CSRF enforcement for public and internal write endpoints
 
@@ -2378,7 +2381,7 @@ Use these checkpoints when Atlas changes route shells, diagnostics, overlays, or
 
 ## Build And Startup
 
-- Atlas wasm should rebuild successfully from `./examples/build.ps1 -Example 86-atlas-commerce-os`.
+- Atlas wasm should rebuild successfully using the `Build` command above into `examples/static/bin/atlas-commerce-os.wasm`.
 - Public landing, catalog, and product routes should mount without blank intermediate states.
 - Internal dashboard and inventory routes should mount cleanly on direct entry with persisted preferences applied.
 
@@ -2504,7 +2507,7 @@ Use this file as the release-prep and regression baseline for the current Atlas 
 
 ## Release-Readiness Checklist
 
-- Atlas wasm build completes from the repo root using `./examples/build.ps1 -Example 86-atlas-commerce-os`.
+- Atlas wasm build completes from the repo root using the `Build` command above and writes `examples/static/bin/atlas-commerce-os.wasm`.
 - Atlas SSR coverage passes using `go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v` from `examples/`.
 - Atlas cross-browser smoke coverage passes using `go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasCrossBrowserSmoke -v` from `examples/`.
 - Public shell, internal shell, and route-recovery surfaces all render without blank states.
@@ -2556,10 +2559,9 @@ Use this section as the Windows command matrix and local task grouping for Atlas
 | Shared unit and render helpers | `go test ./examples/server/atlas-commerce-os/shared/...` | Route copy, shell markup helpers, derived state, cache helpers, tokens, seed data, and render primitives. |
 | Server unit and integration | `go test ./examples/server/atlas-commerce-os/server/...` | Route handlers, API handlers, bootstrap payloads, CSRF, auth redirects, persistence rules, and integration flows. |
 | Full Atlas Go package sweep | `go test ./examples/server/atlas-commerce-os/...` | Before handing off any Atlas server, shared, seed, token, or docs-linked behavior change. |
-| Wasm build | `Push-Location .\examples; .\build.ps1 -Example 86-atlas-commerce-os; Pop-Location` | Before any browser assertion, screenshot capture, or manual review after changing client, shared, token, route, or shell code. |
-| Direct wasm build fallback | `(New-Item -ItemType Directory -Path .\bin\examples -Force) > $null; go build -o .\bin\examples\atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client` | When the example build wrapper is being debugged and the browser bundle still needs to be refreshed. |
+| Wasm build | `$env:GOOS = 'js'; $env:GOARCH = 'wasm'; go build -o .\examples\static\bin\atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client; Remove-Item Env:\GOOS, Env:\GOARCH` | Before any browser assertion, screenshot capture, or manual review after changing client, shared, token, route, or shell code. Clear `GOOS`/`GOARCH` before the next native `go run` or `go test`. |
 | Atlas browser-flow manifest guard | `go test ./examples/tests/atlas-commerce-os` | Validates the buyer-flow, operator-flow, design-parity, recovery, E2E, helper, and screenshot planning skeletons before executable Playwright specs are promoted. |
-| SSR Playwright suite | `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v; Pop-Location` | Direct-entry public and internal route coverage on the server-rendered Atlas example. |
+| SSR Playwright suite | `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v; Pop-Location` | Direct-entry public and internal route coverage on the native-server Atlas example. |
 | Cross-browser smoke | `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasCrossBrowserSmoke -v; Pop-Location` | Browser-matrix release checks after shell, route, preference, or bootstrap changes. |
 | Atlas startup smoke | `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasStartup -v; Pop-Location` | Fast browser startup confirmation when touching server boot or asset loading. |
 | Screenshot refresh review | `go run ./examples/server/atlas-commerce-os/server` plus manual Chromium captures into `examples/server/atlas-commerce-os/docs/screenshots/` | Visual baseline updates for public desktop, internal mobile density, light and dark theme changes. |
@@ -2570,8 +2572,8 @@ Use this section as the Windows command matrix and local task grouping for Atlas
 Browser runs must follow this order whenever client, shared Atlas, token, route rendering, or shell code has changed:
 
 1. Stop any long-running Atlas server that may be serving an older binary.
-2. Rebuild the example wasm with `Push-Location .\examples; .\build.ps1 -Example 86-atlas-commerce-os; Pop-Location`.
-3. Confirm `bin\examples\atlas-commerce-os.wasm` has a fresh modified time after the source edit.
+2. Rebuild the example wasm with the `Wasm build` command from the command matrix above.
+3. Confirm `examples\static\bin\atlas-commerce-os.wasm` has a fresh modified time after the source edit.
 4. Start the server with `go run ./examples/server/atlas-commerce-os/server`.
 5. Run the targeted Playwright command or manual browser review.
 6. If browser behavior contradicts a recent source change, repeat the rebuild and restart before debugging route logic.

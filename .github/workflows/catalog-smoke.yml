@@ -29,6 +29,30 @@ jobs:
       - name: Build gwc
         run: go build -o gwc ./tools/gwc
 
+      # The module path the throwaway modules require/replace is READ from this repo, never
+      # written here. It used to be the literal "github.com/monstercameron/GoWebComponents",
+      # which stopped resolving the moment the library moved to /v5: `gwc add` emits imports of
+      # ".../v5/ui", ".../v5/router" and ".../v5/html/shorthand", so an un-suffixed replace
+      # covered nothing and the gate went to the network for the local checkout. A hardcoded
+      # module path inside a harness that compiles against that module is a second copy of a
+      # fact, and it went stale at the first opportunity. (Same defect, same fix, as the
+      # doc-samples gate — see 5fd634d4.)
+      #
+      # The require version is derived from the path's major suffix too: Go rejects a require of
+      # ".../v5" at v0.0.0, so that cannot be a constant either.
+      - name: Derive module path + require version from go.mod
+        shell: bash
+        run: |
+          module="$(go list -m)"
+          major="${module##*/v}"
+          version="v0.0.0"
+          if [ "$major" != "$module" ] && printf '%s' "$major" | grep -Eq '^[0-9]+$'; then
+            version="v${major}.0.0"
+          fi
+          echo "Module under test: $module $version"
+          echo "GWC_MODULE=$module" >> "$GITHUB_ENV"
+          echo "GWC_VERSION=$version" >> "$GITHUB_ENV"
+
       - name: gwc add → go build each catalog component
         shell: bash
         run: |
@@ -37,8 +61,8 @@ jobs:
             work="$(mktemp -d)"
             ( cd "$work"
               go mod init example.com/catalog-smoke
-              echo "require github.com/monstercameron/GoWebComponents v0.0.0" >> go.mod
-              echo "replace github.com/monstercameron/GoWebComponents => $repo" >> go.mod
+              echo "require $GWC_MODULE $GWC_VERSION" >> go.mod
+              echo "replace $GWC_MODULE => $repo" >> go.mod
               mkdir -p uikit
               "$repo/gwc" add "$name" -dir ./uikit -pkg uikit
               # Tiny consumer so the package is actually compiled, not just present.
@@ -60,8 +84,8 @@ jobs:
           work="$(mktemp -d)"
           ( cd "$work"
             go mod init example.com/generator-smoke
-            echo "require github.com/monstercameron/GoWebComponents v0.0.0" >> go.mod
-            echo "replace github.com/monstercameron/GoWebComponents => $repo" >> go.mod
+            echo "require $GWC_MODULE $GWC_VERSION" >> go.mod
+            echo "replace $GWC_MODULE => $repo" >> go.mod
             "$repo/gwc" add component MyWidget -dir ./ui -pkg ui
             "$repo/gwc" add route Home -path /home -dir ./ui -pkg ui
             printf 'package main\nimport _ "example.com/generator-smoke/ui"\nfunc main() {}\n' > main.go

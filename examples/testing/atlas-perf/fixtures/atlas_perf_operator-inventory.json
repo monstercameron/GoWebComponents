@@ -1,0 +1,295 @@
+{
+  "name": "operator-inventory",
+  "route": "/app/inventory",
+  "role": "inventory_manager",
+  "bootstrap": {
+    "version": 1,
+    "route": {
+      "path": "/app/inventory"
+    },
+    "data": {
+      "atlas": {
+        "route": {
+          "path": "/app/inventory",
+          "surface": "internal",
+          "screen": "inventory",
+          "title": "Atlas Inventory",
+          "description": "Review inventory health, saved views, and warehouse-aware stock pressure.",
+          "canonical": "/app/inventory"
+        },
+        "preferences": {
+          "theme": "dark",
+          "locale": "en",
+          "density": "compact",
+          "defaultWarehouse": "new-jersey-hub"
+        },
+        "i18n": {
+          "locale": "en",
+          "supportedLocales": [
+            "en",
+            "fr",
+            "ar"
+          ],
+          "direction": "ltr"
+        },
+        "theme": {
+          "mode": "dark",
+          "prefersReducedMotion": false
+        },
+        "data": {
+          "page": {
+            "summary": {
+              "headline": "Inventory pressure baseline",
+              "items": [
+                {
+                  "label": "Visible lanes",
+                  "value": "6",
+                  "detail": "The current filter set drives both the queue and the operator action rail."
+                },
+                {
+                  "label": "Promise risk",
+                  "value": "2",
+                  "detail": "These lanes are closest to slipping customer-facing availability promises."
+                },
+                {
+                  "label": "Inbound units",
+                  "value": "19",
+                  "detail": "Use inbound to separate lanes that need patience from lanes that need new action."
+                },
+                {
+                  "label": "Reorder units",
+                  "value": "115",
+                  "detail": "This total is already pointing at vendor replenishment instead of local balancing."
+                }
+              ]
+            },
+            "items": [
+              {
+                "ID": "inv-frame-desk-nj",
+                "SKU": "frame-desk",
+                "Slug": "frame-desk",
+                "Title": "Frame Desk",
+                "Category": "desks",
+                "PriceCents": 189900,
+                "ProductStatus": "low_stock",
+                "WarehouseID": "new-jersey-hub",
+                "WarehouseName": "New Jersey Hub",
+                "OnHand": 6,
+                "Reserved": 3,
+                "Available": 3,
+                "CoverDays": 14,
+                "Inbound": 4,
+                "Damaged": 0,
+                "ReorderPoint": 22,
+                "SafetyStock": 11,
+                "Status": "promise_risk",
+                "WeeklyUnits": 10,
+                "WeeklyRevenue": 1899000,
+                "SellThrough": 71,
+                "DemandScore": 99,
+                "RegionalShare": 42,
+                "ReorderUnits": 24,
+                "MarketPressure": "Hot market",
+                "MarketSignal": "Commercial demand is accelerating ahead of the next replenishment cycle.",
+                "UpdatedAt": "2026-03-17T13:13:50Z"
+              },
+              {
+                "ID": "inv-studio-console-nj",
+                "SKU": "studio-console",
+                "Slug": "studio-console",
+                "Title": "Studio Console",
+                "Category": "storage",
+                "PriceCents": 249900,
+                "ProductStatus": "in_stock",
+                "WarehouseID": "new-jersey-hub",
+                "WarehouseName": "New Jersey Hub",
+                "OnHand": 5,
+                "Reserved": 2,
+                "Available": 3,
+                "CoverDays": 14,
+                "Inbound": 1,
+                "Damaged": 0,
+                "ReorderPoint": 18,
+                "SafetyStock": 9,
+                "Status": "promise_risk",
+                "WeeklyUnits": 8,
+                "WeeklyRevenue": 1999200,
+                "SellThrough": 61,
+                "DemandScore": 90,
+                "RegionalShare": 42,
+                "ReorderUnits": 21,
+                "MarketPressure": "Hot market",
+                "MarketSignal": "Demand is steady enough to balance service without emergency transfers.",
+                "UpdatedAt": "2026-03-17 12:57:33"
+              },
+              {
+                "ID": "inv-frame-desk-il",
+                "SKU": "frame-desk",
+                "Slug": "frame-desk",
+                "Title": "Frame Desk",
+                "Category": "desks",
+                "PriceCents": 189900,
+                "ProductStatus": "low_stock",
+                "WarehouseID": "illinois-hub",
+                "WarehouseName": "Illinois Hub",
+                "OnHand": 9,
+                "Reserved": 2,
+                "Available": 7,
+                "CoverDays": 14,
+                "Inbound": 2,
+                "Damaged": 0,
+                "ReorderPoint": 18,
+                "SafetyStock": 9,
+                "Status": "balanced",
+                "WeeklyUnits": 9,
+                "WeeklyRevenue": 1709100,
+                "SellThrough": 61,
+                "DemandScore": 97,
+                "RegionalShare": 33,
+                "ReorderUnits": 18,
+                "MarketPressure": "Growing demand",
+                "MarketSignal": "Demand is steady enough to balance service without emergency transfers.",
+                "UpdatedAt": "2026-03-17 12:57:33"
+              },
+              {
+                "ID": "inv-studio-console-il",
+                "SKU": "studio-console",
+                "Slug": "studio-console",
+                "Title": "Studio Console",
+                "Category": "storage",
+                "PriceCents": 249900,
+                "ProductStatus": "in_stock",
+                "WarehouseID": "illinois-hub",
+                "WarehouseName": "Illinois Hub",
+                "OnHand": 12,
+                "Reserved": 5,
+                "Available": 7,
+                "CoverDays": 14,
+                "Inbound": 3,
+                "Damaged": 0,
+                "ReorderPoint": 18,
+                "SafetyStock": 9,
+                "Status": "balanced",
+                "WeeklyUnits": 7,
+                "WeeklyRevenue": 1749300,
+                "SellThrough": 59,
+                "DemandScore": 95,
+                "RegionalShare": 33,
+                "ReorderUnits": 13,
+                "MarketPressure": "Growing demand",
+                "MarketSignal": "Demand is steady enough to balance service without emergency transfers.",
+                "UpdatedAt": "2026-03-17 12:57:33"
+              },
+              {
+                "ID": "inv-cable-bridge-nj",
+                "SKU": "cable-bridge",
+                "Slug": "cable-bridge",
+                "Title": "Cable Bridge",
+                "Category": "accessories",
+                "PriceCents": 19900,
+                "ProductStatus": "in_stock",
+                "WarehouseID": "new-jersey-hub",
+                "WarehouseName": "New Jersey Hub",
+                "OnHand": 18,
+                "Reserved": 6,
+                "Available": 12,
+                "CoverDays": 14,
+                "Inbound": 8,
+                "Damaged": 0,
+                "ReorderPoint": 18,
+                "SafetyStock": 9,
+                "Status": "balanced",
+                "WeeklyUnits": 16,
+                "WeeklyRevenue": 318400,
+                "SellThrough": 92,
+                "DemandScore": 99,
+                "RegionalShare": 42,
+                "ReorderUnits": 21,
+                "MarketPressure": "Growing demand",
+                "MarketSignal": "Eastern accessory bundles are converting fastest this week.",
+                "UpdatedAt": "2026-03-17 12:57:33"
+              },
+              {
+                "ID": "inv-frame-desk-nv",
+                "SKU": "frame-desk",
+                "Slug": "frame-desk",
+                "Title": "Frame Desk",
+                "Category": "desks",
+                "PriceCents": 189900,
+                "ProductStatus": "low_stock",
+                "WarehouseID": "nevada-hub",
+                "WarehouseName": "Nevada Hub",
+                "OnHand": 14,
+                "Reserved": 2,
+                "Available": 12,
+                "CoverDays": 14,
+                "Inbound": 1,
+                "Damaged": 0,
+                "ReorderPoint": 18,
+                "SafetyStock": 9,
+                "Status": "balanced",
+                "WeeklyUnits": 11,
+                "WeeklyRevenue": 2088900,
+                "SellThrough": 64,
+                "DemandScore": 99,
+                "RegionalShare": 25,
+                "ReorderUnits": 18,
+                "MarketPressure": "Growing demand",
+                "MarketSignal": "West-coast studio projects are pulling larger workstation orders forward.",
+                "UpdatedAt": "2026-03-17 12:57:33"
+              }
+            ],
+            "filters": {
+              "q": "",
+              "sort": "",
+              "status": "",
+              "warehouse": ""
+            }
+          }
+        },
+        "requests": {
+          "page": {
+            "method": "GET",
+            "url": "/api/app/inventory",
+            "status": 200
+          }
+        },
+        "savedViews": [
+          {
+            "name": "East coast shortages",
+            "scope": "inventory",
+            "sortKey": "available",
+            "sortDirection": "asc",
+            "filters": {
+              "density": "compact",
+              "warehouse": "new-jersey-hub"
+            }
+          },
+          {
+            "name": "Low stock triage",
+            "scope": "inventory",
+            "sortKey": "status",
+            "sortDirection": "asc",
+            "filters": {
+              "density": "compact",
+              "warehouse": "illinois-hub"
+            }
+          }
+        ],
+        "csrf": "CWqMpQVpZTrlC65cnW44c3KhUW52hqvkCN-0XjEw-4w",
+        "user": {
+          "id": "demo-operator",
+          "displayName": "Atlas Demo Operator",
+          "role": "inventory_manager",
+          "defaultWarehouse": "new-jersey-hub"
+        }
+      }
+    },
+    "i18n": {
+      "locale": "en",
+      "fallbackLocale": "en",
+      "direction": "ltr"
+    }
+  },
+  "shape": "screen=inventory surface=internal session=inventory_manager items=6"
+}

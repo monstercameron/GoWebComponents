@@ -90,8 +90,10 @@ func TestAtlasInventoryRenderBranchesCoverOverlaysAndFilters(parseT *testing.T) 
 		Items:   parseRows,
 		Filters: map[string]string{"q": "frame", "status": "promise_risk", "sort": "available"},
 	}, nil)
-	parseInventoryMarkup := renderAtlasMarkupForTest(parseT, inventoryCMSContent(parseInventoryPayload))
-	for _, parseNeedle := range []string{"Dense queue table", "Saved views", "Route action cluster"} {
+	parseInventoryMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return inventoryCMSContent(parseInventoryPayload)
+	})
+	for _, parseNeedle := range []string{"Inventory queue", "Saved views", "Lane pressure"} {
 		if !strings.Contains(parseInventoryMarkup, parseNeedle) {
 			parseT.Fatalf("expected inventory CMS markup to contain %q", parseNeedle)
 		}
@@ -133,7 +135,7 @@ func TestAtlasInventoryRenderBranchesCoverOverlaysAndFilters(parseT *testing.T) 
 		},
 	})
 	parseOverlayMarkup := renderAtlasMarkupForTest(parseT, InventoryThresholdHistoryOverlay(parseOverlayPayload))
-	for _, parseNeedle := range []string{"Threshold history", "Transfer recommendations", "Route overlay"} {
+	for _, parseNeedle := range []string{"Threshold history", "Transfer recommendations", "Threshold changes"} {
 		if !strings.Contains(parseOverlayMarkup, parseNeedle) {
 			parseT.Fatalf("expected threshold overlay markup to contain %q", parseNeedle)
 		}
@@ -149,8 +151,10 @@ func TestAtlasInventoryRenderBranchesCoverOverlaysAndFilters(parseT *testing.T) 
 			"sort":   "available",
 		},
 	}, nil)
-	parseWarehouseMarkup := renderAtlasMarkupForTest(parseT, warehouseInventoryDetailContent(parseWarehousePayload))
-	for _, parseNeedle := range []string{"Facility filter model", "Recent purchase orders", "Warehouse items"} {
+	parseWarehouseMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return warehouseInventoryDetailContent(parseWarehousePayload)
+	})
+	for _, parseNeedle := range []string{"Filter items in this hub", "Recent purchase orders", "Items in this hub"} {
 		if !strings.Contains(parseWarehouseMarkup, parseNeedle) {
 			parseT.Fatalf("expected warehouse inventory detail markup to contain %q", parseNeedle)
 		}
@@ -180,7 +184,7 @@ func TestAtlasInventoryRenderBranchesCoverOverlaysAndFilters(parseT *testing.T) 
 
 	parseFilterForm := ui.UseForm(atlasListFilterState{Query: "desk", Status: "promise_risk", Sort: "revenue"})
 	parseFilterMarkup := renderAtlasMarkupForTest(parseT, warehouseInventoryFilterForm("illinois-hub", parseFilterForm, true, ui.UseEvent(func(ui.FormEvent) {}), atlasTransition{}))
-	for _, parseNeedle := range []string{"Facility filter model", "Updating...", "Search items"} {
+	for _, parseNeedle := range []string{"Filter items in this hub", "Updating...", "Search items"} {
 		if !strings.Contains(parseFilterMarkup, parseNeedle) {
 			parseT.Fatalf("expected warehouse filter form markup to contain %q", parseNeedle)
 		}
@@ -192,7 +196,9 @@ func TestAtlasPublicRenderBranchesCoverFeedbackAndFallbacks(parseT *testing.T) {
 	parseProduct := sampleProductCards()[0]
 	parseComments := sampleCommentRecords()
 
-	parseFeedbackMarkup := renderAtlasMarkupForTest(parseT, publicProductFeedbackSection(parseProduct, parseComments, Payload{CSRF: "atlas-csrf"}))
+	parseFeedbackMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return publicProductFeedbackSection(parseProduct, parseComments, Payload{CSRF: "atlas-csrf"})
+	})
 	for _, parseNeedle := range []string{"What buyers are asking before they commit.", "Share your review or question", parseComments[0].Subject} {
 		if !strings.Contains(parseFeedbackMarkup, parseNeedle) {
 			parseT.Fatalf("expected public feedback markup to contain %q", parseNeedle)
@@ -206,7 +212,9 @@ func TestAtlasPublicRenderBranchesCoverFeedbackAndFallbacks(parseT *testing.T) {
 		}
 	}
 
-	parseRelatedCardMarkup := renderAtlasMarkupForTest(parseT, publicRelatedProductsCard(parseProduct))
+	parseRelatedCardMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return publicRelatedProductsCard(parseProduct)
+	})
 	for _, parseNeedle := range []string{"Related systems", "Open adjacent Atlas systems without leaving the same buying context.", "Repeat-open visits can reuse the cached related-product list"} {
 		if !strings.Contains(parseRelatedCardMarkup, parseNeedle) {
 			parseT.Fatalf("expected related-products card markup to contain %q", parseNeedle)
@@ -253,7 +261,12 @@ func TestAtlasPublicRenderBranchesCoverFeedbackAndFallbacks(parseT *testing.T) {
 		Reaction:   "up",
 		Subject:    "Setup confidence",
 		Body:       "Delivery details answered the main questions.",
-	}, "atlas-csrf"); parseErr == nil || !strings.Contains(parseErr.Error(), "fetch unavailable in native atlas build") {
+	}, "atlas-csrf"); parseErr == nil || !strings.Contains(parseErr.Error(), "fetch API unavailable in this environment") {
+		// The expected text moved from an Atlas-local string to the framework's own
+		// message: native atlasFetch now delegates to fetch.Fetch instead of
+		// hand-writing "fetch unavailable in native atlas build". One source of
+		// truth for "there is no browser fetch here" - and if native HTTP ever
+		// becomes supported, Atlas stops claiming otherwise for free.
 		parseT.Fatalf("expected native submitPublicComment to fail through atlasFetch, got %v", parseErr)
 	}
 

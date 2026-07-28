@@ -1,0 +1,150 @@
+{
+  "name": "public-product",
+  "route": "/shop/frame-desk",
+  "bootstrap": {
+    "version": 1,
+    "route": {
+      "path": "/shop/frame-desk"
+    },
+    "data": {
+      "atlas": {
+        "route": {
+          "path": "/shop/frame-desk",
+          "surface": "public",
+          "screen": "product",
+          "title": "Atlas Frame Desk",
+          "description": "Warehouse-aware availability and premium workspace design for the Atlas Frame Desk.",
+          "canonical": "/shop/frame-desk"
+        },
+        "preferences": {
+          "theme": "dark",
+          "locale": "en",
+          "density": "compact",
+          "defaultWarehouse": "new-jersey-hub"
+        },
+        "i18n": {
+          "locale": "en",
+          "supportedLocales": [
+            "en",
+            "fr",
+            "ar"
+          ],
+          "direction": "ltr"
+        },
+        "theme": {
+          "mode": "dark",
+          "prefersReducedMotion": false
+        },
+        "data": {
+          "page": {
+            "comments": [
+              {
+                "id": "cmt-seed-frame-desk-01",
+                "productSku": "frame-desk",
+                "authorName": "Marcus Hale",
+                "authorType": "public",
+                "reaction": "up",
+                "subject": "Delivery question",
+                "body": "Frame Desk: Regional availability context helped us decide whether to commit now or wait for a calmer replenishment window.",
+                "status": "approved",
+                "moderationReason": "",
+                "createdAt": "2026-03-17 18:43:50",
+                "updatedAt": "2026-03-17 18:43:50"
+              },
+              {
+                "id": "cmt-seed-frame-desk-02",
+                "productSku": "frame-desk",
+                "authorName": "Priya Shah",
+                "authorType": "public",
+                "reaction": "up",
+                "subject": "Setup confidence",
+                "body": "Frame Desk: The finish and proportions felt consistent with the Atlas photography, and the delivery communication was clear enough for a project timeline review.",
+                "status": "approved",
+                "moderationReason": "",
+                "createdAt": "2026-03-17 18:43:50",
+                "updatedAt": "2026-03-17 18:43:50"
+              },
+              {
+                "id": "cmt-seed-frame-desk-03",
+                "productSku": "frame-desk",
+                "authorName": "Marcus Hale",
+                "authorType": "public",
+                "reaction": "up",
+                "subject": "Setup confidence",
+                "body": "Frame Desk: The finish and proportions felt consistent with the Atlas photography, and the delivery communication was clear enough for a project timeline review.",
+                "status": "approved",
+                "moderationReason": "",
+                "createdAt": "2026-03-17 18:43:50",
+                "updatedAt": "2026-03-17 18:43:50"
+              },
+              {
+                "id": "cmt-seed-frame-desk-04",
+                "productSku": "frame-desk",
+                "authorName": "Mina Torres",
+                "authorType": "public",
+                "reaction": "up",
+                "subject": "Install planning",
+                "body": "Frame Desk: This was easy to discuss with our facilities team because the page made the buying path and the likely delivery posture clear without extra back-and-forth.",
+                "status": "approved",
+                "moderationReason": "",
+                "createdAt": "2026-03-17 18:43:50",
+                "updatedAt": "2026-03-17 18:43:50"
+              },
+              {
+                "id": "cmt-seed-003",
+                "productSku": "frame-desk",
+                "authorName": "Atlas Design Team",
+                "authorType": "public",
+                "reaction": "up",
+                "subject": "Finish durability",
+                "body": "Walnut ember holds up well under daily studio use and still photographs cleanly in client-facing installs.",
+                "status": "approved",
+                "moderationReason": "",
+                "createdAt": "2026-03-17 14:18:25",
+                "updatedAt": "2026-03-17 14:18:25"
+              },
+              {
+                "id": "cmt-seed-001",
+                "productSku": "frame-desk",
+                "authorName": "Lena Park",
+                "authorType": "public",
+                "reaction": "up",
+                "subject": "Cable routing depth",
+                "body": "Can the Frame Desk hide two monitor arms and still keep the rear cable tray clean?",
+                "status": "approved",
+                "moderationReason": "Validated during SSR integration.",
+                "createdAt": "2026-03-17 13:12:34",
+                "updatedAt": "2026-03-17T13:13:50Z"
+              }
+            ],
+            "product": {
+              "SKU": "frame-desk",
+              "Slug": "frame-desk",
+              "Title": "Frame Desk",
+              "Category": "desks",
+              "PriceCents": 189900,
+              "Status": "low_stock",
+              "Summary": "Flagship modular desk with warehouse-aware promise lanes.",
+              "SEODescription": "Warehouse-aware availability and premium workspace design for the Atlas Frame Desk."
+            }
+          }
+        },
+        "requests": {
+          "page": {
+            "method": "GET",
+            "url": "/api/public/products/frame-desk",
+            "status": 200
+          }
+        },
+        "savedViews": null,
+        "csrf": "noPN0DE-lJpo66kruy0tE88w5vqyNe6yAgS0bYOj_GI"
+      }
+    },
+    "i18n": {
+      "locale": "en",
+      "fallbackLocale": "en",
+      "direction": "ltr"
+    }
+  },
+  "shape": "screen=product surface=public session=anonymous comments=6"
+}

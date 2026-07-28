@@ -7,6 +7,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // TestAtlasResourceCacheFetchBranches covers HTTP fetch and startup resource branches.
@@ -44,6 +47,10 @@ func TestAtlasResourceCacheFetchBranches(parseT *testing.T) {
 		parseT.Fatal("expected invalid json response to fail")
 	}
 
+	// The first two payloads bail out before reaching a hook (no startup request /
+	// blank URL), so they are safe to call directly. The third does reach
+	// useAtlasCachedResource, which is a real framework hook now, so it must run
+	// inside a render pass - see renderStartupPageResourceState.
 	parseZeroState := useAtlasStartupPageResource(Payload{}).Get()
 	if parseZeroState != (atlasCachedResourceState[any]{}) {
 		parseT.Fatalf("expected empty startup resource state, got %#v", parseZeroState)
@@ -52,10 +59,37 @@ func TestAtlasResourceCacheFetchBranches(parseT *testing.T) {
 	if parseZeroState != (atlasCachedResourceState[any]{}) {
 		parseT.Fatalf("expected blank-url startup resource state, got %#v", parseZeroState)
 	}
-	parseZeroState = useAtlasStartupPageResource(Payload{Requests: map[string]Request{"page": {URL: parseServer.URL + "/ok"}}}).Get()
+	// Asserting the not-ready zero state is the real contract, not an artifact of
+	// a stub: fetch.UseCachedResource starts its loader from ui.UseEffect, and
+	// native effects never run, so parseLoader is never called and no HTTP request
+	// reaches parseServer during a server render.
+	parseZeroState = renderStartupPageResourceState(parseT, Payload{Requests: map[string]Request{"page": {URL: parseServer.URL + "/ok"}}})
 	if parseZeroState != (atlasCachedResourceState[any]{}) {
-		parseT.Fatalf("expected native startup resource stub state, got %#v", parseZeroState)
+		parseT.Fatalf("expected not-ready startup resource state during native render, got %#v", parseZeroState)
 	}
+}
+
+// renderStartupPageResourceState runs useAtlasStartupPageResource inside a real
+// render pass and returns the cached-resource state it observed.
+//
+// The indirection is the whole lesson: useAtlasStartupPageResource calls a
+// framework hook, and framework hooks read per-component slots off the fiber the
+// runtime is currently rendering. Calling one from test-function scope panics
+// with GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT. It used to "work" only because the
+// native hook surface was stubbed out, which is the same blind spot that let
+// client/main.go ship an eager atlas.App(payload) call that white-screened the
+// browser.
+func renderStartupPageResourceState(parseT *testing.T, parsePayload Payload) atlasCachedResourceState[any] {
+	parseT.Helper()
+
+	var parseCaptured atlasCachedResourceState[any]
+	if _, parseErr := renderAtlasNodeForTest(ui.CreateElement(func() ui.Node {
+		parseCaptured = useAtlasStartupPageResource(parsePayload).Get()
+		return ui.Text("")
+	})); parseErr != nil {
+		parseT.Fatalf("render startup resource probe: %v", parseErr)
+	}
+	return parseCaptured
 }
 
 // TestAtlasBootstrapDecodeBranches covers bootstrap decode failure and request cloning branches.
@@ -106,28 +140,39 @@ func TestAtlasPageUtilityBranches(parseT *testing.T) {
 		parseT.Fatalf("unexpected public notice banner markup %q", parsePublicMarkup)
 	}
 
+	// The console notice is a design.Surface carrying a VERIFIED status chip, not a
+	// green-tinted rounded box, so the assertion is on the folded design class and the
+	// semantic tone rather than on a utility class name. Asserting the emitted class is
+	// the only way to check this: the class name is a hash of the rule-set.
 	parseInternalPayload := samplePayloadForRoute(RouteDashboard, dashboardPage{}, nil)
 	parseInternalPayload.Route.Query["atlas_notice"] = []string{"comment+submitted"}
 	parseInternalMarkup := renderAtlasMarkupForTest(parseT, noticeBanner(parseInternalPayload))
-	if !strings.Contains(parseInternalMarkup, "comment submitted") || !strings.Contains(parseInternalMarkup, "rounded-3xl") {
+	if !strings.Contains(parseInternalMarkup, "comment submitted") || !strings.Contains(parseInternalMarkup, design.Class(design.Surface(), design.Cluster(design.Space3))) {
 		parseT.Fatalf("unexpected internal notice banner markup %q", parseInternalMarkup)
+	}
+	if !strings.Contains(parseInternalMarkup, design.Class(design.StatusChip(design.ToneVerified))) {
+		parseT.Fatalf("expected internal notice to carry the verified status chip, got %q", parseInternalMarkup)
 	}
 
 	if shellToastBanner(atlasShellToast{}) != nil {
 		parseT.Fatal("expected blank shell toast to return nil")
 	}
+	// The toast's tone no longer repaints the whole banner in a per-tone border and
+	// tint; it drives ONE status chip on a plain Surface. The assertion follows: each
+	// tone maps to the design system's semantic chip, and the warn case deliberately
+	// shares TonePending because the palette has four tones, not five.
 	parseToneCases := []struct {
 		parseToast atlasShellToast
-		parseWant  string
+		parseWant  design.StatusTone
 	}{
-		{parseToast: atlasShellToast{Title: "Saved", Detail: "Inventory synced", Tone: "success"}, parseWant: "border-emerald-400/30"},
-		{parseToast: atlasShellToast{Title: "Heads up", Tone: "warn"}, parseWant: "border-amber-400/30"},
-		{parseToast: atlasShellToast{Title: "Failed", Tone: "error"}, parseWant: "border-rose-400/30"},
-		{parseToast: atlasShellToast{Title: "Info", Tone: "other"}, parseWant: "border-cyan-300/30"},
+		{parseToast: atlasShellToast{Title: "Saved", Detail: "Inventory synced", Tone: "success"}, parseWant: design.ToneVerified},
+		{parseToast: atlasShellToast{Title: "Heads up", Tone: "warn"}, parseWant: design.TonePending},
+		{parseToast: atlasShellToast{Title: "Failed", Tone: "error"}, parseWant: design.ToneException},
+		{parseToast: atlasShellToast{Title: "Info", Tone: "other"}, parseWant: design.TonePending},
 	}
 	for _, parseCase := range parseToneCases {
 		parseMarkup := renderAtlasMarkupForTest(parseT, shellToastBanner(parseCase.parseToast))
-		if !strings.Contains(parseMarkup, parseCase.parseToast.Title) || !strings.Contains(parseMarkup, parseCase.parseWant) {
+		if !strings.Contains(parseMarkup, parseCase.parseToast.Title) || !strings.Contains(parseMarkup, design.Class(design.StatusChip(parseCase.parseWant))) {
 			parseT.Fatalf("unexpected shell toast markup %q", parseMarkup)
 		}
 	}

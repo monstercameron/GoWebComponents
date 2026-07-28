@@ -26,6 +26,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/v5/html"
 	"github.com/monstercameron/GoWebComponents/v5/projection"
+	"github.com/monstercameron/GoWebComponents/v5/state"
 	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
@@ -42,6 +43,20 @@ type row struct {
 var (
 	addRow    = projection.Define[addRowArgs, addRowResult]("addRow")
 	removeRow = projection.Define[removeRowArgs, struct{}]("removeRow")
+	heavyWork = projection.Define[heavyWorkArgs, heavyWorkResult]("heavyWork")
+
+	// parseVersion is bumped whenever a command commits, so the render tree has
+	// something to depend on.
+	//
+	// A GLOBAL atom rather than a hook, because the write happens on a goroutine
+	// handling a worker reply — there is no fiber there, and state.UseAtom would
+	// panic. The read side is inside the component, where a fiber does exist.
+	//
+	// It exists at all because projection.Projection has no change notification:
+	// Rows() is its entire surface. If the projection ever grows a Subscribe, this
+	// counter and the Set below should be deleted in the same commit — it is a
+	// stand-in for a missing signal, not a pattern worth copying.
+	parseVersion = state.NewGlobalAtom("v5-two-artifact:commit-version", 0)
 )
 
 type addRowArgs struct {
@@ -54,6 +69,14 @@ type addRowResult struct {
 
 type removeRowArgs struct {
 	ID string `json:"id"`
+}
+
+type heavyWorkArgs struct {
+	Rows int `json:"rows"`
+}
+
+type heavyWorkResult struct {
+	Inserted int `json:"inserted"`
 }
 
 // workerPoster posts one command to services.wasm.
@@ -88,6 +111,16 @@ func (parsePoster *workerPoster) Post(parseRequestID uint64, parseName string, p
 // going to come. The services binary announces itself for exactly this reason,
 // and an app that ignores the announcement gets a page that loads fine and then
 // does nothing.
+// parseProjectionRef is the projection the worker's published deltas are applied
+// to.
+//
+// Package-level because the message handler installed by startWorker needs it and
+// main owns its construction. Threading it through startWorker's parameters would
+// be tidier, but it would also mean the transport knows about the projection —
+// and the point of WorkerClient is that the transport carries bytes and correlates
+// ids, nothing more.
+var parseProjectionRef *projection.Projection[row]
+
 var workerReady = make(chan struct{})
 
 // startWorker boots services.wasm and wires replies back into the client.
@@ -103,6 +136,38 @@ func startWorker(parseClient *projection.WorkerClient, parsePoster *workerPoster
 		if parseData.IsUndefined() || parseData.IsNull() {
 			return nil
 		}
+		// UNSOLICITED STATE PUBLICATION, checked before the id-bearing paths.
+		//
+		// This message has no request id because nothing is waiting for it: the
+		// domain publishes when its data changes, not when it is asked. Routing on
+		// shape rather than on id keeps it out of the reply-correlation table, where
+		// an unmatched id is treated as worker death.
+		//
+		// This is the half of the split that makes the whole thing worth doing.
+		// Without it an app can issue commands and read their return values but can
+		// never learn what the domain now holds — every list rendered from a
+		// projection stays empty while every command succeeds.
+		if parseOpsValue := parseData.Get("ops"); parseOpsValue.Truthy() {
+			var parseOps []projection.Op
+			if parseDecodeErr := json.Unmarshal([]byte(parseOpsValue.String()), &parseOps); parseDecodeErr != nil {
+				js.Global().Get("console").Call("error", "delta decode failed: "+parseDecodeErr.Error())
+				return nil
+			}
+			// Applied through PostAsync for the same reason every other reply is: this
+			// runs on the JS event loop, and mutating projection state that a render
+			// reads from, mid-frame, is the tear the inbox exists to prevent.
+			applyResult(func() {
+				if parseApplyErr := parseProjectionRef.Apply(parseOps); parseApplyErr != nil {
+					// A rejected delta means the two projections have diverged. Silence
+					// here leaves a list quietly wrong forever.
+					js.Global().Get("console").Call("error", "projection apply failed: "+parseApplyErr.Error())
+					return
+				}
+				parseVersion.Set(parseVersion.Get() + 1)
+			})
+			return nil
+		}
+
 		// The worker's boot signal carries no request id; nothing is waiting on
 		// it, and delivering it under id 0 would be reported as a reply for an
 		// unknown request on every start.
@@ -209,6 +274,9 @@ func main() {
 	if parseErr != nil {
 		panic(parseErr)
 	}
+	// Published before startWorker installs the handler that writes to it, so a
+	// delta arriving on the worker's very first message cannot find a nil target.
+	parseProjectionRef = parseProjection
 
 	// The registry check that types cannot do: verify at startup that the worker
 	// actually handles every command this binary declares, rather than finding
@@ -258,20 +326,116 @@ func main() {
 			js.Global().Set("__v5FirstCommandMs",
 				js.Global().Get("performance").Call("now").Float())
 			js.Global().Get("console").Call("log", "addRow committed "+parseResult.ID)
+			// THE LAST MILE. Everything above this line is the part the two-artifact
+			// split is usually described by — worker boots, command goes out, reply
+			// comes back through the inbox. None of it is worth anything until the
+			// reply changes what is on the screen, and that step is a state write, not
+			// a log line.
+			//
+			// This example previously ended at the console.log. The transport worked,
+			// the command committed, the timing hook fired, there were no errors — and
+			// the page rendered an empty <div>, because nothing ever told the runtime
+			// that there was new data. It is the same failure shape the M10 write-up
+			// describes: it fails by producing nothing.
+			//
+			// projection.Projection is a passive container: its only accessor is
+			// Rows(), with no Subscribe and no change signal. So the app has to hold
+			// the rows itself and re-publish them here. That is the honest shape of
+			// the API as it stands today.
+			parseVersion.Set(parseVersion.Get() + 1)
 		})
 	})
 
-	parseRows := parseProjection.Rows()
-	ui.Render(html.VirtualList(html.VirtualListProps{
-		ItemCount:      len(parseRows),
-		ItemHeight:     32,
-		ViewportHeight: 640,
-		Key:            func(parseIndex int) any { return string(parseRows[parseIndex].Key) },
-		Render: func(parseIndex int) ui.Node {
-			return html.Div(html.Props{Class: "row"},
-				html.Text(fmt.Sprintf("%s — %d", parseRows[parseIndex].Value.Name, parseRows[parseIndex].Value.Total)))
-		},
+	// Rendered as a COMPONENT, not as a one-shot snapshot.
+	//
+	// The old code evaluated parseProjection.Rows() once, at boot, and handed the
+	// resulting slice to ui.Render. That slice was empty — the first command was
+	// still waiting on the worker handshake — and because ui.Render is not reactive
+	// to a plain Go slice, it stayed empty forever.
+	//
+	// Reading the projection INSIDE the component body, and depending on a state
+	// value the async reply bumps, is what makes a worker result appear. The
+	// version counter is deliberately crude: it exists because the projection has
+	// no change notification to subscribe to, and pretending otherwise would hide
+	// the gap rather than document it.
+	ui.Render(ui.CreateElement(func() ui.Node {
+		// state.UseAtom, NOT parseVersion.Get(). Both read the same atom id, and
+		// only this one SUBSCRIBES the fiber.
+		//
+		// GlobalAtom.Get() reads the registry directly and returns; it does not
+		// register the rendering component as a listener, and nothing warns you. Set
+		// then "schedules a re-render of every component subscribed via UseAtom" —
+		// which, with a bare Get(), is none of them. The result is a component that
+		// reads fresh data on every render it happens to do, and never does one.
+		//
+		// The pairing is the point: GlobalAtom.Set is callable from any goroutine
+		// (the worker reply has no fiber), while UseAtom is the reactive read inside
+		// a fiber. Same id, two halves.
+		_ = state.UseAtom(parseVersion.ID(), 0).Get()
+		parseRows := parseProjection.Rows()
+		if len(parseRows) == 0 {
+			return html.Div(html.Props{Class: "empty"},
+				html.Text("Waiting for the domain worker…"))
+		}
+		return html.VirtualList(html.VirtualListProps{
+			ItemCount:      len(parseRows),
+			ItemHeight:     32,
+			ViewportHeight: 640,
+			Key:            func(parseIndex int) any { return string(parseRows[parseIndex].Key) },
+			Render: func(parseIndex int) ui.Node {
+				return html.Div(html.Props{Class: "row"},
+					html.Text(fmt.Sprintf("%s — %d", parseRows[parseIndex].Value.Name, parseRows[parseIndex].Value.Total)))
+			},
+		})
 	}), "#app")
+
+	// THE EXPERIMENT.
+	//
+	// Two globals, one doing the work where v5 says it belongs and one doing the
+	// SAME work on the render thread. A probe can call either and watch frame
+	// times, which is the only way to answer "is the thesis achieved" with a number
+	// instead of an argument.
+	js.Global().Set("__v5RunInWorker", js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
+		parseRows := 400
+		if len(parseArgs) > 0 && parseArgs[0].Type() == js.TypeNumber {
+			parseRows = parseArgs[0].Int()
+		}
+		runCommand(func() {
+			<-workerReady
+			if _, parseErr := heavyWork.Invoke(context.Background(), parseResilient, jsonCodec{},
+				heavyWorkArgs{Rows: parseRows}); parseErr != nil {
+				js.Global().Get("console").Call("error", "heavyWork failed: "+parseErr.Error())
+				return
+			}
+			applyResult(func() {
+				js.Global().Set("__v5WorkerWorkDone", true)
+			})
+		})
+		return nil
+	}))
+
+	// The control. Identical arithmetic, run as an ordinary Go loop on the render
+	// thread — which in Go/wasm means inside ONE JS event-loop turn, because the Go
+	// scheduler cannot preempt across the JS boundary. This is the "before" the
+	// two-artifact split exists to remove.
+	js.Global().Set("__v5RunOnRenderThread", js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
+		parseRows := 400
+		if len(parseArgs) > 0 && parseArgs[0].Type() == js.TypeNumber {
+			parseRows = parseArgs[0].Int()
+		}
+		go func() {
+			parseChurn := 0
+			for parseIndex := 0; parseIndex < parseRows; parseIndex++ {
+				for parseInner := 0; parseInner < 20000; parseInner++ {
+					parseChurn = (parseChurn*31 + parseInner) % 1000003
+				}
+			}
+			applyResult(func() {
+				js.Global().Set("__v5RenderThreadWorkDone", parseChurn)
+			})
+		}()
+		return nil
+	}))
 
 	_ = removeRow
 	select {}

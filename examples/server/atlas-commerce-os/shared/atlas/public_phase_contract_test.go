@@ -28,7 +28,8 @@ func TestAtlasPublicPhaseShellCatalogLanguageAndAccessibilityContracts(parseT *t
 		"locale": {"fr"},
 	}
 
-	parseMarkup, parseErr := ui.RenderToString(App(parsePayload))
+	// component + props, not App(payload): App's hooks need a render fiber.
+	parseMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parsePayload))
 	if parseErr != nil {
 		parseT.Fatalf("render public catalog app: %v", parseErr)
 	}
@@ -43,8 +44,15 @@ func TestAtlasPublicPhaseShellCatalogLanguageAndAccessibilityContracts(parseT *t
 		`hreflang="fr"`,
 		`aria-current="true"`,
 		`href="/shop?locale=fr&amp;q=frame"`,
-		"Curated modular workspace catalog",
-		"Modern workspace systems, organized for quick decisions.",
+		// The catalog route now ships ONE page head and one manifest. The old
+		// needles here were the second and third hero ("Curated modular workspace
+		// catalog", "Modern workspace systems, organized for quick decisions."),
+		// both of which were deleted; these three assert the replacements — the
+		// page-head sentence, the manifest's list semantics, and the mono SKU
+		// column that proves rows render as manifest lines rather than cards.
+		"Filter the manifest, then compare price and availability line by line.",
+		`role="list"`,
+		"FRAME-DESK",
 		"Search",
 		"Category",
 		"Warehouse",
@@ -65,12 +73,17 @@ func TestAtlasPublicPhaseProductWarehouseCacheInteractionAndRecoveryContracts(pa
 		Comments: sampleCommentRecords(),
 	}, nil)
 
-	parseProductMarkup := renderAtlasMarkupForTest(parseT, renderProductContent(productDetailPage{
-		Product:  parseProducts[0],
-		Comments: sampleCommentRecords(),
-	}, parsePayload))
+	parseProductMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return renderProductContent(productDetailPage{
+			Product:  parseProducts[0],
+			Comments: sampleCommentRecords(),
+		}, parsePayload)
+	})
 	for _, parseNeedle := range []string{
-		"Why this product page is easier to use",
+		// Was "Why this product page is easier to use" — a three-card strip in which
+		// the page graded its own UX to the buyer. Deleted; the price label is the
+		// product hero's real content and a better route marker.
+		publicStartingAtLabel,
 		"Open buying drawer",
 		"Reserve upcoming availability",
 		`name="csrf_token"`,
@@ -88,8 +101,14 @@ func TestAtlasPublicPhaseProductWarehouseCacheInteractionAndRecoveryContracts(pa
 	parseDirectoryMarkup := renderAtlasMarkupForTest(parseT, renderWarehouseDirectoryContent(warehouseDirectoryPage{Items: parseWarehouses}))
 	for _, parseNeedle := range []string{
 		"Atlas delivery regions",
-		"Regional commerce board",
-		"Browse all systems",
+		// Was "Regional commerce board" (the label on a stat block whose "%d stocked
+		// units" / "%d inbound units" summed fields /api/public/warehouses does not
+		// return, so they printed 0 in production) and "Browse all systems" (a
+		// duplicate of the page head's own catalog action). Both deleted. These two
+		// assert what replaced them: the directory's real heading, and the hub code
+		// that proves each row carries the hub's identity.
+		"Pick the hub that serves your site",
+		"NJ-HUB",
 		"New Jersey Hub",
 		"Open warehouse route",
 	} {
@@ -98,10 +117,12 @@ func TestAtlasPublicPhaseProductWarehouseCacheInteractionAndRecoveryContracts(pa
 		}
 	}
 
-	parseDetailMarkup := renderAtlasMarkupForTest(parseT, renderWarehouseDetailContent(warehouseDetailPage{
-		Warehouse: parseWarehouses[0],
-		Products:  parseProducts,
-	}, parsePayload))
+	parseDetailMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return renderWarehouseDetailContent(warehouseDetailPage{
+			Warehouse: parseWarehouses[0],
+			Products:  parseProducts,
+		}, parsePayload)
+	})
 	for _, parseNeedle := range []string{
 		"Regional availability picks",
 		"Repeat-open visits can reuse this side snapshot",
@@ -123,7 +144,10 @@ func TestAtlasPublicPhaseProductWarehouseCacheInteractionAndRecoveryContracts(pa
 		"Warehouse-specific promise",
 		"Reserve upcoming availability",
 		"Ask about delivery or fit",
-		"Use reserve capture to hold buyer intent against the inbound recovery window for this specific hub.",
+		// Rewritten support point. The old sentence ("Use reserve capture to hold
+		// buyer intent against the inbound recovery window for this specific hub.")
+		// was written for the team building the page, not for a buyer.
+		"Reserve now and you hold your place in the next inbound batch for this hub.",
 	} {
 		if !strings.Contains(parseAvailabilityMarkup, parseNeedle) {
 			parseT.Fatalf("expected availability markup to contain %q, got %q", parseNeedle, parseAvailabilityMarkup)
@@ -138,7 +162,7 @@ func TestAtlasPublicPhaseProductWarehouseCacheInteractionAndRecoveryContracts(pa
 	}, nil)
 	parseRecoveryPayload.Route.Screen = "recovery"
 	parseRecoveryPayload.Route.Surface = "public"
-	parseRecoveryMarkup, parseErr := ui.RenderToString(App(parseRecoveryPayload))
+	parseRecoveryMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parseRecoveryPayload))
 	if parseErr != nil {
 		parseT.Fatalf("render public recovery app: %v", parseErr)
 	}

@@ -3,8 +3,6 @@ package atlas
 import (
 	"strings"
 	"testing"
-
-	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // TestDashboardActivityItemsGroupAndLimit verifies activity entries are grouped by source and capped per source for scanability.
@@ -46,7 +44,7 @@ func TestDashboardActivityItemsGroupAndLimit(parseT *testing.T) {
 func TestDashboardActivityFeedRendersStatusesAndEmptyState(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseFilledMarkup, parseErr := ui.RenderToString(dashboardActivityFeed(dashboardPage{
+	parseFilledMarkup, parseErr := renderAtlasNodeForTest(dashboardActivityFeed(dashboardPage{
 		Comments:  sampleCommentRecords(),
 		Transfers: sampleTransferRecords(),
 		Receiving: sampleReceivingRecords(),
@@ -62,11 +60,14 @@ func TestDashboardActivityFeedRendersStatusesAndEmptyState(parseT *testing.T) {
 		parseT.Fatalf("expected grouped activity kickers, got %q", parseFilledMarkup)
 	}
 
-	parseEmptyMarkup, parseErr := ui.RenderToString(dashboardActivityFeed(dashboardPage{}))
+	parseEmptyMarkup, parseErr := renderAtlasNodeForTest(dashboardActivityFeed(dashboardPage{}))
 	if parseErr != nil {
 		parseT.Fatalf("dashboardActivityFeed(empty) render failed: %v", parseErr)
 	}
-	if !strings.Contains(parseEmptyMarkup, "No operator activity queued.") {
+	// The empty state is now a row INSIDE the manifest table, so the feed keeps its
+	// header and bottom rule instead of collapsing to a bare sentence. The copy says
+	// what will fill the queue rather than reporting the absence as a status.
+	if !strings.Contains(parseEmptyMarkup, "Nothing has moved yet.") {
 		parseT.Fatalf("expected activity empty state, got %q", parseEmptyMarkup)
 	}
 }
@@ -75,7 +76,7 @@ func TestDashboardActivityFeedRendersStatusesAndEmptyState(parseT *testing.T) {
 func TestThresholdHistoryRowsRenderTimestampsAndNotes(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(inventoryThresholdHistoryPanel(
+	parseMarkup, parseErr := renderAtlasNodeForTest(inventoryThresholdHistoryPanel(
 		inventoryThresholdHistoryPanelPage{
 			SKU: "frame-desk",
 			Items: []inventoryThresholdHistoryItem{
@@ -100,10 +101,17 @@ func TestThresholdHistoryRowsRenderTimestampsAndNotes(parseT *testing.T) {
 	if !strings.Contains(parseMarkup, "Threshold changes") {
 		parseT.Fatalf("expected threshold timeline section, got %q", parseMarkup)
 	}
-	if !strings.Contains(parseMarkup, "2026-03-25T09:30:00Z") || !strings.Contains(parseMarkup, "Updated by Atlas Ops") {
-		parseT.Fatalf("expected timeline timestamp and actor note, got %q", parseMarkup)
+	// The history is a table now, so the actor is a cell under a "By" column rather than
+	// a sentence reading "Updated by Atlas Ops" on every card, and the two threshold
+	// figures are cells under "Reorder" and "Safety" instead of repeating their own
+	// labels once per row. Same facts, one label each instead of one label per entry.
+	if !strings.Contains(parseMarkup, "2026-03-25T09:30:00Z") || !strings.Contains(parseMarkup, ">Atlas Ops<") {
+		parseT.Fatalf("expected timeline timestamp and actor cell, got %q", parseMarkup)
 	}
-	if !strings.Contains(parseMarkup, "Reorder 18") || !strings.Contains(parseMarkup, "Safety 9") {
+	if !strings.Contains(parseMarkup, ">Reorder<") || !strings.Contains(parseMarkup, ">Safety<") {
+		parseT.Fatalf("expected threshold audit columns, got %q", parseMarkup)
+	}
+	if !strings.Contains(parseMarkup, ">18<") || !strings.Contains(parseMarkup, ">9<") {
 		parseT.Fatalf("expected threshold audit values, got %q", parseMarkup)
 	}
 }

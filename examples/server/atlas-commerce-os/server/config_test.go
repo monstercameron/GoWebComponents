@@ -73,17 +73,26 @@ func TestLoadConfigDefaultsAndEnvOverride(parseT *testing.T) {
 	if parseCfg.StaticDir != filepath.Join(parseCfg.RepoRoot, "examples", "static") {
 		parseT.Fatalf("unexpected StaticDir: %q", parseCfg.StaticDir)
 	}
-	if parseCfg.TailwindCSS != filepath.Join(parseCfg.StaticDir, "css", "tailwind.css") {
-		parseT.Fatalf("unexpected TailwindCSS: %q", parseCfg.TailwindCSS)
-	}
+	// TailwindCSS and ExampleLoggerJS used to be asserted here. Both were computed,
+	// pinned by this test, and read by nothing — the assertion was the only consumer,
+	// which made it look like the paths mattered. They are gone from config along with
+	// the two <link>/<script> elements that were their reason to exist; see the config
+	// doc comment. WASMExecJS stays because the document really does link it.
 	if parseCfg.WASMExecJS != filepath.Join(parseCfg.StaticDir, "script", "wasm_exec.js") {
 		parseT.Fatalf("unexpected WASMExecJS: %q", parseCfg.WASMExecJS)
 	}
-	if parseCfg.ExampleLoggerJS != filepath.Join(parseCfg.StaticDir, "script", "example-logger.js") {
-		parseT.Fatalf("unexpected ExampleLoggerJS: %q", parseCfg.ExampleLoggerJS)
-	}
-	if filepath.Base(parseCfg.AtlasWASM) != "atlas-commerce-os.wasm" {
+	// AtlasWASM must resolve inside StaticDir at exactly the path the hydration
+	// snippet fetches under /assets/, otherwise /healthz can report
+	// wasmPresent:true while the browser gets a 404.
+	if parseCfg.AtlasWASM != filepath.Join(parseCfg.StaticDir, "bin", "atlas-commerce-os.wasm") {
 		parseT.Fatalf("unexpected AtlasWASM path: %q", parseCfg.AtlasWASM)
+	}
+	parseServedRelative, parseErr4 := filepath.Rel(parseCfg.StaticDir, parseCfg.AtlasWASM)
+	if parseErr4 != nil {
+		parseT.Fatalf("AtlasWASM %q is not under StaticDir %q: %v", parseCfg.AtlasWASM, parseCfg.StaticDir, parseErr4)
+	}
+	if parseServed := "/assets/" + filepath.ToSlash(parseServedRelative); parseServed != atlasWASMAssetURL {
+		parseT.Fatalf("AtlasWASM serves as %q, want %q", parseServed, atlasWASMAssetURL)
 	}
 
 	if parseErr2 := os.Setenv("ATLAS_ADDR", " 127.0.0.1:9001 "); parseErr2 != nil {

@@ -1,0 +1,109 @@
+{
+  "name": "public-catalog",
+  "route": "/shop",
+  "bootstrap": {
+    "version": 1,
+    "route": {
+      "path": "/shop"
+    },
+    "data": {
+      "atlas": {
+        "route": {
+          "path": "/shop",
+          "surface": "public",
+          "screen": "catalog",
+          "title": "Atlas Shop",
+          "description": "Browse Atlas modular workspace systems with filterable discovery and regional fulfillment context.",
+          "canonical": "/shop"
+        },
+        "preferences": {
+          "theme": "dark",
+          "locale": "en",
+          "density": "compact",
+          "defaultWarehouse": "new-jersey-hub"
+        },
+        "i18n": {
+          "locale": "en",
+          "supportedLocales": [
+            "en",
+            "fr",
+            "ar"
+          ],
+          "direction": "ltr"
+        },
+        "theme": {
+          "mode": "dark",
+          "prefersReducedMotion": false
+        },
+        "data": {
+          "page": {
+            "items": [
+              {
+                "SKU": "cable-bridge",
+                "Slug": "cable-bridge",
+                "Title": "Cable Bridge",
+                "Category": "accessories",
+                "PriceCents": 19900,
+                "Status": "in_stock",
+                "Summary": "Cable routing accessory for dense workstation setups.",
+                "SEODescription": "Accessory availability for Atlas cable routing add-ons."
+              },
+              {
+                "SKU": "frame-bench",
+                "Slug": "frame-bench",
+                "Title": "Frame Bench",
+                "Category": "seating",
+                "PriceCents": 79900,
+                "Status": "in_stock",
+                "Summary": "Shared touchdown seating from the Frame family.",
+                "SEODescription": "Collaborative bench seating with regional fulfillment coverage."
+              },
+              {
+                "SKU": "frame-desk",
+                "Slug": "frame-desk",
+                "Title": "Frame Desk",
+                "Category": "desks",
+                "PriceCents": 189900,
+                "Status": "low_stock",
+                "Summary": "Flagship modular desk with warehouse-aware promise lanes.",
+                "SEODescription": "Warehouse-aware availability and premium workspace design for the Atlas Frame Desk."
+              },
+              {
+                "SKU": "studio-console",
+                "Slug": "studio-console",
+                "Title": "Studio Console",
+                "Category": "storage",
+                "PriceCents": 249900,
+                "Status": "in_stock",
+                "Summary": "Creative-team console with durable project finish options.",
+                "SEODescription": "Warehouse-aware availability for Atlas Studio Console deployments."
+              }
+            ],
+            "page": 1,
+            "pageSize": 12,
+            "total": 4,
+            "query": {
+              "page": 1,
+              "pageSize": 12
+            }
+          }
+        },
+        "requests": {
+          "page": {
+            "method": "GET",
+            "url": "/api/public/catalog",
+            "status": 200
+          }
+        },
+        "savedViews": null,
+        "csrf": "1wrALk7TyOQOZvBiFVw9dLCIh6ce58W2U6QPgKRJSGg"
+      }
+    },
+    "i18n": {
+      "locale": "en",
+      "fallbackLocale": "en",
+      "direction": "ltr"
+    }
+  },
+  "shape": "screen=catalog surface=public session=anonymous items=4"
+}

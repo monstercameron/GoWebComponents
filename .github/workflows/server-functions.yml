@@ -1,0 +1,78 @@
+name: Server Functions
+
+# Guards the //gwc:server codegen contract.
+#
+# A server function's whole value is that ONE Go signature produces both halves of
+# the client/server boundary, so the two can never disagree. That guarantee lasts
+# exactly as long as the generated files match the source. The moment someone edits
+# a //gwc:server signature and forgets `gwc server gen`, the checked-in stub still
+# compiles and still calls the old contract — the compiler cannot catch it, because
+# both sides are individually valid. It fails at runtime, in a browser, as a
+# decoded-into-nothing response.
+#
+# So this gate runs the generator in check mode and fails if the output would
+# differ. It is cheap, it is deterministic, and it is the only thing standing
+# between a renamed field and a silent production break.
+#
+# WHAT THIS GATE DOES NOT COVER: it verifies the generated files are current, not
+# that the functions behave. Behaviour is covered by the package's own tests
+# (shared/api) and by the browser specs that exercise the endpoints.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server-functions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+
+      # Every package that declares server functions must be listed here. Discovery
+      # is deliberately explicit rather than a repo-wide scan: a scan that finds
+      # nothing looks identical to a scan that is broken, and this gate exists
+      # precisely to catch the case where something silently stops being checked.
+      - name: Check generated server functions are current
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages=(
+            "./examples/server/atlas-commerce-os/shared/api"
+          )
+          for pkg in "${packages[@]}"; do
+            echo "== gwc server check $pkg"
+            ./gwc server check -pkg "$pkg"
+          done
+
+      # The generated client stub is js/wasm-only and the implementations are
+      # server-only, so a plain `go build ./...` never compiles the browser half.
+      # Building it explicitly is what proves the stub is valid Go against the
+      # shared request/response types.
+      - name: Build the generated client stubs for the browser
+        env:
+          GOOS: js
+          GOARCH: wasm
+        run: go build ./examples/server/atlas-commerce-os/shared/api/
+
+      - name: Build the server half
+        run: go build ./examples/server/atlas-commerce-os/...
+
+      - name: Test the server-function package
+        run: go test ./examples/server/atlas-commerce-os/shared/api/ -count=1

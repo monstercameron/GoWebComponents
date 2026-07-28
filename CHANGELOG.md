@@ -1,5 +1,104 @@
 # Changelog
 
+## v5.0.2 - 2026-07-28
+
+**No framework behaviour changed.** Examples, documentation, measurement and CI
+only; the sole edit under `internal/` is a gofmt blank line in
+`inspect_reporting.go`. The substance is that v5 now has a real application
+exercising it, and that measuring it invalidated several numbers the plan was
+relying on.
+
+### The measurements were wrong, and the instruments were the reason
+
+`PRODUCTION_READINESS.md` carries a banner over every gate number recorded before
+2026-07-26, because they were taken with a probe that generated no input:
+
+- `driveTyping` in the P0.2 harness is a `setTimeout` that types nothing, and
+  always had been. Event Timing only records **trusted** events, so page script
+  cannot produce input at all — it has to come from the automation driver.
+- **M1's recorded pass was an artifact.** Equivalence between an idle arm and a
+  "loaded" arm whose probe also did nothing is trivially true no matter what the
+  runtime does.
+- **M2 and M7 were reporting zeros from dead instruments.** Six deliberately
+  injected 180 ms main-thread blocks went uncounted; LoAF does not fire in
+  headless Chromium, and M7 sampled no collection at all.
+- **The measurement machine was contended.** 247 livereload dev servers leaked by
+  `tools/gwc`'s dev-loop tests were still running, the oldest two days old. Fixed
+  at the source with `killListenersOnPort` in `tools/gwc/start_test.go`.
+
+Re-measured headed, with real trusted keystrokes on a quiet machine (four runs,
+~650 interaction samples each, all three §1.2 workloads confirmed running).
+
+### What the honest numbers showed about M2
+
+Long frames are **coalesced update batches, not slow rendering**. Per-keystroke
+Go phase totals:
+
+| | commits | work units | time |
+|---|---:|---:|---:|
+| typical keystroke | 2.2 | 89 | **8.2 ms** |
+| worst keystrokes | 4–5 | 153–154 | **82–131 ms** |
+
+2.3× the commits and 1.7× the work produce **16× the time**; that superlinearity
+is the finding. When keystrokes arrive faster than the loop drains them, several
+commits execute inside one frame. Four hypotheses were tested and refuted, each
+with a control: worker chatter (2 messages/second), GC (`gc=0` on the worst
+frames), style/layout (`styleAndLayoutDuration = 0`), and environment preemption
+(1200 idle frames in 20 s, zero long). Load is not the variable — input arrival
+rate is. Enabling `FrameBudgetMs` made it measurably worse, which is two
+independent scheduling attempts reaching the same answer. `internal/runtime` is
+0.43% of the native render path; there was never a constant factor there worth
+16×. The fix that followed is the drain-between-frames change already on this
+branch, not a faster reconciler.
+
+### Atlas Commerce OS is now the reference v5 application
+
+`PRODUCTION_READINESS.md` said it plainly — *"no real application exercises v5"* —
+and the flagship server example (~29k lines, 90 Go files) now does, with new
+packages written to be read rather than merely to work:
+
+- **`shared/design`** — the app's design system authored entirely in Go on the
+  typed-CSS package. No Tailwind step, no `.css` file, no CDN: every rule is a Go
+  value folded into a hashed class and emitted through the `Sink`, so the native
+  SSR lane and the wasm lane share one authoring surface.
+- **`shared/bootfallback`** — owns every byte of JavaScript the document ships
+  (`wasm_exec.js` plus a ~20-line generated snippet) and the markup that snippet
+  reveals when the client cannot start. The fallback copy, styling, `<noscript>`
+  content and failure-message selection are all Go.
+- **`shared/api`** — adopts `//gwc:server` server functions for the typed
+  client/server boundary, with the `!js || !wasm` constraint doing load-bearing
+  work: it keeps the real implementations, the driver and the query layer out of
+  `app.wasm`, which is what the M5 size budget and the two-artifact split exist
+  for.
+- **`client/bootsurface.go`** and a large `public_sections.go` rework.
+
+### CI gained the gates that would have caught this
+
+- **`atlas-boot.yml`** — Atlas was in **zero** CI gates (`examples-build.yml`
+  covers `./examples/public/...`; Atlas lives under `examples/server/`) and was
+  consequently broken at boot from 2026-04-08 while every collected signal read
+  green: it compiled for both targets and its 7 test packages passed.
+- **`server-functions.yml`** — guards the `//gwc:server` codegen contract. Editing
+  a signature without re-running `gwc server gen` leaves a stub that still
+  compiles and still calls the old contract; the compiler cannot catch it because
+  both sides are individually valid, so it fails at runtime in a browser.
+- **`catalog-smoke.yml`** — now derives the module path *and* the require version
+  from `go.mod` instead of hardcoding `github.com/monstercameron/GoWebComponents`,
+  which stopped resolving at the `/v5` move and silently sent the gate to the
+  network for the local checkout.
+
+### Also
+
+- `docs/ATLAS_PERF_BASELINE.md` — the measurement pass, every number carrying the
+  command that reproduces it, hot spots that were *expected and did not appear*
+  reported as such (harness share of the native allocation profile: 0.015%).
+- `docs/V5_DOMAIN_WORKER_ASSESSMENT.md`, plus `docs/plans/v5-plan.md` updates
+  recording the M2 investigation and its correction.
+- `examples/testing/v5-load-harness` — `probe.go` and a `gate.test.mjs` so the
+  harness's own instruments are tested; `examples/testing/atlas-perf` fixtures;
+  `examples/v5-two-artifact` app/services rework.
+- Additional `test/playwrightgo` example coverage.
+
 ## v5.0.1 - 2026-07-28
 
 **Fix: `css/u` no longer collides with `html/shorthand` under dot-import.**

@@ -14,7 +14,9 @@ import (
 	"syscall/js"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/v5/css"
 	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/atlas"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
 	"github.com/monstercameron/GoWebComponents/v5/fetch"
 	"github.com/monstercameron/GoWebComponents/v5/html"
 	"github.com/monstercameron/GoWebComponents/v5/router"
@@ -31,6 +33,15 @@ const (
 	atlasMockSignInPath             = "/auth/mock-sign-in"
 	atlasBootstrapScriptID          = "__ATLAS_BOOTSTRAP__"
 	atlasBootstrapReferenceScriptID = "__ATLAS_BOOTSTRAP_REF__"
+
+	// atlasLocaleQueryKey and atlasLocaleCookieName mirror the two inputs the server
+	// resolves in resolveRequestLocale (server/server.go). They are spelled out here
+	// rather than imported because shared/atlas holds the payload contract, not the
+	// transport; the names have to match the server's by inspection, and the pair of
+	// doc comments is the pin.
+	atlasLocaleQueryKey     = "locale"
+	atlasLocaleCookieName   = "atlas_locale"
+	atlasLocaleCookieMaxAge = 365 * 24 * 60 * 60
 )
 
 var initialBootstrap ui.SSRBootstrap
@@ -177,6 +188,22 @@ func shouldSkipDebugEvent(parseEvent string, parseDetails map[string]any) bool {
 	return false
 }
 
+// debugLog emits development diagnostics, and ONLY development diagnostics.
+//
+// It returns early unless data-atlas-debug-logs is set, which the server writes
+// from cfg.LogsEnabled (formatAtlasDebugLogsFlag) and which is off by default. So
+// everything logged through here is absent from a production page — fine for
+// route.fetch.start, payload.build, list.query.state, and the overlay tracing this
+// file is full of, all of which are noise once the feature works.
+//
+// It is NOT fine for failures, and this client used it for all of them. Use
+// errorLog (bootsurface.go) for anything a support engineer would need after the
+// fact; a diagnostic that is silenced in production is the same problem as no
+// diagnostic, wearing a different costume.
+//
+// The always-on boot milestones live on the <html> data-atlas-boot-state attribute
+// rather than here, so "did it get past hydration?" is answerable in every build
+// without adding console noise to a healthy page.
 func debugLog(parseEvent string, parseDetails map[string]any) {
 	if !isAtlasDebugLoggingEnabled() {
 		return
@@ -285,12 +312,38 @@ func loadBootstrap() ui.SSRBootstrap {
 	}
 	parseRef, parseRefErr := ui.ReadBootstrapReferenceScript(atlasBootstrapReferenceScriptID)
 	if parseRefErr != nil {
-		debugLog("bootstrap.read.failed", map[string]any{"error": parseErr.Error(), "referenceError": parseRefErr.Error()})
+		// errorLog, not debugLog: losing the bootstrap means the client falls back
+		// to a zero payload and renders the default route with no user, no locale,
+		// and no route data. It looks like a working page showing the wrong thing,
+		// which is worse than a crash and used to be reported only when the
+		// server had debug logs switched on.
+		// Only a SERVER-rendered page is supposed to carry a bootstrap payload.
+		// client/atlas-commerce-os.html is a static shell with no server behind it,
+		// so on that page this is expected and stays a debug line; surfacing it
+		// there put a failure banner over a demo that was working correctly.
+		if !isServerRenderedDocument() {
+			debugLog("bootstrap.absent.static_shell", map[string]any{
+				"reason": "no data-atlas-surface attribute; treating this as a static shell with no SSR payload",
+			})
+			return ui.SSRBootstrap{}
+		}
+		errorLog("bootstrap.read.failed", parseErr.Error()+" / "+parseRefErr.Error(), map[string]any{
+			"inlineScriptID":    atlasBootstrapScriptID,
+			"referenceScriptID": atlasBootstrapReferenceScriptID,
+		})
+		surfaceAtlasFailure(atlasSurfaceModeNotice, "bootstrap-missing",
+			"Atlas started without its server payload",
+			"Neither the inline nor the external SSR bootstrap script could be read, so this page is rendering from empty state instead of the server's.",
+			parseErr.Error())
 		return ui.SSRBootstrap{}
 	}
 	parseBootstrap, parseRefErr = ui.ReadBootstrapReference(parseRef)
 	if parseRefErr != nil {
-		debugLog("bootstrap.reference.failed", map[string]any{"url": parseRef.URL, "error": parseRefErr.Error()})
+		errorLog("bootstrap.reference.failed", parseRefErr.Error(), map[string]any{"url": parseRef.URL})
+		surfaceAtlasFailure(atlasSurfaceModeNotice, "bootstrap-unreadable",
+			"Atlas started without its server payload",
+			"The external bootstrap reference was found but could not be fetched or decoded, so this page is rendering from empty state.",
+			parseRef.URL+": "+parseRefErr.Error())
 		return ui.SSRBootstrap{}
 	}
 	debugLog("bootstrap.read.ok", map[string]any{
@@ -406,22 +459,32 @@ func fetchRequestData(parseCtx context.Context, parseRequestURL string, parseDat
 	parsePayloadData, parseErr := fetch.LoadCached(parseCtx, atlas.CachedRequestResourceKey(parseRequestURL, parseDataKey), func(parseLoadCtx context.Context) (any, error) {
 		parseRequest, parseErr2 := http.NewRequestWithContext(parseLoadCtx, http.MethodGet, parseRequestURL, nil)
 		if parseErr2 != nil {
-			debugLog("route.fetch.request.error", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "error": parseErr2.Error()})
+			errorLog("route.fetch.request.error", parseErr2.Error(), map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey})
 			return nil, parseErr2
 		}
 		parseResponse, parseErr2 := http.DefaultClient.Do(parseRequest)
 		if parseErr2 != nil {
-			debugLog("route.fetch.network.error", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "error": parseErr2.Error()})
+			errorLog("route.fetch.network.error", parseErr2.Error(), map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey})
 			return nil, parseErr2
 		}
 		if parseResponse.StatusCode < 200 || parseResponse.StatusCode >= 300 {
-			debugLog("route.fetch.non_ok", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "status": parseResponse.StatusCode})
+			// This branch returns (nil, nil): the status is DISCARDED and the
+			// caller cannot distinguish "the server said 403" from "there was
+			// nothing to load". Downstream that becomes a generic recovery page.
+			// Fixing the signature is out of scope here, so at minimum the status
+			// has to reach the console in every build — otherwise a 500 on a data
+			// route is indistinguishable from an empty one.
+			errorLog("route.fetch.non_ok", fmt.Sprintf("%s responded %d", parseRequestURL, parseResponse.StatusCode), map[string]any{
+				"requestURL": parseRequestURL,
+				"dataKey":    parseDataKey,
+				"status":     parseResponse.StatusCode,
+			})
 			parseResponse.Body.Close()
 			return nil, nil
 		}
 		var parseLoaded any
 		if parseErr3 := decodeJSONBody(parseResponse, &parseLoaded); parseErr3 != nil {
-			debugLog("route.fetch.decode.error", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "error": parseErr3.Error()})
+			errorLog("route.fetch.decode.error", parseErr3.Error(), map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey})
 			return nil, parseErr3
 		}
 		debugLog("route.fetch.ok", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey})
@@ -676,6 +739,132 @@ func updateDocumentMetadata(parsePayload atlas.Payload) {
 			parseCanonical.Call("setAttribute", "href", parseCanonicalValue)
 		}
 	}
+	applyDocumentLocale(parseDocument, parsePayload)
+}
+
+// applyDocumentLocale writes <html lang> and <html dir> from the payload.
+//
+// The server emits both on a direct entry, so on first paint this is a no-op that
+// agrees with the HTML. It matters on the OTHER path: the language switcher renders
+// ordinary <a href="/shop?locale=fr"> elements, registerAnchorNavigation intercepts
+// them, and the router serves the navigation from the client — the server is never
+// asked, so nothing outside this function can update the two attributes that carry
+// the document's language to a screen reader and its text direction to the layout
+// engine. Before this existed, clicking FR changed location.search and left
+// <html lang="en"> in place, which is the precise shape of "the switcher navigates
+// and nothing happens".
+//
+// Both attributes are set unconditionally rather than only-when-different: reading
+// the attribute to compare costs the same DOM round-trip as writing it, and a
+// conditional write is one more state to be wrong about.
+func applyDocumentLocale(parseDocument js.Value, parsePayload atlas.Payload) {
+	parseRoot := parseDocument.Get("documentElement")
+	if !parseRoot.Truthy() {
+		return
+	}
+	parseLocale := strings.TrimSpace(parsePayload.I18n.Locale)
+	if parseLocale == "" {
+		parseLocale = "en"
+	}
+	parseDirection := strings.TrimSpace(parsePayload.I18n.Direction)
+	if parseDirection == "" {
+		// Derive rather than default to "ltr": a payload that carried a locale but no
+		// direction would otherwise render Arabic left-to-right, which looks like a
+		// CSS bug and is actually a missing field.
+		parseDirection = atlas.LocaleDirection(parseLocale)
+	}
+	parseRoot.Call("setAttribute", "lang", parseLocale)
+	parseRoot.Call("setAttribute", "dir", parseDirection)
+}
+
+// resolveClientLocale is the client half of the locale contract. It implements the
+// same precedence as resolveRequestLocale in server/server.go — query parameter,
+// then the atlas_locale cookie, then what the server last told us — and the two
+// halves have to agree, because a visitor can arrive at any URL either way:
+//
+//	?locale=fr          direct entry  -> server resolves, emits lang/dir, sets cookie
+//	?locale=fr          in-page click -> THIS resolves, writes lang/dir, sets cookie
+//
+// Level (3) is the SSR payload rather than a stored preference row because the
+// client has no database: initialPayload.I18n.Locale is the server's answer for this
+// visitor, which already folded in the cookie and the preference row.
+//
+// The cookie write is what makes the choice survive the next plain link. The nav
+// links (/shop, /warehouses) carry no locale parameter — publicLocaleHref only
+// decorates the CURRENT path — so without it, one click off the switcher and the
+// storefront is English again.
+func resolveClientLocale(parseQuery url.Values) string {
+	if parseLocale, parseOK := supportedClientLocale(parseQuery.Get(atlasLocaleQueryKey)); parseOK {
+		writeLocaleCookie(parseLocale)
+		return parseLocale
+	}
+	if parseLocale, parseOK := supportedClientLocale(readLocaleCookie()); parseOK {
+		return parseLocale
+	}
+	if parseLocale, parseOK := supportedClientLocale(initialPayload.I18n.Locale); parseOK {
+		return parseLocale
+	}
+	return "en"
+}
+
+// supportedClientLocale validates against the same list the server does. Both sides
+// read atlas.SupportedLocales, which is the point of that function living in
+// shared/atlas: an unsupported tag has to be rejected identically in both lanes or a
+// reload changes the language.
+func supportedClientLocale(parseCandidate string) (string, bool) {
+	parseCandidate = strings.ToLower(strings.TrimSpace(parseCandidate))
+	if parseCandidate == "" {
+		return "", false
+	}
+	for _, parseSupported := range atlas.SupportedLocales() {
+		if parseCandidate == strings.ToLower(parseSupported) {
+			return parseSupported, true
+		}
+	}
+	return "", false
+}
+
+// readLocaleCookie pulls atlas_locale out of document.cookie.
+//
+// document.cookie is a single "a=1; b=2" string with no accessor, so this is a hand
+// split. It reads only the one name it knows and validates the value against the
+// supported list at the call site, so a malformed or hostile cookie jar cannot put
+// anything into <html lang>.
+func readLocaleCookie() string {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
+		return ""
+	}
+	parseJar := parseDocument.Get("cookie")
+	if !parseJar.Truthy() {
+		return ""
+	}
+	for _, parseEntry := range strings.Split(parseJar.String(), ";") {
+		parseName, parseValue, parseFound := strings.Cut(strings.TrimSpace(parseEntry), "=")
+		if !parseFound {
+			continue
+		}
+		if strings.TrimSpace(parseName) == atlasLocaleCookieName {
+			return strings.TrimSpace(parseValue)
+		}
+	}
+	return ""
+}
+
+// writeLocaleCookie records an explicit in-page locale choice where the next full
+// page load will find it.
+//
+// Same attributes the server writes (path=/, one year, SameSite=Lax) so a
+// client-set and a server-set cookie are indistinguishable — otherwise the two
+// lanes would produce two cookies with the same name and different scopes, and which
+// one wins would depend on the browser's ordering rules.
+func writeLocaleCookie(parseLocale string) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
+		return
+	}
+	parseDocument.Set("cookie", atlasLocaleCookieName+"="+parseLocale+
+		"; path=/; max-age="+fmt.Sprintf("%d", atlasLocaleCookieMaxAge)+"; samesite=lax")
 }
 
 func syncNavigationPosition(parsePayload atlas.Payload) {
@@ -723,6 +912,13 @@ func buildPayloadWithData(parsePath string, parseQuery url.Values, parseData map
 		Description: routeDescription(parsePath, parsePageData),
 		Canonical:   routeCanonical(parsePath),
 	}
+	// Re-resolve the locale for EVERY client-built payload.
+	//
+	// parsePayload starts as a copy of initialPayload, so without this line I18n is
+	// frozen at whatever the server rendered on first entry and the language switcher
+	// is inert for the whole session. atlas.DefaultI18n derives Direction from the
+	// locale, so `dir` cannot drift out of step with `lang`.
+	parsePayload.I18n = atlas.DefaultI18n(resolveClientLocale(parseQuery))
 	parsePayload.Data = cloneDataMap(parseData)
 	parsePayload.Requests = cloneRequests(parseRequests)
 	debugLog("payload.build", map[string]any{
@@ -764,6 +960,8 @@ func buildRecoveryPayload(parsePath string, parseQuery url.Values, parseRequestU
 		parseDetailParts = append(parseDetailParts, "Technical detail: "+parseErr.Error())
 	}
 	parsePayload := initialPayload
+	// A recovery screen is still a page in a language; see buildPayloadWithData.
+	parsePayload.I18n = atlas.DefaultI18n(resolveClientLocale(parseQuery))
 	parsePayload.Route = atlas.RouteBootstrap{
 		Path:        parsePath,
 		Query:       cloneQueryValues(parseQuery),
@@ -793,16 +991,19 @@ func buildRecoveryPayload(parsePath string, parseQuery url.Values, parseRequestU
 			Status: parseStatus,
 		}
 	}
-	debugLog("payload.recovery", map[string]any{
+	// Always-on: every "missing"/"error" branch upstream funnels through here, so
+	// this single line is the durable record that a user was shown a recovery
+	// screen instead of the page they asked for. As a debugLog it printed nothing
+	// in production, which meant the app could serve recovery pages all day and
+	// leave no trace anywhere the operator could reach.
+	parseReason := "no data returned"
+	if parseErr != nil {
+		parseReason = parseErr.Error()
+	}
+	errorLog("payload.recovery", parsePath+": "+parseReason, map[string]any{
 		"path":       parsePath,
 		"screen":     parsePayload.Route.Screen,
 		"requestURL": parseRequestURL,
-		"error": func() string {
-			if parseErr == nil {
-				return ""
-			}
-			return parseErr.Error()
-		}(),
 	})
 	return parsePayload
 }
@@ -824,7 +1025,7 @@ func loadRoutePayload(parseCtx context.Context, parseRouteCtx router.RouteContex
 	parsePayload, parseLoadErr := fetch.LoadCached(parseCtx, atlas.RoutePayloadResourceKey(parseRouteCtx.Path, parseFullQuery), func(parseLoadCtx context.Context) (atlas.Payload, error) {
 		parsePageData, parseRequestURL, parseErr := fetchPageData(parseLoadCtx, parseRouteCtx.Path, parseFullQuery)
 		if parseErr != nil {
-			debugLog("route.load.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+			errorLog("route.load.error", parseErr.Error(), map[string]any{"path": parseRouteCtx.Path})
 			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseRequestURL, parseErr), nil
 		}
 		if parsePageData == nil && strings.TrimSpace(parseRequestURL) == "" && parseRouteCtx.Path == atlas.RouteLanding {
@@ -1177,7 +1378,7 @@ func atlasRouteLoader(parseCtx context.Context, parseRouteCtx router.RouteContex
 	debugLog("router.loader", map[string]any{"path": parseRouteCtx.Path})
 	parsePayload, parseErr := loadRoutePayload(parseCtx, parseRouteCtx)
 	if parseErr != nil {
-		debugLog("router.loader.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+		errorLog("router.loader.error", parseErr.Error(), map[string]any{"path": parseRouteCtx.Path})
 		return nil, parseErr
 	}
 	return router.Attrs{"payload": parsePayload}, nil
@@ -1190,7 +1391,7 @@ func loadInventoryThresholdHistoryPayload(parseCtx context.Context, parseRouteCt
 		parseParentPath := atlas.RouteInventory + "/" + parseSku
 		parsePageData, parsePageRequestURL, parseErr := fetchPageData(parseLoadCtx, parseParentPath, parseFullQuery)
 		if parseErr != nil {
-			debugLog("route.overlay.page.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+			errorLog("route.overlay.page.error", parseErr.Error(), map[string]any{"path": parseRouteCtx.Path})
 			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parsePageRequestURL, parseErr), nil
 		}
 		if parsePageData == nil {
@@ -1200,7 +1401,7 @@ func loadInventoryThresholdHistoryPayload(parseCtx context.Context, parseRouteCt
 		parseOverlayRequestURL := atlas.StartupRequestURL(parseRouteCtx.Path, routeDataQuery(parseFullQuery))
 		parseOverlayData, parseErr := fetchRequestData(parseLoadCtx, parseOverlayRequestURL, "overlay")
 		if parseErr != nil {
-			debugLog("route.overlay.data.error", map[string]any{"path": parseRouteCtx.Path, "requestURL": parseOverlayRequestURL, "error": parseErr.Error()})
+			errorLog("route.overlay.data.error", parseErr.Error(), map[string]any{"path": parseRouteCtx.Path, "requestURL": parseOverlayRequestURL})
 			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseOverlayRequestURL, parseErr), nil
 		}
 		parseRequests := map[string]atlas.Request{}
@@ -1234,7 +1435,7 @@ func loadWarehouseItemNestedPayload(parseCtx context.Context, parseRouteCtx rout
 		parseParentPath := atlas.RouteWarehouseOps + "/" + parseWarehouseID
 		parsePageData, parsePageRequestURL, parseErr := fetchPageData(parseLoadCtx, parseParentPath, parseFullQuery)
 		if parseErr != nil {
-			debugLog("route.nested.page.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+			errorLog("route.nested.page.error", parseErr.Error(), map[string]any{"path": parseRouteCtx.Path})
 			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parsePageRequestURL, parseErr), nil
 		}
 		if parsePageData == nil {
@@ -1244,7 +1445,7 @@ func loadWarehouseItemNestedPayload(parseCtx context.Context, parseRouteCtx rout
 		parseItemRequestURL := atlas.StartupRequestURL(parseRouteCtx.Path, routeDataQuery(parseFullQuery))
 		parseItemData, parseErr := fetchRequestData(parseLoadCtx, parseItemRequestURL, "item")
 		if parseErr != nil {
-			debugLog("route.nested.item.error", map[string]any{"path": parseRouteCtx.Path, "requestURL": parseItemRequestURL, "error": parseErr.Error()})
+			errorLog("route.nested.item.error", parseErr.Error(), map[string]any{"path": parseRouteCtx.Path, "requestURL": parseItemRequestURL})
 			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseItemRequestURL, parseErr), nil
 		}
 		if parseItemData == nil {
@@ -1378,9 +1579,114 @@ type atlasRouteDefinition struct {
 	Component   func(router.Attrs) *router.Element
 }
 
+// atlasSkeletonBar is one placeholder block for the route loading state.
+//
+// Styled inline rather than with .atlas-* classes on purpose: the Atlas design
+// tokens live in an inline <style> in client/atlas-commerce-os.html and are absent
+// from the two stylesheets the server links, so a class-styled skeleton renders as
+// nothing on the served page. A loading state you cannot see is the same defect as
+// no loading state.
+func atlasSkeletonBar(parseWidth string, parseHeight string) ui.Node {
+	return html.Div(html.Props{
+		Class: "atlas-boot-bar",
+		Style: map[string]string{
+			"width":         parseWidth,
+			"height":        parseHeight,
+			"margin-bottom": "0.75rem",
+			"border-radius": "0.5rem",
+			"background":    "currentColor",
+			"opacity":       "0.5",
+		},
+	})
+}
+
+// atlasLoadingElement is the element the router shows while a route loader is in
+// flight. It used to be html.Div(Class: "min-h-screen") — a full-height EMPTY div,
+// which is a blank page with extra steps.
+//
+// WHY THIS IS THE RIGHT PLACE FOR A LOADING STATE IN GWC:
+//
+// router.Options.Loading is rendered by the router itself while
+// ensureLoaderResult reports pending, and swapped for the route component the
+// moment the loader resolves (router/router_render.go). That means no manual
+// show/hide, no timer to cancel, and no window where both are mounted — the three
+// ways a hand-rolled spinner leaks. Anything imperative here (a setTimeout that
+// pokes innerHTML, a global "isLoading" flag) would have to be torn down by the
+// same code that just failed, which is how loading states get stuck on screen.
+//
+// It does NOT cover the pre-hydration window. On the server-rendered shell,
+// nothing at all is inside #app until the 19 MB wasm downloads and instantiates
+// (measured: first content at ~1.3 s), and no client-side code can paint before
+// its own binary exists. That placeholder has to ship in the server's HTML; see
+// the comment in main() and the pattern in client/atlas-commerce-os.html.
 func atlasLoadingElement() *router.Element {
 	return ui.CreateElement(func() ui.Node {
-		return html.Div(html.Props{Class: "min-h-screen"})
+		return html.Div(html.Props{
+			Class: "min-h-screen",
+			Role:  "status",
+			// aria-busy tells assistive tech the region is mid-update, and
+			// aria-live announces the label once. Without them a screen reader
+			// hears silence for the whole load, which is this ticket's theme
+			// again in a different medium.
+			Aria:  map[string]string{"busy": "true", "live": "polite"},
+			Data:  map[string]string{"atlas-loading": "route"},
+			Style: map[string]string{"padding": "2.5rem 1.25rem", "max-width": "52rem", "margin": "0 auto"},
+		},
+			html.P(html.Props{Style: map[string]string{
+				"margin":         "0 0 1.25rem 0",
+				"font-size":      "0.78rem",
+				"font-weight":    "700",
+				"letter-spacing": "0.22em",
+				"text-transform": "uppercase",
+				"opacity":        "0.7",
+			}}, ui.Text("Loading Atlas…")),
+			atlasSkeletonBar("38%", "1.75rem"),
+			atlasSkeletonBar("68%", "0.9rem"),
+			atlasSkeletonBar("54%", "0.9rem"),
+			atlasSkeletonBar("100%", "9rem"),
+		)
+	})
+}
+
+// atlasRouteErrorElement renders a route loader failure.
+//
+// Without router.Options.Error the router falls back to
+// runtime.Div(nil, runtime.Text(err.Error())) — an unstyled bare div with a raw Go
+// error string in it (router/router_state.go:renderRouteError). On the served
+// shell that is a line of unformatted text on an unstyled page, which reads as a
+// broken render rather than as a reported failure.
+//
+// Most Atlas loaders never reach here because loadRoutePayload converts fetch
+// failures into a "recovery" payload and returns a nil error, but the overlay and
+// nested loaders (atlasThresholdHistoryOverlayLoader, atlasWarehouseItemNestedLoader)
+// do propagate errors, and fetch.LoadCached can fail on its own.
+func atlasRouteErrorElement(parseAttrs router.Attrs) *router.Element {
+	parseMessage, _ := parseAttrs["error"].(string)
+	parsePath, _ := parseAttrs["path"].(string)
+	if strings.TrimSpace(parseMessage) == "" {
+		parseMessage = "The route loader failed without reporting a reason."
+	}
+	errorLog("route.error.surface", parseMessage, map[string]any{"path": parsePath})
+	return ui.CreateElement(func() ui.Node {
+		return html.Div(html.Props{
+			Role:  "alert",
+			Data:  map[string]string{"atlas-route-error": "true"},
+			Style: map[string]string{"padding": "2.5rem 1.25rem", "max-width": "52rem", "margin": "0 auto"},
+		},
+			html.P(html.Props{Style: map[string]string{"margin": "0 0 0.5rem 0", "font-size": "1.15rem", "font-weight": "700"}},
+				ui.Text("Atlas could not load this route")),
+			html.P(html.Props{Style: map[string]string{"margin": "0 0 0.75rem 0", "opacity": "0.85"}},
+				ui.Text("The page shell is still running, so navigating elsewhere should work.")),
+			html.Pre(html.Props{Style: map[string]string{
+				"margin":        "0",
+				"padding":       "0.7rem 0.85rem",
+				"border-radius": "0.5rem",
+				"background":    "rgba(127,29,29,0.18)",
+				"font-size":     "0.82rem",
+				"white-space":   "pre-wrap",
+				"word-break":    "break-word",
+			}}, ui.Text(strings.TrimSpace(parsePath+"\n"+parseMessage))),
+		)
 	})
 }
 
@@ -1406,6 +1712,10 @@ func routeOptionsForDefinition(parseDef atlasRouteDefinition) router.Options {
 			parseOptions.Loader = atlasRouteLoader
 		}
 		parseOptions.Loading = atlasLoadingElement()
+		// Every route that can load can fail to load, so the error state is
+		// registered from the same branch as the loader. Registering them apart is
+		// how a route ends up with a loader and no error surface.
+		parseOptions.Error = atlasRouteErrorElement
 	}
 	return parseOptions
 }
@@ -1666,7 +1976,97 @@ func registerOverlayDebugTracking() {
 	parseDocument.Call("addEventListener", "focusin", handleOverlayDebugFocus)
 }
 
+// atlasMountSelector is the one place the mount point is named. It is a CSS
+// SELECTOR, not an id: ui.Render(..., "root") in a sibling example passed a bare
+// id, matched nothing, and hung — defect 1 in the M10 write-up.
+const atlasMountSelector = "#app"
+
+// atlasHydrationAuditDelayMS is how long the client waits before declaring an
+// empty mount point a failure. Measured baseline on localhost: first content at
+// ~1.3 s from navigation (19 MB wasm plus the first route fetch). 3 s leaves
+// headroom for a slower machine without leaving a blank page unexplained.
+const atlasHydrationAuditDelayMS = 3000
+
 func main() {
+	// Order matters: the failure surface goes in before anything that can fail.
+	// Installing it after the risky work means the one boot that needed it is the
+	// one boot that did not have it.
+	installAtlasBootSurface()
+	installRuntimePanicCapture()
+	installGoLivenessProbe()
+	markAtlasBootState(atlasBootStateBooting)
+
+	bootAtlasClient()
+
+	// Park the runtime whatever happened during boot.
+	//
+	// Returning from main() exits the Go runtime with code 0, and after that every
+	// registered callback throws "Go program has already exited". A contained
+	// panic leaves a LIVE runtime with a partly rendered page, which is worth
+	// keeping: navigation, anchors, and the rest of the shell still work. Exiting
+	// here would convert a degraded page into a dead one on purpose.
+	select {}
+}
+
+// bootAtlasClient runs the boot sequence behind a recover().
+//
+// WHY recover() AT THE BOOT BOUNDARY RATHER THAN TRUSTING THE RUNTIME:
+//
+// A hook-rule violation panics by design — the runtime would rather stop than keep
+// mutating state it cannot reason about. That is correct, but an unrecovered panic
+// in a wasm main() exits the Go runtime with code 2, and the DOM keeps whatever it
+// had: an empty #app. The user sees a blank page and the diagnosis sits in a
+// console nobody opened. Atlas shipped in exactly that state for four months.
+//
+// So: catch it here, and put the failure where a human will actually look.
+//
+// AND WHY recover() IS NOT ENOUGH ON ITS OWN:
+//
+// Panics raised INSIDE the GWC runtime never reach this recover(). ui's wasm
+// initialisation sets HideRawPanicOutput: true, so internal/runtime formats the
+// report, emits it, and returns normally instead of re-panicking. ui.Hydrate then
+// returns a nil error and the DOM stays empty. That is why boot has three
+// independent guards and not one:
+//
+//   - this recover(), for panics in Atlas's own boot code (bootstrap decode, a
+//     js.Value type assertion, a nil map);
+//   - installRuntimePanicCapture, for contained runtime panics, which arrive as a
+//     gwc:runtime-panic CustomEvent and nowhere else in-page;
+//   - scheduleHydrationOutputAudit, for the residual case where nothing panicked
+//     anywhere and the mount point is simply still empty.
+func bootAtlasClient() {
+	defer func() {
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			return
+		}
+		surfaceAtlasFailure(atlasSurfaceModeFatal, "boot-panic",
+			"Atlas failed to start",
+			"The client panicked while booting, so no part of the app mounted. This is a defect in the client, not a network or data problem.",
+			fmt.Sprintf("%v", parseRecovered))
+	}()
+
+	// Styling boundary, and it comes before hydration for two reasons.
+	//
+	// css.SeedFromDocument() FIRST: it reads the class list out of the server's
+	// <style data-gwc-css="…"> block and marks every one of those rules as already
+	// present. Without it, design.Install() below would re-emit the whole global
+	// layer into a second <style> element — a duplicate reset, a duplicate :root token
+	// block, and a duplicate print layer, all winning ties over the server's copy by
+	// emission order. Nothing would look broken, which is what makes it worth a
+	// comment; it would just quietly double the CSS on every page.
+	//
+	// design.Install() SECOND, and unconditionally: on a served page it is a no-op
+	// after seeding, and on client/atlas-commerce-os.html — a static shell with no
+	// server behind it and therefore no <style> block to seed from — it is the only
+	// thing that emits the base layer at all. One call covers both.
+	//
+	// Both run before ui.Hydrate, because primitives folded during the first render
+	// must land AFTER the reset and the token block, and the css package emits in
+	// call order.
+	css.SeedFromDocument()
+	design.Install()
+
 	// Hydration boundary: resume from the exact server-emitted bootstrap payload so first paint metadata,
 	// document language, and route data do not drift between SSR and client ownership.
 	initialBootstrap = loadBootstrap()
@@ -1674,7 +2074,7 @@ func main() {
 	logHydrationFallbackConditions(initialPayload)
 	logHydrationDocumentMismatch(initialPayload)
 	if parseErr := restoreAtlasFetchCacheBootstrap(initialPayload); parseErr != nil {
-		debugLog("bootstrap.cache.restore.failed", map[string]any{"error": parseErr.Error()})
+		errorLog("bootstrap.cache.restore.failed", parseErr.Error(), nil)
 	}
 	debugLog("app.init", map[string]any{
 		"path":    initialPayload.Route.Path,
@@ -1688,14 +2088,63 @@ func main() {
 	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: atlas.RouteLanding})
 	registerAtlasRoutes(parseR)
 
-	debugLog("hydrate.start", map[string]any{"selector": "#app", "path": initialPayload.Route.Path})
-	_, _ = ui.Hydrate(atlas.App(initialPayload), "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
-	debugLog("hydrate.done", map[string]any{"selector": "#app"})
+	debugLog("hydrate.start", map[string]any{"selector": atlasMountSelector, "path": initialPayload.Route.Path})
+
+	// Check the mount point BEFORE handing it to the runtime.
+	//
+	// runtime.HydrateTo does check, and its report is excellent — it names the
+	// selector and the phase. But under crash containment it does not stop: the
+	// contained panic returns, Hydrate proceeds with a null container, and the
+	// caller gets a nil error. So the only way for the client to react to a
+	// missing mount point is to have looked itself.
+	if !atlasMountPointExists(atlasMountSelector) {
+		surfaceAtlasFailure(atlasSurfaceModeFatal, "mount-missing",
+			"Atlas has nowhere to render",
+			"The page did not contain an element matching "+atlasMountSelector+", so hydration had no target. Check that the server shell still emits it.",
+			"document.querySelector(\""+atlasMountSelector+"\") returned null")
+		return
+	}
+
+	// Hand atlas.App to the runtime as a component plus props instead of invoking it here: its body runs
+	// hooks (useAtlasAtom/state.UseAtom), which are only legal inside a render pass owned by a fiber.
+	_, parseHydrateErr := ui.Hydrate(ui.CreateElement(atlas.App, initialPayload), atlasMountSelector, ui.HydrationOptions{Bootstrap: initialBootstrap})
+	if parseHydrateErr != nil {
+		// This return value used to be discarded with `_, _ =`. It reports bootstrap
+		// decode failures and atom-snapshot restore failures — i.e. exactly the
+		// cases where the app would mount against state that is not the state the
+		// server rendered.
+		surfaceAtlasFailure(atlasSurfaceModeFatal, "hydrate-error",
+			"Atlas could not resume the server's render",
+			"Hydration returned an error, so client state does not match the HTML the server sent. Continuing would render a page built from half-restored state.",
+			parseHydrateErr.Error())
+		return
+	}
+	debugLog("hydrate.done", map[string]any{"selector": atlasMountSelector})
 	bindDirtyGuardForms()
 	registerBeforeUnloadGuard()
-	parseR.HydrateMount("#app")
-	debugLog("router.mount", map[string]any{"selector": "#app"})
+	parseR.HydrateMount(atlasMountSelector)
+	debugLog("router.mount", map[string]any{"selector": atlasMountSelector})
 	registerAnchorNavigation(parseR)
 	registerOverlayDebugTracking()
-	select {}
+
+	// Hydration returned clean. That is not the same as "rendered something", so
+	// the state recorded here is a milestone and not a verdict; the audit below is
+	// the verdict.
+	markAtlasBootState(atlasBootStateHydrated)
+
+	// Tear down the pre-hydration placeholder now that the client owns the screen.
+	//
+	// NOTE — a gap this client cannot close from here: the server shell
+	// (server/server.go renderPageStatusWithPayload) emits a bare
+	// `<div id="app"></div>` with no placeholder to tear down, so on served pages
+	// this is a no-op and the page really is blank for the whole ~1.3 s boot. The
+	// pattern that fixes it is in client/atlas-commerce-os.html: ship the
+	// placeholder as a SIBLING of the mount point (inside it, hydration would
+	// diff against it and report a mismatch) and let the client remove it here.
+	clearAtlasBootPlaceholder()
+
+	// Last guard, and the one that would have caught the four-month blank page:
+	// nothing above can tell the difference between "hydrated" and "hydrated and
+	// visible", so ask the DOM once the first commit has had time to land.
+	scheduleHydrationOutputAudit(atlasMountSelector, atlasHydrationAuditDelayMS)
 }

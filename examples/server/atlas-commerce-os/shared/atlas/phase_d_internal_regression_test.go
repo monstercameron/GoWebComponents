@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 func TestPhaseDInternalRoutesRenderStableShellAndWorkflows(parseT *testing.T) {
@@ -25,8 +27,12 @@ func TestPhaseDInternalRoutesRenderStableShellAndWorkflows(parseT *testing.T) {
 	}{
 		{
 			name: "dashboard", path: RouteDashboard,
-			page:       dashboardPage{Summary: sampleSummary("Dashboard pulse"), Alerts: 3, Transfers: parseTransfers, Receiving: parseReceiving, Comments: parseComments, Orders: parseOrders},
-			wantTokens: []string{"Action cluster", "Open low-stock inventory view", "Pending comments"},
+			page: dashboardPage{Summary: sampleSummary("Dashboard pulse"), Alerts: 3, Transfers: parseTransfers, Receiving: parseReceiving, Comments: parseComments, Orders: parseOrders},
+			// "Action cluster" named the LAYOUT device, and the four shortcuts under it were
+			// numbered ACTION 1-4 as if they were a sequence. Both are gone; the durable
+			// contract is that the dashboard still offers the shortcut and still names the
+			// queue that needs attention.
+			wantTokens: []string{"Quick actions", "Open low-stock lanes", "Pending comments"},
 		},
 		{
 			name: "products", path: "/app/products",
@@ -41,7 +47,7 @@ func TestPhaseDInternalRoutesRenderStableShellAndWorkflows(parseT *testing.T) {
 		{
 			name: "sku-detail", path: RouteSKUDetail,
 			page:       inventoryDetailPage{SKU: "frame-desk", Title: "Frame Desk", Rows: parseInventoryRows},
-			wantTokens: []string{"Frame Desk", "Inventory lane workspace", "Flagged lanes"},
+			wantTokens: []string{"Frame Desk", "On hand by hub", "Flagged lanes"},
 		},
 		{
 			name: "warehouse-ops", path: RouteWarehouseOps,
@@ -51,7 +57,7 @@ func TestPhaseDInternalRoutesRenderStableShellAndWorkflows(parseT *testing.T) {
 		{
 			name: "warehouse-detail", path: RouteWarehouseDetail,
 			page:       warehouseInventoryDetailPage{Summary: sampleSummary("Facility detail"), Warehouse: parseWarehouses[0], Inventory: parseInventoryRows, Orders: parseOrders},
-			wantTokens: []string{"Facility detail", "Warehouse items", "Facility action cluster"},
+			wantTokens: []string{"Facility detail", "Items in this hub", "Facility actions"},
 		},
 		{
 			name: "warehouse-item", path: RouteWarehouseItemDetail,
@@ -61,7 +67,7 @@ func TestPhaseDInternalRoutesRenderStableShellAndWorkflows(parseT *testing.T) {
 		{
 			name: "transfers", path: RouteTransfers,
 			page:       transferList{Items: parseTransfers},
-			wantTokens: []string{"Transfers", "Create transfer", "balancing board"},
+			wantTokens: []string{"Transfers", "Create transfer", "Lanes in flight"},
 		},
 		{
 			name: "transfer-detail", path: RouteTransferDetail,
@@ -71,17 +77,17 @@ func TestPhaseDInternalRoutesRenderStableShellAndWorkflows(parseT *testing.T) {
 		{
 			name: "purchase-orders", path: RoutePurchaseOrders,
 			page:       purchaseOrderList{Summary: sampleSummary("Purchase-order watch"), Items: parseOrders},
-			wantTokens: []string{"Purchase-order shell", "vendor-side recovery board", "Open order"},
+			wantTokens: []string{"Vendor order table", "Orders on the way", "po-1042"},
 		},
 		{
 			name: "purchase-order-detail", path: RoutePurchaseOrderDetail,
 			page:       purchaseOrderDetailPage{Order: parseOrders[0], Lines: []purchaseOrderLineRecord{{ID: "po-line-1", PurchaseOrderID: parseOrders[0].ID, ProductSKU: "frame-desk", Quantity: 12, ETA: "Thu 09:30", Status: "submitted"}}},
-			wantTokens: []string{"Purchase-order workspace", "approval or hold action", "Line-item context"},
+			wantTokens: []string{"Purchase-order workspace", "What is on the order", "Line-item context"},
 		},
 		{
 			name: "receiving", path: RouteReceiving,
 			page:       receivingList{Items: parseReceiving},
-			wantTokens: []string{"Receiving", "closeout board", "Open session"},
+			wantTokens: []string{"Receiving table", "Sessions to close", "rcv-illinois-001"},
 		},
 		{
 			name: "receiving-detail", path: RouteReceivingSessionDetail,
@@ -107,8 +113,16 @@ func TestPhaseDInternalRoutesRenderStableShellAndWorkflows(parseT *testing.T) {
 
 	for _, parseCase := range parseCases {
 		parseT.Run(parseCase.name, func(parseT2 *testing.T) {
-			parseMarkup := renderAtlasMarkupForTest(parseT2, App(samplePayloadForRoute(parseCase.path, parseCase.page, nil)))
-			for _, parseToken := range []string{"atlas-shell-root", "Workspace nav", "Dashboard", "Inventory", "Products", "Warehouses", "Transfers", "Purchase Orders", "Receiving", "Comments", "Settings"} {
+			parseMarkup := renderAtlasComponentForTest(parseT2, func() ui.Node {
+				return App(samplePayloadForRoute(parseCase.path, parseCase.page, nil))
+			})
+			// The shell contract is now the console RAIL, not the old top navigation.
+			// "Workspace nav" was the label on the mobile drawer button that opened a
+			// duplicate copy of the nav; design.ConsoleRail replaces both the four-box
+			// desktop nav and that drawer with one element that restacks itself, so the
+			// durable assertions are the rail's navigation landmark and its plate. Every
+			// route label below is unchanged - the rail still lists all nine routes.
+			for _, parseToken := range []string{"atlas-shell-root", `aria-label="Operator console"`, "Atlas Commerce OS console", "Dashboard", "Inventory", "Products", "Warehouses", "Transfers", "Purchase Orders", "Receiving", "Comments", "Settings"} {
 				if !strings.Contains(parseMarkup, parseToken) {
 					parseT2.Fatalf("internal shell for %s missing %q", parseCase.path, parseToken)
 				}
@@ -128,7 +142,9 @@ func TestPhaseDLocalePreferenceRecoveryAndMotionContracts(parseT *testing.T) {
 	parseLocalePayload.I18n = DefaultI18n("ar")
 	parseLocalePayload.Theme = ThemeState{Mode: "dark"}
 
-	parseLocaleMarkup := renderAtlasMarkupForTest(parseT, App(parseLocalePayload))
+	parseLocaleMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return App(parseLocalePayload)
+	})
 	for _, parseToken := range []string{"Locale defaults", "Current locale", "ar", "Direction", "rtl", "Supported locales", "name=\"locale\"", "name=\"density\"", "name=\"default_warehouse_id\""} {
 		if !strings.Contains(parseLocaleMarkup, parseToken) {
 			parseT.Fatalf("locale settings markup missing %q", parseToken)
@@ -144,8 +160,10 @@ func TestPhaseDLocalePreferenceRecoveryAndMotionContracts(parseT *testing.T) {
 	}, nil)
 	parseRecoveryPayload.Route.Screen = "recovery"
 	parseRecoveryPayload.Route.Surface = "internal"
-	parseRecoveryMarkup := renderAtlasMarkupForTest(parseT, App(parseRecoveryPayload))
-	for _, parseToken := range []string{"Atlas internal recovery", "Back to dashboard", "Workspace nav", "atlas-shell-root"} {
+	parseRecoveryMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return App(parseRecoveryPayload)
+	})
+	for _, parseToken := range []string{"Atlas internal recovery", "Back to dashboard", `aria-label="Operator console"`, "atlas-shell-root"} {
 		if !strings.Contains(parseRecoveryMarkup, parseToken) {
 			parseT.Fatalf("internal recovery markup missing %q", parseToken)
 		}
@@ -161,10 +179,43 @@ func TestPhaseDLocalePreferenceRecoveryAndMotionContracts(parseT *testing.T) {
 		parseT.Fatalf("read Atlas shell template: %v", parseErr)
 	}
 	parseShell := string(parseShellBytes)
-	for _, parseToken := range []string{`html[lang="ar"]`, `@media (prefers-reduced-motion: reduce)`, `transition-duration: 0.01ms`, `transform: none`, `id="atlas-overlay-root"`, `data-atlas-portal-host="overlays"`} {
+
+	// The shell template is now only what must exist BEFORE Go runs: the mount
+	// point, the portal host, and the boot skeleton. Styling moved into the typed
+	// CSS design system (shared/design), so this file no longer carries the RTL
+	// and reduced-motion rules it used to.
+	//
+	// These two tokens are still asserted here because they are structural, not
+	// stylistic: the overlay root is the DOM node portals mount into, and losing
+	// it breaks every dialog and sheet with no compile error to warn you.
+	for _, parseToken := range []string{`id="atlas-overlay-root"`, `data-atlas-portal-host="overlays"`} {
 		if !strings.Contains(parseShell, parseToken) {
 			parseT.Fatalf("Atlas shell template missing %q", parseToken)
 		}
+	}
+
+	// The RTL and reduced-motion contracts this test used to assert as CSS text in
+	// the template above have NOT been dropped — they moved. Asserting them where
+	// they now live is the point of re-pointing rather than deleting: a test that
+	// pins an implementation's ADDRESS fails when the implementation moves, which
+	// tells you nothing about whether the behaviour survived.
+	//
+	// Reduced motion is emitted by the design system's own motion helper, and
+	// shared/design has TestEveryTransitionCarriesAReducedMotionOverride, which is
+	// a stronger guard than a substring check: it counts emitted transitions and
+	// requires each to carry an override, so a new animated primitive cannot ship
+	// without one.
+	//
+	// Direction is emitted by the server as a dir attribute on <html> driven by
+	// Payload.I18n.Direction, covered by the server package's locale contract
+	// tests. What this test can still usefully assert is that the payload carries
+	// a direction at all, since a blank one silently yields an LTR document for an
+	// RTL locale — which is exactly the defect that shipped.
+	if parseDir := strings.TrimSpace(LocaleDirection("ar")); parseDir != "rtl" {
+		parseT.Fatalf("Arabic must resolve to direction rtl so the document can set dir; got %q", parseDir)
+	}
+	if parseDir := strings.TrimSpace(LocaleDirection("en")); parseDir != "ltr" {
+		parseT.Fatalf("English must resolve to direction ltr; got %q", parseDir)
 	}
 }
 

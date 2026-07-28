@@ -90,7 +90,96 @@ func (parseState *v5ProbeState) buildWindowMaxPauseNs(parseMemStats *goruntime.M
 // Diagnostic-only: the harness reads it at window boundaries, never inside a
 // measured window, because ReadMemStats stops the world briefly and would
 // perturb the very frames being measured.
+// registerPauseNsAudit exposes window.__gwcV5PauseAudit, which answers whether
+// MemStats.PauseNs is a trustworthy measure of main-thread blockage in js/wasm.
+//
+// # WHY THIS EXISTS
+//
+// M7 budgets 3ms for the max GC pause and reports 9-12ms. Eight mitigations have
+// moved that number by nothing: it is invariant to heap size (11MB vs 1.2MB),
+// collection frequency (6 vs 69 per run), pointer density, arena pre-growth,
+// live js.Func count, and collector warmup. A quiescent probe on the same machine
+// at the same heap sizes pauses 0.3-0.7ms.
+//
+// Invariance across every input that should matter is the signature of a broken
+// instrument, so before optimising against the number, check the number. Go's
+// wasm runtime is single-threaded and cooperatively scheduled on the JS event
+// loop; if a wall-clock PauseNs window can span a return to that loop, it bills
+// unrelated browser work as collection cost.
+//
+// # THE TEST
+//
+// Bracket a forced collection with performance.now() and compare the wall-clock
+// delta against the PauseNs that Go attributes to that same cycle. Both numbers
+// describe the same event, so:
+//
+//   - wall ~= pauseNs        -> PauseNs is honest; M7's number is real work.
+//   - wall << pauseNs        -> PauseNs is inflated; M7 is measuring the wrong
+//     thing and must be re-instrumented before anyone
+//     optimises against it.
+//
+// Run under load, because that is the condition under which M7 fails.
+func registerPauseNsAudit() {
+	js.Global().Set("__gwcV5PauseAudit", js.FuncOf(func(js.Value, []js.Value) any {
+		parsePerformance := js.Global().Get("performance")
+		var parseBefore, parseAfter goruntime.MemStats
+
+		goruntime.ReadMemStats(&parseBefore)
+		parseWallStart := parsePerformance.Call("now").Float()
+		goruntime.GC()
+		parseWallEnd := parsePerformance.Call("now").Float()
+		goruntime.ReadMemStats(&parseAfter)
+
+		// The cycle Go just completed is NumGC; its pause lives at the same index
+		// the harness's window logic uses.
+		parseCycles := parseAfter.NumGC - parseBefore.NumGC
+		parseReportedNs := uint64(0)
+		for parseCycle := parseBefore.NumGC + 1; parseCycle <= parseAfter.NumGC; parseCycle++ {
+			if parsePause := parseAfter.PauseNs[(parseCycle+255)%256]; parsePause > parseReportedNs {
+				parseReportedNs = parsePause
+			}
+		}
+
+		parseResult := js.Global().Get("Object").New()
+		parseResult.Set("wallMs", parseWallEnd-parseWallStart)
+		parseResult.Set("reportedPauseMs", float64(parseReportedNs)/1e6)
+		parseResult.Set("cycles", parseCycles)
+		parseResult.Set("heapAllocMB", float64(parseAfter.HeapAlloc)/(1024*1024))
+		return parseResult
+	}))
+}
+
+// registerPauseTrace dumps EVERY recorded GC pause with its cycle number.
+//
+// M7 reports a max, which cannot distinguish "collections cost ~10ms" from "one
+// specific cycle cost 10ms and the rest were free". Those need opposite fixes,
+// and forced collections report 0.1-1.3ms in every condition tested (idle, under
+// load, after load) while the run's natural collections report 5.8-13.7ms — so
+// the max is coming from somewhere the forced-collection audit cannot reach.
+// This exposes the whole ring so the shape is visible instead of inferred.
+func registerPauseTrace() {
+	js.Global().Set("__gwcV5PauseTrace", js.FuncOf(func(js.Value, []js.Value) any {
+		var parseMemStats goruntime.MemStats
+		goruntime.ReadMemStats(&parseMemStats)
+
+		parseOut := js.Global().Get("Array").New()
+		parseFirst := uint32(1)
+		if parseMemStats.NumGC > uint32(len(parseMemStats.PauseNs)) {
+			parseFirst = parseMemStats.NumGC - uint32(len(parseMemStats.PauseNs)) + 1
+		}
+		for parseCycle := parseFirst; parseCycle <= parseMemStats.NumGC; parseCycle++ {
+			parseEntry := js.Global().Get("Object").New()
+			parseEntry.Set("cycle", int(parseCycle))
+			parseEntry.Set("pauseMs", float64(parseMemStats.PauseNs[(parseCycle+255)%256])/1e6)
+			parseOut.Call("push", parseEntry)
+		}
+		return parseOut
+	}))
+}
+
 func registerV5LoadHarnessProbe() {
+	registerPauseNsAudit()
+	registerPauseTrace()
 	parseState := &v5ProbeState{}
 
 	js.Global().Set("__gwcV5Probe", js.FuncOf(func(js.Value, []js.Value) any {

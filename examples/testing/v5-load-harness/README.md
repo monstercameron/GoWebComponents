@@ -112,10 +112,30 @@ node stats.test.mjs && node gate.test.mjs && node integration.test.mjs
 
 ```powershell
 $env:GOOS='js'; $env:GOARCH='wasm'
-go build -o ./examples/testing/v5-load-harness/v5harness.wasm ./examples/testing/v5-load-harness
+go build -tags production -o ./examples/testing/v5-load-harness/v5harness.wasm ./examples/testing/v5-load-harness
 $env:GOOS=''; $env:GOARCH=''
 go run ./tools/gwc examples     # serves the catalog
 ```
+
+**`-tags production` is required, not optional.** Without it the binary carries
+the development guards, and the gate then reports numbers for a binary nobody
+ships. The dev build calls `runtime.Stack` once per render session to recover a
+goroutine id for the hook-ownership check (`internal/runtime/hook_threading.go`
+documents it as costing microseconds) and runs the duplicate-sibling-key scan on
+every keyed reconcile. Every gate number recorded before 2026-07-26 was measured
+without the tag.
+
+A second trap sits behind the first: **the page is served from a COPY of
+`v5harness.wasm`, not from this directory.** Rebuilding here does not change what
+the browser runs. Verify the served artifact before trusting any number:
+
+```powershell
+curl -s http://127.0.0.1:<port>/v5harness.wasm -o served.wasm
+Get-FileHash served.wasm, ./examples/testing/v5-load-harness/v5harness.wasm
+```
+
+A stale copy silently invalidated a full day of gate measurements on 2026-07-26,
+including an A/B whose two arms turned out to be the same binary.
 
 Then open the harness page and press **Run harness**. It writes
 `window.__gwcV5Report` and `window.__gwcV5Verdict`, which is what a Playwright

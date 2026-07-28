@@ -3477,6 +3477,54 @@ func waitForHTTPBodyWithProcess(parseT *testing.T, parseUrl string, parseTimeout
 	return ""
 }
 
+// killListenersOnPort force-kills whatever is still listening on a TCP port.
+//
+// The backstop terminateProcessTree cannot be. `taskkill /T` walks parent-child
+// links AS THEY EXIST WHEN IT RUNS, and the dev server is a grandchild reached
+// through two `go run` hops (test -> go run gwc dev -> gwc dev -> go run
+// livereload -> server). `go run` compiles and then runs a separate binary, so
+// that chain is easily severed; once it is, the server is an orphan and /T cannot
+// find it.
+//
+// The consequence is not theoretical. Measured 2026-07-26: 247 leaked livereload
+// dev servers were running on this machine, the oldest two days old, one per
+// invocation of the dev-loop tests. They cost nothing visible until something
+// tries to measure performance on the same machine — at which point every
+// benchmark is contended by hundreds of idle Go runtimes, and the numbers are
+// quietly wrong rather than obviously broken.
+//
+// A port is the one identity that survives the broken tree: the test allocated it,
+// only its own server should hold it, and whatever holds it must die with the
+// test. Best-effort by design — a failure here must never fail the test that is
+// otherwise passing.
+func killListenersOnPort(parsePort string) {
+	parsePort = strings.TrimSpace(parsePort)
+	if parsePort == "" || runtime.GOOS != "windows" {
+		return
+	}
+	parseOutput, parseErr := exec.Command("netstat", "-ano", "-p", "TCP").Output()
+	if parseErr != nil {
+		return
+	}
+	parseSuffix := ":" + parsePort
+	parseSeen := map[string]bool{}
+	for _, parseLine := range strings.Split(string(parseOutput), "\n") {
+		parseFields := strings.Fields(parseLine)
+		if len(parseFields) < 5 || !strings.EqualFold(parseFields[3], "LISTENING") {
+			continue
+		}
+		if !strings.HasSuffix(parseFields[1], parseSuffix) {
+			continue
+		}
+		parsePID := parseFields[len(parseFields)-1]
+		if parsePID == "" || parsePID == "0" || parseSeen[parsePID] {
+			continue
+		}
+		parseSeen[parsePID] = true
+		_ = exec.Command("taskkill", "/T", "/F", "/PID", parsePID).Run()
+	}
+}
+
 func terminateProcessTree(parseCmd *exec.Cmd) {
 	if parseCmd == nil || parseCmd.Process == nil {
 		return

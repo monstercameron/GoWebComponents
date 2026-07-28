@@ -14,7 +14,8 @@ func TestSettingsRouteRendersPreferenceFields(parseT *testing.T) {
 	parsePayload := samplePayloadForRoute(RouteSettings, settingsPage{
 		Summary: sampleSummary("Shell settings"),
 	}, nil)
-	parseMarkup, parseErr := ui.RenderToString(App(parsePayload))
+	// component + props, not App(payload): App's hooks need a render fiber.
+	parseMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parsePayload))
 	if parseErr != nil {
 		parseT.Fatalf("settings route render failed: %v", parseErr)
 	}
@@ -39,7 +40,8 @@ func TestSettingsRouteRendersSavedViewControls(parseT *testing.T) {
 	parsePayload := samplePayloadForRoute(RouteSettings, settingsPage{
 		Summary: sampleSummary("Shell settings"),
 	}, nil)
-	parseMarkup, parseErr := ui.RenderToString(App(parsePayload))
+	// component + props, not App(payload): App's hooks need a render fiber.
+	parseMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(App, parsePayload))
 	if parseErr != nil {
 		parseT.Fatalf("settings route render failed: %v", parseErr)
 	}

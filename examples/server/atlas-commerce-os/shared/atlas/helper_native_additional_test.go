@@ -3,6 +3,7 @@ package atlas
 import (
 	"context"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -96,119 +97,239 @@ func TestAtlasFilterHelpersNormalizeAndApplyQuery(parseT *testing.T) {
 	}
 }
 
-// TestAtlasInteractionNativeHooksStaySafe verifies the host-build interaction helpers return stable values.
-func TestAtlasInteractionNativeHooksStaySafe(parseT *testing.T) {
-	parseState := useAtlasState(3)
-	if parseState.Get() != 3 {
-		parseT.Fatalf("expected local state to keep initial value, got %d", parseState.Get())
-	}
-	parseState.Set(7)
-	if parseState.Get() != 7 {
-		parseT.Fatalf("expected local state Set to update value, got %d", parseState.Get())
+// atlasNativeHookProbe records what each interaction hook reported during one
+// native render pass, so the assertions can live outside the component body
+// (a parseT.Fatalf inside a render would unwind through the SSR walker).
+type atlasNativeHookProbe struct {
+	stateInitial       int
+	stateAfterSet      int
+	effectRan          bool
+	atomInitial        int
+	atomAfterSet       int
+	computed           string
+	revalidatorLoading bool
+	transitionPending  bool
+	transitionStartRan bool
+	throttled          string
+	throttledPending   bool
+	viewport           atlasViewportMetrics
+	searchParams       url.Values
+	cached             atlasCachedResourceState[string]
+	resource           atlasResourceState[string]
+	worker             atlasWorkerTaskState[int, bool]
+	channelValue       string
+	channelOk          bool
+	channelClosed      bool
+	loaderCalls        int
+}
+
+// TestAtlasInteractionNativeHooksHonorTheirServerContract exercises the whole
+// native interaction-hook surface the way an Atlas component does - inside a
+// render pass - and pins the documented server-side value of each hook.
+//
+// The shape of this test is the point. It used to call every hook directly from
+// test-function scope, which only worked because interaction_hooks_native.go
+// stubbed the entire surface. Real hooks read per-component slots off the fiber
+// the runtime is rendering, so a direct call panics with
+// GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT. A test that cannot tell the difference is
+// exactly how Atlas shipped a client/main.go that called atlas.App(payload)
+// eagerly and white-screened the browser while every native test passed.
+//
+// Anything imperative (atlasFetch, persistAtlasSnapshot) is intentionally
+// exercised OUTSIDE the render below: those are not hooks and must not need a
+// fiber.
+func TestAtlasInteractionNativeHooksHonorTheirServerContract(parseT *testing.T) {
+	// Atom IDs and cache keys are PROCESS-global and survive a RenderToString
+	// call, and InitAtom is init-if-absent - so a fixed id would make this test
+	// depend on nothing else in the binary having touched it, and would break
+	// under `go test -count=2`. Unique-per-run ids keep the assertions about
+	// initial values meaningful.
+	parseRunID := strconv.FormatInt(time.Now().UnixNano(), 36)
+	parseAtomID := "atlas-test-atom-" + parseRunID
+	parseCacheKey := "atlas-test-cache-" + parseRunID
+
+	var parseProbe atlasNativeHookProbe
+	parseLoader := func(parseCtx context.Context) (string, error) {
+		parseProbe.loaderCalls++
+		return "loaded", parseCtx.Err()
 	}
 
-	isParseEffectCalled := false
-	useAtlasEffect(func() func() {
-		isParseEffectCalled = true
-		return nil
-	})
-	if isParseEffectCalled {
-		parseT.Fatal("expected native atlas effect stub to no-op")
+	parseMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(func() ui.Node {
+		parseState := useAtlasState(3)
+		parseProbe.stateInitial = parseState.Get()
+		parseState.Set(7)
+		parseProbe.stateAfterSet = parseState.Get()
+
+		useAtlasEffect(func() func() {
+			parseProbe.effectRan = true
+			return nil
+		})
+
+		parseAtom := useAtlasAtom(parseAtomID, 5)
+		parseProbe.atomInitial = parseAtom.Get()
+		parseAtom.Set(9)
+		parseProbe.atomAfterSet = parseAtom.Get()
+
+		parseProbe.computed = useAtlasComputed(func() string { return "computed" }).Get()
+
+		parseRevalidator := useAtlasRevalidator()
+		parseRevalidator.Revalidate()
+		parseProbe.revalidatorLoading = parseRevalidator.Loading()
+
+		parseTransition := useAtlasTransition()
+		parseProbe.transitionPending = parseTransition.Pending()
+		parseTransition.Start(func() { parseProbe.transitionStartRan = true })
+
+		parseThrottled := useAtlasThrottled("atlas", time.Second)
+		parseProbe.throttled = parseThrottled.Get()
+		parseProbe.throttledPending = parseThrottled.Pending()
+
+		parseProbe.viewport = useAtlasViewportMetrics()
+
+		parseSearchParams := useAtlasSearchParams()
+		parseProbe.searchParams = parseSearchParams.Values()
+		parseSearchParams.ReplaceAll(url.Values{"q": {"desk"}})
+
+		// Reload/Set/Update are deliberately NOT called on the cached handle:
+		// unlike the initial load, CachedResource.Reload is not effect-gated, so
+		// it would start a real (async) load and make this test racy. The wrapper
+		// methods are covered with injected callbacks in
+		// TestAtlasResourceWrappersInvokeCallbacks.
+		parseProbe.cached = useAtlasCachedResource(parseCacheKey, parseLoader).Get()
+
+		parseResource := useAtlasResource(parseLoader)
+		parseProbe.resource = parseResource.Get()
+		parseResource.Reload()
+
+		parseWorkerTask := useAtlasWorkerTask[string, int, bool](interop.WorkerOptions{}, "sync")
+		parseProbe.worker = parseWorkerTask.Get()
+		parseWorkerTask.Start("payload")
+		parseWorkerTask.Cancel()
+
+		parseChannel := useAtlasChannel((<-chan string)(nil))
+		parseProbe.channelValue = parseChannel.Get()
+		parseProbe.channelOk = parseChannel.Ok()
+		parseProbe.channelClosed = parseChannel.Closed()
+
+		return ui.Text("atlas-hook-probe")
+	}))
+	if parseErr != nil {
+		parseT.Fatalf("hook probe render failed: %v", parseErr)
+	}
+	if parseMarkup != "atlas-hook-probe" {
+		parseT.Fatalf("hook probe markup = %q, want %q", parseMarkup, "atlas-hook-probe")
 	}
 
-	parseAtom := useAtlasAtom("inventory", 5)
-	if parseAtom.Get() != 5 {
-		parseT.Fatalf("expected atlas atom initial value, got %d", parseAtom.Get())
-	}
-	parseAtom.Set(9)
-	if parseAtom.Get() != 5 {
-		parseT.Fatalf("expected native atlas atom Set to stay no-op, got %d", parseAtom.Get())
+	// REAL: ui.UseState is a live handle natively, so a write is observable in the
+	// same pass. The old expectation (Set is dropped) described a stub.
+	if parseProbe.stateInitial != 3 || parseProbe.stateAfterSet != 7 {
+		parseT.Fatalf("local state initial=%d afterSet=%d, want 3 then 7", parseProbe.stateInitial, parseProbe.stateAfterSet)
 	}
 
-	parseComputed := useAtlasComputed(func() string { return "computed" })
-	if parseComputed.Get() != "computed" {
-		parseT.Fatalf("expected computed value, got %q", parseComputed.Get())
+	// INERT BY DESIGN: effects describe post-commit work, and a server render
+	// never commits, so the body must not run (and its cleanup would never run).
+	if parseProbe.effectRan {
+		parseT.Fatal("useAtlasEffect ran its body during a server render; effects must be skipped on the server")
 	}
 
-	parseRevalidator := useAtlasRevalidator()
-	parseRevalidator.Revalidate()
-	if parseRevalidator.Loading() {
-		parseT.Fatal("expected native revalidator to report not loading")
+	// REAL: this is the assertion that changed meaning. The atom is backed by the
+	// runtime registry now, so Set actually writes and a later Get sees 9. The
+	// previous test asserted Get()==5 after Set(9) - i.e. it asserted that
+	// server-rendered markup can only ever show default state.
+	if parseProbe.atomInitial != 5 {
+		parseT.Fatalf("atom initial = %d, want 5", parseProbe.atomInitial)
+	}
+	if parseProbe.atomAfterSet != 9 {
+		parseT.Fatalf("atom after Set(9) = %d, want 9 (a real atom write must be observable during SSR)", parseProbe.atomAfterSet)
 	}
 
+	if parseProbe.computed != "computed" {
+		parseT.Fatalf("computed = %q, want %q", parseProbe.computed, "computed")
+	}
+
+	// INERT: no route history to revalidate against; no loader was ever in flight.
+	if parseProbe.revalidatorLoading {
+		parseT.Fatal("native revalidator reported Loading(); there is no route loader on the server")
+	}
+
+	// REAL: native transitions run inline, so nothing is ever outstanding and the
+	// callback must have already run.
+	if parseProbe.transitionPending {
+		parseT.Fatal("native transition reported Pending(); transitions run inline off-browser")
+	}
+	if !parseProbe.transitionStartRan {
+		parseT.Fatal("transition Start did not run its callback")
+	}
+
+	// REAL: throttling is a rate limit over wall time; one SSR pass has no rate,
+	// so the live value must pass through unchanged.
+	if parseProbe.throttled != "atlas" || parseProbe.throttledPending {
+		parseT.Fatalf("throttled value=%q pending=%v, want %q and false", parseProbe.throttled, parseProbe.throttledPending, "atlas")
+	}
+
+	// INERT: no window, and one HTML response serves every screen size.
+	// SampleCount 0 is the "never measured" signal callers must branch on.
+	if parseProbe.viewport != (atlasViewportMetrics{}) {
+		parseT.Fatalf("viewport metrics = %#v, want the zero snapshot", parseProbe.viewport)
+	}
+
+	// INERT: the query string reaches the server as Payload.Route.Query, not
+	// through this hook. Empty but non-nil.
+	if parseProbe.searchParams == nil || len(parseProbe.searchParams) != 0 {
+		parseT.Fatalf("search params = %#v, want an empty non-nil url.Values", parseProbe.searchParams)
+	}
+
+	// REAL hooks whose loaders are effect-driven: the handles exist, but no I/O
+	// happened. loaderCalls == 0 is the load-bearing assertion - it proves a
+	// server render cannot dial out through either resource hook.
+	if parseProbe.cached != (atlasCachedResourceState[string]{}) {
+		parseT.Fatalf("cached resource state = %#v, want the not-ready zero state", parseProbe.cached)
+	}
+	if parseProbe.resource != (atlasResourceState[string]{}) {
+		parseT.Fatalf("resource state = %#v, want the not-ready zero state", parseProbe.resource)
+	}
+	if parseProbe.loaderCalls != 0 {
+		parseT.Fatalf("resource loaders ran %d time(s) during a server render; want 0", parseProbe.loaderCalls)
+	}
+
+	// INERT: ui.UseWorkerTask is browser-only (ui/worker_wasm.go); nothing can
+	// ever transition this handle natively.
+	if parseProbe.worker != (atlasWorkerTaskState[int, bool]{}) {
+		parseT.Fatalf("worker task state = %#v, want the not-started zero state", parseProbe.worker)
+	}
+
+	// INERT: ui.UseChannel is browser-only (ui/ui_async.go). Note this must also
+	// not DRAIN the channel - a value read here would be stolen from the client.
+	if parseProbe.channelValue != "" || parseProbe.channelOk || parseProbe.channelClosed {
+		parseT.Fatalf("channel wrapper value=%q ok=%v closed=%v, want zero/false/false", parseProbe.channelValue, parseProbe.channelOk, parseProbe.channelClosed)
+	}
+}
+
+// TestAtlasImperativeNativeHelpersStayOffTheFiber verifies the two imperative
+// helpers in the native interaction surface work without a render fiber, because
+// Atlas calls them from event handlers and effects rather than from render.
+func TestAtlasImperativeNativeHelpersStayOffTheFiber(parseT *testing.T) {
+	// startAtlasTransition is not a hook (no fiber slot), and natively it runs the
+	// callback inline - there is no frame loop to defer to.
 	isParseTransitionCalled := false
 	startAtlasTransition(func() {
 		isParseTransitionCalled = true
 	})
 	if !isParseTransitionCalled {
-		parseT.Fatal("expected native transition starter to run immediately")
+		parseT.Fatal("startAtlasTransition did not run its callback immediately")
 	}
 
-	parseTransition := useAtlasTransition()
-	if parseTransition.Pending() {
-		parseT.Fatal("expected native transition pending=false")
-	}
-	isParseTransitionStartCalled := false
-	parseTransition.Start(func() {
-		isParseTransitionStartCalled = true
-	})
-	if !isParseTransitionStartCalled {
-		parseT.Fatal("expected native transition start helper to run callback")
-	}
-
-	parseThrottled := useAtlasThrottled("atlas", time.Second)
-	if parseThrottled.Get() != "atlas" || parseThrottled.Pending() {
-		parseT.Fatalf("unexpected native throttled state value=%q pending=%v", parseThrottled.Get(), parseThrottled.Pending())
-	}
-
-	parseViewport := useAtlasViewportMetrics()
-	if parseViewport != (atlasViewportMetrics{}) {
-		parseT.Fatalf("expected zero viewport metrics, got %#v", parseViewport)
-	}
-
-	parseSearchParams := useAtlasSearchParams()
-	if parseValues := parseSearchParams.Values(); len(parseValues) != 0 {
-		parseT.Fatalf("expected empty native search params, got %#v", parseValues)
-	}
-	parseSearchParams.ReplaceAll(url.Values{"q": {"desk"}})
-
+	// atlasFetch now delegates to fetch.Fetch, whose native slice reports the
+	// error rather than Atlas inventing its own message. A non-empty Error here
+	// means "no request was attempted", not "the request was rejected".
 	parseFetchResult := <-atlasFetch("/api/catalog", atlasFetchOptions{Method: "GET"})
 	if parseFetchResult.Error == "" || parseFetchResult.Status != 0 || parseFetchResult.Data != "" {
 		parseT.Fatalf("unexpected native fetch result %#v", parseFetchResult)
 	}
 
+	// nil means "there was nothing to fail", not "the snapshot is durable".
 	if parseErr := persistAtlasSnapshot("atlas-dashboard", "inventory", "comments"); parseErr != nil {
 		parseT.Fatalf("persistAtlasSnapshot(native): %v", parseErr)
-	}
-
-	parseCachedResource := useAtlasCachedResource("catalog", func(parseCtx context.Context) (string, error) {
-		return "ignored", parseCtx.Err()
-	})
-	if parseCachedResource.Get() != (atlasCachedResourceState[string]{}) {
-		parseT.Fatalf("expected zero cached resource state, got %#v", parseCachedResource.Get())
-	}
-	parseCachedResource.Reload()
-	parseCachedResource.Set("updated")
-	parseCachedResource.Update(func(parseValue string) string { return parseValue + "!" })
-
-	parseResource := useAtlasResource(func(parseCtx context.Context) (string, error) {
-		return "ignored", parseCtx.Err()
-	})
-	if parseResource.Get() != (atlasResourceState[string]{}) {
-		parseT.Fatalf("expected zero resource state, got %#v", parseResource.Get())
-	}
-	parseResource.Reload()
-
-	parseWorkerTask := useAtlasWorkerTask[string, int, bool](interop.WorkerOptions{}, "sync")
-	if parseWorkerTask.Get() != (atlasWorkerTaskState[int, bool]{}) {
-		parseT.Fatalf("expected zero worker task state, got %#v", parseWorkerTask.Get())
-	}
-	parseWorkerTask.Start("payload")
-	parseWorkerTask.Cancel()
-
-	parseChannel := useAtlasChannel((<-chan string)(nil))
-	if parseChannel.Get() != "" || parseChannel.Ok() || parseChannel.Closed() {
-		parseT.Fatalf("expected zero channel wrapper state, got value=%q ok=%v closed=%v", parseChannel.Get(), parseChannel.Ok(), parseChannel.Closed())
 	}
 }
 

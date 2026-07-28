@@ -31,7 +31,7 @@ func TestValidatePublicCommentFormCoversInvalidAndValidInputs(parseT *testing.T)
 func TestPublicCommentReactionInputWiresLabelsAndErrors(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(publicCommentReactionInput("atlas-reaction", "atlas-reaction-error", "down", ui.Handler{}, "Choose one."))
+	parseMarkup, parseErr := renderAtlasNodeForTest(publicCommentReactionInput("atlas-reaction", "atlas-reaction-error", "down", ui.Handler{}, "Choose one."))
 	if parseErr != nil {
 		parseT.Fatalf("publicCommentReactionInput render failed: %v", parseErr)
 	}
@@ -53,7 +53,7 @@ func TestPublicCommentReactionInputWiresLabelsAndErrors(parseT *testing.T) {
 func TestPublicProductFeedbackListShowsModerationAndRefreshingStates(parseT *testing.T) {
 	parseT.Parallel()
 
-	parseMarkup, parseErr := ui.RenderToString(publicProductFeedbackList([]commentRecord{
+	parseMarkup, parseErr := renderAtlasNodeForTest(publicProductFeedbackList([]commentRecord{
 		{
 			ID:         "cmt-1",
 			AuthorName: "Atlas Buyer",
@@ -119,7 +119,7 @@ func TestPublicCommentHelpersCoverPendingAndModerationStates(parseT *testing.T) 
 	if parseBadge := publicCommentStatusBadge("approved"); parseBadge != nil {
 		parseT.Fatal("expected approved status badge to stay hidden")
 	}
-	parsePendingMarkup, parseErr := ui.RenderToString(publicCommentStatusBadge("pending"))
+	parsePendingMarkup, parseErr := renderAtlasNodeForTest(publicCommentStatusBadge("pending"))
 	if parseErr != nil {
 		parseT.Fatalf("pending status badge render failed: %v", parseErr)
 	}

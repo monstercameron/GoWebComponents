@@ -9,10 +9,343 @@ import (
 	"strings"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/v5/css"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
 	"github.com/monstercameron/GoWebComponents/v5/html"
 	"github.com/monstercameron/GoWebComponents/v5/interop"
 	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSOLE STYLING — every class in the operator console comes from shared/design.
+//
+// The console used to carry hand-written Tailwind on every element, which is how
+// it ended up with rounded bordered boxes nested four deep at identical visual
+// weight. Read shared/design/doc.go before editing anything below; the three
+// rules that the old markup broke, and that this file now holds, are:
+//
+//  1. ONE Surface per region. The design system ships no Card, Panel or
+//     nested-surface primitive ON PURPOSE (shared/design/surfaces.go). Separation
+//     INSIDE a region is a Divider (hairline) or a Stack/Cluster gap — never a
+//     second bordered box. If you find yourself wanting a box inside a box, that
+//     is the signal to use a rule or space instead, or to split the region into
+//     two Surfaces at the same level.
+//  2. QUEUES ARE TABLES. The activity feed, the attention stack and the vendor
+//     order watch are design.Table rows, not card lists: a card list cannot align
+//     a column of quantities, which is the whole operation the operator came to
+//     perform (shared/design/table.go).
+//  3. MACHINE FACTS ARE MONO. design.Data for a SKU, hub code, ETA, quantity,
+//     price, status code or id — fixed advance width makes a transposed digit
+//     visible and lines a column up. design.Prose for sentences. design.Display
+//     names REGIONS (page and section titles), never content.
+//
+// The folded strings sit behind functions rather than package-level vars because
+// design.Class emits lazily: an init-time fold would hand out class names whose
+// CSS a later css.Reset() (which the design package's own tests call) has thrown
+// away. css.New memoizes on the canonical rule-set, so a repeat fold is a map
+// lookup — cheap enough for everything here. Hoist the STRING at the call site
+// only for a genuinely hot loop, the way the table-cell helpers below are used.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// consoleShellClass is the console frame: rail track plus content column.
+func consoleShellClass() string { return design.Class(design.ConsoleShell()) }
+
+// consoleRailClass is the persistent left rail. Below 960px design.ConsoleRail
+// turns itself into a horizontally scrolling strip with the same markup, which is
+// what replaced the old duplicate mobile nav drawer.
+func consoleRailClass() string { return design.Class(design.ConsoleRail()) }
+
+// consoleContentClass is the content column beside the rail.
+func consoleContentClass() string { return design.Class(design.ContentColumn()) }
+
+// consoleRegionStackClass separates page REGIONS. Space5 is the design system's
+// between-sections step; the console never puts a border around a region just to
+// group it.
+func consoleRegionStackClass() string { return design.Class(design.Stack(design.Space5)) }
+
+// consoleSurfaceClass is the one flat paper plane, with the default stack gap for
+// its children. Use it ONCE per region — see rule 1 in the header comment.
+func consoleSurfaceClass() string {
+	return design.Class(design.Surface(), design.Stack(design.Space4))
+}
+
+// consoleFlushSurfaceClass is the same plane with no gutter, for a table that
+// should bleed to its own hairline instead of floating inside 16px of padding.
+func consoleFlushSurfaceClass() string { return design.Class(design.SurfaceFlush()) }
+
+// consoleRecessClass is pressed paper: a payload, a preview, a raw snapshot — the
+// INPUT to a page rather than its output. It has no border and no radius, which is
+// what stops it being used as a second card.
+func consoleRecessClass() string {
+	return design.Class(design.Recess(), design.Stack(design.Space2))
+}
+
+func consoleStackTightClass() string { return design.Class(design.Stack(design.Space2)) }
+func consoleStackClass() string      { return design.Class(design.Stack(design.Space4)) }
+func consoleClusterClass() string    { return design.Class(design.Cluster(design.Space4)) }
+func consoleChipRowClass() string    { return design.Class(design.Cluster(design.Space2)) }
+
+// consoleFactRowClass spaces label/value pairs across a row. Space6 rather than
+// Space4: a fact row is read as separate columns, and at Space4 two short facts
+// read as one four-word phrase.
+func consoleFactRowClass() string { return design.Class(design.Cluster(design.Space6)) }
+
+// consoleSplitRowClass is "title on the left, actions on the right", collapsing to
+// a wrapped stack instead of a horizontal scrollbar at 380px.
+func consoleSplitRowClass() string { return design.Class(design.SplitRow(design.Space4)) }
+
+func consoleDividerClass() string { return design.Class(design.Divider()) }
+
+// --- type roles ---------------------------------------------------------------
+
+func consolePageHeadClass() string     { return design.Class(design.PageHead()) }
+func consolePageTitleClass() string    { return design.Class(design.PageTitle()) }
+func consoleSectionTitleClass() string { return design.Class(design.SectionTitle()) }
+func consoleEyebrowClass() string      { return design.Class(design.Eyebrow()) }
+
+// consoleLedeClass is the one paragraph under a page title. Measure caps the line
+// length; the content column deliberately does not (shared/design/shell.go).
+func consoleLedeClass() string {
+	return design.Class(design.Prose(design.StepLede), design.Measure())
+}
+
+func consoleProseClass() string {
+	return design.Class(design.Prose(design.StepBase), design.Measure())
+}
+
+func consoleProseFineClass() string { return design.Class(design.Prose(design.StepFine)) }
+
+// consoleMetaClass is de-emphasised prose: a timestamp beside an event, a hint.
+//
+// GAP: the design system exposes no "muted prose" role — the closest bundles are
+// FieldHint (micro, form-scoped) and CellMeta (table-cell scoped, and emitted
+// through the specificity-doubling variant so it is wrong outside a cell). One
+// declaration on an exported token is the cheapest honest answer; graphite is the
+// system's only de-emphasis tool, so this cannot drift into an opacity scale.
+func consoleMetaClass() string {
+	return design.Class(design.Prose(design.StepFine), []css.Rule{css.TextColor(design.Graphite())})
+}
+
+// consoleDataClass / consoleFigureClass are the mono voices: a fact inline, and a
+// fact that IS the answer (a count, a total) at lede size.
+func consoleDataClass() string   { return design.Class(design.Data(design.StepFine)) }
+func consoleFigureClass() string { return design.Class(design.Data(design.StepLede)) }
+func consoleCodeClass() string   { return design.Class(design.Data(design.StepMicro)) }
+
+// --- table --------------------------------------------------------------------
+
+func consoleTableClass() string       { return design.Class(design.Table()) }
+func consoleTableScrollClass() string { return design.Class(design.TableScroll()) }
+
+// consoleNumericCellClass right-aligns a quantity or count and pins tabular
+// figures. Apply it to the <th> AND every <td> in the column: a right-aligned
+// column under a left-aligned header reads as broken.
+func consoleNumericCellClass() string { return design.Class(design.NumericCell()) }
+
+// consoleProseCellClass is the ONE documented exception to "every cell is mono":
+// a cell holding a sentence (an operator note, a rejection reason).
+func consoleProseCellClass() string { return design.Class(design.ProseCell()) }
+
+func consoleCellMetaClass() string { return design.Class(design.CellMeta()) }
+
+// consoleCellLinkClass is the row anchor: a link inside an already-mono cell, so
+// it inherits the cell's family and only takes the link's colour and underline.
+func consoleCellLinkClass() string { return design.Class(design.Link()) }
+
+// consoleQueueTable is the shape every Atlas queue takes: a FLUSH surface (a dense
+// table inside 16px of padding wastes the density it was chosen for), a horizontal
+// scroll region that a keyboard can actually reach, and the table itself.
+//
+// The scroll region needs tabindex="0" — without a tab stop, the columns that
+// overflow at 380px are unreachable for anyone not using a mouse. html.TabIndexZero
+// is the sentinel that makes a literal 0 expressible; note that shared/design's
+// TableScroll doc still recommends Raw["tabIndex"], which predates the sentinel.
+func consoleQueueTable(parseLabel string, parseHead ui.Node, parseRows []ui.Node) ui.Node {
+	return html.Div(html.Props{Class: consoleFlushSurfaceClass()},
+		html.Div(html.Props{
+			Class:    consoleTableScrollClass(),
+			Role:     "region",
+			TabIndex: html.TabIndexZero,
+			Aria:     map[string]string{"label": parseLabel},
+		},
+			html.Table(html.Props{Class: consoleTableClass()},
+				html.Thead(html.Props{}, parseHead),
+				html.Tbody(html.Props{}, parseRows...),
+			),
+		),
+	)
+}
+
+// consoleColumn / consoleNumericColumn are header cells. A numeric column takes the
+// modifier on the <th> as well as every <td>, because a right-aligned column under
+// a left-aligned header reads as broken.
+func consoleColumn(parseLabel string) ui.Node {
+	return html.Th(html.Props{}, html.Text(parseLabel))
+}
+
+func consoleNumericColumn(parseLabel string) ui.Node {
+	return html.Th(html.Props{Class: consoleNumericCellClass()}, html.Text(parseLabel))
+}
+
+// consoleEmptyRow is the empty state INSIDE the manifest, so the table keeps its
+// header and its bottom rule instead of collapsing into a bare sentence.
+//
+// The copy is always "nothing is here yet, and here is what will fill it" — never
+// an apology and never "Something went wrong", because an empty queue is a normal
+// state, not a failure.
+func consoleEmptyRow(parseColumns int, parseMessage string) ui.Node {
+	return html.Tr(html.Props{},
+		html.Td(html.Props{ColSpan: parseColumns, Class: consoleProseCellClass()}, html.Text(parseMessage)),
+	)
+}
+
+// consoleSectionHead is the label for a region: an eyebrow, a section title, and an
+// optional mono count pushed to the trailing edge.
+//
+// It is deliberately NOT a box. The old markup wrapped every one of these in a
+// bordered panel and then put another bordered panel inside it for the content,
+// which is the nesting this conversion exists to remove.
+func consoleSectionHead(parseEyebrow string, parseTitle string, parseCount string) ui.Node {
+	parseTitleBlock := []ui.Node{}
+	if strings.TrimSpace(parseEyebrow) != "" {
+		parseTitleBlock = append(parseTitleBlock, html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseEyebrow)))
+	}
+	if strings.TrimSpace(parseTitle) != "" {
+		parseTitleBlock = append(parseTitleBlock, html.H2(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseTitle)))
+	}
+	parseChildren := []ui.Node{html.Div(html.Props{Class: consoleStackTightClass()}, parseTitleBlock...)}
+	if strings.TrimSpace(parseCount) != "" {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: consoleDataClass()}, html.Text(parseCount)))
+	}
+	return html.Div(html.Props{Class: consoleSplitRowClass()}, parseChildren...)
+}
+
+// --- controls -----------------------------------------------------------------
+
+func consolePrimaryButtonClass() string   { return design.Class(design.ButtonPrimary()) }
+func consoleSecondaryButtonClass() string { return design.Class(design.ButtonSecondary()) }
+func consoleQuietButtonClass() string     { return design.Class(design.ButtonQuiet()) }
+func consoleLinkClass() string            { return design.Class(design.Link()) }
+
+func consoleFieldClass() string      { return design.Class(design.Field()) }
+func consoleFieldLabelClass() string { return design.Class(design.FieldLabel()) }
+
+// consoleInputClass is for WORDS a person types (a note, a reason);
+// consoleInputDataClass is for MACHINE FACTS (a SKU, a hub id, a quantity, a
+// date). The split is the Data/Prose information architecture pushed into the
+// form layer, and it does real work: a mono SKU field makes a transposed
+// character visible while the operator is still typing.
+func consoleInputClass() string      { return design.Class(design.Input()) }
+func consoleInputDataClass() string  { return design.Class(design.InputData()) }
+func consoleFieldHintClass() string  { return design.Class(design.FieldHint()) }
+func consoleFieldErrorClass() string { return design.Class(design.FieldError()) }
+
+// consoleStatusChipClass is a machine-reported state, driven by a semantic tone
+// rather than a colour. The LABEL is Atlas vocabulary and stays at the call site;
+// colour is a second channel on top of the words, never the only one.
+func consoleStatusChipClass(parseTone design.StatusTone) string {
+	return design.Class(design.StatusChip(parseTone))
+}
+
+// consoleStatusValueClass tones a bare value when the NUMBER is the status — a
+// short quantity, an overdue date. A chip beside a figure that already says "-4"
+// is redundant, and a dense manifest cannot afford redundancy.
+func consoleStatusValueClass(parseTone design.StatusTone) string {
+	return design.Class(design.Data(design.StepFine), design.StatusValue(parseTone))
+}
+
+// atlasStatusTone maps Atlas's status vocabulary onto the design system's four
+// semantic tones. It is the ONLY place in the console that turns a status string
+// into a colour, which is what makes the mapping reviewable by reading one
+// function — the old markup made that decision inline at ~30 call sites.
+func atlasStatusTone(parseStatus string) design.StatusTone {
+	switch strings.ReplaceAll(strings.TrimSpace(strings.ToLower(parseStatus)), "-", "_") {
+	case "approved", "closed", "reconciled", "received", "resolved", "in_stock", "healthy", "available", "balanced", "published":
+		return design.ToneVerified
+	// Exception is the ONLY filled tone in the design system, which is what makes
+	// it readable at a glance in a long queue: four filled rows among forty are
+	// four blocks your eye lands on. That property is spent, not free — every
+	// status added here dilutes it, and a status category that is routinely
+	// non-empty turns the queue into a wall of oxide that operators learn to
+	// ignore.
+	//
+	// The test for membership is BOTH: something has gone wrong, AND a human must
+	// act. "flagged" and "overdue" pass it — someone marked this for moderation, a
+	// date came and went. "short" and "failed" pass it obviously.
+	case "flagged", "cancelled", "canceled", "rejected", "failed", "blocked", "short", "overdue", "critical":
+		return design.ToneException
+	// promise_risk fails the first half of that test: a commitment that MAY slip
+	// has not slipped. It is exactly TonePending's meaning — not yet a failure, but
+	// a human should know. Giving it the filled tone would put oxide on every lane
+	// with any uncertainty, which is most of them.
+	//
+	// recovery and in_transit arrived here when inventory's separate switch was
+	// merged in. Both are "work is under way and not finished", which is what
+	// Pending means; leaving them out silently demoted them to Neutral, i.e. to
+	// "no claim", which is a different and wrong statement about a lane someone is
+	// actively rescuing.
+	case "pending", "submitted", "in_review", "review", "open", "queued", "on_hold", "inbound", "watch", "promise_risk", "recovery", "in_transit":
+		return design.TonePending
+	// low_stock fails BOTH halves and is the most tempting mistake here. Being
+	// under the reorder point is what reorder points are FOR — the system is
+	// working as designed, nothing failed, and nobody is late. The row's own
+	// quantity cell already says how low. Neutral.
+	case "low_stock":
+		return design.ToneNeutral
+	default:
+		return design.ToneNeutral
+	}
+}
+
+// atlasLanePosture maps a status onto the lane placard's domain vocabulary. The
+// two enums stay separate on purpose (shared/design/placard.go): Atlas can grow a
+// posture without the design system growing a hue.
+func atlasLanePosture(parseStatus string) design.Posture {
+	switch strings.ReplaceAll(strings.TrimSpace(strings.ToLower(parseStatus)), "-", "_") {
+	case "closed", "reconciled", "received", "approved":
+		return design.PostureClosed
+	case "on_hold", "review", "in_review", "blocked":
+		return design.PostureHeld
+	case "cancelled", "canceled", "short", "failed", "flagged", "promise_risk":
+		return design.PostureShort
+	default:
+		return design.PostureOnLane
+	}
+}
+
+// atlasHubCode compresses a warehouse slug into the short mono code operators
+// actually say out loud: "new-jersey-hub" -> "NJ-HUB", "illinois-hub" -> "IL-HUB".
+//
+// It exists because the placard and the rail plate set hub codes in mono at the
+// loudest step in the system, where a 14-character slug both overflows the 232px
+// rail and stops reading as a code. Multi-word regions collapse to their
+// initials; a single-word region keeps its first two letters, which is what makes
+// "illinois" come out as IL rather than I.
+func atlasHubCode(parseWarehouseID string) string {
+	parseSegments := strings.Split(strings.TrimSpace(strings.ToLower(parseWarehouseID)), "-")
+	parseWords := make([]string, 0, len(parseSegments))
+	for _, parseSegment := range parseSegments {
+		if parseSegment == "" || parseSegment == "hub" || parseSegment == "warehouse" {
+			continue
+		}
+		parseWords = append(parseWords, parseSegment)
+	}
+	if len(parseWords) == 0 {
+		return "HUB"
+	}
+	parseCode := ""
+	if len(parseWords) == 1 {
+		parseCode = parseWords[0]
+		if len(parseCode) > 2 {
+			parseCode = parseCode[:2]
+		}
+	} else {
+		for _, parseWord := range parseWords {
+			parseCode += parseWord[:1]
+		}
+	}
+	return strings.ToUpper(parseCode) + "-HUB"
+}
 
 type catalogPage struct {
 	Items    []productCard     `json:"items"`
@@ -329,8 +662,12 @@ func App(parsePayload Payload) ui.Node {
 	parseRootClass := atlasRootSurfaceClass(atlasVisualSurfacePublic)
 	parseMainClass := atlasMainShellClass(atlasVisualSurfacePublic)
 	if parseSurface != "" && parseSurface != "public" {
-		parseRootClass = atlasRootSurfaceClass(atlasVisualSurfaceInternal)
-		parseMainClass = atlasMainShellClass(atlasVisualSurfaceInternal)
+		// The console frame is design.ConsoleShell: a rail track plus a content
+		// column, sized by ONE grid so the two can never drift apart. The old
+		// internal shell was a centered max-w-6xl strip under a full-width header,
+		// which is why navigation had to eat the top of every screen.
+		parseRootClass = consoleShellClass()
+		parseMainClass = consoleContentClass()
 	}
 	parseDesiredPresentation := shellPresentationStateFromPayload(parsePayload)
 	parsePresentationAtom := useAtlasAtom(atlasShellPresentationAtomID, parseDesiredPresentation)
@@ -430,7 +767,24 @@ func App(parsePayload Payload) ui.Node {
 	if parseDemoPanel := renderGuidedDemoPanel(parsePayload); parseDemoPanel != nil {
 		parseMainChildren = append(parseMainChildren, parseDemoPanel)
 	}
-	parseMainChildren = append(parseMainChildren, hero(parsePayload, parseShellState, parsePresentation), pageContent(parsePayload))
+	// WHY pageContent goes through ui.CreateElement instead of being called here.
+	//
+	// pageContent is a route SWITCH: it dispatches on parsePayload.Route.Path into
+	// ~25 different content functions, and many of those call hooks (directly or
+	// through helpers). Calling it inline made those hooks land in App's OWN fiber,
+	// which means App's hook sequence depended on the current route: /app/inventory
+	// contributed a ui.UseForm plus a search-params atom, /app/dashboard contributed
+	// nothing, /shop/:slug contributed something else again.
+	//
+	// Hook slots are positional. A fiber whose hook count changes reads every later
+	// slot as the wrong hook. That was masked only because client/main.go builds a
+	// fresh closure per route render, forcing a full remount; the moment App
+	// re-rendered IN PLACE — any atom write, any revalidation, any toast — it would
+	// have read shifted slots. This gives the route body its own fiber, so App's
+	// hook sequence is now route-independent by construction.
+	parseMainChildren = append(parseMainChildren, hero(parsePayload, parseShellState, parsePresentation), ui.CreateElement(func() ui.Node {
+		return pageContent(parsePayload)
+	}))
 	parseChildren = append(parseChildren, html.Main(html.Props{Class: parseMainClass}, parseMainChildren...))
 	return html.Div(html.Props{},
 		html.Div(html.Props{ID: atlasShellRootID, Class: parseRootClass}, parseChildren...),
@@ -618,6 +972,12 @@ func publicLocalizedCopy(parseLocale string, parseKey string, parseFallback stri
 type atlasInternalNavLink struct {
 	Label string
 	Href  string
+	// Code is the route's mono rail code ("RCV", "PO", "XFER"). It is real Atlas
+	// information, not decoration: an operator says "RCV", not "the receiving
+	// screen", and a column of fixed-advance-width codes down the rail's trailing
+	// edge is what makes the frame read as a column of manifest lines rather than
+	// as a generic left nav.
+	Code string
 }
 
 type atlasInternalNavGroup struct {
@@ -625,64 +985,51 @@ type atlasInternalNavGroup struct {
 	Links []atlasInternalNavLink
 }
 
+// internalHeader is the console's persistent LEFT RAIL, not a header.
+//
+// What it replaced, and why: navigation used to render as four bordered boxes
+// spanning the full width — OVERVIEW / STOCK / LOGISTICS / SUPPORT — under a
+// sticky bar that also carried the brand, the page title, the route summary, the
+// operator identity and five context pills. That layout spent the most valuable
+// space on the page (the top of every screen) on nine links, gave no sense of
+// place, and duplicated the page title and description that the hero renders
+// anyway. It also shipped a second, separate mobile drawer holding the same nav,
+// which is a copy of the map that has to be kept in sync by hand.
+//
+// design.ConsoleRail is the answer to all of that: one element, always visible,
+// that becomes a horizontally scrolling strip below 960px with THE SAME children
+// (shared/design/shell.go). The rail plate at its head answers "which console and
+// which hub am I in", each item carries its mono route code at the trailing edge,
+// and the current route is marked by an inset lane bar plus aria-current.
 func internalHeader(parsePayload Payload, parseShellState internalShellState) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseOpen := ui.UseState(false)
-		parseSheetID := ui.UseId() + "-internal-nav"
-		parseTitleID := parseSheetID + "-title"
-		parseDescriptionID := parseSheetID + "-description"
-		parseCloseID := parseSheetID + "-close"
-		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
-		parseCloseDrawer := func() { parseOpen.Set(false) }
 		parseIdentity := "Public browsing"
 		if parsePayload.User != nil {
-			parseIdentity = parsePayload.User.DisplayName + " | " + strings.ReplaceAll(parsePayload.User.Role, "_", " ")
+			parseIdentity = parsePayload.User.DisplayName + " · " + strings.ReplaceAll(parsePayload.User.Role, "_", " ")
 		}
-		parseContextPills := internalHeaderContextPills(parsePayload, parseShellState)
-		parseGroups := internalNavGroups()
-		return html.Header(html.Props{Class: "sticky top-0 z-20 border-b border-white/10 bg-slate-950/88 backdrop-blur-xl"},
-			html.Div(html.Props{Class: "mx-auto grid w-full max-w-7xl gap-4 px-5 py-4 sm:px-6 lg:px-10"},
-				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-					html.Div(html.Props{Class: "grid gap-2"},
-						html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.42em] text-cyan-300"}, html.Text(publicBrandLabel)),
-						html.H1(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(parsePayload.Route.Title, "Atlas workspace"))),
-						html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text(routeSummary(parsePayload.Route.Path))),
-						html.P(html.Props{Class: "text-xs uppercase tracking-[0.24em] text-slate-400"}, html.Text(parseIdentity)),
-					),
-					html.Div(html.Props{Class: "flex items-center gap-3"},
-						html.A(html.Props{Href: RouteLanding, Class: "hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/50 hover:text-white sm:inline-flex"}, html.Text("View storefront")),
-						html.Button(html.Props{Type: "button", Class: "inline-flex items-center rounded-full border border-cyan-300/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/16 lg:hidden", OnClick: parseOpenDrawer}, html.Text("Workspace nav")),
-					),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap gap-2"}, parseContextPills...),
-				html.Div(html.Props{Class: "hidden gap-3 lg:grid lg:grid-cols-4"},
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[0]),
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[1]),
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[2]),
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[3]),
-				),
-				html.Div(html.Props{Class: "flex gap-2 overflow-x-auto pb-1 lg:hidden"},
-					internalMobileQuickLinks(parsePayload, parseShellState)...,
-				),
-			),
-			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: "grid gap-5"},
-				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-					html.Div(html.Props{Class: "grid gap-2"},
-						html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Workspace navigation")),
-						html.P(html.Props{ID: parseTitleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(parsePayload.Route.Title, "Atlas workspace"))),
-						html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-7 text-slate-300"}, html.Text("Use the grouped mobile drawer to jump across overview, catalog, operations, and support routes without losing the current shell context.")),
-					),
-					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200", OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap gap-2"}, parseContextPills...),
-				html.Div(html.Props{Class: "grid gap-3"},
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[0]),
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[1]),
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[2]),
-					internalNavGroupCard(parsePayload, parseShellState, parseGroups[3]),
-				),
-			)),
+		parseChildren := []ui.Node{
+			design.RailPlateBlock(publicBrandLabel+" console", atlasHubCode(fallback(parsePayload.Preferences.DefaultWarehouse, "new-jersey-hub"))),
+		}
+		for _, parseGroup := range internalNavGroups() {
+			parseChildren = append(parseChildren,
+				html.Div(html.Props{Class: design.Class(design.RailGroupLabel())}, html.Text(parseGroup.Label)))
+			for _, parseLink := range parseGroup.Links {
+				parseChildren = append(parseChildren, internalNavLink(parsePayload.Route.Path, parseShellState, parseLink))
+			}
+		}
+		parseChildren = append(parseChildren,
+			html.Div(html.Props{Class: design.Class(design.RailGroupLabel())}, html.Text("Storefront")),
+			internalNavLink(parsePayload.Route.Path, parseShellState, atlasInternalNavLink{Label: "View storefront", Href: RouteLanding, Code: "SHOP"}),
+			// The operator's own name and role close the rail, in graphite meta
+			// rather than as a sixth pill. It answers "who am I signed in as", which
+			// is a footnote, not a headline.
+			html.P(html.Props{Class: design.Class(design.FieldHint(), []css.Rule{css.PaddingX(design.Space2), css.Raw("padding-top", string(design.Space3))})}, html.Text(parseIdentity)),
 		)
+		return html.Aside(html.Props{
+			Class: consoleRailClass(),
+			Role:  "navigation",
+			Aria:  map[string]string{"label": "Operator console"},
+		}, parseChildren...)
 	})
 }
 
@@ -691,97 +1038,79 @@ func internalNavGroups() []atlasInternalNavGroup {
 		{
 			Label: "Overview",
 			Links: []atlasInternalNavLink{
-				{Label: "Dashboard", Href: RouteDashboard},
-				{Label: "Products", Href: "/app/products"},
+				{Label: "Dashboard", Href: RouteDashboard, Code: "DASH"},
+				{Label: "Products", Href: "/app/products", Code: "PROD"},
 			},
 		},
 		{
 			Label: "Stock",
 			Links: []atlasInternalNavLink{
-				{Label: "Inventory", Href: RouteInventory},
-				{Label: "Warehouses", Href: RouteWarehouseOps},
+				{Label: "Inventory", Href: RouteInventory, Code: "INV"},
+				{Label: "Warehouses", Href: RouteWarehouseOps, Code: "HUB"},
 			},
 		},
 		{
 			Label: "Logistics",
 			Links: []atlasInternalNavLink{
-				{Label: "Transfers", Href: RouteTransfers},
-				{Label: "Purchase Orders", Href: RoutePurchaseOrders},
-				{Label: "Receiving", Href: RouteReceiving},
+				{Label: "Transfers", Href: RouteTransfers, Code: "XFER"},
+				{Label: "Purchase Orders", Href: RoutePurchaseOrders, Code: "PO"},
+				{Label: "Receiving", Href: RouteReceiving, Code: "RCV"},
 			},
 		},
 		{
 			Label: "Support",
 			Links: []atlasInternalNavLink{
-				{Label: "Comments", Href: RouteComments},
-				{Label: "Settings", Href: RouteSettings},
+				{Label: "Comments", Href: RouteComments, Code: "MSG"},
+				{Label: "Settings", Href: RouteSettings, Code: "CFG"},
 			},
 		},
 	}
 }
 
-func internalHeaderContextPills(parsePayload Payload, parseShellState internalShellState) []ui.Node {
-	parseItems := []ui.Node{
-		internalHeaderContextPill("Surface", fallback(parsePayload.Route.Surface, "app")),
-		internalHeaderContextPill("Warehouse", fallback(parsePayload.Preferences.DefaultWarehouse, "new-jersey-hub")),
-	}
-	if strings.TrimSpace(parseShellState.SummaryValue) != "" {
-		parseItems = append(parseItems, internalHeaderContextPill(fallback(parseShellState.SummaryLabel, "Summary"), parseShellState.SummaryValue))
-	}
-	if strings.TrimSpace(parseShellState.ActiveSavedView) != "" {
-		parseItems = append(parseItems, internalHeaderContextPill("Saved view", parseShellState.ActiveSavedView))
-	}
-	if len(parseShellState.ActiveFilters) > 0 {
-		parseItems = append(parseItems, internalHeaderContextPill("Filters", fmt.Sprintf("%d active", len(parseShellState.ActiveFilters))))
-	}
-	return parseItems
-}
-
-func internalHeaderContextPill(parseLabel, parseValue string) ui.Node {
-	return html.Div(html.Props{Class: internalSurfacePillClass()},
-		html.Span(html.Props{Class: "text-slate-400"}, html.Text(parseLabel)),
-		html.Span(html.Props{Class: "text-cyan-100"}, html.Text(parseValue)),
-	)
-}
-
-func internalNavGroupCard(parsePayload Payload, parseShellState internalShellState, parseGroup atlasInternalNavGroup) ui.Node {
-	parseLinks := make([]ui.Node, 0, len(parseGroup.Links))
-	for _, parseLink := range parseGroup.Links {
-		parseLinks = append(parseLinks, internalNavLink(parsePayload.Route.Path, parseShellState, parseLink))
-	}
-	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-4"},
-		html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text(parseGroup.Label)),
-		html.Div(html.Props{Class: "grid gap-2"}, parseLinks...),
-	)
-}
-
+// internalNavLink is one rail item: a prose label, the route's open-work count
+// when there is any, and the mono route code.
+//
+// The label is Prose even though it sits beside plenty of mono (design.RailLink
+// sets that): a monospace navigation reads as a terminal, not as a place. The
+// count is a status chip rather than a bare number because "3" alone does not say
+// whether three is normal or a problem.
 func internalNavLink(parseCurrentPath string, parseShellState internalShellState, parseLink atlasInternalNavLink) ui.Node {
-	parseClassName := "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-300/55 hover:text-white"
-	if activeNavLink(parseCurrentPath, parseLink.Href) {
-		parseClassName = "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-[linear-gradient(180deg,rgba(8,26,42,0.96),rgba(7,14,26,0.98))] px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_14px_30px_rgba(34,211,238,0.12)]"
+	isParseCurrent := activeNavLink(parseCurrentPath, parseLink.Href)
+	parseClassName := design.Class(design.RailLink())
+	parseProps := html.Props{Href: parseLink.Href, Class: parseClassName}
+	if isParseCurrent {
+		// The inset lane bar is a VISUAL marker and carries no semantics, so
+		// aria-current has to be set explicitly beside it.
+		parseProps.Class = design.Class(design.RailLinkCurrent())
+		parseProps.Aria = map[string]string{"current": "page"}
 	}
-	parseChildren := []ui.Node{
-		html.Span(html.Props{}, html.Text(parseLink.Label)),
-	}
+	parseTrailing := []ui.Node{}
 	if parseBadge := strings.TrimSpace(parseShellState.RouteBadges[parseLink.Href]); parseBadge != "" {
-		parseChildren = append(parseChildren, html.Span(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-400/10 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-cyan-100"}, html.Text(parseBadge)))
+		parseTrailing = append(parseTrailing,
+			html.Span(html.Props{Class: consoleStatusChipClass(design.TonePending)}, html.Text(parseBadge)))
 	}
-	return html.A(html.Props{Href: parseLink.Href, Class: parseClassName}, parseChildren...)
+	if parseCode := strings.TrimSpace(parseLink.Code); parseCode != "" {
+		parseTrailing = append(parseTrailing,
+			html.Span(html.Props{Class: design.Class(design.RailCode())}, html.Text(parseCode)))
+	}
+	return html.A(parseProps,
+		html.Span(html.Props{}, html.Text(parseLink.Label)),
+		// RailLink is justify-between, so wrapping the count and the code in one
+		// trailing group is what keeps every code in the same column down the rail.
+		html.Span(html.Props{Class: consoleChipRowClass()}, parseTrailing...),
+	)
 }
 
-func internalMobileQuickLinks(parsePayload Payload, parseShellState internalShellState) []ui.Node {
-	parseLinks := []atlasInternalNavLink{
-		{Label: "Dashboard", Href: RouteDashboard},
-		{Label: "Inventory", Href: RouteInventory},
-		{Label: "Products", Href: "/app/products"},
-		{Label: "Warehouses", Href: RouteWarehouseOps},
-	}
-	parseNodes := make([]ui.Node, 0, len(parseLinks))
-	for _, parseLink := range parseLinks {
-		parseNodes = append(parseNodes, internalNavLink(parsePayload.Route.Path, parseShellState, parseLink))
-	}
-	return parseNodes
-}
+// --- legacy class helpers ------------------------------------------------------
+//
+// DEPRECATED. Nothing in this file calls these any more — the console is styled
+// entirely from shared/design (see the header comment). They stay because
+// inventory_cms.go and products_cms.go still call them and are converted by a
+// separate pass, and because visual_primitives_test.go pins their shape.
+//
+// Do not reach for them in new markup. Every one of them is a rounded, bordered,
+// shadowed box, which is the exact vocabulary the design system refuses: use
+// design.Surface once per region and separate with design.Divider or a Stack gap.
 
 func internalHeroSurfaceClass() string {
 	return "rounded-[2rem] border border-slate-800/95 bg-[linear-gradient(145deg,rgba(8,15,28,0.98),rgba(15,23,42,0.92)_58%,rgba(10,18,32,0.98))] p-8 shadow-[0_32px_90px_rgba(8,15,30,0.38)]"
@@ -823,7 +1152,14 @@ func noticeBanner(parsePayload Payload) ui.Node {
 	if parsePayload.Route.Surface == "public" || parsePayload.Route.Surface == "" {
 		return html.Div(html.Props{Class: "rounded-[1.75rem] border border-emerald-400/30 bg-emerald-400/10 px-5 py-4 text-sm font-medium text-emerald-100 shadow-[0_18px_40px_rgba(16,185,129,0.12)]"}, html.Text(parseNotice))
 	}
-	return html.Div(html.Props{Class: "rounded-3xl border border-emerald-300/25 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100"}, html.Text(parseNotice))
+	// A completed mutation is a VERIFIED state, so it is a status chip beside the
+	// sentence rather than a green-tinted box: the tone is a second channel on the
+	// words, and one flat Surface keeps the banner at the same weight as the region
+	// it sits above.
+	return html.Div(html.Props{Class: design.Class(design.Surface(), design.Cluster(design.Space3)), Role: "status"},
+		html.Span(html.Props{Class: consoleStatusChipClass(design.ToneVerified)}, html.Text("DONE")),
+		html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseNotice)),
+	)
 }
 
 func atlasNoticeMessage(parsePayload Payload) string {
@@ -834,24 +1170,33 @@ func shellToastBanner(parseToast atlasShellToast) ui.Node {
 	if strings.TrimSpace(parseToast.Title) == "" {
 		return nil
 	}
-	parseClassName := "grid gap-2 rounded-[1.6rem] border px-5 py-4 text-sm shadow-[0_18px_40px_rgba(2,6,23,0.18)]"
+	// The toast used to encode its tone as a tinted, tinted-border box per tone —
+	// four bespoke colour trios. Now the tone drives ONE status chip and the banner
+	// itself stays a plain Surface, so a warning and a success differ in the one
+	// place a reader looks for state instead of in the whole panel's colour.
+	parseTone := design.TonePending
+	parseLabel := "NOTICE"
 	switch strings.TrimSpace(strings.ToLower(parseToast.Tone)) {
 	case "success":
-		parseClassName += " border-emerald-400/30 bg-emerald-400/12 text-emerald-50"
+		parseTone = design.ToneVerified
+		parseLabel = "DONE"
 	case "warn", "warning", "warm":
-		parseClassName += " border-amber-400/30 bg-amber-400/12 text-amber-50"
+		parseTone = design.TonePending
+		parseLabel = "CHECK"
 	case "danger", "error":
-		parseClassName += " border-rose-400/30 bg-rose-400/12 text-rose-50"
-	default:
-		parseClassName += " border-cyan-300/30 bg-cyan-300/12 text-cyan-50"
+		parseTone = design.ToneException
+		parseLabel = "FAILED"
 	}
 	parseChildren := []ui.Node{
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em]"}, html.Text(parseToast.Title)),
+		html.Div(html.Props{Class: consoleChipRowClass()},
+			html.Span(html.Props{Class: consoleStatusChipClass(parseTone)}, html.Text(parseLabel)),
+			html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseToast.Title)),
+		),
 	}
 	if strings.TrimSpace(parseToast.Detail) != "" {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "text-sm leading-6"}, html.Text(parseToast.Detail)))
+		parseChildren = append(parseChildren, html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseToast.Detail)))
 	}
-	return html.Div(html.Props{Class: parseClassName}, parseChildren...)
+	return html.Div(html.Props{Class: consoleSurfaceClass(), Role: "status"}, parseChildren...)
 }
 
 // renderGuidedDemoPanel renders optional reviewer walkthrough prompts for Atlas signature flows.
@@ -871,23 +1216,36 @@ func renderGuidedDemoPanel(parsePayload Payload) ui.Node {
 		{Step: "04", Title: "Close receiving", Copy: "Resolve discrepancy notes and close receiving sessions so availability can normalize.", Href: "/app/receiving"},
 		{Step: "05", Title: "Verify settings resume", Copy: "Switch locale/theme/density and confirm route entry keeps operator defaults intact.", Href: "/app/settings"},
 	}
-	parseCards := make([]ui.Node, 0, len(parseSteps))
+	// A numbered walkthrough IS a sequence, so this is the one place in the console
+	// where step numbers are correct — unlike the dashboard shortcuts, where they
+	// implied an order that does not exist. It renders as a table because the steps
+	// are a queue of five identical rows, and the step number is mono so the column
+	// aligns.
+	parseRows := make([]ui.Node, 0, len(parseSteps))
 	for _, parseStep := range parseSteps {
-		parseCards = append(parseCards, html.A(html.Props{Href: parseStep.Href, Class: "grid gap-2 rounded-[1.2rem] border border-white/10 bg-slate-950/45 px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
-			html.Div(html.Props{Class: "flex items-center justify-between gap-3"},
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300"}, html.Text(parseStep.Step)),
-				html.P(html.Props{Class: "text-[0.68rem] uppercase tracking-[0.2em] text-slate-400"}, html.Text("Open flow")),
+		parseRows = append(parseRows, html.Tr(html.Props{},
+			html.Th(html.Props{}, html.Text(parseStep.Step)),
+			html.Td(html.Props{},
+				html.A(html.Props{Href: parseStep.Href, Class: consoleCellLinkClass()}, html.Text(parseStep.Title)),
 			),
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseStep.Title)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseStep.Copy)),
+			html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(parseStep.Copy)),
 		))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.6rem] border border-cyan-300/25 bg-cyan-400/8 p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"}, html.Text("Guided demo mode")),
-			html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text("Follow this seeded walkthrough to review Atlas signature flows in a consistent order.")),
+	return html.Div(html.Props{Class: consoleSurfaceClass()},
+		html.Div(html.Props{Class: consoleStackTightClass()},
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Guided demo mode")),
+			html.H2(html.Props{Class: consoleSectionTitleClass()}, html.Text("Walk the five Atlas flows in order")),
 		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-2 xl:grid-cols-3"}, parseCards...),
+		html.Div(html.Props{Class: consoleTableScrollClass(), Role: "region", TabIndex: html.TabIndexZero, Aria: map[string]string{"label": "Guided demo steps"}},
+			html.Table(html.Props{Class: consoleTableClass()},
+				html.Thead(html.Props{}, html.Tr(html.Props{},
+					html.Th(html.Props{}, html.Text("Step")),
+					html.Th(html.Props{}, html.Text("Flow")),
+					html.Th(html.Props{}, html.Text("What to look at")),
+				)),
+				html.Tbody(html.Props{}, parseRows...),
+			),
+		),
 	)
 }
 
@@ -895,29 +1253,38 @@ func hero(parsePayload Payload, parseShellState internalShellState, parsePresent
 	if parsePayload.Route.Surface == "public" || parsePayload.Route.Surface == "" {
 		return renderPublicHero(parsePayload)
 	}
-	parseMeta := []ui.Node{
-		statCard("Surface", fallback(parsePayload.Route.Surface, "public")),
-		statCard("Theme", fallback(parsePresentation.Theme, "dark")),
-		statCard("Locale", fallback(parsePresentation.Locale, "en")),
-		statCard("Density", fallback(parsePresentation.Density, "compact")),
+	// The page head, and the ONLY place the route title and its description render.
+	// They used to appear two or three times per screen — the sticky header, this
+	// hero, and a breadcrumb — with identical text, which trains the reader to skip
+	// all of them. design.PageHead closes the title with the heavy ink rule that
+	// makes a page start.
+	//
+	// The hero also used to be a two-column grid whose left cell was a 2rem-radius
+	// gradient panel with ~250px of dead space under three lines of text. There is
+	// no filler now: title, one sentence, then the facts.
+	parseFacts := []ui.Node{}
+	if strings.TrimSpace(parseShellState.SummaryValue) != "" {
+		parseFacts = append(parseFacts, statCard(fallback(parseShellState.SummaryLabel, "Open work"), parseShellState.SummaryValue))
 	}
-	parseMeta = append(parseMeta, statCard("Warehouse", fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub")))
+	// Warehouse is a working CONTEXT — which hub this operator is standing in — so
+	// it stays. THEME, LOCALE and DENSITY used to sit here beside OPEN ALERTS as if
+	// they were measurements: they are settings, they live on /app/settings, and the
+	// values printed here were stale anyway because they came from a different
+	// snapshot than the form that edits them.
+	parseFacts = append(parseFacts, statCard("Warehouse", atlasHubCode(fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub"))))
 	if strings.TrimSpace(parseShellState.ActiveSavedView) != "" {
-		parseMeta = append(parseMeta, statCard("Saved view", parseShellState.ActiveSavedView))
+		parseFacts = append(parseFacts, statCard("Saved view", parseShellState.ActiveSavedView))
 	}
 	if len(parseShellState.ActiveFilters) > 0 {
-		parseMeta = append(parseMeta, statCard("Filters", fmt.Sprintf("%d active", len(parseShellState.ActiveFilters))))
+		parseFacts = append(parseFacts, statCard("Filters", fmt.Sprintf("%d active", len(parseShellState.ActiveFilters))))
 	}
-	if strings.TrimSpace(parseShellState.SummaryValue) != "" {
-		parseMeta = append([]ui.Node{statCard(fallback(parseShellState.SummaryLabel, "Shell summary"), parseShellState.SummaryValue)}, parseMeta...)
-	}
-	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]"},
-		html.Div(html.Props{Class: internalHeroSurfaceClass()},
-			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300"}, html.Text(fallback(parsePayload.Route.Screen, "route"))),
-			html.H1(html.Props{Class: "mt-4 text-4xl font-black tracking-tight text-white lg:text-5xl"}, html.Text(fallback(parsePayload.Route.Title, "Atlas"))),
-			html.P(html.Props{Class: "mt-4 max-w-3xl text-base leading-7 text-slate-300"}, html.Text(routeSummary(parsePayload.Route.Path))),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		html.Div(html.Props{Class: consolePageHeadClass()},
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(fallback(parsePayload.Route.Screen, "route"))),
+			html.H1(html.Props{Class: consolePageTitleClass()}, html.Text(fallback(parsePayload.Route.Title, "Atlas"))),
 		),
-		html.Div(html.Props{Class: "grid gap-4"}, parseMeta...),
+		html.P(html.Props{Class: consoleLedeClass()}, html.Text(routeSummary(parsePayload.Route.Path))),
+		html.Div(html.Props{Class: consoleFactRowClass()}, parseFacts...),
 	)
 }
 
@@ -1216,136 +1583,194 @@ func pageContent(parsePayload Payload) ui.Node {
 	}
 }
 
+// dashboardContent is a triage surface, read top to bottom: what is open, what
+// needs a decision, where to start, what just moved, what vendors owe us, and only
+// then the trend.
+//
+// It is ONE column now. The old layout was a two-column grid of grids, and the
+// design system provides no multi-column region primitive on purpose — see the
+// note in the report; Stack is the answer it does provide, and a console read in
+// one vertical scan does not need the reader to choose a column first.
 func dashboardContent(parsePayload Payload) ui.Node {
 	parsePage := decode[dashboardPage](pageData(parsePayload))
-	return html.Section(html.Props{Class: "grid gap-6"},
+	return html.Section(html.Props{Class: consoleRegionStackClass()},
 		dashboardSummaryBand(parsePage),
-		html.Div(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)] xl:items-start"},
-			html.Div(html.Props{Class: "grid gap-6"},
-				dashboardAnalyticsPanels(parsePage),
-				dashboardActionCluster(),
-				dashboardActivityFeed(parsePage),
-			),
-			html.Div(html.Props{Class: "grid gap-6"},
-				dashboardAttentionPanel(parsePage),
-				dashboardPurchaseOrderSummary(parsePage.Orders),
-			),
-		),
+		dashboardAttentionPanel(parsePage),
+		dashboardActionCluster(),
+		dashboardActivityFeed(parsePage),
+		dashboardPurchaseOrderSummary(parsePage.Orders),
 	)
 }
 
-// dashboardAnalyticsPanels renders trend-oriented operational analytics for sell-through, stockout exposure, and fulfillment speed.
-func dashboardAnalyticsPanels(parsePage dashboardPage) ui.Node {
-	parseOpenReceiving := dashboardOpenReceivingCount(parsePage.Receiving)
-	parseFlaggedComments := dashboardCommentStatusCount(parsePage.Comments, "flagged")
-	parseSubmittedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "submitted")
-	parseApprovedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "approved")
-	parseSellThrough := max(min(62+(len(parsePage.Orders)*3)+(len(parsePage.Transfers)*2)-(parseOpenReceiving*2), 96), 35)
-	parseStockoutRisk := max(min(18+(parseOpenReceiving*4)+(parseFlaggedComments*3)+(parseSubmittedOrders*2), 88), 8)
-	parseFulfillmentSpeed := max(min(94-(parseOpenReceiving*3)-parseFlaggedComments+(parseApprovedOrders*2), 98), 62)
-	parseMetricCard := func(parseTitle, parseValue, parseDelta, parseCopy string, parseSeries []int) ui.Node {
-		parseBars := make([]ui.Node, 0, len(parseSeries))
-		for _, parsePoint := range parseSeries {
-			parseHeight := min(max(parsePoint, 12), 96)
-			parseBars = append(parseBars, html.Div(html.Props{Class: "w-full rounded-full bg-cyan-300/35", Raw: map[string]any{"style": fmt.Sprintf("height:%d%%", parseHeight)}}))
-		}
-		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.2rem] border border-white/10 bg-slate-950/55 p-4"},
-			html.Div(html.Props{Class: "flex items-center justify-between gap-3"},
-				html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200"}, html.Text(parseTitle)),
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-emerald-200"}, html.Text(parseDelta)),
-			),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(parseValue)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
-			html.Div(html.Props{Class: "grid h-12 grid-cols-6 items-end gap-2"}, parseBars...),
-		)
-	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Analytics panels")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Track short-range trajectory for sell-through, stockout pressure, and fulfillment speed before routing into inventory, transfer, or receiving interventions.")),
-		),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-			parseMetricCard("Sell-through trend", fmt.Sprintf("%d%%", parseSellThrough), "7d +3.4%", "Demand conversion is rising as replenishment and transfer motion stays aligned.", []int{58, 62, 64, 68, 72, parseSellThrough}),
-			parseMetricCard("Stockout exposure", fmt.Sprintf("%d%%", parseStockoutRisk), "7d -2.1%", "Exposure remains concentrated in flagged receiving and moderation-adjacent SKUs.", []int{parseStockoutRisk + 8, parseStockoutRisk + 4, parseStockoutRisk + 2, parseStockoutRisk, parseStockoutRisk - 1, parseStockoutRisk}),
-			parseMetricCard("Fulfillment speed", fmt.Sprintf("%d%%", parseFulfillmentSpeed), "7d +1.7%", "Lane speed improves when open receiving sessions close within the same shift.", []int{parseFulfillmentSpeed - 6, parseFulfillmentSpeed - 4, parseFulfillmentSpeed - 3, parseFulfillmentSpeed - 2, parseFulfillmentSpeed - 1, parseFulfillmentSpeed}),
-		),
-	)
+// REMOVED: dashboardAnalyticsPanels — a "Trend / Seven-day movement" panel whose
+// every layer was fabricated.
+//
+// It is recorded here rather than deleted silently because the panel LOOKED like
+// the most professional thing on the dashboard, and that is exactly what made it
+// dangerous in an example other people copy.
+//
+// What it claimed, and what was actually behind it:
+//
+//   - "Sell-through 78%" — computed as
+//     clamp(62 + orders*3 + transfers*2 - openReceiving*2, 35, 96).
+//     That is not a sell-through rate. It is a magic constant plus unrelated row
+//     counts, clamped so it always lands in a plausible-looking band. The same
+//     shape produced "Stockout exposure" and "Fulfilment speed".
+//   - "7d +3.4%" — a hardcoded string. There is no previous value to compare to.
+//   - The sparkline — five hardcoded points with the fake figure appended, or a
+//     series synthesised FROM the current value (+8, +4, +2, -1, …) so the bars
+//     would slope the right way for the label next to them.
+//   - "Rising while replenishment and transfers stay aligned." — narration of a
+//     trend that was never measured.
+//
+// Atlas has no time-series store. There is no history table, nothing records a
+// daily snapshot, and no request can answer "what was this yesterday". A trend
+// panel is therefore not implementable here, and the honest move is to not have
+// one rather than to render a convincing placeholder.
+//
+// If real trends are wanted later, they need a stored series first — a table of
+// dated snapshots, written on a schedule — and THEN a chart. Do not reintroduce
+// this by deriving history from the current value; that is the bug, not a
+// shortcut to fixing it.
+//
+// Note the dashboard did not lose any real information: open receiving, flagged
+// comments, and submitted/approved order counts all still appear in the summary
+// band and the attention stack, where they are counted rather than modelled.
+
+// dashboardSparkRowClass / dashboardSparkBarClass are the sparkline.
+//
+// GAP: the design system has no chart, sparkline or bar primitive — its subject is
+// paperwork, and a chart is the one thing paperwork does not contain. These are
+// therefore one-off typed rules rather than bundles, and they are held to the same
+// contract as everything else: lane blue from the token (so they invert with the
+// theme), square-cut (RadiusNone), no gradient. The old bars were rounded-full
+// cyan-300/35, i.e. a colour the palette does not contain.
+func dashboardSparkRowClass() string {
+	return design.Class(design.Cluster(design.Space1), []css.Rule{
+		css.Raw("flex-wrap", "nowrap"),
+		css.Items.End,
+		css.H(css.Rem(3)),
+		css.W(css.Full),
+	})
 }
 
+func dashboardSparkBarClass() string {
+	return design.Class([]css.Rule{
+		css.Bg(design.Lane()),
+		css.Rounded(design.RadiusNone),
+		css.Raw("flex", "1 1 0"),
+		css.MinWidth(css.Px(2)),
+	})
+}
+
+// dashboardSummaryBand is the route's own numbers and nothing else.
+//
+// The design note that used to render here as body copy — "the dashboard should
+// read like a triage surface first: one summary band, one action cluster, one
+// attention stack…" — described the LAYOUT to the operator. It is gone; the layout
+// now says that by being that.
 func dashboardSummaryBand(parsePage dashboardPage) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Dashboard summary band")),
-			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("The dashboard should read like a triage surface first: one summary band, one action cluster, one attention stack, one activity feed, and one purchase-order watch panel.")),
-		),
-		routeSummaryStrip(parsePage.Summary),
-	)
+	return routeSummaryStrip(parsePage.Summary)
 }
 
+// dashboardActionCluster is four independent shortcuts, deliberately UNNUMBERED.
+//
+// They used to be labelled ACTION 1 through ACTION 4, which implies a sequence:
+// an operator reading "Action 3" looks for what Action 2 was and whether skipping
+// it matters. Nothing here is ordered — you take whichever one matches the problem
+// in front of you.
 func dashboardActionCluster() ui.Node {
-	return internalWorkflowSection("Action cluster", "Start from the operator task that needs motion right now instead of treating the dashboard like a passive KPI wall.",
-		internalWorkflowCard("Action 1", "Open low-stock inventory view", "Jump directly into promise-risk and low-stock lanes that need threshold, transfer, or replenishment decisions.", "/app/inventory?status=promise_risk"),
-		internalWorkflowCard("Action 2", "Create transfer", "Move into balancing work when the issue is warehouse coverage, not vendor replenishment.", "/app/transfers"),
-		internalWorkflowCard("Action 3", "Resume receiving session", "Close inbound discrepancies before they continue distorting availability posture.", "/app/receiving"),
-		internalWorkflowCard("Action 4", "Review pending comments", "Route buyer questions and moderation backlog through the inbox without losing the dashboard handoff context.", RouteCommentsModeration),
+	return internalWorkflowSection("Quick actions", "",
+		internalWorkflowCard("", "Open low-stock lanes", "Promise-risk and low-stock lanes that need a threshold, transfer or replenishment decision.", "/app/inventory?status=promise_risk"),
+		internalWorkflowCard("", "Create a transfer", "When the problem is warehouse coverage, not vendor supply.", "/app/transfers"),
+		internalWorkflowCard("", "Resume receiving", "Close inbound discrepancies before they distort availability.", "/app/receiving"),
+		internalWorkflowCard("", "Review comments", "Work the buyer question and moderation backlog.", RouteCommentsModeration),
 	)
 }
 
+// dashboardAttentionPanel is the attention stack, and it is a TABLE.
+//
+// It was four bordered link cards, one per queue, which meant the four counts —
+// the only numbers on the panel and the entire reason to look at it — sat at four
+// different x positions and could not be compared. As mono right-aligned cells in
+// one column they compare at a glance, and the largest number is the one to open.
 func dashboardAttentionPanel(parsePage dashboardPage) ui.Node {
 	parsePendingComments := dashboardCommentStatusCount(parsePage.Comments, "pending")
 	parseFlaggedComments := dashboardCommentStatusCount(parsePage.Comments, "flagged")
 	parseOpenReceiving := dashboardOpenReceivingCount(parsePage.Receiving)
 	parseSubmittedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "submitted")
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("High-attention panel")),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fmt.Sprintf("%d alerts need a route decision.", parsePage.Alerts))),
-			html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text("These are the work queues most likely to change customer promise, inbound readiness, or moderation posture if an operator waits too long.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3"},
-			dashboardAttentionLink("Pending comments", fmt.Sprintf("%d waiting", parsePendingComments), "Review questions and moderation decisions that are shaping buyer follow-up right now.", RouteCommentsModeration),
-			dashboardAttentionLink("Flagged comments", fmt.Sprintf("%d flagged", parseFlaggedComments), "Handle risky or unclear public notes before they create merch or support confusion.", RouteComments+"/moderation/flagged"),
-			dashboardAttentionLink("Receiving closeout", fmt.Sprintf("%d open sessions", parseOpenReceiving), "Resolve discrepancies and close receiving sessions so inbound stock can become trustworthy availability.", "/app/receiving"),
-			dashboardAttentionLink("Submitted purchase orders", fmt.Sprintf("%d need review", parseSubmittedOrders), "Move draft or submitted vendor work forward before the replenishment lane stalls.", "/app/purchase-orders"),
-		),
+	parseRows := []ui.Node{
+		dashboardAttentionRow("Pending comments", parsePendingComments, "Buyer questions waiting on a moderation decision.", RouteCommentsModeration),
+		dashboardAttentionRow("Flagged comments", parseFlaggedComments, "Public notes that need a human before they mislead a buyer.", RouteComments+"/moderation/flagged"),
+		dashboardAttentionRow("Open receiving sessions", parseOpenReceiving, "Discrepancies to resolve before inbound stock counts as available.", "/app/receiving"),
+		dashboardAttentionRow("Submitted purchase orders", parseSubmittedOrders, "Vendor orders waiting on approval or a hold.", "/app/purchase-orders"),
+	}
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Needs attention", fmt.Sprintf("%d alerts need a decision", parsePage.Alerts), ""),
+		consoleQueueTable("Queues needing attention",
+			html.Tr(html.Props{},
+				consoleColumn("Queue"),
+				consoleNumericColumn("Waiting"),
+				consoleColumn("Why it matters"),
+			), parseRows),
 	)
 }
 
-func dashboardAttentionLink(parseTitle, parseValue, parseCopy, parseHref string) ui.Node {
-	return html.A(html.Props{Href: parseHref, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
-		html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseTitle)),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseValue)),
+// dashboardAttentionRow tones the count rather than adding a chip beside it: when
+// the number IS the status, a chip that repeats it is redundancy a dense manifest
+// cannot afford. Zero is neutral — an empty queue is not an exception.
+func dashboardAttentionRow(parseQueue string, parseCount int, parseWhy string, parseHref string) ui.Node {
+	parseTone := design.ToneNeutral
+	if parseCount > 0 {
+		parseTone = design.TonePending
+	}
+	return html.Tr(html.Props{},
+		html.Th(html.Props{},
+			html.A(html.Props{Href: parseHref, Class: consoleCellLinkClass()}, html.Text(parseQueue)),
 		),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
+		html.Td(html.Props{Class: consoleNumericCellClass()},
+			html.Span(html.Props{Class: consoleStatusValueClass(parseTone)}, html.Text(fmt.Sprintf("%d", parseCount))),
+		),
+		html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(parseWhy)),
 	)
 }
 
+// dashboardActivityFeed is the other queue that used to be a card list. Same
+// argument as the attention stack: four sources × two entries is eight rows, and a
+// card each cost ~110px against a table row's ~34px, so the feed did not fit on a
+// screen.
+//
+// The design note that shipped as its description — "the dashboard feed should show
+// the latest moderation, transfer, receiving, and purchase-order motion in one scan
+// instead of making operators open four routes…" — is deleted. SOURCE is a column
+// now, which is the same claim made structurally.
 func dashboardActivityFeed(parsePage dashboardPage) ui.Node {
 	parseItems := dashboardActivityItems(parsePage)
-	parseNodes := make([]ui.Node, 0, len(parseItems))
+	parseRows := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
-		parseNodes = append(parseNodes, html.A(html.Props{Href: parseItem.Href, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
-			html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseItem.Kicker)),
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.18em] text-slate-400"}, html.Text(parseItem.Meta)),
+		parseRows = append(parseRows, html.Tr(html.Props{},
+			html.Td(html.Props{Class: consoleCellMetaClass()}, html.Text(parseItem.Kicker)),
+			html.Th(html.Props{},
+				html.A(html.Props{Href: parseItem.Href, Class: consoleCellLinkClass()}, html.Text(parseItem.Title)),
 			),
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Title)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Detail)),
+			html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(parseItem.Detail)),
+			html.Td(html.Props{},
+				html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Meta))}, html.Text(parseItem.Meta)),
+			),
 		))
 	}
-	if len(parseNodes) == 0 {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text("No operator activity queued.")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Comments, transfers, receiving sessions, and purchase orders will populate this feed as soon as Atlas has active work.")),
-		))
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, consoleEmptyRow(4, "Nothing has moved yet. Comments, transfers, receiving sessions and purchase orders show up here as they change."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Activity feed")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("The dashboard feed should show the latest moderation, transfer, receiving, and purchase-order motion in one scan instead of making operators open four routes just to check momentum.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3"}, parseNodes...),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Activity feed", "Latest motion", fmt.Sprintf("%d entries", len(parseItems))),
+		consoleQueueTable("Recent operator activity",
+			html.Tr(html.Props{},
+				consoleColumn("Source"),
+				consoleColumn("Item"),
+				consoleColumn("Detail"),
+				consoleColumn("Status"),
+			), parseRows),
 	)
 }
 
@@ -1410,33 +1835,41 @@ func dashboardActivityItems(parsePage dashboardPage) []dashboardActivityItem {
 	return parseItems
 }
 
+// dashboardPurchaseOrderSummary is the vendor watch panel: the third card list
+// that is now a table. ETA is mono and gets its own column because "will it land
+// before the promise" is the only question this panel answers, and a date buried in
+// a meta line at the bottom of a card cannot be compared across four vendors.
 func dashboardPurchaseOrderSummary(parseOrders []purchaseOrderRecord) ui.Node {
-	parseNodes := make([]ui.Node, 0, len(parseOrders))
+	parseRows := make([]ui.Node, 0, len(parseOrders))
 	for parseIndex, parseItem := range parseOrders {
 		if parseIndex >= 4 {
 			break
 		}
-		parseNodes = append(parseNodes, html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
-			html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(fallback(parseItem.VendorName, parseItem.ID))),
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(strings.ReplaceAll(fallback(parseItem.Status, "submitted"), "_", " "))),
+		parseRows = append(parseRows, html.Tr(html.Props{},
+			html.Th(html.Props{},
+				html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: consoleCellLinkClass()}, html.Text(fallback(parseItem.VendorName, parseItem.ID))),
 			),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(fallback(parseItem.PriorityNote, "Vendor replenishment still needs operator follow-through."))),
-			html.P(html.Props{Class: "text-xs uppercase tracking-[0.18em] text-slate-400"}, html.Text(fallback(parseItem.WarehouseName, parseItem.WarehouseID)+" | ETA "+fallback(parseItem.ETA, "pending"))),
+			html.Td(html.Props{}, html.Text(atlasHubCode(fallback(parseItem.WarehouseID, parseItem.WarehouseName)))),
+			html.Td(html.Props{}, html.Text(fallback(parseItem.ETA, "unscheduled"))),
+			html.Td(html.Props{},
+				html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(strings.ReplaceAll(fallback(parseItem.Status, "submitted"), "_", " "))),
+			),
+			html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(fallback(parseItem.PriorityNote, "No note"))),
 		))
 	}
-	if len(parseNodes) == 0 {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text("No purchase orders are open.")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Atlas will list the highest-priority vendor work here once replenishment needs a formal PO lane.")),
-		))
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, consoleEmptyRow(5, "No purchase orders are open. Vendor work appears here once replenishment needs a formal order."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Purchase-order summary")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Keep vendor work visible from the dashboard so replenishment planning does not disappear behind the logistics route boundary.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3"}, parseNodes...),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Purchase orders", "Vendor watch", fmt.Sprintf("%d open", len(parseOrders))),
+		consoleQueueTable("Open purchase orders",
+			html.Tr(html.Props{},
+				consoleColumn("Vendor"),
+				consoleColumn("Hub"),
+				consoleColumn("ETA"),
+				consoleColumn("Status"),
+				consoleColumn("Note"),
+			), parseRows),
 	)
 }
 
@@ -1492,23 +1925,21 @@ func warehouseOpsContent(parsePayload Payload) ui.Node {
 	if parseNestedPanel := warehouseOpsNestedPanelNode(parsePayload); parseNestedPanel != nil {
 		parsePrimaryNodes = append(parsePrimaryNodes, parseNestedPanel)
 	}
-	parsePrimaryNodes = append(parsePrimaryNodes, warehouseOpsTable(parsePage.Items))
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"}, parsePrimaryNodes...),
-		html.Div(html.Props{Class: "grid gap-5"},
-			renderWarehouseMapCard(parsePage.Items),
-			inventoryRailCard("Cross-route handoffs", "Warehouse work should hand off cleanly into inventory, purchasing, and receiving instead of trapping the operator in one facility view.",
-				html.Div(html.Props{Class: "grid gap-3"},
-					inventoryActionCard("Inventory risk view", "Compare cross-warehouse SKU pressure before changing a local lane.", "/app/inventory?status=promise_risk"),
-					inventoryActionCard("Create replenishment", "Escalate from warehouse pressure into vendor-side inbound planning when balancing is no longer enough.", "/app/purchase-orders"),
-					inventoryActionCard("Close inbound work", "Return to receiving after warehouse recovery starts moving through inbound confirmation.", "/app/receiving"),
-				),
-			),
-			inventoryRailCard("What this route controls", "Use the warehouse workspace to choose the right facility, confirm backlog and staffing posture, then branch into nested item work only after the facility context is clear.",
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("The warehouse list is now table-first on purpose: it should answer which facility is under pressure before the operator opens a SKU, purchase order, or receiving session.")),
+	parsePrimaryNodes = append(parsePrimaryNodes,
+		warehouseOpsTable(parsePage.Items),
+		renderWarehouseMapCard(parsePage.Items),
+		inventoryRailCard("Next steps", "Where warehouse work usually goes next.",
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				inventoryActionCard("Compare inventory pressure", "Check cross-warehouse SKU pressure before changing a local lane.", "/app/inventory?status=promise_risk"),
+				inventoryActionCard("Order replenishment", "Escalate to vendor-side inbound when balancing is no longer enough.", "/app/purchase-orders"),
+				inventoryActionCard("Close inbound work", "Return to receiving once recovery stock starts arriving.", "/app/receiving"),
 			),
 		),
 	)
+	// One column. The right-hand rail used to be a second grid track holding three
+	// more bordered panels; flattening it means the facility table is the widest
+	// thing on the page, which is what a 14-column manifest needs.
+	return html.Section(html.Props{Class: consoleRegionStackClass()}, parsePrimaryNodes...)
 }
 
 func warehouseOpsNestedPanelNode(parsePayload Payload) ui.Node {
@@ -1521,8 +1952,8 @@ func warehouseOpsNestedPanelNode(parsePayload Payload) ui.Node {
 // renderWarehouseMapCard renders a lightweight transfer-oriented warehouse map for visual lane scanning.
 func renderWarehouseMapCard(parseItems []warehouseOpsRecord) ui.Node {
 	if len(parseItems) == 0 {
-		return inventoryRailCard("Warehouse transfer map", "Visual lane map is unavailable until at least one warehouse record is loaded.",
-			html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No warehouse geometry to render.")),
+		return inventoryRailCard("Warehouse transfer map", "The lane map needs at least one warehouse record.",
+			html.P(html.Props{Class: consoleMetaClass()}, html.Text("No warehouse geometry to render.")),
 		)
 	}
 	parseLimit := min(len(parseItems), 5)
@@ -1571,19 +2002,29 @@ func renderWarehouseMapCard(parseItems []warehouseOpsRecord) ui.Node {
 				"font-size":   "9",
 			}, Class: "fill-slate-300"}, html.Text("inbound "+fmt.Sprintf("%d", parseItem.Inbound))),
 		)
-		parseLegendNodes = append(parseLegendNodes, html.Div(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-200"},
-			html.Text(fallback(parseItem.Name, parseItem.ID)+" | "+fmt.Sprintf("%d risk", parseItem.RiskCount)),
+		// The legend entry is a status chip, so a facility carrying risk reads the same
+		// way here as it does in the facility table two regions up.
+		parseLegendTone := design.ToneNeutral
+		if parseItem.RiskCount > 0 {
+			parseLegendTone = design.ToneException
+		}
+		parseLegendNodes = append(parseLegendNodes, html.Span(html.Props{Class: consoleStatusChipClass(parseLegendTone)},
+			html.Text(atlasHubCode(parseItem.ID)+" "+fmt.Sprintf("%d risk", parseItem.RiskCount)),
 		))
 	}
-	return inventoryRailCard("Warehouse transfer map", "Use this lightweight visual map to spot which facilities are carrying risk and where balancing lanes should start before opening transfer workflows.",
-		html.Div(html.Props{Class: "rounded-[1.2rem] border border-white/10 bg-slate-950/65 p-3"},
+	return inventoryRailCard("Warehouse transfer map", "Which facilities are carrying risk, and where a balancing lane would start.",
+		// GAP: the SVG's own fills and strokes stay on utility classes. The design
+		// system has no data-visualisation vocabulary (formatWarehouseMapNodeTone is
+		// pinned by tests to those exact strings), and inventing chart tones here would
+		// be adding a palette outside the one place that owns tone -> hue.
+		html.Div(html.Props{Class: consoleRecessClass()},
 			html.Tag("svg", html.Props{Raw: map[string]any{
 				"viewBox":    "0 0 672 296",
 				"role":       "img",
 				"aria-label": fmt.Sprintf("Atlas warehouse transfer map centered on %s", parseHubLabel),
 			}, Class: "h-auto w-full"}, append(parseLineNodes, parsePointNodes...)...),
 		),
-		html.Div(html.Props{Class: "flex flex-wrap gap-2"}, parseLegendNodes...),
+		html.Div(html.Props{Class: consoleChipRowClass()}, parseLegendNodes...),
 	)
 }
 
@@ -1599,89 +2040,93 @@ func formatWarehouseMapNodeTone(parseItem warehouseOpsRecord) (string, string) {
 }
 
 func warehouseOpsSummaryBand(parsePage warehouseOpsList) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Warehouse operations shell")),
-			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat the warehouse route as a facility triage board first: visible backlog pressure, clear service posture, and direct drill-ins into the facility that actually needs action.")),
-		),
+	// The route's own numbers, as a fact row rather than four bordered stat boxes.
+	// The paragraph that used to sit above them ("Treat the warehouse route as a
+	// facility triage board first…") described the layout to the operator; the layout
+	// says it by being a table-first triage board.
+	return html.Div(html.Props{Class: consoleStackClass()},
 		routeSummaryStrip(parsePage.Summary),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Facilities", fmt.Sprintf("%d active", len(parsePage.Items))),
-			statCard("Available", fmt.Sprintf("%d units", totalWarehouseAvailable(parsePage.Items))),
-			statCard("Inbound", fmt.Sprintf("%d units", totalWarehouseInbound(parsePage.Items))),
-			statCard("Risk facilities", fmt.Sprintf("%d flagged", countRiskWarehouses(parsePage.Items))),
+		html.Div(html.Props{Class: consoleFactRowClass()},
+			statCard("Facilities", fmt.Sprintf("%d", len(parsePage.Items))),
+			statCard("Available units", fmt.Sprintf("%d", totalWarehouseAvailable(parsePage.Items))),
+			statCard("Inbound units", fmt.Sprintf("%d", totalWarehouseInbound(parsePage.Items))),
+			statCard("Facilities at risk", fmt.Sprintf("%d", countRiskWarehouses(parsePage.Items))),
 		),
 	)
 }
 
 func warehouseOpsActionCluster() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Route action cluster")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Lead with the facility action that matters now: open a roster, add an item, review flagged lanes, or escalate into replenishment planning.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-4"},
-			inventoryActionCard("Open a roster", "Choose the facility first when the problem is local backlog, staffing, or regional supply pressure.", "/app/warehouses"),
-			inventoryActionCard("Add warehouse item", "Seed a new managed item directly inside the facility workspace rather than bouncing through catalog-first flows.", "/app/warehouses/new-jersey-hub#warehouse-create-item"),
-			inventoryActionCard("Review flagged lanes", "Move into a facility detail page already filtered to the lanes that need action.", "/app/warehouses/new-jersey-hub?status=promise_risk"),
-			inventoryActionCard("Order more units", "Open replenishment only after the warehouse context proves inbound recovery is the right move.", "/app/purchase-orders"),
-		),
+	return internalWorkflowSection("Quick actions", "",
+		inventoryActionCard("Open a roster", "Start with the facility when the problem is local backlog, staffing or regional supply.", "/app/warehouses"),
+		inventoryActionCard("Add warehouse item", "Seed a managed item inside the facility instead of going through the catalogue.", "/app/warehouses/new-jersey-hub#warehouse-create-item"),
+		inventoryActionCard("Review flagged lanes", "Open a facility already filtered to the lanes that need action.", "/app/warehouses/new-jersey-hub?status=promise_risk"),
+		inventoryActionCard("Order more units", "Open replenishment once the facility view proves inbound is the right move.", "/app/purchase-orders"),
 	)
 }
 
+// warehouseOpsTable is the facility queue.
+//
+// Available, Inbound and Risks are NumericCell columns — right-aligned tabular
+// figures — so magnitude is readable as a shape down the column and 1,000 cannot be
+// mistaken for 100. The service level and the facility focus sentence move into
+// their own cells instead of being stacked inside the name cell: three lines of
+// mixed voice in one <td> is a card with extra steps.
 func warehouseOpsTable(parseItems []warehouseOpsRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
 		parseRows = append(parseRows, warehouseOpsTableRow(parseItem))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 6}}, html.Text("No warehouses are available in the current Atlas workspace.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(8, "No warehouses in this workspace yet."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "flex items-end justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Facility table")),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Scan service posture, backlog, inbound exposure, and risk count in one dense table before drilling into a specific facility workspace.")),
-			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d facilities", len(parseItems)))),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{},
-					html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Warehouse")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Pressure")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Available")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Inbound")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Risks")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
-					),
-				),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Facility table", "Facilities under pressure", fmt.Sprintf("%d facilities", len(parseItems))),
+		consoleQueueTable("Warehouse facilities",
+			html.Tr(html.Props{},
+				consoleColumn("Hub"),
+				consoleColumn("Facility"),
+				consoleColumn("Service"),
+				consoleColumn("Pressure"),
+				consoleNumericColumn("Available"),
+				consoleNumericColumn("Inbound"),
+				consoleNumericColumn("Risks"),
+				consoleColumn("Open"),
+			), parseRows),
 	)
 }
 
 func warehouseOpsTableRow(parseItem warehouseOpsRecord) ui.Node {
-	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.Name)),
-				html.P(html.Props{Class: "text-[0.68rem] uppercase tracking-[0.22em] text-slate-400"}, html.Text(parseItem.Region+" | "+parseItem.ServiceLevel)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Focus)),
-			),
+	// Risk count is toned, not chipped: the number IS the status here, and zero risk
+	// is a verified state rather than a missing one.
+	parseRiskTone := design.ToneVerified
+	if parseItem.RiskCount > 0 {
+		parseRiskTone = design.ToneException
+	}
+	return html.Tr(html.Props{},
+		// The row anchor is the hub CODE, in mono, because that is what aligns down a
+		// column and what an operator says out loud. The human-readable name lives in
+		// the prose cell beside it.
+		html.Th(html.Props{},
+			html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID, Class: consoleCellLinkClass()}, html.Text(atlasHubCode(parseItem.ID))),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.Pressure+" | "+parseItem.Backlog)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseItem.Available))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseItem.Inbound))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d active", parseItem.RiskCount))),
-		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open workspace")),
-				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID + "#warehouse-replenishment", Class: "text-sm text-slate-300 transition hover:text-white"}, html.Text("Open replenishment")),
+		html.Td(html.Props{Class: consoleProseCellClass()},
+			html.Span(html.Props{}, html.Text(parseItem.Name)),
+			html.Span(html.Props{Class: consoleMetaClass()}, html.Text(" "+parseItem.Region+" · "+parseItem.Focus)),
+		),
+		html.Td(html.Props{Class: consoleCellMetaClass()}, html.Text(parseItem.ServiceLevel)),
+		html.Td(html.Props{Class: consoleProseCellClass()},
+			html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Pressure))}, html.Text(parseItem.Pressure)),
+			html.Span(html.Props{Class: consoleMetaClass()}, html.Text(" "+parseItem.Backlog)),
+		),
+		html.Td(html.Props{Class: consoleNumericCellClass()}, html.Text(fmt.Sprintf("%d", parseItem.Available))),
+		html.Td(html.Props{Class: consoleNumericCellClass()}, html.Text(fmt.Sprintf("%d", parseItem.Inbound))),
+		html.Td(html.Props{Class: consoleNumericCellClass()},
+			html.Span(html.Props{Class: consoleStatusValueClass(parseRiskTone)}, html.Text(fmt.Sprintf("%d", parseItem.RiskCount))),
+		),
+		html.Td(html.Props{},
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID, Class: consoleCellLinkClass()}, html.Text("Workspace")),
+				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID + "#warehouse-replenishment", Class: consoleCellLinkClass()}, html.Text("Replenishment")),
 			),
 		),
 	)
@@ -1709,105 +2154,82 @@ func warehouseOpsDetailContent(parsePayload Payload) ui.Node {
 
 func transfersContent(parsePayload Payload) ui.Node {
 	parsePage := decode[transferList](pageData(parsePayload))
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			transfersSummaryBand(parsePage),
-			transfersActionCluster(),
-			transfersTable(parsePage.Items),
-		),
-		html.Div(html.Props{Class: "grid gap-5"},
-			transferForm(parsePayload),
-			inventoryRailCard("Transfer handoffs", "Transfers should stay tied to the larger warehouse recovery path rather than becoming an isolated page-level queue.",
-				html.Div(html.Props{Class: "grid gap-3"},
-					inventoryActionCard("Review warehouse pressure", "Check which warehouse is starving before you commit a transfer lane.", "/app/warehouses"),
-					inventoryActionCard("Open inventory pressure", "Validate that the SKU really needs a rebalance instead of a replenishment order.", "/app/inventory?status=promise_risk"),
-					inventoryActionCard("Confirm receiving follow-through", "Keep the receiving route in view for downstream reconciliation once the transfer lands.", "/app/receiving"),
-				),
+	return html.Section(html.Props{Class: consoleRegionStackClass()},
+		transfersSummaryBand(parsePage),
+		transfersActionCluster(),
+		transfersTable(parsePage.Items),
+		transferForm(parsePayload),
+		inventoryRailCard("Next steps", "Where a balancing decision usually comes from, and where it lands.",
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				inventoryActionCard("Review warehouse pressure", "Check which facility is starving before committing a lane.", "/app/warehouses"),
+				inventoryActionCard("Open inventory pressure", "Confirm the SKU needs a rebalance rather than a vendor order.", "/app/inventory?status=promise_risk"),
+				inventoryActionCard("Confirm receiving", "Reconcile once the transfer lands.", "/app/receiving"),
 			),
 		),
 	)
 }
 
 func transfersSummaryBand(parsePage transferList) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Transfer shell")),
-			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat transfers as a balancing board: source and destination lanes, recommendation context, and direct handoff into receiving once the movement is committed.")),
-		),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Transfers", fmt.Sprintf("%d active", len(parsePage.Items))),
-			statCard("Pending", fmt.Sprintf("%d queued", countTransferStatus(parsePage.Items, "pending"))),
-			statCard("Approved", fmt.Sprintf("%d moving", countTransferStatus(parsePage.Items, "approved"))),
-			statCard("Cancelled", fmt.Sprintf("%d dropped", countTransferStatus(parsePage.Items, "cancelled"))),
-		),
+	// "Treat transfers as a balancing board: source and destination lanes,
+	// recommendation context, and direct handoff into receiving…" was a note to
+	// whoever built the page, printed at the operator. The counts are the content.
+	return html.Div(html.Props{Class: consoleFactRowClass()},
+		statCard("Transfers", fmt.Sprintf("%d", len(parsePage.Items))),
+		statCard("Pending", fmt.Sprintf("%d", countTransferStatus(parsePage.Items, "pending"))),
+		statCard("Approved", fmt.Sprintf("%d", countTransferStatus(parsePage.Items, "approved"))),
+		statCard("Cancelled", fmt.Sprintf("%d", countTransferStatus(parsePage.Items, "cancelled"))),
 	)
 }
 
 func transfersActionCluster() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Route action cluster")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Lead transfer work from the warehouse and inventory pressure that justified internal balancing in the first place.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-4"},
-			inventoryActionCard("Review warehouses", "Check which facility is starving before you commit a balancing lane.", "/app/warehouses"),
-			inventoryActionCard("Open inventory pressure", "Validate that the SKU needs a rebalance instead of vendor replenishment.", "/app/inventory?status=promise_risk"),
-			inventoryActionCard("Transfer queue", "Review the current movement backlog and recommendation notes.", "/app/transfers"),
-			inventoryActionCard("Check receiving", "Close the physical movement once the transfer actually lands.", "/app/receiving"),
-		),
+	return internalWorkflowSection("Quick actions", "",
+		inventoryActionCard("Review warehouses", "Check which facility is starving before committing a balancing lane.", "/app/warehouses"),
+		inventoryActionCard("Open inventory pressure", "Confirm the SKU needs a rebalance instead of vendor replenishment.", "/app/inventory?status=promise_risk"),
+		inventoryActionCard("Transfer queue", "The current movement backlog and its recommendation notes.", "/app/transfers"),
+		inventoryActionCard("Check receiving", "Close the movement once the transfer actually lands.", "/app/receiving"),
 	)
 }
 
+// transfersTable gives the lane its own two columns — FROM and TO, both mono hub
+// codes — instead of stacking "nevada-hub -> new-jersey-hub" under the id as a
+// sentence. Two aligned code columns let an operator see at a glance that four
+// transfers all drain the same source hub, which is the pattern that matters.
 func transfersTable(parseItems []transferRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
 		parseRows = append(parseRows, transferTableRow(parseItem))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 6}}, html.Text("No transfer recommendations are available in the current Atlas workspace.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(7, "No transfers are recommended right now."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "flex items-end justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Transfer table")),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review source, destination, status, and recommendation context in one dense table before opening a transfer detail route.")),
-			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d transfers", len(parseItems)))),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{},
-					html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Transfer")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Status")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Reason")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Recommended by")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Updated")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
-					),
-				),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Transfer table", "Lanes in flight", fmt.Sprintf("%d transfers", len(parseItems))),
+		consoleQueueTable("Transfer lanes",
+			html.Tr(html.Props{},
+				consoleColumn("Transfer"),
+				consoleColumn("From"),
+				consoleColumn("To"),
+				consoleColumn("Status"),
+				consoleColumn("Reason"),
+				consoleColumn("Recommended by"),
+				consoleColumn("Updated"),
+			), parseRows),
 	)
 }
 
 func transferTableRow(parseItem transferRecord) ui.Node {
-	parseLane := parseItem.SourceWarehouseID + " -> " + parseItem.DestinationWarehouse
-	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/transfers/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.ID)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseLane)),
-			),
+	return html.Tr(html.Props{},
+		html.Th(html.Props{},
+			html.A(html.Props{Href: "/app/transfers/" + parseItem.ID, Class: consoleCellLinkClass()}, html.Text(parseItem.ID)),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(parseItem.Reason)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fallback(parseItem.RecommendedBy, "Atlas planning"))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(parseItem.UpdatedAt)),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.A(html.Props{Href: "/app/transfers/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open transfer"))),
+		html.Td(html.Props{}, html.Text(atlasHubCode(parseItem.SourceWarehouseID))),
+		html.Td(html.Props{}, html.Text(atlasHubCode(parseItem.DestinationWarehouse))),
+		html.Td(html.Props{},
+			html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " "))),
+		),
+		html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(parseItem.Reason)),
+		html.Td(html.Props{Class: consoleCellMetaClass()}, html.Text(fallback(parseItem.RecommendedBy, "Atlas planning"))),
+		html.Td(html.Props{Class: consoleCellMetaClass()}, html.Text(parseItem.UpdatedAt)),
 	)
 }
 
@@ -1823,36 +2245,35 @@ func countTransferStatus(parseItems []transferRecord, parseStatus string) int {
 
 func transferDetailContent(parsePayload Payload) ui.Node {
 	parsePage := decode[transferDetailPage](pageData(parsePayload))
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.82fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			transferDetailHero(parsePage),
-			transferLineTable(parsePage.Lines),
-		),
-		html.Div(html.Props{Class: "grid gap-4"},
-			routeRevalidationCard("Transfer route refresh", "Re-run the transfer loader after approval or cancellation work if you want to confirm the latest lane state without leaving the detail route."),
-			statCard("Lane", parsePage.Transfer.SourceWarehouseID+" -> "+parsePage.Transfer.DestinationWarehouse),
-			statCard("Status", parsePage.Transfer.Status),
-			statCard("Recommended by", fallback(parsePage.Transfer.RecommendedBy, "Atlas planning")),
-		),
+	return html.Section(html.Props{Class: consoleRegionStackClass()},
+		transferDetailHero(parsePage),
+		transferLineTable(parsePage.Lines),
+		routeRevalidationCard("Refresh this transfer", "Re-read the lane after an approval or cancellation."),
 	)
 }
 
+// transferDetailHero leads with the LANE PLACARD, the design system's signature
+// device: origin hub, destination hub and posture on an inked perforated dock tag.
+//
+// This is exactly the object the placard exists for — a transfer IS a route plus a
+// state — and it replaces three identical grey pills that spelled the same lane out
+// as "nevada-hub -> new-jersey-hub" in body text. The reason sentence stays prose
+// under it; a placard carries codes, never sentences.
 func transferDetailHero(parsePage transferDetailPage) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 " + internalHeroSurfaceClass()},
-		html.Div(html.Props{Class: "flex flex-wrap items-start justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-3"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Transfer workspace")),
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(parsePage.Transfer.ID)),
-					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(parsePage.Transfer.Reason)),
-				),
+	return html.Div(html.Props{Class: consoleStackClass()},
+		design.LanePlacard(design.PlacardSpec{
+			OriginHub: atlasHubCode(parsePage.Transfer.SourceWarehouseID),
+			DestHub:   atlasHubCode(parsePage.Transfer.DestinationWarehouse),
+			LaneID:    parsePage.Transfer.ID,
+			Posture:   atlasLanePosture(parsePage.Transfer.Status),
+		}),
+		html.Div(html.Props{Class: consoleSplitRowClass()},
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Transfer workspace")),
+				html.P(html.Props{Class: consoleProseClass()}, html.Text(parsePage.Transfer.Reason)),
+				html.P(html.Props{Class: consoleMetaClass()}, html.Text("Recommended by "+fallback(parsePage.Transfer.RecommendedBy, "Atlas planning"))),
 			),
-			html.A(html.Props{Href: "/app/transfers", Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to transfers")),
-		),
-		html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Transfer.SourceWarehouseID+" -> "+parsePage.Transfer.DestinationWarehouse)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(parsePage.Transfer.Status, "_", " "))),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(fallback(parsePage.Transfer.RecommendedBy, "Atlas planning"))),
+			html.A(html.Props{Href: "/app/transfers", Class: consoleSecondaryButtonClass()}, html.Text("Back to transfers")),
 		),
 	)
 }
@@ -1860,51 +2281,66 @@ func transferDetailHero(parsePage transferDetailPage) ui.Node {
 func transferLineTable(parseLines []transferLineRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseLines))
 	for _, parseLine := range parseLines {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(parseLine.ProductSKU)),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d units", parseLine.Quantity))),
+		parseRows = append(parseRows, html.Tr(html.Props{},
+			html.Th(html.Props{}, html.Text(parseLine.ProductSKU)),
+			// The unit is a column header, not a suffix on every value: "12 units"
+			// repeated down a column costs six characters per row and breaks the tabular
+			// alignment that made the column readable.
+			html.Td(html.Props{Class: consoleNumericCellClass()}, html.Text(fmt.Sprintf("%d", parseLine.Quantity))),
 		))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 2}}, html.Text("No transfer lines are recorded for this movement yet.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(2, "No lines on this transfer yet."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Transfer lines")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Keep transfer quantities in one dense table so the balancing move stays reviewable beside its route-level status and refresh controls.")),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{}, html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Product")),
-					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Quantity")),
-				)),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Transfer lines", "What moves", fmt.Sprintf("%d lines", len(parseLines))),
+		consoleQueueTable("Transfer lines",
+			html.Tr(html.Props{},
+				consoleColumn("SKU"),
+				consoleNumericColumn("Units"),
+			), parseRows),
 	)
 }
 
+// routeRevalidationCard is a COMPONENT, not a helper, because it calls hooks
+// (useAtlasRevalidator and ui.UseEvent).
+//
+// It is rendered from nine different places, and two of them are the loaders of
+// purchaseOrderDetailRail and receivingDetailRail — code that ui.UseLazyNode runs
+// on a goroutine after the runtime has cleared the current fiber. Called there as
+// a plain helper, its first hook hit a nil fiber and panicked; the panic was
+// contained inside the loader goroutine, so the lazy state stayed {Loading:true}
+// and the entire side rail simply never appeared on /app/purchase-orders/:id and
+// /app/receiving/:id. No error boundary could see it: a goroutine panic has no
+// path to one.
+//
+// Returning ui.CreateElement moves the hooks into a fiber the runtime owns. As a
+// bonus it also takes them OUT of whatever route-content fiber used to host them,
+// so a route that conditionally renders this card no longer changes its own hook
+// count between renders.
 func routeRevalidationCard(parseTitle string, parseDetail string) ui.Node {
-	parseRevalidator := useAtlasRevalidator()
-	parseLabel := "Refresh route data"
-	if parseRevalidator.Loading() {
-		parseLabel = "Refreshing route..."
-	}
-	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-1"},
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseTitle)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseDetail)),
-		),
-		html.Button(html.Props{
-			Type:     "button",
-			Class:    "inline-flex items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900 disabled:text-slate-500",
-			Disabled: parseRevalidator.Loading(),
-			OnClick:  ui.UseEvent(func() { parseRevalidator.Revalidate() }),
-		}, html.Text(parseLabel)),
-	)
+	return ui.CreateElement(func() ui.Node {
+		parseRevalidator := useAtlasRevalidator()
+		parseLabel := "Refresh route data"
+		if parseRevalidator.Loading() {
+			parseLabel = "Refreshing route..."
+		}
+		return html.Div(html.Props{Class: consoleSurfaceClass()},
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseTitle)),
+				html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseDetail)),
+			),
+			// Reloading data is not THE action on any of these routes, so it is a
+			// secondary control. There is exactly one primary per view and it belongs to
+			// the form that changes something.
+			html.Button(html.Props{
+				Type:     "button",
+				Class:    consoleSecondaryButtonClass(),
+				Disabled: parseRevalidator.Loading(),
+				OnClick:  ui.UseEvent(func() { parseRevalidator.Revalidate() }),
+			}, html.Text(parseLabel)),
+		)
+	})
 }
 
 func purchaseOrdersContent(parsePayload Payload) ui.Node {
@@ -1916,19 +2352,17 @@ func purchaseOrdersContent(parsePayload Payload) ui.Node {
 	if parseNestedPanel := purchaseOrdersNestedPanelNode(parsePayload); parseNestedPanel != nil {
 		parsePrimaryNodes = append(parsePrimaryNodes, parseNestedPanel)
 	}
-	parsePrimaryNodes = append(parsePrimaryNodes, purchaseOrdersTable(parsePage.Items))
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.14fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"}, parsePrimaryNodes...),
-		html.Div(html.Props{Class: "grid gap-5"},
-			inventoryRailCard("Purchase-order handoffs", "The purchase-order workspace should hand off forward into receiving and backward into warehouse or inventory context without losing the vendor decision thread.",
-				html.Div(html.Props{Class: "grid gap-3"},
-					inventoryActionCard("Review receiving", "Check whether an inbound session already exists for the warehouse and vendor plan you are reviewing.", "/app/receiving"),
-					inventoryActionCard("Review transfers", "If vendor replenishment is too slow, compare whether an internal balancing move is the better short-term action.", "/app/transfers"),
-					inventoryActionCard("Back to warehouses", "Re-open the owning facility view when inbound ownership or backlog posture needs another look.", "/app/warehouses"),
-				),
+	parsePrimaryNodes = append(parsePrimaryNodes,
+		purchaseOrdersTable(parsePage.Items),
+		inventoryRailCard("Next steps", "Where vendor work goes forward and back.",
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				inventoryActionCard("Review receiving", "Check whether an inbound session already exists for this vendor and hub.", "/app/receiving"),
+				inventoryActionCard("Review transfers", "If the vendor is too slow, compare an internal balancing move.", "/app/transfers"),
+				inventoryActionCard("Back to warehouses", "Re-open the owning facility when inbound ownership needs another look.", "/app/warehouses"),
 			),
 		),
 	)
+	return html.Section(html.Props{Class: consoleRegionStackClass()}, parsePrimaryNodes...)
 }
 
 func purchaseOrdersNestedPanelNode(parsePayload Payload) ui.Node {
@@ -1939,89 +2373,65 @@ func purchaseOrdersNestedPanelNode(parsePayload Payload) ui.Node {
 }
 
 func purchaseOrdersSummaryBand(parsePage purchaseOrderList) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Purchase-order shell")),
-			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat purchase orders as a vendor-side recovery board: visible status posture, ETA clarity, and direct movement into approval, hold, and receiving follow-through.")),
-		),
+	return html.Div(html.Props{Class: consoleStackClass()},
 		routeSummaryStrip(parsePage.Summary),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Orders", fmt.Sprintf("%d active", len(parsePage.Items))),
-			statCard("Submitted", fmt.Sprintf("%d queued", countPurchaseOrdersByStatus(parsePage.Items, "submitted"))),
-			statCard("Approved", fmt.Sprintf("%d inbound", countPurchaseOrdersByStatus(parsePage.Items, "approved"))),
-			statCard("On hold", fmt.Sprintf("%d blocked", countPurchaseOrdersByStatus(parsePage.Items, "on_hold"))),
+		html.Div(html.Props{Class: consoleFactRowClass()},
+			statCard("Orders", fmt.Sprintf("%d", len(parsePage.Items))),
+			statCard("Submitted", fmt.Sprintf("%d", countPurchaseOrdersByStatus(parsePage.Items, "submitted"))),
+			statCard("Approved", fmt.Sprintf("%d", countPurchaseOrdersByStatus(parsePage.Items, "approved"))),
+			statCard("On hold", fmt.Sprintf("%d", countPurchaseOrdersByStatus(parsePage.Items, "on_hold"))),
 		),
 	)
 }
 
 func purchaseOrdersActionCluster() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Route action cluster")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Start PO work from the warehouse or inventory pressure that justified the vendor order, then follow it through approval and receiving.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-4"},
-			inventoryActionCard("Start from stock risk", "Open the inventory pressure view before creating or reviewing a replenishment plan.", "/app/inventory?status=promise_risk"),
-			inventoryActionCard("Check warehouse context", "Use warehouse operations to confirm which facility should own the inbound units.", "/app/warehouses"),
-			inventoryActionCard("Submitted queue", "Review vendor orders waiting on approval or hold decisions.", "/app/purchase-orders"),
-			inventoryActionCard("Close in receiving", "Treat receiving as the final step once the purchase order turns into a real inbound session.", "/app/receiving"),
-		),
+	return internalWorkflowSection("Quick actions", "",
+		inventoryActionCard("Start from stock risk", "Open the pressure view before creating or reviewing a replenishment plan.", "/app/inventory?status=promise_risk"),
+		inventoryActionCard("Check warehouse context", "Confirm which facility should own the inbound units.", "/app/warehouses"),
+		inventoryActionCard("Submitted queue", "Vendor orders waiting on an approval or hold decision.", "/app/purchase-orders"),
+		inventoryActionCard("Close in receiving", "The last step, once the order becomes a real inbound session.", "/app/receiving"),
 	)
 }
 
+// purchaseOrdersTable keeps the order id as the mono row anchor and gives ETA its
+// own column: "will it land before the promise" is the question this queue answers,
+// and an ISO-ish date in a tabular mono column sorts by eye.
 func purchaseOrdersTable(parseItems []purchaseOrderRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
 		parseRows = append(parseRows, purchaseOrdersTableRow(parseItem))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 7}}, html.Text("No purchase orders are available in the current Atlas workspace.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(7, "No purchase orders in this workspace yet."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "flex items-end justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Vendor order table")),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Scan vendor, owning warehouse, ETA posture, and status decisions in one dense table before opening the order detail route.")),
-			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d orders", len(parseItems)))),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{},
-					html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Order")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Warehouse")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Status")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("ETA")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Priority")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Updated")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
-					),
-				),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Vendor order table", "Orders on the way", fmt.Sprintf("%d orders", len(parseItems))),
+		consoleQueueTable("Purchase orders",
+			html.Tr(html.Props{},
+				consoleColumn("Order"),
+				consoleColumn("Vendor"),
+				consoleColumn("Hub"),
+				consoleColumn("ETA"),
+				consoleColumn("Status"),
+				consoleColumn("Note"),
+				consoleColumn("Updated"),
+			), parseRows),
 	)
 }
 
 func purchaseOrdersTableRow(parseItem purchaseOrderRecord) ui.Node {
-	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.ID)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.VendorName)),
-			),
+	return html.Tr(html.Props{},
+		html.Th(html.Props{},
+			html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: consoleCellLinkClass()}, html.Text(parseItem.ID)),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.WarehouseName)),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.ETA)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(fallback(parseItem.PriorityNote, "No priority note"))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(parseItem.UpdatedAt)),
-		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open order")),
+		html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(parseItem.VendorName)),
+		html.Td(html.Props{}, html.Text(atlasHubCode(fallback(parseItem.WarehouseID, parseItem.WarehouseName)))),
+		html.Td(html.Props{}, html.Text(fallback(parseItem.ETA, "unscheduled"))),
+		html.Td(html.Props{},
+			html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " "))),
 		),
+		html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(fallback(parseItem.PriorityNote, "No note"))),
+		html.Td(html.Props{Class: consoleCellMetaClass()}, html.Text(parseItem.UpdatedAt)),
 	)
 }
 
@@ -2056,32 +2466,40 @@ func purchaseOrderDetailContent(parsePayload Payload) ui.Node {
 }
 
 func purchaseOrderDetailSection(parsePayload Payload, parsePage purchaseOrderDetailPage) ui.Node {
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.82fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			purchaseOrderDetailHero(parsePage),
-			purchaseOrderLineTable(parsePage.Lines),
-		),
+	return html.Section(html.Props{Class: consoleRegionStackClass()},
+		purchaseOrderDetailHero(parsePage),
+		purchaseOrderLineTable(parsePage.Lines),
 		purchaseOrderDetailRail(parsePayload, parsePage),
 	)
 }
 
+// purchaseOrderDetailHero also leads with the lane placard: a purchase order is a
+// lane from a vendor to a hub with a promise date, which is the placard's four facts
+// exactly. ETA becomes PROMISE, the order id becomes the lane id, and the four grey
+// pills that used to spell all of this out in body text are gone.
+//
+// The accessible label is written explicitly because the vendor name is not a hub
+// code, so the generated sentence ("Lane NORTHLINE FABRICATION to IL-HUB") would
+// read oddly; that is exactly what PlacardSpec.Label is for.
 func purchaseOrderDetailHero(parsePage purchaseOrderDetailPage) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 " + internalHeroSurfaceClass()},
-		html.Div(html.Props{Class: "flex flex-wrap items-start justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-3"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Purchase-order workspace")),
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(parsePage.Order.VendorName)),
-					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fallback(parsePage.Order.PriorityNote, "Vendor replenishment lane"))),
-				),
+	parseVendor := strings.ToUpper(fallback(parsePage.Order.VendorName, "VENDOR"))
+	parseHub := atlasHubCode(fallback(parsePage.Order.WarehouseID, parsePage.Order.WarehouseName))
+	return html.Div(html.Props{Class: consoleStackClass()},
+		design.LanePlacard(design.PlacardSpec{
+			OriginHub: parseVendor,
+			DestHub:   parseHub,
+			Promise:   parsePage.Order.ETA,
+			LaneID:    parsePage.Order.ID,
+			Posture:   atlasLanePosture(parsePage.Order.Status),
+			Label:     "Purchase order " + parsePage.Order.ID + " from " + parsePage.Order.VendorName + " into " + parseHub + ", promised " + fallback(parsePage.Order.ETA, "unscheduled"),
+		}),
+		html.Div(html.Props{Class: consoleSplitRowClass()},
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Purchase-order workspace")),
+				html.H2(html.Props{Class: consoleSectionTitleClass()}, html.Text(parsePage.Order.VendorName)),
+				html.P(html.Props{Class: consoleProseClass()}, html.Text(fallback(parsePage.Order.PriorityNote, "No vendor note on this order."))),
 			),
-			html.A(html.Props{Href: "/app/purchase-orders", Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to PO table")),
-		),
-		html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Order.ID)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Order.WarehouseName)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Order.ETA)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(parsePage.Order.Status, "_", " "))),
+			html.A(html.Props{Href: "/app/purchase-orders", Class: consoleSecondaryButtonClass()}, html.Text("Back to PO table")),
 		),
 	)
 }
@@ -2089,140 +2507,112 @@ func purchaseOrderDetailHero(parsePage purchaseOrderDetailPage) ui.Node {
 func purchaseOrderLineTable(parseLines []purchaseOrderLineRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseLines))
 	for _, parseLine := range parseLines {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(parseLine.ProductSKU)),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d units", parseLine.Quantity))),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseLine.ETA)),
-			html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseLine.Status)}, html.Text(strings.ReplaceAll(parseLine.Status, "_", " ")))),
+		parseRows = append(parseRows, html.Tr(html.Props{},
+			html.Th(html.Props{}, html.Text(parseLine.ProductSKU)),
+			html.Td(html.Props{Class: consoleNumericCellClass()}, html.Text(fmt.Sprintf("%d", parseLine.Quantity))),
+			html.Td(html.Props{}, html.Text(fallback(parseLine.ETA, "unscheduled"))),
+			html.Td(html.Props{},
+				html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseLine.Status))}, html.Text(strings.ReplaceAll(parseLine.Status, "_", " "))),
+			),
 		))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 4}}, html.Text("No inbound lines are recorded for this purchase order yet.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(4, "No inbound lines on this order yet."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Line-item context")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Keep inbound lines in one dense table so quantity, ETA, and status are reviewable before any approval or hold action on the vendor order.")),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{},
-					html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Product")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Quantity")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("ETA")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Status")),
-					),
-				),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Line-item context", "What is on the order", fmt.Sprintf("%d lines", len(parseLines))),
+		consoleQueueTable("Purchase-order lines",
+			html.Tr(html.Props{},
+				consoleColumn("SKU"),
+				consoleNumericColumn("Units"),
+				consoleColumn("ETA"),
+				consoleColumn("Status"),
+			), parseRows),
 	)
 }
 
 func receivingContent(parsePayload Payload) ui.Node {
 	parsePage := decode[receivingList](pageData(parsePayload))
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			receivingSummaryBand(parsePage),
-			receivingActionCluster(),
-			receivingTable(parsePage.Items),
-		),
-		html.Div(html.Props{Class: "grid gap-5"},
-			receivingForm(parsePayload),
-			inventoryRailCard("Receiving handoffs", "Receiving closes the loop on purchase orders, transfer lanes, and warehouse recovery work.",
-				html.Div(html.Props{Class: "grid gap-3"},
-					inventoryActionCard("Review purchase orders", "Confirm the inbound plan before you reconcile a warehouse session.", "/app/purchase-orders"),
-					inventoryActionCard("Open warehouse pressure", "Check whether the inbound changes a specific warehouse recovery path.", "/app/warehouses"),
-					inventoryActionCard("Return to inventory", "Verify the quantity changes landed where the operators expect them.", "/app/inventory"),
-				),
+	return html.Section(html.Props{Class: consoleRegionStackClass()},
+		receivingSummaryBand(parsePage),
+		receivingActionCluster(),
+		receivingTable(parsePage.Items),
+		receivingForm(parsePayload),
+		inventoryRailCard("Next steps", "Receiving closes the loop on purchase orders, transfers and warehouse recovery.",
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				inventoryActionCard("Review purchase orders", "Confirm the inbound plan before reconciling a session.", "/app/purchase-orders"),
+				inventoryActionCard("Open warehouse pressure", "Check whether this inbound changes a facility's recovery path.", "/app/warehouses"),
+				inventoryActionCard("Return to inventory", "Verify the quantities landed where operators expect them.", "/app/inventory"),
 			),
 		),
 	)
 }
 
 func receivingSummaryBand(parsePage receivingList) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Receiving shell")),
-			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat receiving as the closeout board for inbound work: visible discrepancy posture, owning source, and direct movement into reconciliation and inventory verification.")),
-		),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Sessions", fmt.Sprintf("%d active", len(parsePage.Items))),
-			statCard("Open", fmt.Sprintf("%d live", countReceivingStatus(parsePage.Items, "open"))),
-			statCard("Closed", fmt.Sprintf("%d closed", countReceivingStatus(parsePage.Items, "closed"))),
-			statCard("Discrepancies", fmt.Sprintf("%d flagged", countReceivingWithDiscrepancy(parsePage.Items))),
-		),
+	// Discrepancies is toned in the fact row by being the count operators hunt for;
+	// the "treat receiving as the closeout board for inbound work…" paragraph that
+	// used to sit above it told the reader what the page is instead of showing them.
+	return html.Div(html.Props{Class: consoleFactRowClass()},
+		statCard("Sessions", fmt.Sprintf("%d", len(parsePage.Items))),
+		statCard("Open", fmt.Sprintf("%d", countReceivingStatus(parsePage.Items, "open"))),
+		statCard("Closed", fmt.Sprintf("%d", countReceivingStatus(parsePage.Items, "closed"))),
+		statCard("Discrepancies", fmt.Sprintf("%d", countReceivingWithDiscrepancy(parsePage.Items))),
 	)
 }
 
 func receivingActionCluster() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Route action cluster")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Lead receiving work from the upstream inbound plan, then close the session through reconciliation and inventory verification.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-4"},
-			inventoryActionCard("Review purchase orders", "Confirm the inbound plan before reconciling a warehouse session.", "/app/purchase-orders"),
-			inventoryActionCard("Transfer follow-through", "Cross-check transfer-backed receiving work when the session closes an internal balancing move.", "/app/transfers"),
-			inventoryActionCard("Receiving queue", "Review the active discrepancy and closeout backlog.", "/app/receiving"),
-			inventoryActionCard("Verify inventory", "Return to inventory after closeout to confirm quantity changes landed in the expected lanes.", "/app/inventory"),
-		),
+	return internalWorkflowSection("Quick actions", "",
+		inventoryActionCard("Review purchase orders", "Confirm the inbound plan before reconciling a session.", "/app/purchase-orders"),
+		inventoryActionCard("Transfer follow-through", "Cross-check a session that closes an internal balancing move.", "/app/transfers"),
+		inventoryActionCard("Receiving queue", "The active discrepancy and closeout backlog.", "/app/receiving"),
+		inventoryActionCard("Verify inventory", "Confirm quantity changes landed in the expected lanes.", "/app/inventory"),
 	)
 }
 
+// receivingTable splits the session's source into TYPE and ID columns, both mono:
+// "purchase_order po-1042" as one string cannot be scanned for "which of these came
+// off a transfer", which is the grouping question on this queue.
 func receivingTable(parseItems []receivingRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
 		parseRows = append(parseRows, receivingTableRow(parseItem))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 6}}, html.Text("No receiving sessions are available in the current Atlas workspace.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(6, "No receiving sessions in this workspace yet."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "flex items-end justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Receiving table")),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review source, warehouse, discrepancy posture, and closeout status in one dense table before opening the receiving detail route.")),
-			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d sessions", len(parseItems)))),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{},
-					html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Session")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Warehouse")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Source")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Status")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Discrepancy")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
-					),
-				),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Receiving table", "Sessions to close", fmt.Sprintf("%d sessions", len(parseItems))),
+		consoleQueueTable("Receiving sessions",
+			html.Tr(html.Props{},
+				consoleColumn("Session"),
+				consoleColumn("Hub"),
+				consoleColumn("Source"),
+				consoleColumn("Status"),
+				consoleColumn("Discrepancy"),
+				consoleColumn("Opened"),
+			), parseRows),
 	)
 }
 
 func receivingTableRow(parseItem receivingRecord) ui.Node {
-	parseSource := parseItem.SourceType + " " + parseItem.SourceID
-	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/receiving/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.ID)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.CreatedAt)),
-			),
+	parseDiscrepancy := strings.TrimSpace(parseItem.DiscrepancySummary)
+	parseDiscrepancyNode := html.Text("None")
+	if parseDiscrepancy != "" {
+		// A recorded discrepancy is the one thing on this row that needs a human, so it
+		// is the one thing that gets the exception tone.
+		parseDiscrepancyNode = html.Span(html.Props{Class: consoleStatusValueClass(design.ToneException)}, html.Text(parseDiscrepancy))
+	}
+	return html.Tr(html.Props{},
+		html.Th(html.Props{},
+			html.A(html.Props{Href: "/app/receiving/" + parseItem.ID, Class: consoleCellLinkClass()}, html.Text(parseItem.ID)),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.WarehouseID)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseSource)),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(fallback(parseItem.DiscrepancySummary, "No discrepancy recorded"))),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.A(html.Props{Href: "/app/receiving/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open session"))),
+		html.Td(html.Props{}, html.Text(atlasHubCode(parseItem.WarehouseID))),
+		html.Td(html.Props{}, html.Text(strings.ReplaceAll(parseItem.SourceType, "_", " ")+" "+parseItem.SourceID)),
+		html.Td(html.Props{},
+			html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " "))),
+		),
+		html.Td(html.Props{Class: consoleProseCellClass()}, parseDiscrepancyNode),
+		html.Td(html.Props{Class: consoleCellMetaClass()}, html.Text(parseItem.CreatedAt)),
 	)
 }
 
@@ -2248,70 +2638,111 @@ func countReceivingWithDiscrepancy(parseItems []receivingRecord) int {
 
 func receivingDetailContent(parsePayload Payload) ui.Node {
 	parsePage := decode[receivingDetailPage](pageData(parsePayload))
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.82fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			receivingDetailHero(parsePage),
-			receivingLineTable(parsePage.Lines),
-		),
+	return html.Section(html.Props{Class: consoleRegionStackClass()},
+		receivingDetailHero(parsePage),
+		receivingLineTable(parsePage.Lines),
 		receivingDetailRail(parsePayload, parsePage),
 	)
 }
 
+// receivingDetailHero is the third placard site: a receiving session is a lane that
+// has arrived — from a purchase order or a transfer, into a hub — and its posture is
+// whether closeout is clean.
 func receivingDetailHero(parsePage receivingDetailPage) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 " + internalHeroSurfaceClass()},
-		html.Div(html.Props{Class: "flex flex-wrap items-start justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-3"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Receiving workspace")),
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(parsePage.Session.ID)),
-					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fallback(parsePage.Session.DiscrepancySummary, "Receiving session is ready for closeout."))),
-				),
+	parseSource := strings.ToUpper(fallback(parsePage.Session.SourceID, strings.ReplaceAll(parsePage.Session.SourceType, "_", "-")))
+	parseHub := atlasHubCode(parsePage.Session.WarehouseID)
+	return html.Div(html.Props{Class: consoleStackClass()},
+		design.LanePlacard(design.PlacardSpec{
+			OriginHub: parseSource,
+			DestHub:   parseHub,
+			LaneID:    parsePage.Session.ID,
+			Posture:   atlasLanePosture(parsePage.Session.Status),
+			Label:     "Receiving session " + parsePage.Session.ID + " from " + parseSource + " into " + parseHub,
+		}),
+		html.Div(html.Props{Class: consoleSplitRowClass()},
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Receiving workspace")),
+				html.P(html.Props{Class: consoleProseClass()}, html.Text(fallback(parsePage.Session.DiscrepancySummary, "No discrepancy recorded. This session is ready to close."))),
 			),
-			html.A(html.Props{Href: "/app/receiving", Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to receiving")),
-		),
-		html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Session.WarehouseID)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Session.SourceType+" "+parsePage.Session.SourceID)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(parsePage.Session.Status, "_", " "))),
+			html.A(html.Props{Href: "/app/receiving", Class: consoleSecondaryButtonClass()}, html.Text("Back to receiving")),
 		),
 	)
 }
 
+// receivingLineTable is the discrepancy queue, and the one table where the numbers
+// carry the whole story: expected against actual, in two right-aligned tabular
+// columns so the gap is visible as a shape. A short line tones its actual quantity
+// as an exception — the number IS the status, so it does not also need a chip.
 func receivingLineTable(parseLines []receivingLineRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseLines))
 	for _, parseLine := range parseLines {
-		parseReason := fallback(parseLine.DiscrepancyReason, "matched")
-		parseRows = append(parseRows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(parseLine.ProductSKU)),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseLine.ExpectedQuantity))),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseLine.ActualQuantity))),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(parseReason)),
+		parseActual := html.Text(fmt.Sprintf("%d", parseLine.ActualQuantity))
+		if parseLine.ActualQuantity != parseLine.ExpectedQuantity {
+			parseActual = html.Span(
+				html.Props{Class: consoleStatusValueClass(design.ToneException)},
+				html.Text(fmt.Sprintf("%d", parseLine.ActualQuantity)),
+			)
+		}
+		parseRows = append(parseRows, html.Tr(html.Props{},
+			html.Th(html.Props{}, html.Text(parseLine.ProductSKU)),
+			html.Td(html.Props{Class: consoleNumericCellClass()}, html.Text(fmt.Sprintf("%d", parseLine.ExpectedQuantity))),
+			html.Td(html.Props{Class: consoleNumericCellClass()}, parseActual),
+			html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(fallback(parseLine.DiscrepancyReason, "matched"))),
 		))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 4}}, html.Text("No receiving lines are recorded for this session yet.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(4, "No lines counted on this session yet."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Receiving lines")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Keep expected and actual quantities in one dense table so discrepancy review stays local to the receiving workspace.")),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{}, html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Product")),
-					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Expected")),
-					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actual")),
-					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Discrepancy")),
-				)),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Receiving lines", "Counted against expected", fmt.Sprintf("%d lines", len(parseLines))),
+		consoleQueueTable("Receiving lines",
+			html.Tr(html.Props{},
+				consoleColumn("SKU"),
+				consoleNumericColumn("Expected"),
+				consoleNumericColumn("Counted"),
+				consoleColumn("Discrepancy"),
+			), parseRows),
 	)
 }
 
+// atlasLazySection defers a subtree until after the primary route body is stable.
+//
+// # THE LOADER INVARIANT — read this before you pass anything to this helper
+//
+// A loader handed to atlasLazySection may only BUILD elements. It must NOT call
+// hooks, and it must NOT call helpers that call hooks. If the subtree it wants
+// needs hooks — and in Atlas almost every rail does, for UseEvent handlers,
+// UseId label wiring, resources, or local state — the loader must hand the
+// runtime a COMPONENT:
+//
+//	atlasLazySection(func() ui.Node {
+//	    return ui.CreateElement(myRailComponent)   // correct: runtime owns the fiber
+//	}, fallback, deps...)
+//
+//	atlasLazySection(func() ui.Node {
+//	    return html.Div(html.Props{}, someHelperThatCallsUseEvent())  // WRONG
+//	}, fallback, deps...)
+//
+// # Why the rule exists (the mechanism, not just the style)
+//
+// ui.UseLazyNode runs this loader on a goroutine spawned from an effect
+// (ui/ui_async.go). By the time that goroutine runs, the render pass that armed
+// the fiber has finished and the runtime has already executed SetCurrentFiber(nil),
+// so runtime.GetCurrentFiber() is nil and the goroutine is not the render-owner
+// goroutine either. Every GWC hook resolves its per-component slots through
+// requireCurrentHookFiber (internal/runtime/reconciler_elements.go), which panics
+// with GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT in that situation.
+//
+// The panic is then CONTAINED: UseLazyNode's goroutine carries
+// `defer runtime.RecoverContainedPanic("ui", "UseLazyNode loader")`. Containment
+// keeps the page alive, but it also means the lazy state never leaves
+// {Loading: true} and no ui.ErrorBoundary can ever see the failure — a goroutine
+// panic cannot propagate to a boundary. The subtree just never appears.
+//
+// ui.CreateElement (ui/ui.go) is the escape hatch precisely because it is LAZY:
+// it records the component function in an element and returns, and the runtime
+// invokes that function later inside a fiber it owns. Building elements is safe
+// on any goroutine; running hooks is not.
 func atlasLazySection(parseLoader func() ui.Node, parseFallback ui.Node, parseDeps ...any) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		handle := ui.UseLazyNode(func(context.Context) (ui.Node, error) {
@@ -2332,9 +2763,9 @@ func atlasLazySection(parseLoader func() ui.Node, parseFallback ui.Node, parseDe
 }
 
 func internalLazyRailFallback(parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseTitle)),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
+	return html.Div(html.Props{Class: consoleSurfaceClass()},
+		html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseTitle)),
+		html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseCopy)),
 	)
 }
 
@@ -2363,6 +2794,58 @@ func useAtlasFocusContainment(isActive bool, parseContainerSelector, parseInitia
 	})
 }
 
+// --- overlay chrome -----------------------------------------------------------
+//
+// GAP: the design system has no Overlay, Scrim or Sheet primitive, so these four
+// class strings are the only place the console authors layout rules of its own.
+// They are held to the same contract as a bundle would be: the scrim is the INK
+// token mixed toward transparent (so it inverts with the theme instead of being a
+// hard-coded slate), the panel is a real design.Surface, and nothing here invents a
+// radius, a shadow or a colour. A design.Overlay(kind) taking the backdrop + panel
+// pair would delete all four.
+
+// atlasScrimClass is the dimmed layer behind a modal. parseAlignEnd anchors the
+// panel to the trailing edge (a sheet) instead of the centre (a dialog).
+func atlasScrimClass(isAlignEnd bool) string {
+	parseRules := []css.Rule{
+		css.Position.Fixed,
+		css.Inset(css.Zero),
+		css.ZIndex(40),
+		css.Display.Flex,
+		css.Padding(design.Space4),
+		// color-mix against the ink token rather than an rgba literal: the scrim has to
+		// darken the page in the light theme and still read as a scrim in the dark one,
+		// and only a token can do both.
+		css.Bg(css.ColorMix(design.Ink(), css.Transparent, 72)),
+	}
+	if isAlignEnd {
+		parseRules = append(parseRules, css.Items.Stretch, css.Justify.End)
+	} else {
+		parseRules = append(parseRules, css.Items.Center, css.Justify.Center)
+	}
+	return design.Class(parseRules)
+}
+
+// atlasDialogPanelClass is the centred confirmation panel: one Surface, capped so it
+// cannot exceed the viewport, with its own scroll if the body is long.
+func atlasDialogPanelClass() string {
+	return design.Class(design.Surface(), design.Stack(design.Space4), []css.Rule{
+		css.W(css.MinLen(css.Vw(92), css.Rem(34))),
+		css.MaxHeight(css.Vh(92)),
+		css.Raw("overflow-y", "auto"),
+	})
+}
+
+// atlasSheetPanelClass is the full-height trailing sheet used for route-owned
+// workflows.
+func atlasSheetPanelClass() string {
+	return design.Class(design.Surface(), design.Stack(design.Space4), []css.Rule{
+		css.W(css.MinLen(css.Vw(92), css.Rem(36))),
+		css.H(css.Full),
+		css.Raw("overflow-y", "auto"),
+	})
+}
+
 func atlasOverlayTarget() ui.PortalTarget {
 	// All secondary Atlas workflows share one portal root so stacked dialogs and sheets coordinate z-order
 	// and focus management instead of competing with route-owned DOM order.
@@ -2385,8 +2868,8 @@ func atlasDialogOverlay(isOpen bool, parseModalID, parseLabelledBy, parseDescrib
 		CloseOnOutsideClick:   parseOnDismiss != nil,
 		LockScroll:            true,
 		Backdrop:              true,
-		BackdropClass:         "fixed inset-0 flex items-center justify-center bg-slate-950/75 p-4",
-		SurfaceClass:          "w-[min(92vw,34rem)] grid gap-4 border border-slate-700 bg-[linear-gradient(180deg,rgba(17,24,39,0.99),rgba(2,6,23,1))] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.55)]",
+		BackdropClass:         atlasScrimClass(false),
+		SurfaceClass:          atlasDialogPanelClass(),
 		OnDismiss:             parseOnDismiss,
 		Child:                 parseChild,
 	})
@@ -2412,8 +2895,8 @@ func atlasRouteSheetOverlay(parseSurfaceID, parseLabelledBy, parseDescribedBy, p
 		CloseOnOutsideClick:   false,
 		LockScroll:            true,
 		Backdrop:              true,
-		BackdropClass:         "fixed inset-0 flex items-stretch justify-end bg-slate-950/72 p-4",
-		SurfaceClass:          "grid h-full w-[min(92vw,36rem)] gap-4 overflow-y-auto rounded-sm border border-cyan-400/35 bg-[linear-gradient(180deg,rgba(11,18,32,0.98),rgba(2,6,23,1))] p-4 shadow-[0_18px_48px_rgba(6,182,212,0.08)]",
+		BackdropClass:         atlasScrimClass(true),
+		SurfaceClass:          atlasSheetPanelClass(),
 		Child:                 parseChild,
 	})
 }
@@ -2438,39 +2921,77 @@ func atlasDismissibleSheet(isOpen bool, parseSurfaceID, parseLabelledBy, parseDe
 		CloseOnOutsideClick:   parseOnDismiss != nil,
 		LockScroll:            true,
 		Backdrop:              true,
-		BackdropClass:         "fixed inset-0 flex items-stretch justify-end bg-slate-950/72 p-4",
-		SurfaceClass:          "grid h-full w-[min(92vw,34rem)] gap-4 overflow-y-auto rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.99),rgba(2,6,23,1))] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.55)]",
+		BackdropClass:         atlasScrimClass(true),
+		SurfaceClass:          atlasSheetPanelClass(),
 		OnDismiss:             parseOnDismiss,
 		Child:                 parseChild,
 	})
 }
 
+// atlasConfirmationDialog declares its ui.UseEvent BEFORE the `!isOpen` early
+// return. That ordering is the fix; do not "tidy" the hook back down next to the
+// button it feeds.
+//
+// # What was broken
+//
+// The hook used to sit AFTER `if !isOpen { return nil }`, and this function is
+// inlined into four component bodies (moderationForm, bulkModerationForm,
+// transferForm, receivingFormForID). Hook slots are positional and are matched by
+// call ORDER within a fiber, so opening the dialog ADDED a slot to the host
+// component's sequence and closing it REMOVED one. Every hook declared after the
+// dialog in that host then shifted by one: on the render where the user clicks
+// "Review closeout", a ui.UseState reads the previous slot's value and a
+// ui.UseForm reads a handler ref. That is silent state corruption in the exact
+// component whose job is to confirm a destructive action.
+//
+// Declaring the hook unconditionally makes the host's hook count independent of
+// isOpen, which is what the positional model requires. The dialog still renders
+// nothing when closed — returning nil is fine, SKIPPING A HOOK is not.
+//
+// # Why this is not wrapped in ui.CreateElement like the other fixes
+//
+// It would be the cleaner shape, but /app/comments renders moderationForm and
+// bulkModerationForm at the same time, so two instances of this dialog are live
+// together. ui.CreateElement keys anonymous closures by source location (see the
+// FIELD PRIMITIVES note above), so both instances would collapse onto one handle
+// and render the same dialog body. Hoisting the hook fixes the actual defect
+// without that hazard.
+//
+// # The general rule
+//
+// Hooks are never conditional. No hook after an early return, inside an if, or in
+// a loop whose length varies.
 func atlasConfirmationDialog(isOpen bool, parseModalID, parseTitle, parseCopy, parseConfirmLabel string, parseOnDismiss func(), parseBody ...ui.Node) ui.Node {
-	if !isOpen {
-		return nil
-	}
-	parseTitleID := parseModalID + "-title"
-	parseDescriptionID := parseModalID + "-description"
 	parseDismissHandler := ui.UseEvent(func() {
 		if parseOnDismiss != nil {
 			parseOnDismiss()
 		}
 	})
+	if !isOpen {
+		return nil
+	}
+	parseTitleID := parseModalID + "-title"
+	parseDescriptionID := parseModalID + "-description"
 	parseChildren := []ui.Node{
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Confirmation")),
-			html.P(html.Props{ID: parseTitleID, Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
-			html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-6 text-slate-400"}, html.Text(parseCopy)),
+		html.Div(html.Props{Class: consoleStackTightClass()},
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Confirmation")),
+			html.P(html.Props{ID: parseTitleID, Class: consoleSectionTitleClass()}, html.Text(parseTitle)),
+			html.P(html.Props{ID: parseDescriptionID, Class: consoleProseFineClass()}, html.Text(parseCopy)),
 		),
+		// A hairline between the question and what is being confirmed. This is where
+		// the old markup put a second bordered box inside the dialog panel.
+		html.Hr(html.Props{Class: consoleDividerClass()}),
 	}
 	parseChildren = append(parseChildren, parseBody...)
 	parseChildren = append(parseChildren,
-		html.Div(html.Props{Class: "flex flex-wrap items-center justify-end gap-3"},
-			html.Button(html.Props{Type: "button", Class: warehouseSecondaryButtonClass(), OnClick: parseDismissHandler}, html.Text("Cancel")),
-			html.Button(html.Props{ID: parseModalID + "-confirm", Type: "submit", Class: warehousePrimaryButtonClass()}, html.Text(parseConfirmLabel)),
+		// Confirming IS the action here, so this is the one primary button in the view,
+		// and Cancel is quiet rather than a second outlined control competing with it.
+		html.Div(html.Props{Class: design.Class(design.Cluster(design.Space3), []css.Rule{css.Justify.End})},
+			html.Button(html.Props{Type: "button", Class: consoleQuietButtonClass(), OnClick: parseDismissHandler}, html.Text("Cancel")),
+			html.Button(html.Props{ID: parseModalID + "-confirm", Type: "submit", Class: consolePrimaryButtonClass()}, html.Text(parseConfirmLabel)),
 		),
 	)
-	return atlasDialogOverlay(isOpen, parseModalID, parseTitleID, parseDescriptionID, "#"+parseModalID+"-confirm", parseOnDismiss, html.Div(html.Props{Class: "grid gap-4"}, parseChildren...))
+	return atlasDialogOverlay(isOpen, parseModalID, parseTitleID, parseDescriptionID, "#"+parseModalID+"-confirm", parseOnDismiss, html.Div(html.Props{Class: consoleStackClass()}, parseChildren...))
 }
 
 func atlasSidePanelErrorBoundary(parseChild ui.Node, parseTitle string, parseFallback ui.Node, resetKeys ...any) ui.Node {
@@ -2483,22 +3004,49 @@ func atlasSidePanelErrorBoundary(parseChild ui.Node, parseTitle string, parseFal
 	})
 }
 
+// purchaseOrderDetailRail is the rail that used to be missing entirely on
+// /app/purchase-orders/:id — no panel, no loading skeleton, no console output.
+//
+// WHY every child of this loader is a component, not inline nodes:
+//
+// atlasLazySection hands this closure to ui.UseLazyNode, which runs it on a
+// goroutine spawned from an effect — after the runtime has already cleared the
+// current fiber. Any hook called here (useAtlasRevalidator, ui.UseEvent, ui.UseId)
+// hits a nil fiber and panics, and RecoverContainedPanic swallows it, so the lazy
+// state never leaves {Loading:true} and the subtree simply never appears. No error
+// boundary can help: a goroutine panic has no path to one.
+//
+// So the loader body below is allowed to do exactly one thing — BUILD elements.
+// Each of the three children owns its own fiber:
+//   - routeRevalidationCard      → returns ui.CreateElement
+//   - purchaseOrderDetailStatsIsland → returns ui.CreateElement
+//   - purchaseOrderStatusForm    → returns ui.CreateElement
+//
+// If you add a child here, check that it is a component. The test for "is this
+// safe?" is not "does it look like markup" — it is "does anything it reaches call
+// a hook before ui.CreateElement gets involved".
 func purchaseOrderDetailRail(parsePayload Payload, parsePage purchaseOrderDetailPage) ui.Node {
 	parseFallbackNode := internalLazyRailFallback("Loading purchase-order rail", "Atlas is preparing the secondary vendor panel after the primary route body stabilizes.")
 	return atlasSidePanelErrorBoundary(atlasLazySection(func() ui.Node {
-		return html.Div(html.Props{Class: "grid gap-5"},
-			routeRevalidationCard("Purchase-order route refresh", "Re-run the current purchase-order loader after an approval or hold action so the latest vendor posture and inbound timing stay authoritative on this screen."),
+		return html.Div(html.Props{Class: consoleRegionStackClass()},
+			routeRevalidationCard("Purchase-order route refresh", "Re-read the order after an approval or hold so vendor posture and inbound timing stay current."),
 			purchaseOrderDetailStatsIsland(parsePayload, parsePage),
 			purchaseOrderStatusForm(parsePage.Order.ID, parsePage.Order.Status, parsePayload),
 		)
 	}, parseFallbackNode, parsePage.Order.ID, parsePage.Order.Status, parsePage.Order.ETA), "Purchase-order side panel", parseFallbackNode, parsePage.Order.ID, parsePage.Order.Status, parsePage.Order.ETA)
 }
 
+// receivingDetailRail is the /app/receiving/:id twin of purchaseOrderDetailRail and
+// had the identical defect: the whole rail was absent, silently.
+//
+// Same invariant applies — this loader may only BUILD. Its four children are all
+// components: routeRevalidationCard, receivingDetailStatsIsland, receivingFormForID,
+// and renderReceivingAttachmentForm.
 func receivingDetailRail(parsePayload Payload, parsePage receivingDetailPage) ui.Node {
 	parseFallbackNode := internalLazyRailFallback("Loading receiving rail", "Atlas is preparing the secondary receiving panel after the primary route body stabilizes.")
 	return atlasSidePanelErrorBoundary(atlasLazySection(func() ui.Node {
-		return html.Div(html.Props{Class: "grid gap-5"},
-			routeRevalidationCard("Receiving route refresh", "Re-run the receiving loader after reconcile or classification work so discrepancy status and closeout readiness refresh in place."),
+		return html.Div(html.Props{Class: consoleRegionStackClass()},
+			routeRevalidationCard("Receiving route refresh", "Re-read the session after reconcile or classification work."),
 			receivingDetailStatsIsland(parsePayload, parsePage),
 			receivingFormForID(parsePage.Session.ID, parsePayload),
 			renderReceivingAttachmentForm(parsePage.Session.ID, parsePayload),
@@ -2584,21 +3132,25 @@ func purchaseOrderDetailStatsContent(parsePage purchaseOrderDetailPage, isRefres
 	}
 	parseChildren = append(parseChildren, html.Button(html.Props{
 		Type:     "button",
-		Class:    "inline-flex items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900 disabled:text-slate-500",
+		Class:    consoleSecondaryButtonClass(),
 		Disabled: isFetchRefreshing,
 		OnClick:  parseRefetch,
 	}, html.Text(parseLabel)))
 	if isRefreshing || isFetchRefreshing {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm leading-6 text-cyan-100"}, html.Text("Refreshing the purchase-order side panel while the current snapshot stays visible.")))
+		// In-flight status is meta prose, not a tinted panel: the snapshot below stays
+		// visible and authoritative, so this line must not outweigh it.
+		parseChildren = append(parseChildren, html.P(html.Props{Class: consoleMetaClass()}, html.Text("Refreshing the purchase-order side panel while the current snapshot stays visible.")))
 	}
 	if strings.TrimSpace(parseRefreshError) != "" {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100"}, html.Text(parseRefreshError)))
+		parseChildren = append(parseChildren, html.P(html.Props{Class: consoleFieldErrorClass()}, html.Text(parseRefreshError)))
 	}
 	parseChildren = append(parseChildren,
-		statCard("Warehouse", parsePage.Order.WarehouseName),
-		statCard("ETA", parsePage.Order.ETA),
+		html.Div(html.Props{Class: consoleFactRowClass()},
+			statCard("Hub", parsePage.Order.WarehouseName),
+			statCard("ETA", parsePage.Order.ETA),
+		),
 	)
-	return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
+	return html.Div(html.Props{Class: consoleSurfaceClass()}, parseChildren...)
 }
 
 func receivingDetailStatsIsland(parsePayload Payload, parsePage receivingDetailPage) ui.Node {
@@ -2679,36 +3231,68 @@ func receivingDetailStatsContent(parsePage receivingDetailPage, isRefreshing boo
 	}
 	parseChildren = append(parseChildren, html.Button(html.Props{
 		Type:     "button",
-		Class:    "inline-flex items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900 disabled:text-slate-500",
+		Class:    consoleSecondaryButtonClass(),
 		Disabled: isFetchRefreshing,
 		OnClick:  parseRefetch,
 	}, html.Text(parseLabel)))
 	if isRefreshing || isFetchRefreshing {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm leading-6 text-cyan-100"}, html.Text("Refreshing the receiving side panel while the current snapshot stays visible.")))
+		parseChildren = append(parseChildren, html.P(html.Props{Class: consoleMetaClass()}, html.Text("Refreshing the receiving side panel while the current snapshot stays visible.")))
 	}
 	if strings.TrimSpace(parseRefreshError) != "" {
-		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100"}, html.Text(parseRefreshError)))
+		parseChildren = append(parseChildren, html.P(html.Props{Class: consoleFieldErrorClass()}, html.Text(parseRefreshError)))
 	}
 	parseChildren = append(parseChildren,
-		statCard("Warehouse", parsePage.Session.WarehouseID),
-		statCard("Status", parsePage.Session.Status),
+		html.Div(html.Props{Class: consoleFactRowClass()},
+			statCard("Hub", parsePage.Session.WarehouseID),
+			statCard("Status", parsePage.Session.Status),
+		),
 	)
-	return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
+	return html.Div(html.Props{Class: consoleSurfaceClass()}, parseChildren...)
 }
 
+// detailRailErrorIsland is a COMPONENT because an ERROR FALLBACK is not rendered
+// inside the fiber that declared it.
+//
+// This node is returned from three fallback callbacks:
+//   - atlasSidePanelErrorBoundary's ui.ErrorBoundaryProps.ErrorFallback
+//   - purchaseOrderDetailStatsIsland's ui.AsyncBoundaryProps.ErrorFallback
+//   - receivingDetailStatsIsland's ui.AsyncBoundaryProps.ErrorFallback
+//
+// The runtime invokes those callbacks from renderBoundaryFallback
+// (internal/runtime/error_boundary.go) and safeAsyncBoundaryFallback
+// (internal/runtime/async_boundary.go). Neither path arms a current fiber — it is
+// recovery bookkeeping, not a component render — so a hook called directly in the
+// callback body finds GetCurrentFiber() == nil and panics.
+//
+// The failure mode is the nastiest kind: the error UI detonates EXACTLY when an
+// error occurs. safeAsyncBoundaryFallback re-panics as "async boundary fallback
+// panic: …", which propagates to the next boundary out or takes down the page,
+// so the original error is replaced by a second, unrelated one.
+//
+// Returning ui.CreateElement means the callback only BUILDS an element; the
+// runtime renders it later inside a fiber, and ui.UseEvent gets its slot.
 func detailRailErrorIsland(parseTitle string, parseErr error, parseRetry func(), parseFallbackNode ui.Node) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 p-4"},
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-rose-200"}, html.Text(parseTitle)),
-			html.P(html.Props{Class: "text-sm leading-6 text-rose-100"}, html.Text(parseErr.Error())),
-			html.Button(html.Props{
-				Type:    "button",
-				Class:   "inline-flex items-center justify-center rounded-full border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-200/20",
-				OnClick: ui.UseEvent(func() { parseRetry() }),
-			}, html.Text("Retry panel")),
-		),
-		parseFallbackNode,
-	)
+	return ui.CreateElement(func() ui.Node {
+		// A failed panel is an EXCEPTION, and oxide is reserved for exactly that — so
+		// the chip and the message carry the tone and the panel itself stays paper. The
+		// old version tinted the whole box rose, which made a recoverable panel error
+		// look like a page-level failure.
+		return html.Div(html.Props{Class: consoleRegionStackClass()},
+			html.Div(html.Props{Class: consoleSurfaceClass(), Role: "alert"},
+				html.Div(html.Props{Class: consoleChipRowClass()},
+					html.Span(html.Props{Class: consoleStatusChipClass(design.ToneException)}, html.Text("FAILED")),
+					html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseTitle)),
+				),
+				html.P(html.Props{Class: consoleFieldErrorClass()}, html.Text(parseErr.Error())),
+				html.Button(html.Props{
+					Type:    "button",
+					Class:   consoleSecondaryButtonClass(),
+					OnClick: ui.UseEvent(func() { parseRetry() }),
+				}, html.Text("Retry panel")),
+			),
+			parseFallbackNode,
+		)
+	})
 }
 
 func commentsContent(parsePayload Payload) ui.Node {
@@ -2717,55 +3301,59 @@ func commentsContent(parsePayload Payload) ui.Node {
 	if parseOutlet := routeOutletNode(); parseOutlet != nil {
 		parseNestedNode = parseOutlet
 	}
-	parseRailNodes := []ui.Node{
-		inventoryRailCard("Buyer inbox handoffs", "Move from public feedback into the right internal route without losing the original question context.",
-			html.Div(html.Props{Class: "grid gap-3"},
-				inventoryActionCard("Update marketing copy", "Route unclear product questions into the merch workspace when the issue is messaging, not stock.", "/app/products"),
-				inventoryActionCard("Check inventory promise", "Open the inventory workspace when the customer is really asking about supply or timing.", "/app/inventory"),
-				inventoryActionCard("Open warehouse ops", "Use warehouse-native routes when the answer depends on a specific hub or recovery lane.", "/app/warehouses"),
-			),
-		),
+	parseNodes := []ui.Node{
+		commentsSummaryBand(parsePage),
+		commentsActionCluster(),
+		commentsTable(parsePayload, parsePage.Items),
 		commentsModerationFiltersCard(parsePayload, parsePage.Items),
 	}
 	if parseNestedNode != nil {
-		parseRailNodes = append(parseRailNodes, parseNestedNode)
+		parseNodes = append(parseNodes, parseNestedNode)
 	} else {
-		parseRailNodes = append(parseRailNodes, moderationForm(parsePage.Items, parsePayload), bulkModerationForm(parsePage.Items, parsePayload))
+		parseNodes = append(parseNodes, moderationForm(parsePage.Items, parsePayload), bulkModerationForm(parsePage.Items, parsePayload))
 	}
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			commentsSummaryBand(parsePage),
-			commentsActionCluster(),
-			commentsTable(parsePayload, parsePage.Items),
+	parseNodes = append(parseNodes,
+		inventoryRailCard("Next steps", "Where a buyer question goes when it is really about something else.",
+			html.Div(html.Props{Class: consoleStackTightClass()},
+				inventoryActionCard("Update marketing copy", "When the issue is messaging, not stock.", "/app/products"),
+				inventoryActionCard("Check inventory promise", "When the buyer is really asking about supply or timing.", "/app/inventory"),
+				inventoryActionCard("Open warehouse ops", "When the answer depends on a specific hub or lane.", "/app/warehouses"),
+			),
 		),
-		html.Div(html.Props{Class: "grid gap-5"}, parseRailNodes...),
 	)
+	return html.Section(html.Props{Class: consoleRegionStackClass()}, parseNodes...)
 }
 
+// settingsContent is a COMPONENT because it calls currentShellPresentationState
+// (which calls useAtlasAtom) and because its rail contents are chosen by an
+// if/else. As a plain helper both facts leaked upward: the atom subscription
+// landed in the route-body fiber, and whether /settings or /settings/appearance
+// was active changed how many hooks that fiber consumed.
 func settingsContent(parsePayload Payload) ui.Node {
-	parsePage := decode[settingsPage](pageData(parsePayload))
-	parsePresentation := currentShellPresentationState(parsePayload)
-	parseRailNodes := []ui.Node{
-		settingsSubrouteNavCard(parsePayload),
-	}
-	if parseNestedPanel := settingsPanelNode(parsePayload); parseNestedPanel != nil {
-		parseRailNodes = append(parseRailNodes, parseNestedPanel)
-	} else {
-		parseRailNodes = append(parseRailNodes,
-			renderRoleSwitcherDemoCard(parsePayload),
-			preferenceForm(parsePayload),
-			savedViewBrowserCard(parsePayload),
-			savedViewTransferCard(parsePayload),
-			operatorWorkspaceSnapshotCard(parsePayload),
+	return ui.CreateElement(func() ui.Node {
+		parsePage := decode[settingsPage](pageData(parsePayload))
+		parsePresentation := currentShellPresentationState(parsePayload)
+		parseRailNodes := []ui.Node{
+			settingsSubrouteNavCard(parsePayload),
+		}
+		if parseNestedPanel := settingsPanelNode(parsePayload); parseNestedPanel != nil {
+			parseRailNodes = append(parseRailNodes, parseNestedPanel)
+		} else {
+			parseRailNodes = append(parseRailNodes,
+				renderRoleSwitcherDemoCard(parsePayload),
+				preferenceForm(parsePayload),
+				savedViewBrowserCard(parsePayload),
+				savedViewTransferCard(parsePayload),
+				operatorWorkspaceSnapshotCard(parsePayload),
+			)
+		}
+		return html.Section(html.Props{Class: consoleRegionStackClass()},
+			append([]ui.Node{
+				settingsSummaryBand(parsePage, parsePresentation),
+				settingsActionCluster(),
+			}, parseRailNodes...)...,
 		)
-	}
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			settingsSummaryBand(parsePage, parsePresentation),
-			settingsActionCluster(),
-		),
-		html.Div(html.Props{Class: "grid gap-5"}, parseRailNodes...),
-	)
+	})
 }
 
 func settingsPanelNode(parsePayload Payload) ui.Node {
@@ -2800,31 +3388,35 @@ func settingsSubrouteNavCard(parsePayload Payload) ui.Node {
 		{Label: "Locale", Href: RouteSettingsLocale},
 		{Label: "Workspace defaults", Href: RouteSettingsWorkspaceDefaults},
 	}
+	// Sub-route navigation reuses the RAIL item vocabulary rather than inventing a
+	// third link style: same two states (here / not here), same aria-current, and no
+	// bordered pill per link. Inside a Surface these read as ruled lines in a column.
 	parseNodes := make([]ui.Node, 0, len(parseLinks)+1)
-	parseNodes = append(parseNodes, html.A(html.Props{
-		Href:  RouteSettings,
-		Class: map[bool]string{true: "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100", false: "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}[parsePath == RouteSettings],
-	}, html.Span(html.Props{}, html.Text("All settings"))))
+	parseNodes = append(parseNodes, settingsSubrouteLink("All settings", RouteSettings, parsePath == RouteSettings))
 	for _, parseLink := range parseLinks {
-		parseClassName := "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-300/45 hover:text-white"
-		if parsePath == parseLink.Href {
-			parseClassName = "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100"
-		}
-		parseNodes = append(parseNodes, html.A(html.Props{Href: parseLink.Href, Class: parseClassName}, html.Span(html.Props{}, html.Text(parseLink.Label))))
+		parseNodes = append(parseNodes, settingsSubrouteLink(parseLink.Label, parseLink.Href, parsePath == parseLink.Href))
 	}
-	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Settings sub-routes")),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Use dedicated sub-routes for appearance, locale, and workspace defaults so review handoffs stay linkable.")),
-		html.Div(html.Props{Class: "grid gap-2"}, parseNodes...),
+	return html.Div(html.Props{Class: consoleSurfaceClass()},
+		consoleSectionHead("Settings sub-routes", "", ""),
+		html.Div(html.Props{Class: consoleStackTightClass()}, parseNodes...),
 	)
 }
 
+func settingsSubrouteLink(parseLabel string, parseHref string, isCurrent bool) ui.Node {
+	parseProps := html.Props{Href: parseHref, Class: design.Class(design.RailLink())}
+	if isCurrent {
+		parseProps.Class = design.Class(design.RailLinkCurrent())
+		parseProps.Aria = map[string]string{"current": "page"}
+	}
+	return html.A(parseProps, html.Span(html.Props{}, html.Text(parseLabel)))
+}
+
 func settingsAppearancePanel(parsePayload Payload) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5"},
-		inventoryRailCard("Appearance defaults", "Use the appearance sub-route when the review focuses on shell theme and density behavior.",
+	return html.Div(html.Props{Class: consoleRegionStackClass()},
+		inventoryRailCard("Appearance defaults", "Theme and density for this operator.",
 			infoRow("Route", RouteSettingsAppearance),
-			infoRow("Primary controls", "Theme and density"),
-			html.A(html.Props{Href: RouteSettings, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to full settings")),
+			infoRow("Controls", "Theme and density"),
+			html.A(html.Props{Href: RouteSettings, Class: consoleSecondaryButtonClass()}, html.Text("Back to full settings")),
 		),
 		preferenceForm(parsePayload),
 	)
@@ -2835,25 +3427,25 @@ func settingsLocalePanel(parsePayload Payload) ui.Node {
 	if strings.TrimSpace(parseSupportedLocales) == "" {
 		parseSupportedLocales = "en"
 	}
-	return html.Div(html.Props{Class: "grid gap-5"},
-		inventoryRailCard("Locale defaults", "Use the locale sub-route to validate language and direction behavior without scanning unrelated settings cards.",
+	return html.Div(html.Props{Class: consoleRegionStackClass()},
+		inventoryRailCard("Locale defaults", "Language and reading direction for this operator.",
 			infoRow("Route", RouteSettingsLocale),
 			infoRow("Current locale", fallback(parsePayload.I18n.Locale, "en")),
 			infoRow("Direction", fallback(parsePayload.I18n.Direction, LocaleDirection(parsePayload.I18n.Locale))),
 			infoRow("Supported locales", parseSupportedLocales),
-			html.A(html.Props{Href: RouteSettings, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to full settings")),
+			html.A(html.Props{Href: RouteSettings, Class: consoleSecondaryButtonClass()}, html.Text("Back to full settings")),
 		),
 		preferenceForm(parsePayload),
 	)
 }
 
 func settingsWorkspaceDefaultsPanel(parsePayload Payload) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5"},
-		inventoryRailCard("Workspace defaults", "Use this sub-route for default warehouse, saved-view exchange, and workspace snapshot handoff controls.",
+	return html.Div(html.Props{Class: consoleRegionStackClass()},
+		inventoryRailCard("Workspace defaults", "Default hub, saved-view exchange and workspace snapshot.",
 			infoRow("Route", RouteSettingsWorkspaceDefaults),
 			infoRow("Default warehouse", fallback(parsePayload.Preferences.DefaultWarehouse, "new-jersey-hub")),
 			infoRow("Saved views", fmt.Sprintf("%d", len(parsePayload.SavedViews))),
-			html.A(html.Props{Href: RouteSettings, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to full settings")),
+			html.A(html.Props{Href: RouteSettings, Class: consoleSecondaryButtonClass()}, html.Text("Back to full settings")),
 		),
 		preferenceForm(parsePayload),
 		savedViewBrowserCard(parsePayload),
@@ -2863,32 +3455,25 @@ func settingsWorkspaceDefaultsPanel(parsePayload Payload) ui.Node {
 }
 
 func commentsSummaryBand(parsePage commentList) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Buyer inbox shell")),
-			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat buyer comments as an operator inbox: visible moderation posture, product context, and direct handoff into merchandising or supply routes when the question reveals a broader issue.")),
-		),
+	// Bare counts. "12 open" / "3 queued" / "2 live" put a different unit noun on
+	// every figure, which stops the four numbers being comparable — the label already
+	// says what they count.
+	return html.Div(html.Props{Class: consoleStackClass()},
 		routeSummaryStrip(parsePage.Summary),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Comments", fmt.Sprintf("%d open", len(parsePage.Items))),
-			statCard("Pending", fmt.Sprintf("%d queued", countCommentStatus(parsePage.Items, "pending"))),
-			statCard("Approved", fmt.Sprintf("%d live", countCommentStatus(parsePage.Items, "approved"))),
-			statCard("Flagged", fmt.Sprintf("%d escalated", countCommentStatus(parsePage.Items, "flagged"))),
+		html.Div(html.Props{Class: consoleFactRowClass()},
+			statCard("Comments", fmt.Sprintf("%d", len(parsePage.Items))),
+			statCard("Pending", fmt.Sprintf("%d", countCommentStatus(parsePage.Items, "pending"))),
+			statCard("Approved", fmt.Sprintf("%d", countCommentStatus(parsePage.Items, "approved"))),
+			statCard("Flagged", fmt.Sprintf("%d", countCommentStatus(parsePage.Items, "flagged"))),
 		),
 	)
 }
 
 func commentsActionCluster() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Route action cluster")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Use buyer questions to route the operator into the exact internal follow-up: merchandising, inventory promise, or warehouse operations.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-			inventoryActionCard("Update marketing copy", "Route unclear product questions into the merch workspace when the issue is messaging, not stock.", "/app/products"),
-			inventoryActionCard("Check inventory promise", "Open the inventory workspace when the customer is really asking about supply or timing.", "/app/inventory"),
-			inventoryActionCard("Open warehouse ops", "Use warehouse-native routes when the answer depends on a specific hub or recovery lane.", "/app/warehouses"),
-		),
+	return internalWorkflowSection("Quick actions", "",
+		inventoryActionCard("Update marketing copy", "When the issue is messaging, not stock.", "/app/products"),
+		inventoryActionCard("Check inventory promise", "When the buyer is really asking about supply or timing.", "/app/inventory"),
+		inventoryActionCard("Open warehouse ops", "When the answer depends on a specific hub or lane.", "/app/warehouses"),
 	)
 }
 
@@ -2935,19 +3520,24 @@ func commentsModerationFiltersCard(parsePayload Payload, parseItems []commentRec
 	}
 	parseNodes := make([]ui.Node, 0, len(parseLinks))
 	for _, parseLink := range parseLinks {
-		parseClassName := "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-300/45 hover:text-white"
+		parseProps := html.Props{Href: parseLink.Href, Class: design.Class(design.RailLink())}
 		if parseLink.Current {
-			parseClassName = "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100"
+			parseProps.Class = design.Class(design.RailLinkCurrent())
+			parseProps.Aria = map[string]string{"current": "page"}
 		}
-		parseNodes = append(parseNodes, html.A(html.Props{Href: parseLink.Href, Class: parseClassName},
+		parseNodes = append(parseNodes, html.A(parseProps,
 			html.Span(html.Props{}, html.Text(parseLink.Label)),
-			html.Span(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-300/12 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-cyan-100"}, html.Text(fmt.Sprintf("%d", parseLink.Count))),
+			// The count is mono so the four filter counts line up in one column, which
+			// is the whole reason to show them next to each other. NOT design.RailCode:
+			// that bundle hides itself below the rail breakpoint, which is correct in the
+			// rail (the label already carries the meaning) and wrong here, where the
+			// number IS the information.
+			html.Span(html.Props{Class: consoleCodeClass()}, html.Text(fmt.Sprintf("%d", parseLink.Count))),
 		))
 	}
-	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Moderation filters")),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Keep filter navigation route-based so reviewers can jump between pending, flagged, and approved queues without losing context.")),
-		html.Div(html.Props{Class: "grid gap-2"}, parseNodes...),
+	return html.Div(html.Props{Class: consoleSurfaceClass()},
+		consoleSectionHead("Moderation filters", "Filter the inbox by moderation state", ""),
+		html.Div(html.Props{Class: consoleStackTightClass()}, parseNodes...),
 	)
 }
 
@@ -2955,39 +3545,44 @@ func commentsModerationNestedPanel(parseStatus string, parseItems []commentRecor
 	parseVisible := filterCommentsByStatus(parseItems, parseStatus)
 	parseStatusLabel := formatCommentStatusLabel(parseStatus)
 	parseChildren := []ui.Node{
-		inventoryRailCard("Moderation queue", "This nested route scopes the buyer inbox to one moderation posture while keeping route-level actions local.",
+		inventoryRailCard("Moderation queue", "Scoped to one moderation state.",
 			infoRow("Filter", parseStatusLabel),
 			infoRow("Visible records", fmt.Sprintf("%d", len(parseVisible))),
-			html.A(html.Props{Href: RouteComments, Class: "inline-flex items-center justify-center rounded-full border border-cyan-300/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 transition hover:border-cyan-200 hover:text-white"}, html.Text("Back to full inbox")),
+			html.A(html.Props{Href: RouteComments, Class: consoleSecondaryButtonClass()}, html.Text("Back to full inbox")),
 		),
 	}
 	if len(parseVisible) > 0 {
 		parseChildren = append(parseChildren, moderationForm(parseVisible, parsePayload), bulkModerationForm(parseVisible, parsePayload))
 	} else {
-		parseChildren = append(parseChildren, inventoryRailCard("No records in filter", "This moderation route currently has no matching comments. Switch filters or return to the full inbox queue.",
-			html.A(html.Props{Href: RouteComments, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Open all comments")),
+		parseChildren = append(parseChildren, inventoryRailCard("No records in filter", "Nothing matches this moderation state right now.",
+			html.A(html.Props{Href: RouteComments, Class: consoleSecondaryButtonClass()}, html.Text("Open all comments")),
 		))
 	}
-	return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
+	return html.Div(html.Props{Class: consoleRegionStackClass()}, parseChildren...)
 }
 
 func commentsRecordNestedPanel(parseCommentID string, parseItems []commentRecord, parsePayload Payload) ui.Node {
 	parseItem, parseFound := findCommentByID(parseItems, parseCommentID)
 	if !parseFound {
-		return inventoryRailCard("Comment record unavailable", "Atlas could not resolve this comment inside the current route payload.",
-			html.A(html.Props{Href: RouteComments, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to comments")),
+		return inventoryRailCard("Comment record unavailable", "This comment is not in the current route payload.",
+			html.A(html.Props{Href: RouteComments, Class: consoleSecondaryButtonClass()}, html.Text("Back to comments")),
 		)
 	}
-	return html.Div(html.Props{Class: "grid gap-5"},
-		inventoryRailCard("Selected buyer record", "Record detail stays route-local so moderation review can happen without leaving the inbox shell.",
+	return html.Div(html.Props{Class: consoleRegionStackClass()},
+		inventoryRailCard("Selected buyer record", "",
 			infoRow("Comment ID", parseItem.ID),
 			infoRow("Status", formatCommentStatusLabel(parseItem.Status)),
 			infoRow("Product SKU", parseItem.ProductSKU),
-			infoRow("Author", parseItem.AuthorName+" | "+strings.ReplaceAll(parseItem.AuthorType, "_", " ")),
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Subject)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Body)),
-			html.A(html.Props{Href: commentsModerationHref(parseItem.Status), Class: "inline-flex items-center justify-center rounded-full border border-cyan-300/35 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 transition hover:border-cyan-200 hover:text-white"}, html.Text("Open status filter")),
-			html.A(html.Props{Href: "/app/products?q=" + url.QueryEscape(parseItem.ProductSKU), Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Open product context")),
+			infoRow("Author", parseItem.AuthorName+" · "+strings.ReplaceAll(parseItem.AuthorType, "_", " ")),
+			html.Hr(html.Props{Class: consoleDividerClass()}),
+			// The subject is a heading for this record, the body is what the buyer wrote:
+			// Display names the region, Prose carries the sentence.
+			html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseItem.Subject)),
+			html.P(html.Props{Class: consoleProseClass()}, html.Text(parseItem.Body)),
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				html.A(html.Props{Href: commentsModerationHref(parseItem.Status), Class: consoleLinkClass()}, html.Text("Open status filter")),
+				html.A(html.Props{Href: "/app/products?q=" + url.QueryEscape(parseItem.ProductSKU), Class: consoleLinkClass()}, html.Text("Open product context")),
+			),
 		),
 		moderationForm([]commentRecord{parseItem}, parsePayload),
 		bulkModerationForm([]commentRecord{parseItem}, parsePayload),
@@ -3065,49 +3660,41 @@ func commentsTable(parsePayload Payload, parseItems []commentRecord) ui.Node {
 		parseRows = append(parseRows, commentTableRow(parsePayload, parseItem))
 	}
 	if len(parseRows) == 0 {
-		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 5}}, html.Text("No buyer questions are waiting in the Atlas inbox.")),
-		))
+		parseRows = append(parseRows, consoleEmptyRow(6, "No buyer questions are waiting."))
 	}
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "flex items-end justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Buyer question table")),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review subject, product context, author, and moderation posture in one dense table before opening nested record detail or route-local review workflows.")),
-			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d comments", len(parseItems)))),
-		),
-		html.Div(html.Props{Class: internalTableContainerClass()},
-			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
-				html.Tag("thead", html.Props{},
-					html.Tag("tr", html.Props{Class: "bg-slate-950/80"},
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Comment")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Product")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Author")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Status")),
-						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Updated")),
-					),
-				),
-				html.Tag("tbody", html.Props{}, parseRows...),
-			),
-		),
+	return html.Section(html.Props{Class: consoleStackClass()},
+		consoleSectionHead("Buyer question table", "Questions to answer", fmt.Sprintf("%d comments", len(parseItems))),
+		consoleQueueTable("Buyer questions",
+			html.Tr(html.Props{},
+				consoleColumn("Subject"),
+				consoleColumn("Question"),
+				consoleColumn("SKU"),
+				consoleColumn("Author"),
+				consoleColumn("Status"),
+				consoleColumn("Updated"),
+			), parseRows),
 	)
 }
 
+// commentTableRow is the one queue where a whole SENTENCE has to live in a cell, so
+// the question body is a ProseCell — the design system's single documented exception
+// to "every table cell is mono". Without it a 30-word question either blows the
+// column out or wraps into a wall of fixed-width text, and the fix someone reaches
+// for next is making the whole table proportional, which costs the alignment the
+// table was chosen for.
 func commentTableRow(parsePayload Payload, parseItem commentRecord) ui.Node {
 	parseRecordHref := commentsRecordHref(parsePayload, parseItem.ID)
-	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: parseRecordHref, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.Subject)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Body)),
-				html.A(html.Props{Href: parseRecordHref, Class: "text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open record")),
-			),
+	return html.Tr(html.Props{},
+		html.Th(html.Props{},
+			html.A(html.Props{Href: parseRecordHref, Class: consoleCellLinkClass()}, html.Text(parseItem.Subject)),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.ProductSKU)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.AuthorName+" | "+strings.ReplaceAll(parseItem.AuthorType, "_", " "))),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(parseItem.UpdatedAt)),
+		html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(parseItem.Body)),
+		html.Td(html.Props{}, html.Text(parseItem.ProductSKU)),
+		html.Td(html.Props{Class: consoleProseCellClass()}, html.Text(parseItem.AuthorName+" · "+strings.ReplaceAll(parseItem.AuthorType, "_", " "))),
+		html.Td(html.Props{},
+			html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " "))),
+		),
+		html.Td(html.Props{Class: consoleCellMetaClass()}, html.Text(parseItem.UpdatedAt)),
 	)
 }
 
@@ -3121,33 +3708,26 @@ func countCommentStatus(parseItems []commentRecord, parseStatus string) int {
 	return parseCount
 }
 
+// settingsSummaryBand shows the CURRENT values of the settings this route edits,
+// which is the one page where theme, locale and density belong: here they are the
+// state of the thing the form below changes, not dashboard metrics.
 func settingsSummaryBand(parsePage settingsPage, parsePresentation shellPresentationState) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Settings shell")),
-			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat settings as the operator control room for shell presentation, saved-view exchange, and workspace snapshot handoff rather than a narrow preference form.")),
-		),
+	return html.Div(html.Props{Class: consoleStackClass()},
 		routeSummaryStrip(parsePage.Summary),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Theme", fallback(parsePresentation.Theme, "dark")),
+		html.Div(html.Props{Class: consoleFactRowClass()},
+			statCard("Theme", fallback(parsePresentation.Theme, "system")),
 			statCard("Locale", fallback(parsePresentation.Locale, "en")),
 			statCard("Density", fallback(parsePresentation.Density, "compact")),
-			statCard("Warehouse", fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub")),
+			statCard("Default hub", fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub")),
 		),
 	)
 }
 
 func settingsActionCluster() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
-		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Route action cluster")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Use settings to control shell presentation, move saved views between sessions, and export a workspace snapshot for reviewer or operator handoff.")),
-		),
-		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-			inventoryActionCard("Open dashboard", "Return to the internal overview after changing presentation or workspace defaults.", "/app/dashboard"),
-			inventoryActionCard("Inspect inventory views", "Cross-check saved-view presets against the live inventory workspace.", "/app/inventory"),
-			inventoryActionCard("Review comments", "Jump into the buyer inbox if the next task is moderation rather than shell configuration.", "/app/comments"),
-		),
+	return internalWorkflowSection("Quick actions", "",
+		inventoryActionCard("Open dashboard", "Back to the overview after changing defaults.", "/app/dashboard"),
+		inventoryActionCard("Inspect inventory views", "Check saved-view presets against the live workspace.", "/app/inventory"),
+		inventoryActionCard("Review comments", "If the next task is moderation rather than configuration.", "/app/comments"),
 	)
 }
 
@@ -3168,31 +3748,42 @@ func renderRoleSwitcherDemoCard(parsePayload Payload) ui.Node {
 		{Value: "warehouse_supervisor", Label: "Warehouse supervisor", Copy: "Keeps facility backlog, receiving exceptions, and lane fixes front-and-center."},
 		{Value: "ops_lead", Label: "Operations lead", Copy: "Balances moderation, transfer planning, and cross-route handoffs."},
 	}
-	for _, parseRole := range parseRoles {
-		parseToneClass := "rounded-[1.15rem] border border-white/10 bg-slate-950/45 p-4"
-		if strings.EqualFold(parseCurrentRole, parseRole.Value) {
-			parseToneClass = "rounded-[1.15rem] border border-cyan-300/40 bg-cyan-300/10 p-4"
-		}
-		parseRoleCards = append(parseRoleCards, html.Form(html.Props{Action: "/auth/mock-sign-in", Method: "post", Class: parseToneClass},
+	for parseIndex, parseRole := range parseRoles {
+		isParseCurrent := strings.EqualFold(parseCurrentRole, parseRole.Value)
+		parseRoleChildren := []ui.Node{
 			html.HiddenInput("role", parseRole.Value),
 			html.HiddenInput("next", parseNext),
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseRole.Label)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseRole.Copy)),
-			),
-			html.Button(html.Props{Type: "submit", Class: "mt-3 rounded-full border border-cyan-300/35 bg-cyan-300/12 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100"}, html.Text("Switch role")),
-		))
+		}
+		// A hairline between roles rather than a box around each: three bordered boxes
+		// inside this Surface is the nested-card move, and the boxes were carrying no
+		// information that the current-role chip does not.
+		if parseIndex > 0 {
+			parseRoleChildren = append(parseRoleChildren, html.Hr(html.Props{Class: consoleDividerClass()}))
+		}
+		parseRoleHead := []ui.Node{html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseRole.Label))}
+		if isParseCurrent {
+			parseRoleHead = append(parseRoleHead, html.Span(html.Props{Class: consoleStatusChipClass(design.ToneVerified)}, html.Text("SIGNED IN")))
+		}
+		parseRoleChildren = append(parseRoleChildren,
+			html.Div(html.Props{Class: consoleChipRowClass()}, parseRoleHead...),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseRole.Copy)),
+			html.Button(html.Props{Type: "submit", Class: consoleSecondaryButtonClass()}, html.Text("Switch role")),
+		)
+		parseRoleCards = append(parseRoleCards, html.Form(html.Props{
+			Action: "/auth/mock-sign-in",
+			Method: "post",
+			Class:  consoleStackTightClass(),
+		}, parseRoleChildren...))
 	}
-	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Role switcher demo")),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review Atlas shell behavior across operator roles without leaving the current route context.")),
-		html.Div(html.Props{Class: "grid gap-3"}, parseRoleCards...),
+	return html.Div(html.Props{Class: consoleSurfaceClass()},
+		consoleSectionHead("Role switcher", "Sign in as another operator role", ""),
+		html.Div(html.Props{Class: consoleStackClass()}, parseRoleCards...),
 	)
 }
 
 func savedViewBrowserCard(parsePayload Payload) ui.Node {
 	if len(parsePayload.SavedViews) == 0 {
-		return listCard("Saved views", html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No records yet.")))
+		return listCard("Saved views", html.P(html.Props{Class: consoleMetaClass()}, html.Text("No saved views yet.")))
 	}
 	parseItems := make([]ui.CompositeItem, 0, len(parsePayload.SavedViews))
 	for parseIndex, parseSaved := range parsePayload.SavedViews {
@@ -3215,11 +3806,12 @@ func savedViewBrowserCard(parsePayload Payload) ui.Node {
 		for parseIndex2, parseSaved2 := range parsePayload.SavedViews {
 			parseCurrentIndex := parseIndex2
 			parseCurrentItem := parseItems[parseIndex2]
-			parseClassName := "grid gap-2 rounded-[1.2rem] border px-4 py-3 text-left text-sm transition"
+			// Listbox options reuse the rail's two-state item vocabulary: selected or
+			// not, marked by the inset lane bar, with no third "hover-ish" style and no
+			// border per option.
+			parseClassName := design.Class(design.RailLink())
 			if parseNav.IsActive(parseIndex2) {
-				parseClassName += " border-cyan-300/35 bg-cyan-300/10 text-cyan-50"
-			} else {
-				parseClassName += " border-white/10 bg-slate-950/40 text-slate-200"
+				parseClassName = design.Class(design.RailLinkCurrent())
 			}
 			parseOptions = append(parseOptions, html.Div(html.Props{
 				ID:    parseCurrentItem.ID,
@@ -3232,8 +3824,8 @@ func savedViewBrowserCard(parsePayload Payload) ui.Node {
 					"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex2)],
 				},
 			},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseSaved2.Name)),
-				html.P(html.Props{Class: "text-[0.72rem] uppercase tracking-[0.22em] text-slate-400"}, html.Text(parseSaved2.Scope+" | "+parseSaved2.SortKey+"/"+parseSaved2.SortDirection)),
+				html.Span(html.Props{}, html.Text(parseSaved2.Name)),
+				html.Span(html.Props{Class: consoleCodeClass()}, html.Text(parseSaved2.Scope+" · "+parseSaved2.SortKey+"/"+parseSaved2.SortDirection)),
 			))
 		}
 		filterEntries := make([]string, 0, len(parseActive.Filters))
@@ -3243,34 +3835,34 @@ func savedViewBrowserCard(parsePayload Payload) ui.Node {
 		sort.Strings(filterEntries)
 		filterNodes := make([]ui.Node, 0, len(filterEntries))
 		for _, parseEntry := range filterEntries {
-			filterNodes = append(filterNodes, html.P(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.18em] text-slate-300"}, html.Text(parseEntry)))
+			// A saved filter is a machine fact ("warehouse: new-jersey-hub"), so it is a
+			// neutral status chip rather than a bespoke pill.
+			filterNodes = append(filterNodes, html.Span(html.Props{Class: consoleStatusChipClass(design.ToneNeutral)}, html.Text(parseEntry)))
 		}
 		parseChildren := []ui.Node{
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Saved views")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Focus the list and use ArrowUp, ArrowDown, Home, End, or typeahead to inspect Atlas workspace presets without leaving the settings route.")),
+			consoleSectionHead("Saved views", "", ""),
+			html.P(html.Props{Class: consoleFieldHintClass()}, html.Text("Focus the list and use ArrowUp, ArrowDown, Home, End, or typeahead to inspect Atlas workspace presets without leaving the settings route.")),
+			// Recess, not another bordered box: the listbox is INPUT to this panel, and
+			// pressed paper says "region" where a border would say "second object".
 			html.Div(html.Props{
 				Role:      "listbox",
-				Class:     "grid gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/55 p-4",
+				Class:     consoleRecessClass(),
 				OnKeyDown: parseListboxKeyDown,
 				Aria: map[string]string{
 					"activedescendant": parseNav.ActiveDescendant(),
 				},
-				Raw: map[string]any{
-					"tabIndex": 0,
-				},
+				TabIndex: html.TabIndexZero,
 			}, parseOptions...),
-			html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-white/5 p-4"},
-				html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-					statCard("Scope", parseActive.Scope),
-					statCard("Sort key", parseActive.SortKey),
-					statCard("Direction", parseActive.SortDirection),
-				),
+			html.Div(html.Props{Class: consoleFactRowClass()},
+				statCard("Scope", parseActive.Scope),
+				statCard("Sort key", parseActive.SortKey),
+				statCard("Direction", parseActive.SortDirection),
 			),
 		}
 		if len(filterNodes) > 0 {
-			parseChildren = append(parseChildren, html.Div(html.Props{Class: "flex flex-wrap gap-2"}, filterNodes...))
+			parseChildren = append(parseChildren, html.Div(html.Props{Class: consoleChipRowClass()}, filterNodes...))
 		}
-		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, parseChildren...)
+		return html.Div(html.Props{Class: consoleSurfaceClass()}, parseChildren...)
 	})
 }
 
@@ -3279,73 +3871,95 @@ func mockSignInContent(parsePayload Payload) ui.Node {
 	if len(parsePage.Roles) == 0 {
 		parsePage.Roles = []mockSignInRole{{Value: "inventory_manager", Label: "Inventory Manager", Description: "Default Atlas internal operator role."}}
 	}
-	parseRoleCards := make([]ui.Node, 0, len(parsePage.Roles))
-	for _, parseRole := range parsePage.Roles {
-		parseRoleCards = append(parseRoleCards,
-			html.Form(html.Props{Action: "/auth/mock-sign-in", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
-				html.Input(html.Props{Type: "hidden", Name: "role", Value: parseRole.Value}),
-				html.Input(html.Props{Type: "hidden", Name: "next", Value: fallback(parsePage.Next, "/app/dashboard")}),
-				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseRole.Label)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseRole.Description)),
-				html.Button(html.Props{Type: "submit", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text("Start session")),
-			),
+	parseRoleForms := make([]ui.Node, 0, len(parsePage.Roles))
+	for parseIndex, parseRole := range parsePage.Roles {
+		parseRoleChildren := []ui.Node{
+			html.Input(html.Props{Type: "hidden", Name: "role", Value: parseRole.Value}),
+			html.Input(html.Props{Type: "hidden", Name: "next", Value: fallback(parsePage.Next, "/app/dashboard")}),
+		}
+		if parseIndex > 0 {
+			parseRoleChildren = append(parseRoleChildren, html.Hr(html.Props{Class: consoleDividerClass()}))
+		}
+		parseRoleChildren = append(parseRoleChildren,
+			html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseRole.Label)),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseRole.Description)),
+			// Starting the session IS the action of this screen, so each role's submit is
+			// the primary control on its own form.
+			html.Button(html.Props{Type: "submit", Class: consolePrimaryButtonClass()}, html.Text("Start session")),
 		)
+		parseRoleForms = append(parseRoleForms, html.Form(html.Props{
+			Action: "/auth/mock-sign-in",
+			Method: "post",
+			Class:  consoleStackTightClass(),
+		}, parseRoleChildren...))
 	}
-	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.85fr)]"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			featureCard("Mock internal access", fallback(parsePage.Message, "Start a mock Atlas internal session to access the operator console.")),
-			listCard("Recovery path",
-				infoRow("Next route", fallback(parsePage.Next, "/app/dashboard")),
-				infoRow("Session model", "Cookie-backed mock operator role"),
-			),
+	return html.Section(html.Props{Class: consoleRegionStackClass()},
+		featureCard("Mock internal access", fallback(parsePage.Message, "Start a mock Atlas session to open the operator console.")),
+		html.Div(html.Props{Class: consoleSurfaceClass()},
+			consoleSectionHead("Choose a role", "", ""),
+			html.Div(html.Props{Class: consoleStackClass()}, parseRoleForms...),
 		),
-		html.Div(html.Props{Class: "grid gap-4"}, parseRoleCards...),
+		listCard("Recovery path",
+			infoRow("Next route", fallback(parsePage.Next, "/app/dashboard")),
+			infoRow("Session model", "Cookie-backed mock operator role"),
+		),
 	)
 }
 
 func recoveryContent(parsePayload Payload) ui.Node {
 	parsePage := decode[recoveryPage](pageData(parsePayload))
 	parseChildren := []ui.Node{
-		featureCard(fallback(parsePage.Title, "Route recovery"), fallback(parsePage.Message, "Atlas could not resolve the requested route.")),
-		html.A(html.Props{Href: fallback(parsePage.RecoveryHref, "/"), Class: "inline-flex w-fit rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text(fallback(parsePage.RecoveryLabel, "Back to Atlas"))),
+		featureCard(fallback(parsePage.Title, "Route recovery"), fallback(parsePage.Message, "This route is not part of the current Atlas demo route set.")),
+		// Getting back to a working route is THE action on a recovery screen.
+		html.A(html.Props{Href: fallback(parsePage.RecoveryHref, "/"), Class: consolePrimaryButtonClass()}, html.Text(fallback(parsePage.RecoveryLabel, "Back to Atlas"))),
 	}
 	if strings.TrimSpace(parsePage.Detail) != "" {
-		parseChildren = append(parseChildren, listCard("Recovery detail", html.P(html.Props{Class: "text-sm text-slate-300"}, html.Text(parsePage.Detail))))
+		parseChildren = append(parseChildren, listCard("Recovery detail", html.P(html.Props{Class: consoleProseClass()}, html.Text(parsePage.Detail))))
 	}
-	return html.Section(html.Props{Class: "grid gap-6"}, parseChildren...)
+	return html.Section(html.Props{Class: consoleRegionStackClass()}, parseChildren...)
 }
 
+// fallbackContent dumps whatever payload a route did carry. It is a debug surface,
+// so it is Recess (pressed paper, the "raw input" texture) with mono lines — not a
+// list of bordered boxes pretending each key is a card.
 func fallbackContent(parsePayload Payload) ui.Node {
 	parseEntries := sortedMapStrings(parsePayload.Data)
 	parseNodes := make([]ui.Node, 0, len(parseEntries))
 	for _, parseEntry := range parseEntries {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"}, html.Text(parseEntry)))
+		parseNodes = append(parseNodes, html.P(html.Props{Class: consoleDataClass()}, html.Text(parseEntry)))
 	}
-	return listCard("Route data", parseNodes...)
+	if len(parseNodes) == 0 {
+		return listCard("Route data", html.P(html.Props{Class: consoleMetaClass()}, html.Text("This route carried no payload.")))
+	}
+	return listCard("Route data", html.Div(html.Props{Class: consoleRecessClass()}, parseNodes...))
 }
 
+// routeSummaryStrip is the route's own metric band: label, figure, one line of
+// context. Each metric is a STACK, not a bordered box — four boxes in a row is the
+// KPI-wall look this conversion removed, and the figure reads as the important thing
+// because it is mono at lede size, not because it has a frame.
 func routeSummaryStrip(parseSummary pageSummary) ui.Node {
 	if len(parseSummary.Items) == 0 {
 		return html.Div(html.Props{})
 	}
 	parseNodes := make([]ui.Node, 0, len(parseSummary.Items))
 	for _, parseItem := range parseSummary.Items {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " p-4"},
-			html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300"}, html.Text(parseItem.Label)),
-			html.P(html.Props{Class: "text-xl font-semibold text-white"}, html.Text(parseItem.Value)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Detail)),
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: consoleStackTightClass()},
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseItem.Label)),
+			html.P(html.Props{Class: consoleFigureClass()}, html.Text(parseItem.Value)),
+			html.P(html.Props{Class: consoleMetaClass()}, html.Text(parseItem.Detail)),
 		))
 	}
-	return html.Div(html.Props{Class: "grid gap-4"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text(fallback(parseSummary.Headline, "Route summary"))),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2 xl:grid-cols-4"}, parseNodes...),
+	return html.Div(html.Props{Class: consoleStackClass()},
+		html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(fallback(parseSummary.Headline, "Route summary"))),
+		html.Div(html.Props{Class: consoleFactRowClass()}, parseNodes...),
 	)
 }
 
 func featureCard(parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
-		html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
+	return html.Div(html.Props{Class: consoleSurfaceClass()},
+		html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseTitle)),
+		html.P(html.Props{Class: consoleProseClass()}, html.Text(parseCopy)),
 	)
 }
 
@@ -3383,6 +3997,13 @@ func publicStatusLabel(parseStatus string) string {
 	return strings.ReplaceAll(strings.TrimSpace(strings.ToLower(parseStatus)), "_", " ")
 }
 
+// productPrimaryActionForm branches on product status and emits FIVE fields in one
+// arm and TWO in the others. That is only safe because publicInput and
+// publicTextarea are components: the field hooks live in their own fibers, so the
+// number of hooks this function contributes to its caller is zero regardless of
+// which arm runs. If you ever add a direct hook call to this body, it must move
+// inside a ui.CreateElement first — a data-dependent hook count is a corrupted
+// fiber.
 func productPrimaryActionForm(parseProduct productCard, parsePayload Payload) ui.Node {
 	switch strings.TrimSpace(strings.ToLower(parseProduct.Status)) {
 	case "in_stock", "healthy", "approved", "available":
@@ -3422,6 +4043,10 @@ func productSecondaryActionCard(parseProduct productCard) ui.Node {
 	)
 }
 
+// availabilityPrimaryActionForm has the same shape as productPrimaryActionForm: the
+// available-stock branch renders five fields, the other two render two. Safe for the
+// same reason — the field primitives are components, so this function contributes no
+// hooks of its own to whichever fiber renders it.
 func availabilityPrimaryActionForm(parseAvailability availabilityPage, parsePayload Payload) ui.Node {
 	if parseAvailability.Available > 0 {
 		return publicFormCard("Request pricing for this region", "Capture pricing and project timing while this warehouse can still support the current demand window.", "/api/public/products/"+parseAvailability.Product.Slug+"/quote-requests", "Start quote", parsePayload.CSRF, []ui.Node{
@@ -3454,20 +4079,27 @@ func availabilityQuestionActionForm(parseAvailability availabilityPage, parsePay
 	})
 }
 
+// statCard is misnamed and is deliberately NOT a card any more: it is a label above
+// a figure, sized to sit in a fact row.
+//
+// The name is kept because inventory_cms.go and products_cms.go call it; renaming it
+// is a separate, mechanical change in files this pass does not own. The VALUE is
+// Data at lede step — a count, a code or a date is a machine fact, and mono is what
+// lets a row of them be compared.
 func statCard(parseLabel, parseValue string) ui.Node {
-	return html.Div(html.Props{Class: internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseLabel)),
-		html.P(html.Props{Class: "mt-3 text-xl font-bold text-white"}, html.Text(parseValue)),
+	return html.Div(html.Props{Class: consoleStackTightClass()},
+		html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseLabel)),
+		html.P(html.Props{Class: consoleFigureClass()}, html.Text(parseValue)),
 	)
 }
 
 func listCard(parseTitle string, parseChildren ...ui.Node) ui.Node {
 	if len(parseChildren) == 0 {
-		parseChildren = []ui.Node{html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No records yet."))}
+		parseChildren = []ui.Node{html.P(html.Props{Class: consoleMetaClass()}, html.Text("Nothing here yet."))}
 	}
-	parseContent := []ui.Node{html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseTitle))}
+	parseContent := []ui.Node{html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseTitle))}
 	parseContent = append(parseContent, parseChildren...)
-	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"}, parseContent...)
+	return html.Div(html.Props{Class: consoleSurfaceClass()}, parseContent...)
 }
 
 func publicFormCard(parseTitle, parseCopy, parseAction, parseSubmitLabel string, parseCsrfToken string, parseFields []ui.Node) ui.Node {
@@ -3563,8 +4195,11 @@ func reduceReceivingResolutionWorkflowState(parseState receivingResolutionWorkfl
 }
 
 func preferenceForm(parsePayload Payload) ui.Node {
-	parsePresentation := currentShellPresentationState(parsePayload)
 	return ui.CreateElement(func() ui.Node {
+		// Inside the component, not above it: currentShellPresentationState calls
+		// useAtlasAtom, so calling it before ui.CreateElement put this card's atom
+		// subscription in the caller's fiber instead of its own.
+		parsePresentation := currentShellPresentationState(parsePayload)
 		parseForm := ui.UseForm(preferenceFormState{
 			Theme:              fallback(parsePresentation.Theme, "dark"),
 			Locale:             fallback(parsePresentation.Locale, "en"),
@@ -3574,7 +4209,7 @@ func preferenceForm(parsePayload Payload) ui.Node {
 		parseTransition := useAtlasTransition()
 		parseValue := parseForm.Get()
 		parseChildren := []ui.Node{
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Operator preferences")),
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Operator preferences")),
 			boundInputWithValue("theme", "Theme", parseValue.Theme, "Theme", parseForm),
 			boundInputWithValue("locale", "Locale", parseValue.Locale, "Locale", parseForm),
 			boundTransitionSelectWithValue("density", "Density", parseValue.Density, "Density", []optionItem{{"compact", "Compact"}, {"comfortable", "Comfortable"}}, parseForm, parseTransition),
@@ -3582,7 +4217,7 @@ func preferenceForm(parsePayload Payload) ui.Node {
 			boundInputWithValue("default_warehouse_id", "Default warehouse", parseValue.DefaultWarehouseID, "DefaultWarehouseID", parseForm),
 			submitButton("Save preferences"),
 		}
-		return html.Form(html.Props{Action: "/api/app/preferences", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+		return html.Form(html.Props{Action: "/api/app/preferences", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
@@ -3598,16 +4233,16 @@ func moderationForm(parseItems []commentRecord, parsePayload Payload) ui.Node {
 		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Review first queued buyer question")),
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Review first queued buyer question")),
 			boundInputWithValue("status", "Status", parseValue.Status, "Status", parseForm),
 			boundTextareaWithValue("reason", "Reason", parseValue.Reason, "Reason", parseForm),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review decision")),
+			html.Button(html.Props{Type: "button", Class: consolePrimaryButtonClass(), OnClick: parseOpenConfirm}, html.Text("Review decision")),
 			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-comment-review-confirm", "Confirm buyer review", "Atlas keeps keyboard focus inside the moderation confirmation step until you either cancel or apply the review.", "Apply review", parseCloseConfirm,
 				statCard("Status", parseValue.Status),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseValue.Reason)),
+				html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseValue.Reason)),
 			),
 		}
-		return html.Form(html.Props{Action: "/api/app/comments/" + parseId + "/moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+		return html.Form(html.Props{Action: "/api/app/comments/" + parseId + "/moderate", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
@@ -3627,24 +4262,24 @@ func bulkModerationForm(parseItems []commentRecord, parsePayload Payload) ui.Nod
 		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Bulk review visible queue")),
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Bulk review visible queue")),
 			html.Input(html.Props{Type: "hidden", Name: "ids", Value: parseValue.IDs}),
 			boundInputWithValue("status", "Status", parseValue.Status, "Status", parseForm),
 			boundTextareaWithValue("reason", "Reason", parseValue.Reason, "Reason", parseForm),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review bulk action")),
+			html.Button(html.Props{Type: "button", Class: consolePrimaryButtonClass(), OnClick: parseOpenConfirm}, html.Text("Review bulk action")),
 			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-bulk-review-confirm", "Confirm bulk moderation", "The buyer-inbox bulk action now traps focus inside its confirmation step instead of leaving focus scattered behind the modal.", "Apply bulk review", parseCloseConfirm,
 				statCard("Items", fmt.Sprintf("%d", len(parseItems))),
 				statCard("Status", parseValue.Status),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseValue.Reason)),
+				html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseValue.Reason)),
 			),
 		}
-		return html.Form(html.Props{Action: "/api/app/comments/bulk-moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+		return html.Form(html.Props{Action: "/api/app/comments/bulk-moderate", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
 func savedViewForm(parsePayload Payload) ui.Node {
 	parseChildren := []ui.Node{
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Create saved view")),
+		html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Create saved view")),
 		input("name", "Name"),
 		inputWithValue("scope", "Scope", "inventory"),
 		inputWithValue("sort_key", "Sort key", "available"),
@@ -3654,11 +4289,13 @@ func savedViewForm(parsePayload Payload) ui.Node {
 		textareaWithValue("filters_json", "Filters JSON", `{"warehouse":"new-jersey-hub"}`),
 		submitButton("Save view"),
 	}
-	return html.Form(html.Props{Action: "/api/app/saved-views", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+	return html.Form(html.Props{Action: "/api/app/saved-views", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 }
 
-func savedViewTransferCard(parsePayload Payload) ui.Node {
-	parsePresentation := currentShellPresentationState(parsePayload)
+// savedViewTransferDefaultPayload is a PURE builder: no hooks, so it is safe to
+// call from anywhere. The presentation state it needs is passed in rather than read
+// with a hook, which is what lets the hook stay inside the component below.
+func savedViewTransferDefaultPayload(parsePayload Payload, parsePresentation shellPresentationState) string {
 	type savedViewTransferItem struct {
 		Name          string `json:"name"`
 		Scope         string `json:"scope"`
@@ -3689,8 +4326,20 @@ func savedViewTransferCard(parsePayload Payload) ui.Node {
 	if parseErr2 != nil {
 		parseEncoded = []byte(`{"items":[]}`)
 	}
-	parseDefaultImportPayload := string(parseEncoded)
+	return string(parseEncoded)
+}
+
+func savedViewTransferCard(parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
+		// currentShellPresentationState calls useAtlasAtom. It used to be called on
+		// the line ABOVE this ui.CreateElement, which meant the atom subscription was
+		// taken out of the CALLER's fiber (settingsContent's, and therefore App's)
+		// while every other hook in this card lived here. That is the subtle version
+		// of the hooks-outside-render bug: the hook does run inside *a* fiber, just
+		// not this component's, so the card silently borrowed a slot from a fiber
+		// whose hook count then depended on which settings rail was rendered.
+		parsePresentation := currentShellPresentationState(parsePayload)
+		parseDefaultImportPayload := savedViewTransferDefaultPayload(parsePayload, parsePresentation)
 		parseForm := ui.UseForm(savedViewImportFormState{ViewsJSON: parseDefaultImportPayload})
 		parseValidator := useAtlasWorkerTask[savedViewImportValidationRequest, savedViewImportValidationProgress, savedViewImportValidationResult](interop.WorkerOptions{
 			URL:   "/assets/script/atlas-saved-view-import-worker.js",
@@ -3709,21 +4358,23 @@ func savedViewTransferCard(parsePayload Payload) ui.Node {
 		parseValidationState := parseValidator.Get()
 		parseValue := parseForm.Get()
 		parseChildren := []ui.Node{
-			html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
-				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Export saved views")),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Download or copy the current saved-view payload so Atlas presets can move between runs without rebuilding them by hand.")),
-				html.A(html.Props{Href: "/api/app/saved-views/export", Class: "inline-flex w-fit rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text("Open export payload")),
-				html.Pre(html.Props{Class: "overflow-x-auto rounded-[1.2rem] border border-white/10 bg-slate-950/70 p-4 text-xs leading-6 text-slate-300"}, html.Text(parseDefaultImportPayload)),
+			html.Div(html.Props{Class: consoleSurfaceClass()},
+				html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Export saved views")),
+				html.P(html.Props{Class: consoleProseFineClass()}, html.Text("Download or copy the current saved-view payload so Atlas presets can move between runs without rebuilding them by hand.")),
+				html.A(html.Props{Href: "/api/app/saved-views/export", Class: consoleSecondaryButtonClass()}, html.Text("Open export payload")),
+				// The payload is INPUT to this panel, so it is Recess (pressed paper) plus
+				// mono, and it scrolls sideways rather than wrapping JSON.
+				html.Pre(html.Props{Class: design.Class(design.Recess(), design.Data(design.StepFine), []css.Rule{css.Raw("overflow-x", "auto")})}, html.Text(parseDefaultImportPayload)),
 			),
 		}
 		parseImportChildren := []ui.Node{
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Import saved views")),
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Import saved views")),
 			boundTextareaWithValue("views_json", "Saved-view payload", parseValue.ViewsJSON, "ViewsJSON", parseForm),
 			savedViewImportValidationCard(parseValidationState),
 			submitButton("Import saved views"),
 		}
-		parseChildren = append(parseChildren, html.Form(html.Props{Action: "/api/app/saved-views/import", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseImportChildren...)...))
-		return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
+		parseChildren = append(parseChildren, html.Form(html.Props{Action: "/api/app/saved-views/import", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseImportChildren...)...))
+		return html.Div(html.Props{Class: consoleRegionStackClass()}, parseChildren...)
 	})
 }
 
@@ -3746,11 +4397,18 @@ type savedViewImportValidationResult struct {
 	Warnings     []string `json:"warnings"`
 }
 
+// savedViewImportValidationCard is a validation result, so it uses the FORM error
+// and hint voices rather than four differently tinted boxes. It sits inside the
+// import form's Surface, which is exactly the place a second bordered box would be
+// wrong: a Recess (pressed paper, no border, no radius) says "region" instead.
 func savedViewImportValidationCard(parseState atlasWorkerTaskState[savedViewImportValidationProgress, savedViewImportValidationResult]) ui.Node {
 	if parseState.Error != nil {
-		return html.Div(html.Props{Class: "grid gap-2 rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 p-4"},
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-rose-200"}, html.Text("Worker validation failed")),
-			html.P(html.Props{Class: "text-sm leading-6 text-rose-100"}, html.Text(parseState.Error.Error())),
+		return html.Div(html.Props{Class: consoleRecessClass(), Role: "alert"},
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				html.Span(html.Props{Class: consoleStatusChipClass(design.ToneException)}, html.Text("FAILED")),
+				html.P(html.Props{Class: consoleFieldLabelClass()}, html.Text("Worker validation failed")),
+			),
+			html.P(html.Props{Class: consoleFieldErrorClass()}, html.Text(parseState.Error.Error())),
 		)
 	}
 	if parseState.Running {
@@ -3760,9 +4418,12 @@ func savedViewImportValidationCard(parseState atlasWorkerTaskState[savedViewImpo
 			parseStage = fallback(parseState.Progress.Stage, parseStage)
 			parseProgress = fmt.Sprintf("%d%% complete", parseState.Progress.Percent)
 		}
-		return html.Div(html.Props{Class: "grid gap-2 rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 p-4"},
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-cyan-100"}, html.Text("Worker validation in progress")),
-			html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text(parseProgress+" · "+parseStage)),
+		return html.Div(html.Props{Class: consoleRecessClass()},
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				html.Span(html.Props{Class: consoleStatusChipClass(design.TonePending)}, html.Text("RUNNING")),
+				html.P(html.Props{Class: consoleFieldLabelClass()}, html.Text("Worker validation in progress")),
+			),
+			html.P(html.Props{Class: consoleFieldHintClass()}, html.Text(parseProgress+" · "+parseStage)),
 		)
 	}
 	if parseState.Ready {
@@ -3778,29 +4439,36 @@ func savedViewImportValidationCard(parseState atlasWorkerTaskState[savedViewImpo
 		if len(parseState.Value.Scopes) > 0 {
 			parseScopeSummary = strings.Join(parseState.Value.Scopes, ", ")
 		}
+		parseTone := design.ToneVerified
+		if !parseState.Value.Valid {
+			parseTone = design.ToneException
+		}
 		parseChildren := []ui.Node{
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text("Worker import preview")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseSummary)),
-			html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				html.Span(html.Props{Class: consoleStatusChipClass(parseTone)}, html.Text(map[bool]string{true: "READY", false: "NEEDS FIXES"}[parseState.Value.Valid])),
+				html.P(html.Props{Class: consoleFieldLabelClass()}, html.Text("Worker import preview")),
+			),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseSummary)),
+			html.Div(html.Props{Class: consoleFactRowClass()},
 				statCard("Items", fmt.Sprintf("%d", parseState.Value.ItemCount)),
 				statCard("Scopes", fmt.Sprintf("%d", parseState.Value.ScopeCount)),
 				statCard("Invalid", fmt.Sprintf("%d", parseState.Value.InvalidCount)),
 			),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Preview: "+parsePreview)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Scopes: "+parseScopeSummary)),
+			html.P(html.Props{Class: consoleFieldHintClass()}, html.Text("Preview: "+parsePreview)),
+			html.P(html.Props{Class: consoleFieldHintClass()}, html.Text("Scopes: "+parseScopeSummary)),
 		}
 		if len(parseState.Value.Warnings) > 0 {
 			parseWarnings := make([]ui.Node, 0, len(parseState.Value.Warnings))
 			for _, parseWarning := range parseState.Value.Warnings {
-				parseWarnings = append(parseWarnings, html.P(html.Props{Class: "rounded-[1.1rem] border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-100"}, html.Text(parseWarning)))
+				parseWarnings = append(parseWarnings, html.P(html.Props{Class: consoleFieldErrorClass()}, html.Text(parseWarning)))
 			}
-			parseChildren = append(parseChildren, html.Div(html.Props{Class: "grid gap-2"}, parseWarnings...))
+			parseChildren = append(parseChildren, html.Div(html.Props{Class: consoleStackTightClass()}, parseWarnings...))
 		}
-		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/40 p-4"}, parseChildren...)
+		return html.Div(html.Props{Class: consoleRecessClass()}, parseChildren...)
 	}
-	return html.Div(html.Props{Class: "grid gap-2 rounded-[1.35rem] border border-white/10 bg-slate-950/40 p-4"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-slate-300"}, html.Text("Worker import preview")),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-400"}, html.Text("Atlas will validate the saved-view import payload in a dedicated worker as you edit it.")),
+	return html.Div(html.Props{Class: consoleRecessClass()},
+		html.P(html.Props{Class: consoleFieldLabelClass()}, html.Text("Worker import preview")),
+		html.P(html.Props{Class: consoleFieldHintClass()}, html.Text("Atlas will validate the saved-view import payload in a dedicated worker as you edit it.")),
 	)
 }
 
@@ -3808,9 +4476,9 @@ func operatorWorkspaceSnapshotCard(parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		parseForm := ui.UseForm(workspaceSnapshotFormState{WorkspaceSnapshotJSON: operatorWorkspaceSnapshotJSON(parsePayload)})
 		parseValue := parseForm.Get()
-		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Export workspace snapshot")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Copy the current operator shell, route workspace, and saved-view snapshot when a reviewer or another operator needs the same Atlas context without opening extra tooling surfaces.")),
+		return html.Div(html.Props{Class: consoleSurfaceClass()},
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Export workspace snapshot")),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text("Copy the current operator shell, route workspace, and saved-view snapshot when a reviewer or another operator needs the same Atlas context without opening extra tooling surfaces.")),
 			boundTextareaWithValue("workspace_snapshot_json", "Workspace snapshot", parseValue.WorkspaceSnapshotJSON, "WorkspaceSnapshotJSON", parseForm),
 		)
 	})
@@ -3870,31 +4538,31 @@ func transferForm(parsePayload Payload) ui.Node {
 		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Create transfer")),
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Create transfer")),
 			boundInputWithValue("source_warehouse_id", "Source warehouse", parseValue.SourceWarehouseID, "SourceWarehouseID", parseForm),
 			boundInputWithValue("destination_warehouse_id", "Destination warehouse", parseValue.DestinationWarehouseID, "DestinationWarehouseID", parseForm),
 			boundInputWithValue("reason", "Reason", parseValue.Reason, "Reason", parseForm),
 			boundInputWithValue("recommended_by", "Recommended by", parseValue.RecommendedBy, "RecommendedBy", parseForm),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review transfer")),
+			html.Button(html.Props{Type: "button", Class: consolePrimaryButtonClass(), OnClick: parseOpenConfirm}, html.Text("Review transfer")),
 			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-transfer-confirm", "Confirm transfer plan", "Review the transfer before Atlas posts it so focus stays inside the confirmation step until you dismiss or submit.", "Create transfer", parseCloseConfirm,
 				statCard("From", parseValue.SourceWarehouseID),
 				statCard("To", parseValue.DestinationWarehouseID),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseValue.Reason)),
+				html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseValue.Reason)),
 			),
 		}
-		return html.Form(html.Props{Action: "/api/app/transfers", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+		return html.Form(html.Props{Action: "/api/app/transfers", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
 func thresholdForm(parseItem inventoryRow, parsePayload Payload) ui.Node {
 	parseChildren := []ui.Node{
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Adjust thresholds")),
+		html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Adjust thresholds")),
 		inputWithValue("warehouse_id", "Warehouse", parseItem.WarehouseID),
 		inputWithValue("reorder_point", "Reorder point", "18"),
 		inputWithValue("safety_stock", "Safety stock", "9"),
 		submitButton("Save threshold"),
 	}
-	return html.Form(html.Props{Action: "/api/app/inventory/" + parseItem.SKU + "/threshold", Method: "post", Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+	return html.Form(html.Props{Action: "/api/app/inventory/" + parseItem.SKU + "/threshold", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 }
 
 func receivingForm(parsePayload Payload) ui.Node {
@@ -3919,35 +4587,41 @@ func receivingFormForID(parseSessionID string, parsePayload Payload) ui.Node {
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
 			receivingResolutionSummaryCard(parseWorkflowState),
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Reconcile receiving")),
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Reconcile receiving")),
 			receivingWorkflowInputWithValue("status", "Status", parseValue.Status, "Status", parseForm, parseWorkflow),
 			receivingWorkflowTextareaWithValue("discrepancy_summary", "Discrepancy summary", parseValue.DiscrepancySummary, "DiscrepancySummary", parseForm, parseWorkflow),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review closeout")),
+			html.Button(html.Props{Type: "button", Class: consolePrimaryButtonClass(), OnClick: parseOpenConfirm}, html.Text("Review closeout")),
 			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-receiving-confirm", "Confirm receiving closeout", "Atlas keeps focus inside the discrepancy confirmation step until you cancel or submit the reconciliation.", "Close session", parseCloseConfirm,
 				statCard("Status", parseValue.Status),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(fallback(parseValue.DiscrepancySummary, "No discrepancy note entered."))),
+				html.P(html.Props{Class: consoleProseFineClass()}, html.Text(fallback(parseValue.DiscrepancySummary, "No discrepancy note entered."))),
 			),
 		}
 		if parseChangeSummary := receivingDraftChangeSummary(parseValue, parsePrevious); parseChangeSummary != nil {
 			parseChildren = append([]ui.Node{parseChangeSummary}, parseChildren...)
 		}
-		return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/reconcile", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+		return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/reconcile", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
 // renderReceivingAttachmentForm renders a receiving evidence upload form for photos and supporting docs.
+//
+// It is a COMPONENT for the same reason as purchaseOrderStatusForm: it is built
+// inside receivingDetailRail's atlasLazySection loader, which runs on a goroutine
+// with no current fiber, and its textareaWithValue field calls ui.UseId.
 func renderReceivingAttachmentForm(parseSessionID string, parsePayload Payload) ui.Node {
-	parseChildren := []ui.Node{
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Attach receiving evidence")),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Upload dock photos, carrier notes, or signed paperwork so discrepancy closeout has supporting context.")),
-		html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-			html.Span(html.Props{}, html.Text("Evidence files")),
-			html.Input(html.Props{Name: "attachment", Type: "file", Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-200", Raw: map[string]any{"multiple": true, "accept": ".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv"}}),
-		),
-		textareaWithValue("note", "Attachment note", "Shipment seal mismatch documented at dock door B."),
-		submitButton("Upload evidence"),
-	}
-	return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/attachments", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5", Raw: map[string]any{"encType": "multipart/form-data"}}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+	return ui.CreateElement(func() ui.Node {
+		parseChildren := []ui.Node{
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Attach receiving evidence")),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text("Upload dock photos, carrier notes, or signed paperwork so discrepancy closeout has supporting context.")),
+			html.Label(html.Props{Class: consoleFieldClass()},
+				html.Span(html.Props{Class: consoleFieldLabelClass()}, html.Text("Evidence files")),
+				html.Input(html.Props{Name: "attachment", Type: "file", Class: consoleInputClass(), Raw: map[string]any{"multiple": true, "accept": ".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv"}}),
+			),
+			textareaWithValue("note", "Attachment note", "Shipment seal mismatch documented at dock door B."),
+			submitButton("Upload evidence"),
+		}
+		return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/attachments", Method: "post", Class: consoleSurfaceClass(), Raw: map[string]any{"encType": "multipart/form-data"}}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+	})
 }
 
 func receivingDraftChangeSummary(parseCurrent receivingFormState, parsePrevious ui.Previous[receivingFormState]) ui.Node {
@@ -3965,43 +4639,111 @@ func receivingDraftChangeSummary(parseCurrent receivingFormState, parsePrevious 
 	if parseSummary == "" {
 		return nil
 	}
-	return html.Div(html.Props{Class: "rounded-[1.2rem] border border-cyan-300/20 bg-cyan-400/8 px-4 py-3 text-sm text-cyan-100"},
-		html.P(html.Props{Class: "font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text("Recent reconcile edit")),
-		html.P(html.Props{Class: "mt-2 leading-6"}, html.Text(parseSummary)),
+	// A draft-change note is a hint about the form it sits in, not a banner: field
+	// hint voice, no box, so it cannot outweigh the fields it describes.
+	return html.Div(html.Props{Class: consoleStackTightClass()},
+		html.P(html.Props{Class: consoleFieldLabelClass()}, html.Text("Recent reconcile edit")),
+		html.P(html.Props{Class: consoleFieldHintClass()}, html.Text(parseSummary)),
 	)
 }
 
+// receivingResolutionSummaryCard reports where the closeout draft currently stands.
+//
+// The stage now drives a status TONE as well as a label, which is the point of a
+// semantic palette: "closeout needs note" is a thing a human must fix, so it is the
+// exception tone, and "closeout ready" is verified. The old version painted all four
+// stages the same cyan, so the one stage that blocks submit looked like the three
+// that do not.
 func receivingResolutionSummaryCard(parseState receivingResolutionWorkflowState) ui.Node {
 	parseStageLabel := "Classification open"
-	parseStageCopy := "Atlas is still waiting for the reconcile outcome and discrepancy note to settle."
+	parseStageCopy := "Waiting on the reconcile outcome and the discrepancy note."
+	parseTone := design.ToneNeutral
 	switch parseState.Stage {
 	case "closeout-ready":
 		parseStageLabel = "Closeout ready"
-		parseStageCopy = "Status and discrepancy notes line up, so this session can close cleanly."
+		parseStageCopy = "Status and discrepancy notes line up. This session can close cleanly."
+		parseTone = design.ToneVerified
 	case "closeout-needs-note":
 		parseStageLabel = "Closeout needs note"
-		parseStageCopy = "Closed sessions should still explain the discrepancy or closeout outcome before submit."
+		parseStageCopy = "A closed session still has to say what happened. Add a discrepancy or closeout note before submitting."
+		parseTone = design.ToneException
 	case "discrepancy-review":
 		parseStageLabel = "Discrepancy review"
-		parseStageCopy = "The session is still under review, so Atlas treats this as an active exception workflow."
+		parseStageCopy = "Still under review, so this counts as an open exception."
+		parseTone = design.TonePending
 	}
-	parseEdited := "Workflow staged from the current receiving defaults."
+	parseEdited := "Staged from the current receiving defaults."
 	if strings.TrimSpace(parseState.LastEditedField) != "" {
 		parseEdited = "Last updated field: " + strings.ReplaceAll(parseState.LastEditedField, "_", " ") + "."
 	}
-	return html.Div(html.Props{Class: "rounded-[1.2rem] border border-cyan-300/20 bg-cyan-400/8 px-4 py-3 text-sm text-cyan-100"},
-		html.P(html.Props{Class: "font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseStageLabel)),
-		html.P(html.Props{Class: "mt-2 leading-6"}, html.Text(parseStageCopy)),
-		html.P(html.Props{Class: "mt-2 text-xs uppercase tracking-[0.2em] text-cyan-200/75"}, html.Text(parseEdited)),
+	return html.Div(html.Props{Class: consoleStackTightClass()},
+		html.Div(html.Props{Class: consoleChipRowClass()},
+			html.Span(html.Props{Class: consoleStatusChipClass(parseTone)}, html.Text(parseStageLabel)),
+		),
+		html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseStageCopy)),
+		html.P(html.Props{Class: consoleFieldHintClass()}, html.Text(parseEdited)),
 	)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FIELD PRIMITIVES — these call ui.UseId/ui.UseEvent and stay HELPERS on purpose.
+// Read this before "fixing" them, because the obvious fix does not work.
+//
+// # The general rule, and the exception these are
+//
+// The rule everywhere else in this file is: a function that calls a hook must BE
+// a component, i.e. return ui.CreateElement(...) so the runtime owns its fiber.
+// The field builders below are the documented exception, and the reason is a
+// property of ui.CreateElement's component-identity model.
+//
+// # Why ui.CreateElement cannot wrap a repeated leaf helper
+//
+// ui.CreateElement resolves a component to a cached *runtime.ComponentType handle
+// keyed by the function's identity, and that identity comes from
+// runtime.FuncForPC(codePointer).Name() — see ui/component_handle_shared.go,
+// getComponentHandle and describeComponentIdentity. Every closure created at the
+// SAME source line therefore maps to the SAME handle, and each new closure
+// overwrites that handle's implementation renderer.
+//
+// Consequence: a helper that returns ui.CreateElement(func() ui.Node { … }) works
+// only while ONE instance is live. Render three of them as siblings and all three
+// resolve to one handle whose implementation is the LAST closure created, so all
+// three render the last call's captured arguments.
+//
+// That is not hypothetical. Wrapping boundInputWithValue this way made the
+// operator preferences form render "Default warehouse" three times — the theme and
+// locale inputs both took the third call's captures — and dropped name="locale"
+// from the submitted form entirely. phase_d_internal_regression_test.go catches it.
+//
+// # So what is still wrong, and what protects it
+//
+// Because these stay helpers, their hook slots are consumed from the CALLER's
+// fiber. Two consequences remain open (see the report accompanying this pass):
+//
+//   - A caller that emits a different number of fields per branch changes its own
+//     hook count between renders (productPrimaryActionForm and
+//     availabilityPrimaryActionForm switch on status and emit 2 or 5 fields).
+//   - publicProductActionRail invokes one closure twice (desktop column + mobile
+//     drawer), so the same logical field draws two different ids and the drawer's
+//     aria-labelledby points at the desktop label.
+//
+// What keeps these from being fatal today: every FORM that contains them is a
+// component (purchaseOrderStatusForm, renderReceivingAttachmentForm,
+// receivingFormForID, preferenceForm, moderationForm, …), so the varying hook
+// count is contained inside a fiber that owns nothing else, and no hook is
+// declared after the fields in those bodies.
+//
+// The real fix needs per-instance component identity — a named component taking
+// props, or an identity key — not an anonymous closure. Do not reintroduce the
+// closure wrapper.
+// ─────────────────────────────────────────────────────────────────────────────
+
 func receivingWorkflowInputWithValue(parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[receivingFormState], parseWorkflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
 	parseId := ui.UseId()
-	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+	return html.Label(html.Props{Class: consoleFieldClass()},
+		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
 		html.Input(html.Props{
-			ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
+			ID: parseId, Name: parseName, Value: parseValue, Class: consoleInputDataClass(),
 			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
 				parseNext := parseEvent.GetValue()
 				parseForm.SetField(parseField, parseNext)
@@ -4014,10 +4756,10 @@ func receivingWorkflowInputWithValue(parseName, parseLabel, parseValue, parseFie
 
 func receivingWorkflowTextareaWithValue(parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[receivingFormState], parseWorkflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
 	parseId := ui.UseId()
-	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+	return html.Label(html.Props{Class: consoleFieldClass()},
+		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
 		html.Textarea(html.Props{
-			ID: parseId, Name: parseName, Value: parseValue, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
+			ID: parseId, Name: parseName, Value: parseValue, Class: consoleInputClass(),
 			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
 				parseNext := parseEvent.GetValue()
 				parseForm.SetField(parseField, parseNext)
@@ -4028,14 +4770,24 @@ func receivingWorkflowTextareaWithValue(parseName, parseLabel, parseValue, parse
 	)
 }
 
+// purchaseOrderStatusForm is a COMPONENT because the fields it renders own hooks.
+//
+// It is reached from purchaseOrderDetailRail's atlasLazySection loader — a
+// goroutine with no current fiber — so building its subtree eagerly there used to
+// execute inputWithValue's and textareaWithValue's ui.UseId immediately and panic.
+// Both field primitives are components now, so the ui.CreateElement here is
+// belt-and-braces: it guarantees this form owns a fiber even if a future edit adds
+// a direct hook call to the body.
 func purchaseOrderStatusForm(parseId string, parseStatus string, parsePayload Payload) ui.Node {
-	parseChildren := []ui.Node{
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Update order status")),
-		inputWithValue("status", "Status", fallback(parseStatus, "submitted")),
-		textareaWithValue("note", "Note", "Validated by Atlas operations."),
-		submitButton("Update order"),
-	}
-	return html.Form(html.Props{Action: "/api/app/purchase-orders/" + parseId + "/status", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+	return ui.CreateElement(func() ui.Node {
+		parseChildren := []ui.Node{
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Update order status")),
+			inputWithValue("status", "Status", fallback(parseStatus, "submitted")),
+			textareaWithValue("note", "Note", "Validated by Atlas operations."),
+			submitButton("Update order"),
+		}
+		return html.Form(html.Props{Action: "/api/app/purchase-orders/" + parseId + "/status", Method: "post", Class: consoleSurfaceClass()}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+	})
 }
 
 func prependCSRFToken(parseToken string, parseChildren ...ui.Node) []ui.Node {
@@ -4067,17 +4819,17 @@ func publicInputWithValue(parseName, parseLabel, parseValue string) ui.Node {
 
 func inputWithValue(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
-	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
+	return html.Label(html.Props{Class: consoleFieldClass()},
+		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: consoleInputDataClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
 func boundInputWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
 	parseId := ui.UseId()
-	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
+	return html.Label(html.Props{Class: consoleFieldClass()},
+		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: consoleInputDataClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -4088,15 +4840,15 @@ func boundTransitionSelectWithValue[T any](parseName, parseLabel, parseValue, pa
 		isParseSelected := strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value)) || (strings.TrimSpace(parseValue) == "" && parseOption.Value == "")
 		parseChildren = append(parseChildren, html.Option(html.Props{Value: parseOption.Value, Selected: isParseSelected}, html.Text(parseOption.Label)))
 	}
-	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+	return html.Label(html.Props{Class: consoleFieldClass()},
+		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
 		html.Select(html.Props{
 			ID:   parseId,
 			Name: parseName,
 			OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) {
 				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
-			Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
+			Class: consoleInputDataClass(),
 			Raw:   map[string]any{"aria-labelledby": parseId + "-label", "data-transition": parseTransition.Pending()},
 		}, parseChildren...),
 	)
@@ -4112,17 +4864,17 @@ func publicTextarea(parseName, parseLabel string) ui.Node {
 
 func textareaWithValue(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
-	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+	return html.Label(html.Props{Class: consoleFieldClass()},
+		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: consoleInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
 func boundTextareaWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
 	parseId := ui.UseId()
-	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+	return html.Label(html.Props{Class: consoleFieldClass()},
+		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: consoleInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
@@ -4140,28 +4892,40 @@ func preferenceDensityPreviewCard(parseValue string, isPending bool) ui.Node {
 	if isPending {
 		parseCopy = "Applying the next density preview in a transition so the settings form stays responsive."
 	}
-	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/45 p-4"},
-		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text("Density preview")),
+	// The atlas-density-preview classes are NOT design-system classes and are not
+	// converted: they are defined in client/atlas-commerce-os.html and are what the
+	// preview is demonstrating. Everything around them is.
+	return html.Div(html.Props{Class: consoleRecessClass()},
+		html.P(html.Props{Class: consoleFieldLabelClass()}, html.Text("Density preview")),
 		html.Div(html.Props{Class: parseClassName},
-			html.Div(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-300/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100"}, html.Text(strings.Title(parseDensity))),
-			html.Div(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-300"}, html.Text("Warehouse shell")),
-			html.Div(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-300"}, html.Text("Inventory rail")),
+			// The chip uppercases in CSS, so the TEXT stays human-cased — the DOM keeps a
+			// readable string for tests and assistive tech either way.
+			html.Span(html.Props{Class: consoleStatusChipClass(design.TonePending)}, html.Text(strings.Title(parseDensity))),
+			html.Span(html.Props{Class: consoleStatusChipClass(design.ToneNeutral)}, html.Text("Warehouse shell")),
+			html.Span(html.Props{Class: consoleStatusChipClass(design.ToneNeutral)}, html.Text("Inventory rail")),
 		),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
+		html.P(html.Props{Class: consoleFieldHintClass()}, html.Text(parseCopy)),
 	)
 }
 
 func submitButton(parseLabel string) ui.Node {
-	return html.Button(html.Props{Type: "submit", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text(parseLabel))
+	return html.Button(html.Props{Type: "submit", Class: consolePrimaryButtonClass()}, html.Text(parseLabel))
 }
 
+// commentNodes, transferNodes and receivingNodes are compact list renderers. Each
+// entry is a Stack separated from the next by space, not a bordered row: a list of
+// four bordered boxes inside a panel is the nested-card shape, and none of the three
+// carries enough per-item structure to need a frame.
 func commentNodes(parseItems []commentRecord) []ui.Node {
 	parseNodes := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Subject+" · "+parseItem.Status)),
-			html.P(html.Props{Class: "mt-2 text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text(parseItem.ProductSKU+" · "+parseItem.AuthorName+" · "+strings.ReplaceAll(parseItem.AuthorType, "_", " "))),
-			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(parseItem.Body)),
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: consoleStackTightClass()},
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseItem.Subject)),
+				html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(parseItem.Status)),
+			),
+			html.P(html.Props{Class: consoleCodeClass()}, html.Text(parseItem.ProductSKU+" · "+parseItem.AuthorName+" · "+strings.ReplaceAll(parseItem.AuthorType, "_", " "))),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseItem.Body)),
 		))
 	}
 	return parseNodes
@@ -4176,44 +4940,71 @@ func internalWorkflowSection(parseTitle, parseCopy string, parseCards ...ui.Node
 		parseCloseID := parseSheetID + "-close"
 		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
 		parseCloseDrawer := func() { parseOpen.Set(false) }
+		parseHead := []ui.Node{html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseTitle))}
+		if strings.TrimSpace(parseCopy) != "" {
+			parseHead = append(parseHead, html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseCopy)))
+		}
 		parseChildren := []ui.Node{
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseTitle)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
-			),
-			html.Button(html.Props{Type: "button", Class: "inline-flex w-fit items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 lg:hidden", OnClick: parseOpenDrawer}, html.Text("Open quick actions")),
-			html.Div(html.Props{Class: "hidden gap-4 md:grid-cols-2 xl:grid-cols-3 lg:grid"}, parseCards...),
-			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: "grid gap-4"},
-				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-					html.Div(html.Props{Class: "grid gap-2"},
-						html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Quick actions")),
-						html.P(html.Props{ID: parseTitleID, Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
-						html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-6 text-slate-400"}, html.Text(parseCopy)),
+			html.Div(html.Props{Class: consoleStackTightClass()}, parseHead...),
+			// The shortcuts wrap in a Cluster instead of switching between a hidden grid
+			// and a drawer at 1024px. The drawer stays because it is behaviour this pass
+			// does not change, but the shortcuts are readable at 380px without it.
+			html.Div(html.Props{Class: consoleClusterClass()}, parseCards...),
+			html.Button(html.Props{Type: "button", Class: consoleQuietButtonClass(), OnClick: parseOpenDrawer}, html.Text("Open quick actions")),
+			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: consoleStackClass()},
+				html.Div(html.Props{Class: consoleSplitRowClass()},
+					html.Div(html.Props{Class: consoleStackTightClass()},
+						html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Quick actions")),
+						html.P(html.Props{ID: parseTitleID, Class: consoleSectionTitleClass()}, html.Text(parseTitle)),
+						html.P(html.Props{ID: parseDescriptionID, Class: consoleProseFineClass()}, html.Text(parseCopy)),
 					),
-					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: warehouseSecondaryButtonClass(), OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: consoleQuietButtonClass(), OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
-				html.Div(html.Props{Class: "grid gap-4"}, parseCards...),
+				html.Div(html.Props{Class: consoleStackClass()}, parseCards...),
 			)),
 		}
-		return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"}, parseChildren...)
+		return html.Div(html.Props{Class: consoleSurfaceClass()}, parseChildren...)
 	})
 }
 
+// internalWorkflowCard is a shortcut, and parseStep is now OPTIONAL.
+//
+// The dashboard used to pass "Action 1" … "Action 4" for four independent
+// shortcuts, which implies an order that does not exist — an operator reading
+// "Action 3" looks for what Action 2 was. Callers that have a real sequence (the
+// guided demo) still pass a step; everyone else passes "" and the eyebrow is
+// omitted rather than rendered blank.
 func internalWorkflowCard(parseStep, parseTitle, parseCopy, parseHref string) ui.Node {
-	return html.A(html.Props{Href: parseHref, Class: "grid gap-3 " + internalAccentSurfaceClass() + " p-4 transition hover:border-cyan-300/55 hover:bg-[linear-gradient(180deg,rgba(10,24,42,0.96),rgba(7,14,26,0.99))]"},
-		html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text(parseStep)),
-		html.P(html.Props{Class: "text-base font-semibold text-white"}, html.Text(parseTitle)),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
-		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text("Open workflow")),
+	parseChildren := []ui.Node{}
+	if strings.TrimSpace(parseStep) != "" {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: consoleCodeClass()}, html.Text(parseStep)))
+	}
+	parseChildren = append(parseChildren,
+		// The title carries the link's colour and underline: in a dense console, colour
+		// alone does not separate a link from a status value, and dropping the underline
+		// is the most common way a screen becomes unusable for a colourblind operator.
+		html.P(html.Props{Class: design.Class(design.SectionTitle(), design.Link())}, html.Text(parseTitle)),
+		html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseCopy)),
 	)
+	// A shortcut is a LINK, not a card. The trailing "Open workflow" line is gone,
+	// because a link that also says "open" is telling the reader what a link is.
+	return html.A(html.Props{
+		Href:  parseHref,
+		Class: design.Class(design.Stack(design.Space1), []css.Rule{css.Raw("text-decoration", "none"), css.MaxWidth(css.Rem(22))}),
+	}, parseChildren...)
 }
 
 func transferNodes(parseItems []transferRecord) []ui.Node {
 	parseNodes := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.SourceWarehouseID+" → "+parseItem.DestinationWarehouse)),
-			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(parseItem.Reason+" · "+parseItem.Status)),
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: consoleStackTightClass()},
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				// The lane is two hub codes and an arrow, in mono, so a stack of lanes
+				// aligns on the arrow.
+				html.P(html.Props{Class: consoleDataClass()}, html.Text(parseItem.SourceWarehouseID+" → "+parseItem.DestinationWarehouse)),
+				html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(parseItem.Status)),
+			),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text(parseItem.Reason)),
 		))
 	}
 	return parseNodes
@@ -4222,18 +5013,24 @@ func transferNodes(parseItems []transferRecord) []ui.Node {
 func receivingNodes(parseItems []receivingRecord) []ui.Node {
 	parseNodes := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
-		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.ID+" · "+parseItem.Status)),
-			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(fallback(parseItem.DiscrepancySummary, "No discrepancies recorded."))),
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: consoleStackTightClass()},
+			html.Div(html.Props{Class: consoleChipRowClass()},
+				html.P(html.Props{Class: consoleDataClass()}, html.Text(parseItem.ID)),
+				html.Span(html.Props{Class: consoleStatusChipClass(atlasStatusTone(parseItem.Status))}, html.Text(parseItem.Status)),
+			),
+			html.P(html.Props{Class: consoleProseFineClass()}, html.Text(fallback(parseItem.DiscrepancySummary, "No discrepancies recorded."))),
 		))
 	}
 	return parseNodes
 }
 
+// infoRow is a label/value line, not a box: the label sits left in the field-label
+// voice and the value right in mono, so a stack of them reads as a spec sheet with
+// its values in one column.
 func infoRow(parsePrimary string, parseSecondary string) ui.Node {
-	return html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-		html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parsePrimary)),
-		html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(parseSecondary)),
+	return html.Div(html.Props{Class: design.Class(design.SplitRow(design.Space3), []css.Rule{css.Raw("align-items", "baseline")})},
+		html.Span(html.Props{Class: consoleFieldLabelClass()}, html.Text(parsePrimary)),
+		html.Span(html.Props{Class: consoleDataClass()}, html.Text(parseSecondary)),
 	)
 }
 

@@ -3,17 +3,72 @@ package atlas
 import (
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
-// renderAtlasMarkupForTest renders one Atlas node to markup for focused panel assertions.
+// atlasNativeRenderMu serializes native renders across this package's tests, and
+// every test render must go through renderAtlasNodeForTest to take it.
+//
+// WHY: the runtime tracks the component it is currently rendering in PACKAGE
+// globals - currentFiber and currentFiberOwnerGoroutineID in
+// internal/runtime/reconciler.go - which ui.RenderToString sets and restores
+// around each component (internal/runtime/ssr.go: withSSRHookFiber). That makes
+// native server rendering single-flight per PROCESS, not per call. Two
+// t.Parallel() tests rendering at the same moment overwrite each other's current
+// fiber, and the loser either reads another component's hook slots or trips
+// GWC-RUNTIME-HOOK-THREADING.
+//
+// This never surfaced before because the native hook surface was stubbed: no
+// render claimed a fiber, so concurrent renders could not collide. Making the
+// hooks real exposed a genuine property of the runtime, so the tests hold a lock
+// rather than paper over it. Everything in a test outside the render still runs
+// in parallel.
+var atlasNativeRenderMu sync.Mutex
+
+// renderAtlasNodeForTest is the (markup, error) render entry point for this
+// package's tests. Call it instead of ui.RenderToString directly so the render is
+// serialized; see atlasNativeRenderMu.
+func renderAtlasNodeForTest(parseNode ui.Node) (string, error) {
+	atlasNativeRenderMu.Lock()
+	defer atlasNativeRenderMu.Unlock()
+	return ui.RenderToString(parseNode)
+}
+
+// renderAtlasMarkupForTest renders one already-built Atlas node to markup.
+//
+// Use it only for node BUILDERS - helpers that assemble markup from plain
+// arguments and call no hooks. If the helper calls a hook (directly or through
+// something like currentShellPresentationState -> useAtlasAtom), building the
+// node at the call site runs that hook outside any render pass and panics with
+// GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT. Use renderAtlasComponentForTest instead.
 func renderAtlasMarkupForTest(parseT *testing.T, parseNode ui.Node) string {
 	parseT.Helper()
-	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	parseMarkup, parseErr := renderAtlasNodeForTest(parseNode)
 	if parseErr != nil {
 		parseT.Fatalf("RenderToString(): %v", parseErr)
+	}
+	return parseMarkup
+}
+
+// renderAtlasComponentForTest renders parseRender AS a component, so anything it
+// calls runs on the render fiber the runtime installs for it.
+//
+// This is the test-side counterpart of what client/main.go must do:
+// ui.CreateElement(component, props) rather than component(props). It exists as a
+// closure-taking helper because many Atlas view functions take several arguments
+// (payload plus a page struct) and so cannot be passed to ui.CreateElement's
+// single-props form directly.
+//
+// Prefer this whenever the function under test touches state. It is the only
+// shape in which a native render is evidence about the browser.
+func renderAtlasComponentForTest(parseT *testing.T, parseRender func() ui.Node) string {
+	parseT.Helper()
+	parseMarkup, parseErr := renderAtlasNodeForTest(ui.CreateElement(parseRender))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(component): %v", parseErr)
 	}
 	return parseMarkup
 }
@@ -37,8 +92,8 @@ func TestWarehouseOpsPanelsRenderWorkspaceAndItem(parseT *testing.T) {
 	parseDetailMarkup := renderAtlasMarkupForTest(parseT, WarehouseOpsDetailPanel(parseDetailPayload))
 	for _, parseNeedle := range []string{
 		parseWarehouses[0].Name,
-		"Warehouse items",
-		"Urgent actions",
+		"Items in this hub",
+		"Needs action",
 	} {
 		if !strings.Contains(parseDetailMarkup, parseNeedle) {
 			parseT.Fatalf("expected warehouse detail markup to contain %q", parseNeedle)
@@ -76,7 +131,9 @@ func TestDetailPanelsAndStatsIslandsRenderFallbacks(parseT *testing.T) {
 			{ID: "po-line-1", PurchaseOrderID: "po-1042", ProductSKU: "frame-desk", Quantity: 12, ETA: "Thu 09:30", Status: "submitted"},
 		},
 	}
-	parseOrderMarkup := renderAtlasMarkupForTest(parseT, purchaseOrderDetailContent(samplePayloadForRoute(RoutePurchaseOrderDetail, parseOrderPage, nil)))
+	parseOrderMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return purchaseOrderDetailContent(samplePayloadForRoute(RoutePurchaseOrderDetail, parseOrderPage, nil))
+	})
 	for _, parseNeedle := range []string{
 		parseOrderPage.Order.VendorName,
 		"Back to PO table",
@@ -87,7 +144,9 @@ func TestDetailPanelsAndStatsIslandsRenderFallbacks(parseT *testing.T) {
 		}
 	}
 
-	parseOrderStatsMarkup := renderAtlasMarkupForTest(parseT, purchaseOrderDetailStatsIsland(Payload{}, parseOrderPage))
+	parseOrderStatsMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return purchaseOrderDetailStatsIsland(Payload{}, parseOrderPage)
+	})
 	if !strings.Contains(parseOrderStatsMarkup, parseOrderPage.Order.WarehouseName) || !strings.Contains(parseOrderStatsMarkup, parseOrderPage.Order.ETA) {
 		parseT.Fatalf("unexpected purchase-order stats markup %q", parseOrderStatsMarkup)
 	}
@@ -98,7 +157,9 @@ func TestDetailPanelsAndStatsIslandsRenderFallbacks(parseT *testing.T) {
 			{ID: "rcv-line-1", ReceivingSessionID: "rcv-illinois-001", ProductSKU: "frame-desk", ExpectedQuantity: 8, ActualQuantity: 7, DiscrepancyReason: "supplier short"},
 		},
 	}
-	parseReceivingStatsMarkup := renderAtlasMarkupForTest(parseT, receivingDetailStatsIsland(Payload{}, parseReceivingPage))
+	parseReceivingStatsMarkup := renderAtlasComponentForTest(parseT, func() ui.Node {
+		return receivingDetailStatsIsland(Payload{}, parseReceivingPage)
+	})
 	if !strings.Contains(parseReceivingStatsMarkup, parseReceivingPage.Session.WarehouseID) || !strings.Contains(parseReceivingStatsMarkup, parseReceivingPage.Session.Status) {
 		parseT.Fatalf("unexpected receiving stats markup %q", parseReceivingStatsMarkup)
 	}

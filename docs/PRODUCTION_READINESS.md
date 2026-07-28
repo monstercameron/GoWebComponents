@@ -1,5 +1,192 @@
 # v5 production readiness
 
+> ## 2026-07-26 — the gate numbers below this banner were measured with a probe that generated no input
+>
+> `driveTyping` in the P0.2 harness is a `setTimeout` that types nothing, and always
+> has been. Event Timing only records TRUSTED events, so page script cannot produce
+> input at all — it must come from the automation driver. Consequences:
+>
+> - **M1's recorded pass is an artifact.** Equivalence between an idle arm and a
+>   "loaded" arm in which the probe also did nothing is trivially true regardless of
+>   what the runtime does.
+> - **M2 and M7 were reporting zeros from dead instruments.** Six deliberately
+>   injected 180 ms main-thread blocks went uncounted; LoAF does not fire in headless
+>   Chromium. M7 reported 0 ms because no collection was ever sampled.
+> - **A second contaminant:** 247 livereload dev servers leaked by `tools/gwc`'s
+>   dev-loop tests were running on the measurement machine, the oldest two days old.
+>   Any benchmark taken alongside them is contended. Fixed — see
+>   `killListenersOnPort` in `tools/gwc/start_test.go`.
+>
+> ### Re-measured properly: headed browser, real trusted keystrokes, quiet machine
+>
+> Four runs, ~650 interaction samples each, all three §1.2 workloads confirmed running:
+>
+> | gate | target | measured | verdict |
+> |---|---|---|---|
+> | M1 frame equivalence | equivalent | equivalent in 4/4 | **PASS** |
+> | M2 long frames | 0 | 22, 28, 31, 36 | **FAIL** |
+> | M3 interaction p95 | < 50 ms | 34, 48, 48, 56 | **MARGINAL** |
+> | M3 interaction max | < 120 ms | 72, 88, 96, 136 | **MARGINAL** |
+> | M7 max GC pause | < 3 ms | 9.3, 9.8, 9.9, 11.0 | **FAIL** |
+>
+> **M1 genuinely passes.** The thesis holds: with real typing and real background
+> work, loaded frame time is statistically equivalent to idle. That is the claim v5
+> exists to make, and it is now supported by evidence rather than by an idle page.
+>
+> **M2 and M7 genuinely fail.** LoAF attribution for the long frames:
+> `scriptedMs=1345, styleAndLayoutMs=0`, top invoker `INPUT#filter.oninput=825ms`.
+> Zero style/layout means this is not a rendering-pipeline problem; it is Go work in
+> the input path. A ~10 ms GC pause cannot explain a 100 ms frame, so M2 and M7 have
+> separate causes.
+>
+> **v5's scheduling flags make it worse, confirmed twice.** With `?v5=1`
+> (PassiveEffectsAfterPaint + LaneQueues + frame budget) the same workload produced 36
+> long frames instead of 28, a 119 ms worst frame instead of 82 ms, and 457 ms of
+> blocking instead of 70 ms. This independently reproduces the plan's own finding
+> that the frame-budget default had to be reverted.
+>
+> ### A stale served artifact invalidated most of 2026-07-26's browser numbers
+>
+> The harness page is served from a COPY of `v5harness.wasm` in a scratchpad
+> directory, not from the repository. That copy went stale early in the day, so
+> every browser measurement taken afterwards ran the same old binary regardless
+> of what was rebuilt. Three conclusions drawn from those runs are withdrawn:
+>
+> - **The paint-yield cascade guard was never tested.** It was recorded as
+>   "refuted"; it had in fact never executed in a browser. See the
+>   `sched 2026-07-26` note in `internal/runtime/scheduler.go`.
+> - **The dev-build vs `-tags production` comparison (21.7 vs 17.3 long frames)
+>   was noise.** Both arms ran the same binary.
+> - **The arena pre-grow experiment's first result was meaningless.** Re-run
+>   correctly, it did work in isolation but did nothing here — see below.
+>
+> Anyone measuring this harness must check the served artifact's checksum against
+> the freshly built one before trusting a number. This is the third
+> instrument-level defect found in this gate suite in two days, after the probe
+> that generated no input and the 247 leaked dev servers.
+>
+> ### M2 re-measured on a verified-fresh production binary
+>
+> With the served artifact confirmed by checksum, three runs: **16, 15, 17 long
+> frames** (worst 98-101ms), M1 equivalent in all three, M3 p95 40-48ms.
+>
+> That is materially better than the 22-36 recorded all day from the stale copy,
+> and much more stable. M2 still fails against a budget of 0, and M3 still misses
+> its 120ms ceiling on the worst interaction, but the real gap is smaller than
+> this document previously claimed.
+>
+> ### M7: the pointer-density hypothesis is refuted; the cause is still open
+>
+> This document previously attributed M7 to "mark-termination cost over a
+> pointer-dense fiber tree." A standalone probe outside this repo refutes that.
+> Same byte count, one pointer-free heap and one pointer-dense heap shaped like a
+> fiber tree:
+>
+> | heap | bytes-only | pointer-dense |
+> |---|---|---|
+> | 1MB | 8.80ms | 0.70ms |
+> | 2MB | 0.50ms | 0.70ms |
+> | 4MB | 0.30ms | 0.30ms |
+>
+> Pointer density is irrelevant. In that probe the expensive pause tracked heap
+> GROWTH, and pre-growing the wasm arena at boot fixed it decisively — fresh
+> pages, three runs each, 1MB workload: **8.70/8.40/8.60ms without, 1.30/1.70/1.40ms
+> with**.
+>
+> **That fix does not transfer to the harness.** Pre-growing 32MB at boot (cost:
+> 53-79ms, charged to M10) left M7 at 9.5-12.5ms, unchanged. So the harness's
+> pauses are not arena growth either, and the pre-grow was reverted rather than
+> kept as a boot cost that buys nothing.
+>
+> Two further candidates were then tested and eliminated:
+>
+> - **`syscall/js` reference table.** Pause is flat at 8.0-8.9ms across 0, 500,
+>   2000 and 8000 live `js.Func` callbacks. Not handler count.
+> - **Collector warmup ordinal.** Recording EVERY cycle rather than the max shows
+>   the cost sits at a fixed ordinal in a fresh instance — the SECOND collection:
+>   `perCycle=[0.0  8.1  0.8 1.0 0.4 0.5 0.6 ...]`, identical at 0.07MB and 1MB
+>   heaps and with any handler count. Real, and the harness boot now warms three
+>   collections past it — but it did NOT move M7 (9.2-10.8ms with, 9.5-12.5ms
+>   without). Not what the harness is hitting.
+>
+> ### The premise behind the rejected GC knobs was wrong
+>
+> This document and the harness both asserted the heap is "under a megabyte", and
+> used that to explain why GOGC pacing cannot help. Measured, it peaks at
+> **11.02MB** (per-window: 5.35 6.03 4.54 1.63 1.14 1.73 11.02 9.44 6.20 6.13
+> 6.65 6.48). So the knob was dismissed on a false premise and had to be re-tested.
+>
+> Re-tested at GOGC 20 and 10: collections rise from 6 to **66-69** per run and
+> the heap is held at ~1.0-1.7MB instead of peaking at 11MB. The max pause does
+> **not** move — 9.5, 18.0, 13.5, 14.9ms — and M2 gets worse (26-29 long frames vs
+> 12-18).
+>
+> ### Where that leaves M7
+>
+> The max pause is invariant to heap size, collection frequency, pointer density,
+> arena growth, handler count and collector warmup. Eight mitigations across two
+> sessions have moved it by nothing. Meanwhile a quiescent probe on the same
+> machine, at the same heap sizes, pauses 0.3-0.7ms.
+>
+> The remaining structural difference is that the harness's collections happen
+> inside a running app — JS/wasm interop, DOM commits, a live Web Worker — where
+> the probe's happen on an idle heap. Go's wasm runtime is single-threaded and
+> cooperatively scheduled on the JS event loop, so a wall-clock `PauseNs` spanning
+> a return to that event loop can include browser work that is not collection
+> cost. That would explain the invariance, and it would mean **`PauseNs` in
+> js/wasm is not the pure stop-the-world measure M7 assumes.**
+>
+> ### M7 RESOLVED (cause, not fix): collections that land mid-render
+>
+> That hypothesis was tested and is also wrong — `PauseNs` UNDERSTATES rather than
+> inflates. Forced collections bracketed with `performance.now()` cost 1.9-6.2ms
+> of wall time while Go attributes 0.1-0.4ms of it to "pause", because Go's pause
+> excludes concurrent mark, which in single-threaded wasm still blocks the main
+> thread. So M7's number is conservative, not contaminated.
+>
+> The cause came out of tracing EVERY cycle instead of the max
+> (`window.__gwcV5PauseTrace`, added in probe.go). One representative run:
+>
+> | phase | cycles |
+> |---|---|
+> | boot / warmup | `1:9.1  2:0.8  3:1.4  4:0.9  5:2.0  6:0.6  7:0.5  8:0.9  9:1.1` |
+> | **during the measured run** | `10:12.2 11:1.8 12:7.3 13:6.9 14:8.1 15:8.6 16:0.7 17:9.3 18:7.3 19:0.7 20:9.0 21:7.3` |
+> | forced, seconds later | `22:0.2 23:0.1 24:0.1 25:0.3` |
+>
+> Collections cost 7-12ms REPEATEDLY while the renderer is working, and 0.1-0.3ms
+> on a comparable heap moments after it stops. Forced collections report 0.1-1.3ms
+> idle, under background load, and after load — the earlier "under load" audit
+> showed nothing because it ran the workloads WITHOUT typing, so no render passes
+> were in flight. Rendering is the variable, not load.
+>
+> The mechanism follows from the reconciler's own design: mid-render, BOTH fiber
+> trees are live at once (`alternate` double-buffering) plus the freshly built
+> element graph, so a collection landing there traces roughly twice the tree at
+> its largest. This also explains the invariance to every knob tried — heap size,
+> collection frequency, pointer density, arena growth, handler count, warmup
+> ordinal. None of them change what is live during a render pass.
+>
+> **M2 and M7 therefore share one lever, and this document's claim that they have
+> "separate causes" was wrong.** Both are bounded by render-path allocation: it
+> sets how often a collection is triggered mid-pass and how much is live when one
+> is. The remaining targets are named by the allocation profile —
+> `buildElementWithHostProps` (25%), `cloneElementProps` + `maps.Copy` (24%) — and
+> the prediction to test is that cutting them moves M2 and M7 TOGETHER. The
+> `reportDuplicateKeys` fix below is the first increment of exactly that work.
+>
+> The 0.3-0.7ms quiescent floor remains the reason to think 3ms is reachable.
+>
+> M2 remains where the plan placed it: the intrinsic cost of one
+> render-and-commit pass, closing only by making reconciliation and commit
+> faster. Note that of the "three scheduling attempts" this document previously
+> cited, only two were validly measured.
+>
+> **The instruments now refuse to report a number they did not measure.** M1 fails
+> without recorded interactions, M2 fails when the frame timeline saw a long frame the
+> observer missed, M7 fails when a zero pause came from a probe that never answered.
+> Each guard has a paired test proving it fails when blind and passes on a real result.
+
+
 What was checked, what it said, and what is left. Written from measurements taken
 on 2026-07-26 against HEAD; every number here is reproducible with the command
 next to it.

@@ -8,11 +8,16 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/v5/css"
 	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
 	serverdb "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/db"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/api"
 	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/atlas"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/bootfallback"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
 	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/repository"
 	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
@@ -46,6 +51,47 @@ func newAtlasServer(parseCfg config, store *serverdb.Store, parseSessions *serve
 
 func (parseS *atlasServer) routes() http.Handler {
 	parseMux := http.NewServeMux()
+
+	// Typed server functions (shared/api). This is the v5 way to cross the
+	// client/server boundary: one Go signature per operation, from which
+	// `gwc server gen` writes both the registration below and the browser stub
+	// that calls it, so neither side can drift from the other.
+	//
+	// Contrast the hand-rolled routes further down this function — each is a URL
+	// string here, a matching URL string built by concatenation in
+	// shared/atlas/legacy_shared.go, a handler that encodes JSON, and a caller that
+	// decodes it into an any-shaped payload. Four places to agree, checked nowhere.
+	// A server function is one place, checked by the compiler.
+	//
+	// The dependency is registered before the mux is served: ListWarehouses is a
+	// plain top-level func and cannot take the store as an argument, so it reads it
+	// through a seam that api owns. Wiring it here rather than in main keeps the
+	// registration next to the routing it belongs to, and means a test that builds
+	// a server gets a working API without a separate setup call to forget.
+	parseStore := parseS.store
+	api.SetWarehouseSource(func(parseCtx context.Context) ([]api.Warehouse, error) {
+		parseWarehouses, parseErr := parseStore.Warehouses(parseCtx)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		// Mapped field by field on purpose. api.Warehouse is the PUBLIC shape and
+		// serverdb.Warehouse is the storage shape; a struct conversion or an alias
+		// would mean any column added to storage silently reaches the browser.
+		parsePublic := make([]api.Warehouse, 0, len(parseWarehouses))
+		for _, parseWarehouse := range parseWarehouses {
+			parsePublic = append(parsePublic, api.Warehouse{
+				ID:            parseWarehouse.ID,
+				Slug:          parseWarehouse.Slug,
+				Name:          parseWarehouse.Name,
+				Region:        parseWarehouse.Region,
+				ServiceLevel:  parseWarehouse.ServiceLevel,
+				PublicSummary: parseWarehouse.PublicSummary,
+			})
+		}
+		return parsePublic, nil
+	})
+	api.RegisterServerFunctions(parseMux)
+
 	parseStaticFS := http.FileServer(http.Dir(parseS.cfg.StaticDir))
 	parseMux.Handle("/assets/", http.StripPrefix("/assets/", parseStaticFS))
 	parseMux.HandleFunc("GET /healthz", parseS.handleHealth)
@@ -1040,6 +1086,9 @@ func (parseS *atlasServer) renderPageStatusWithPayload(parseW http.ResponseWrite
 	parsePayload.Route.Description = parseMeta.Description
 	parsePayload.Route.Canonical = parseMeta.Canonical
 	parsePayload.CSRF = ensureCSRFCookie(parseW, parseR)
+	// Level (1) of the locale contract just resolved inside bootstrapForPath; record
+	// it so the next link without a ?locale= parameter keeps the language.
+	persistLocaleCookie(parseW, parseR.URL.Query())
 	parsePayload.Data = parsePayloadData
 	parsePayload.Requests = parseRequests
 	parseBootstrapScript, parseBootstrapBytes, parseBootstrapMode, parseErr := parseS.renderBootstrapScript(parseMeta.Path, parseR.URL.Query(), parsePayload)
@@ -1053,9 +1102,106 @@ func (parseS *atlasServer) renderPageStatusWithPayload(parseW http.ResponseWrite
 	parseW.WriteHeader(parseStatus)
 	// Rendering boundary: metadata tags and bootstrap script are emitted together so direct-entry SSR and
 	// post-hydration client navigation both start from equivalent route semantics.
-	_, _ = fmt.Fprintf(parseW, "<!DOCTYPE html><html lang=%q class=%q data-atlas-surface=%q data-atlas-debug-logs=%q><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title data-gwc-router-managed=\"true\">%s</title><meta name=\"description\" content=%q data-gwc-router-managed=\"true\"><link rel=\"canonical\" href=%q data-gwc-router-managed=\"true\"><link rel=\"stylesheet\" href=\"/assets/css/tailwind.css\"><link rel=\"stylesheet\" href=\"/assets/css/example-shell.css\"><script src=\"/assets/script/wasm_exec.js\"></script><script src=\"/assets/script/example-logger.js\"></script></head><body class=\"example-shell\"><div id=\"app\"></div>%s%s</body></html>", parsePayload.I18n.Locale, atlasDocumentClass(parsePayload), parsePayload.Route.Surface, formatAtlasDebugLogsFlag(parseS.cfg.LogsEnabled), parseMeta.Title, parseMeta.Description, parseMeta.Canonical, parseBootstrapScript, wasmRuntimeSnippet(fileExists(parseS.cfg.AtlasWASM)))
+	//
+	// SCRIPT INVENTORY — this document ships exactly two scripts and one inline snippet, and that is the
+	// whole JavaScript surface of Atlas:
+	//
+	//   1. <script src="/assets/script/wasm_exec.js">  the Go toolchain's own glue from $GOROOT/lib/wasm.
+	//      It implements the host half of the Go wasm ABI (syscall/js value table, runtime.wasmWrite,
+	//      timers, memory growth). It is the one irreducible piece: Go code cannot bootstrap the runtime
+	//      that runs it, and this file is version-locked to the compiler, so it is copied, never authored.
+	//   2. <script id="__ATLAS_BOOTSTRAP__" type="application/json">  data, not code — the SSR payload the
+	//      client hydrates from. It is emitted by Go and parsed by Go.
+	//   3. the inline snippet from wasmRuntimeSnippet  ~20 lines whose only jobs are instantiating the
+	//      module and revealing a server-rendered failure message if that does not work.
+	//
+	// example-logger.js used to be linked here as a fourth script. It set window.__gwcExampleLogger to
+	// four console wrappers, nothing in Atlas ever called it, and Go reaches console directly through
+	// syscall/js when it wants to (see debugLog in client/main.go). It is gone from this document. The
+	// file itself stays in examples/static/script because ~290 other example pages link it.
+	//
+	// STYLESHEET INVENTORY — there are none. The document links no CSS at all and carries one
+	// inline <style data-gwc-css> instead. See atlasDesignStyleBlock for what came out and why.
+	parseIsWasmPresent := fileExists(parseS.cfg.AtlasWASM)
+	_, _ = fmt.Fprintf(parseW, "<!DOCTYPE html><html lang=%q dir=%q class=%q data-atlas-surface=%q data-atlas-debug-logs=%q><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title data-gwc-router-managed=\"true\">%s</title><meta name=\"description\" content=%q data-gwc-router-managed=\"true\"><link rel=\"canonical\" href=%q data-gwc-router-managed=\"true\">%s<script src=%q></script></head><body><div id=\"app\"></div>%s%s%s</body></html>", parsePayload.I18n.Locale, parsePayload.I18n.Direction, atlasDocumentClass(parsePayload), parsePayload.Route.Surface, formatAtlasDebugLogsFlag(parseS.cfg.LogsEnabled), parseMeta.Title, parseMeta.Description, parseMeta.Canonical, atlasDesignStyleBlock(), atlasWASMExecURL, atlasBootFallbackMarkup(parseIsWasmPresent), parseBootstrapScript, wasmRuntimeSnippet(parseIsWasmPresent))
 }
 
+// atlasDesignStyleBlock returns the <style> element that carries Atlas's entire
+// base layer, and it is the reason this document links no stylesheet at all.
+//
+// # WHY A GO PACKAGE REPLACED A 10,646-LINE STYLESHEET
+//
+// The document used to link two files:
+//
+//   - /assets/css/tailwind.css — 10,646 lines of Tailwind v4 build output, shared
+//     with ~145 other examples in this repo. Atlas used a few hundred of those
+//     utilities, shipped the rest, and paid for a build step (and a scan-bait file,
+//     examples/static/generated/tailwind-manifest.html, whose only job was to stop
+//     the compiler tree-shaking classes it could not see) to get them. The example's
+//     whole claim is that a browser app can be written in Go; an external CSS build
+//     is the largest remaining hole in that claim.
+//   - /assets/css/example-shell.css — 51 lines, and the more instructive of the two.
+//     It hard-set `color-scheme: dark` and painted three dark gradients with
+//     `!important`. That is why Atlas reported THEME: light while rendering
+//     near-black: `!important` on a global element selector cannot be beaten by
+//     anything a component emits, at any specificity, so the app's own theme state
+//     was decorative. An `!important` theme lock is not a strong default, it is a
+//     lock — the app can no longer be wrong about its own appearance in a way a
+//     developer can fix from the app. shared/design emits no `!important` anywhere
+//     and declares `color-scheme: light dark`, so the theme follows the user.
+//
+// Neither FILE was deleted: both are linked by ~145 and ~164 other files
+// respectively (examples/public-examples-site/**, examples/static/index.html, and
+// the generator in tools/gwc/examples.go). Atlas simply stopped linking them.
+//
+// # WHAT IS IN THE BLOCK, AND WHY IT IS SAFE TO CACHE
+//
+// design.Install() emits the global layer — the framework reset, the :root light
+// token block, the prefers-color-scheme dark override of the same names, the
+// element baseline, the accessibility floor and the print token block — through the
+// css package's Sink. On native that Sink is a process-wide buffer, so
+// css.StyleBlock() serializes it into <style data-gwc-css="…"> with the emitted
+// class names in the attribute; the client calls css.SeedFromDocument() and
+// therefore recognizes every one of them as already present instead of re-injecting
+// it after hydration.
+//
+// The result is computed once because the buffer sink only grows: harvesting it per
+// request would make each document's <style> depend on how many requests had been
+// served before it, which is the kind of non-determinism that makes a golden-file
+// test flap on the CI machine and pass locally. Atlas's SSR emits no design-classed
+// markup (the shell is `<div id="app"></div>` and every pixel is client-rendered),
+// so the global layer IS the server's whole styling contribution and nothing
+// request-scoped belongs in it.
+//
+// The trade this leaves open, stated plainly rather than hidden: the theme now
+// follows prefers-color-scheme, so the `atlas-theme-light`/`atlas-theme-dark`
+// classes on <html> are a data channel for the client's hydration audit and no
+// longer drive any pixels. Making the stored preference authoritative again means
+// adding a class-scoped token block to shared/design (its tokens.go documents the
+// pattern: css.Global(`[data-theme="dusk"]`, css.Raw(design.TokenPaper, …))) plus a
+// contrast test for it, which belongs in that package and not in this one.
+var atlasDesignStyleBlock = sync.OnceValue(func() string {
+	// Install BEFORE the first render, per design.Install's contract: its emission
+	// order (reset, then tokens, then baseline, then a11y floor, then print) is the
+	// cascade order, and anything folded ahead of it would land above the reset.
+	design.Install()
+	return css.StyleBlock()
+})
+
+// atlasDocumentClass builds the theme+density class pair on <html>.
+//
+// HONEST STATUS, because the name promises more than it currently delivers: with the
+// external stylesheets retired these two classes no longer paint anything. Nothing in
+// shared/design selects on them — its dark theme is a prefers-color-scheme override
+// of the same :root token names, so the visual theme follows the OS and the stored
+// `theme` preference does not move a pixel.
+//
+// They are kept, and kept accurate, because they are still a live contract: the
+// client's logHydrationDocumentMismatch asserts the document carries exactly the
+// classes the bootstrap payload implies, which is how SSR/hydration drift gets
+// caught. Making the preference authoritative again is a shared/design change — a
+// class-scoped token block, per the pattern in its tokens.go, plus a contrast test
+// for the new pairing — not a change here.
 func atlasDocumentClass(parsePayload atlas.Payload) string {
 	// SSR applies theme+density classes from the same preference payload the client hydrates from so
 	// direct-entry pages do not flash between default styling and resumed user settings.
@@ -1241,9 +1387,12 @@ func (parseS *atlasServer) bootstrapForPath(parseR *http.Request, parsePath stri
 func (parseS *atlasServer) bootstrapForRouteQuery(parseR *http.Request, parsePath string, parseRouteQuery url.Values, parseSession *serverauth.Session) (atlas.Payload, routeMeta, error) {
 	parseMeta := routeMetaForPath(parsePath)
 	parsePreferences, _ := parseS.store.PreferencesByOwner(parseR.Context(), sessionOwnerID(parseSession))
-	if parseSession == nil && parseMeta.Surface == "public" {
-		parsePreferences.Locale = publicLocaleFromQuery(parseRouteQuery.Get("locale"), parsePreferences.Locale)
-	}
+	// One locale for every surface. This used to be gated on
+	// `parseSession == nil && parseMeta.Surface == "public"`, which meant an operator
+	// who pasted ?locale=ar into an /app URL silently got English — two different
+	// answers to "what language is this page" depending on who was signed in.
+	// resolveRequestLocale is now the single answer; see its doc for the precedence.
+	parsePreferences.Locale = resolveRequestLocale(parseR, parseRouteQuery, parsePreferences.Locale)
 	parseSavedViews, _ := parseS.store.SavedViewsByOwner(parseR.Context(), sessionOwnerID(parseSession))
 	parseQuery := cloneQuery(parseRouteQuery)
 	parsePayload := atlas.Payload{
@@ -1361,14 +1510,103 @@ func sessionOwnerID(parseSession *serverauth.Session) string {
 	return parseSession.UserID
 }
 
-func publicLocaleFromQuery(parseLocale string, parseFallback string) string {
-	parseLocale = strings.ToLower(strings.TrimSpace(parseLocale))
-	for _, parseSupported := range atlas.SupportedLocales() {
-		if strings.EqualFold(parseLocale, parseSupported) {
-			return parseSupported
+// atlasLocaleCookieName is the sticky half of the locale contract.
+//
+// It is deliberately NOT HttpOnly: the wasm client writes the same cookie when a
+// client-side navigation changes the locale (see resolveClientLocale in
+// client/main.go), which is what keeps a single-page navigation and a hard reload
+// agreeing about the language. A cookie only the server can write would make the
+// two lanes disagree the moment the router took over.
+const atlasLocaleCookieName = "atlas_locale"
+
+// atlasLocaleCookieMaxAge is one year in seconds. Language choice is a long-lived
+// preference, and a session cookie here would silently revert the storefront to
+// English every time the browser restarted.
+const atlasLocaleCookieMaxAge = 365 * 24 * 60 * 60
+
+// resolveRequestLocale is THE LOCALE CONTRACT. Precedence, highest first:
+//
+//  1. the `locale` query parameter, when it names a supported locale. Explicit and
+//     shareable: a pasted URL must show its recipient the language it encodes,
+//     whoever they are and whatever they previously chose. It wins on both surfaces
+//     and it wins over a signed-in operator's saved preference.
+//  2. the atlas_locale cookie, when it names a supported locale. This is the memory
+//     of a previous (1): the language switcher only decorates the CURRENT path, so
+//     without the cookie the very next link — /warehouses, which carries no locale
+//     parameter — would drop the visitor back to English. persistLocaleCookie
+//     writes it whenever (1) fires.
+//  3. the owner's stored preference row (/app/settings for a signed-in operator,
+//     the shared "public" row otherwise).
+//  4. "en".
+//
+// Anything unrecognized at any level falls through to the next level rather than
+// being echoed back: an unsupported tag in the URL is a 200 in the fallback
+// language, never a reflected value in <html lang> and never a 404.
+//
+// WHY THIS PRECEDENCE AND NOT THE OTHER ONE: cookie-over-query is the arrangement
+// that produces the classic bug — a link shared into a French chat renders English
+// for everyone who ever clicked EN, and no one can reproduce it because the state is
+// invisible and per-browser. URL-wins keeps the visible thing authoritative and
+// leaves the invisible thing as memory only.
+func resolveRequestLocale(parseR *http.Request, parseRouteQuery url.Values, parseStoredLocale string) string {
+	if parseLocale, parseOK := supportedLocale(parseRouteQuery.Get("locale")); parseOK {
+		return parseLocale
+	}
+	if parseCookie, parseErr := parseR.Cookie(atlasLocaleCookieName); parseErr == nil {
+		if parseLocale, parseOK := supportedLocale(parseCookie.Value); parseOK {
+			return parseLocale
 		}
 	}
-	return nonEmpty(parseFallback, "en")
+	if parseLocale, parseOK := supportedLocale(parseStoredLocale); parseOK {
+		return parseLocale
+	}
+	return "en"
+}
+
+// supportedLocale validates one candidate tag against atlas.SupportedLocales and
+// returns it in the canonical (lower-case) spelling the payload and <html lang> use.
+//
+// Validating against the same list the switcher renders from is the whole defence
+// here: the value lands in an HTML attribute and in a Set-Cookie header, so an
+// allow-list — not escaping — is what keeps `?locale="><script>` from being a
+// question anyone has to think about.
+func supportedLocale(parseCandidate string) (string, bool) {
+	parseCandidate = strings.ToLower(strings.TrimSpace(parseCandidate))
+	if parseCandidate == "" {
+		return "", false
+	}
+	for _, parseSupported := range atlas.SupportedLocales() {
+		if parseCandidate == strings.ToLower(parseSupported) {
+			return parseSupported, true
+		}
+	}
+	return "", false
+}
+
+// persistLocaleCookie makes an explicit ?locale= choice sticky for later requests
+// that do not carry one.
+//
+// It fires only when the QUERY supplied a valid locale, never on the cookie or
+// preference path. Re-writing the cookie on every request would let level (2) of the
+// contract refresh itself forever and quietly outlive the choice that created it;
+// writing it only on level (1) means the cookie always records a decision a visitor
+// actually made in a URL.
+//
+// SameSite=Lax rather than None: the cookie is read on top-level GETs only, and Lax
+// is what makes a cross-site link that lands on Atlas still see it. Not HttpOnly, by
+// design — see atlasLocaleCookieName.
+func persistLocaleCookie(parseW http.ResponseWriter, parseRouteQuery url.Values) {
+	parseLocale, parseOK := supportedLocale(parseRouteQuery.Get("locale"))
+	if !parseOK {
+		return
+	}
+	http.SetCookie(parseW, &http.Cookie{
+		Name:     atlasLocaleCookieName,
+		Value:    parseLocale,
+		Path:     "/",
+		MaxAge:   atlasLocaleCookieMaxAge,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func cloneQuery(parseValues url.Values) map[string][]string {
@@ -1426,11 +1664,83 @@ func parsePositiveInt(parseValue string, parseFallback int) int {
 	return parseParsed
 }
 
+// atlasWASMAssetURL is the URL the browser fetches for the client bundle. It is
+// built from atlasWASMAssetPath so it cannot drift from config.AtlasWASM, which
+// is the same path resolved under StaticDir.
+const atlasWASMAssetURL = "/assets/" + atlasWASMAssetPath
+
+// atlasWASMExecURL is the browser-visible URL of the Go toolchain's own wasm
+// glue. It is named here rather than only in the <head> string so the fallback
+// copy can tell a reader exactly which request failed when `Go` is undefined.
+const atlasWASMExecURL = "/assets/script/wasm_exec.js"
+
+// atlasBootOptions is the set of deployment facts the boot layer needs to be
+// specific instead of vague. All three are derived from the same constants the
+// document and the presence check use, so the copy cannot name a URL the server
+// does not actually serve.
+func atlasBootOptions() bootfallback.Options {
+	return bootfallback.Options{
+		WASMURL:      atlasWASMAssetURL,
+		LoaderURL:    atlasWASMExecURL,
+		BuildCommand: atlasWASMBuildCommand,
+	}
+}
+
+// atlasBootFallbackMarkup is the server-rendered half of the boot story: the
+// <noscript> payload plus the reason blocks the snippet reveals. It is Go, and
+// deliberately so — the copy, the markup, and the inline styling are the parts a
+// JavaScript bootstrap has no business owning, and keeping them here is what lets
+// the snippet stay ~20 lines. See shared/bootfallback for the full rationale.
+//
+// It must be emitted after <div id="app"></div> and never inside it: markup
+// inside the mount point gets diffed against the client tree during hydration.
+func atlasBootFallbackMarkup(isWasmPresent bool) string {
+	return bootfallback.Markup(atlasBootOptions(), isWasmPresent)
+}
+
+// wasmRuntimeSnippet returns the document's inline boot script.
+//
+// THIS IS THE ENTIRE HAND-WRITTEN JAVASCRIPT SURFACE OF ATLAS. The document links
+// one other script, /assets/script/wasm_exec.js, which is the Go toolchain's own
+// BSD-licensed glue copied out of $GOROOT/lib/wasm — it implements the host side
+// of the Go wasm ABI and cannot be written in Go, because it is what makes Go code
+// runnable in the first place. Everything else the page does is compiled Go.
+//
+// With the module absent this returns "" rather than a console.warn. The previous
+// version logged a warning nobody read while the page rendered blank; the server
+// already knows the module is missing at render time, so
+// atlasBootFallbackMarkup(false) puts that explanation on the screen instead and
+// there is nothing left for a script to do. That is the zero-JavaScript path.
 func wasmRuntimeSnippet(isWasmPresent bool) string {
 	if !isWasmPresent {
-		return `<script>console.warn("atlas-commerce-os.wasm not present yet; SSR shell is running without hydration.");</script>`
+		return ""
 	}
-	return `<script>const go=new Go();WebAssembly.instantiateStreaming(fetch('/assets/bin/atlas-commerce-os.wasm'),go.importObject).then(result=>go.run(result.instance)).catch(err=>console.error('Failed to hydrate Atlas WASM:',err));</script>`
+	return bootfallback.BootScript(atlasBootOptions())
+}
+
+// atlasWASMStartupWarning returns the operator-facing warning for a missing
+// client bundle, or "" when the bundle is present.
+//
+// This is the terminal half of the same message the browser now shows: the SSR
+// shell renders an empty <div id="app"></div>, so a missing bundle means an empty
+// page, and the operator who started the server is the only person who can fix
+// it. The browser half is atlasBootFallbackMarkup(false), which renders visible
+// in-page copy carrying the same URL and the same build command — the two are
+// intentionally redundant, because the person who sees the page and the person who
+// sees the log are often not the same person.
+func atlasWASMStartupWarning(parseCfg config) string {
+	if fileExists(parseCfg.AtlasWASM) {
+		return ""
+	}
+	return fmt.Sprintf(
+		"WARNING: client bundle missing at %s\n"+
+			"         %s is served from that file, so every page will render the SSR shell and never hydrate.\n"+
+			"         Pages will show an in-page explanation instead of rendering blank.\n"+
+			"         Build it from the repo root with: %s\n",
+		parseCfg.AtlasWASM,
+		atlasWASMAssetURL,
+		atlasWASMBuildCommand,
+	)
 }
 
 func fileExists(parsePath string) bool {
@@ -1518,9 +1828,15 @@ func (parseW *bufferedResponseWriter) FlushTo(parseTarget http.ResponseWriter) {
 	_, _ = parseTarget.Write([]byte(parseW.body.String()))
 }
 
+// localeDirection is a thin alias for atlas.LocaleDirection.
+//
+// It used to be a second, byte-identical implementation of the same `ar -> rtl`
+// rule, one here and one in shared/atlas. That is the shape of a bug that has not
+// happened yet: adding a fourth locale means editing two functions, the server's
+// <html dir> and the payload's direction field come from different ones, and the
+// disagreement shows up as text flowing the wrong way on exactly one surface. The
+// client derives direction from atlas.LocaleDirection too, so there is now one rule
+// for all three consumers.
 func localeDirection(parseLocale string) string {
-	if strings.EqualFold(strings.TrimSpace(parseLocale), "ar") {
-		return "rtl"
-	}
-	return "ltr"
+	return atlas.LocaleDirection(parseLocale)
 }
