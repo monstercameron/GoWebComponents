@@ -1172,6 +1172,57 @@ func TestHandleHTMLInjectsClientScriptAndWasmConfig(parseT *testing.T) {
 	}
 }
 
+func TestLiveReloadHandlerServesIndexForHistoryRoutes(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+	parseIndexPath := filepath.Join(parseProjectRoot, "index.html")
+	parseOutputPath := filepath.Join(parseProjectRoot, "bin", "main.wasm")
+	parseWorkerPath := filepath.Join(parseProjectRoot, "services-worker.js")
+	if parseErr := os.MkdirAll(filepath.Dir(parseOutputPath), 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir output dir: %v", parseErr)
+	}
+	if parseErr := os.WriteFile(parseIndexPath, []byte("<html><body><h1>Routed app</h1></body></html>"), 0o644); parseErr != nil {
+		parseT.Fatalf("write index fixture: %v", parseErr)
+	}
+	if parseErr := os.WriteFile(parseOutputPath, []byte("wasm"), 0o644); parseErr != nil {
+		parseT.Fatalf("write wasm fixture: %v", parseErr)
+	}
+	if parseErr := os.WriteFile(parseWorkerPath, []byte("self.onmessage = () => {};"), 0o644); parseErr != nil {
+		parseT.Fatalf("write worker fixture: %v", parseErr)
+	}
+
+	parseServer := &LiveReloadServer{
+		projectRoot: parseProjectRoot,
+		buildDir:    parseProjectRoot,
+		indexPath:   parseIndexPath,
+		outputPath:  parseOutputPath,
+	}
+	parseHandler := parseServer.newHTTPHandler()
+
+	parseRouteReq := httptest.NewRequest(http.MethodGet, "/settings/cloud", nil)
+	parseRouteReq.Header.Set("Accept", "text/html,application/xhtml+xml")
+	parseRouteRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRouteRecorder, parseRouteReq)
+	if parseRouteRecorder.Code != http.StatusOK || !strings.Contains(parseRouteRecorder.Body.String(), "Routed app") {
+		parseT.Fatalf("expected routed navigation to receive the app shell, got %d with body %q", parseRouteRecorder.Code, parseRouteRecorder.Body.String())
+	}
+
+	parseWorkerReq := httptest.NewRequest(http.MethodGet, "/services-worker.js", nil)
+	parseWorkerReq.Header.Set("Accept", "*/*")
+	parseWorkerRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseWorkerRecorder, parseWorkerReq)
+	if parseWorkerRecorder.Code != http.StatusOK || !strings.Contains(parseWorkerRecorder.Body.String(), "self.onmessage") {
+		parseT.Fatalf("expected existing worker asset, got %d with body %q", parseWorkerRecorder.Code, parseWorkerRecorder.Body.String())
+	}
+
+	parseMissingAssetReq := httptest.NewRequest(http.MethodGet, "/missing.js", nil)
+	parseMissingAssetReq.Header.Set("Accept", "*/*")
+	parseMissingAssetRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseMissingAssetRecorder, parseMissingAssetReq)
+	if parseMissingAssetRecorder.Code != http.StatusNotFound {
+		parseT.Fatalf("expected missing asset to remain 404, got %d with body %q", parseMissingAssetRecorder.Code, parseMissingAssetRecorder.Body.String())
+	}
+}
+
 func TestHandleHTMLInjectsEmbeddedClientScriptByDefault(parseT *testing.T) {
 	parseProjectRoot := parseT.TempDir()
 	parseIndexPath := filepath.Join(parseProjectRoot, "index.html")

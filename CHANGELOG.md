@@ -89,6 +89,9 @@ packages written to be read rather than merely to work:
 
 ### Also
 
+- The livereload development server now falls back to the configured app shell for
+  missing HTML navigation routes, so history-router reloads work while missing
+  static assets continue to return 404.
 - `docs/ATLAS_PERF_BASELINE.md` — the measurement pass, every number carrying the
   command that reproduces it, hot spots that were *expected and did not appear*
   reported as such (harness share of the native allocation profile: 0.015%).

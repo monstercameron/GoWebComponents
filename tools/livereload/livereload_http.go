@@ -44,6 +44,26 @@ func (parseLrs *LiveReloadServer) newHTTPHandler() http.Handler {
 			parseLrs.handleHTML(parseW2, parseR2, filepath.Join(parseLrs.projectRoot, filepath.FromSlash(parseRelPath)))
 			return
 		}
+		// A history-router navigation reloads the current route (for example,
+		// /settings/cloud). When no real static entry owns that path and the
+		// browser is asking for HTML, return the configured app shell so the
+		// client router can restore the route. Asset requests retain normal 404s.
+		parseRelPath := strings.TrimPrefix(parseR2.URL.Path, "/")
+		parseStaticPath := filepath.Join(parseLrs.projectRoot, filepath.FromSlash(parseRelPath))
+		parseRootRel, parseRootRelErr := filepath.Rel(parseLrs.projectRoot, parseStaticPath)
+		parseIsWithinRoot := parseRootRelErr == nil &&
+			parseRootRel != ".." &&
+			!strings.HasPrefix(parseRootRel, ".."+string(filepath.Separator)) &&
+			!filepath.IsAbs(parseRootRel)
+		_, parseStaticErr := os.Stat(parseStaticPath)
+		parseAcceptsHTML := strings.Contains(strings.ToLower(parseR2.Header.Get("Accept")), "text/html")
+		if parseIsWithinRoot &&
+			os.IsNotExist(parseStaticErr) &&
+			(parseR2.Method == http.MethodGet || parseR2.Method == http.MethodHead) &&
+			parseAcceptsHTML {
+			parseLrs.handleHTML(parseW2, parseR2, parseLrs.indexPath)
+			return
+		}
 		parseFileServer.ServeHTTP(parseW2, parseR2)
 	})
 	parseMux.HandleFunc("/ws", parseLrs.handleWebSocketManaged)
