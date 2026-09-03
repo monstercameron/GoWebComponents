@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // browserSessionResult is the JSON payload describing an opened headed window.

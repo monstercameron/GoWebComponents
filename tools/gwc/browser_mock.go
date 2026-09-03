@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // mockResult is the JSON payload for `gwc mock`.

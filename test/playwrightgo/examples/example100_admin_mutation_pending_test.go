@@ -13,7 +13,7 @@ import (
 
 	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
 	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )

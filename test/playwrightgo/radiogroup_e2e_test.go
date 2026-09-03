@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestRadioGroupE2E proves U5 in a real browser: an interactive radio group built

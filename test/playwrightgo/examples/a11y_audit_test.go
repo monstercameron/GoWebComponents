@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // a11yWasmReadyPredicate waits until the WASM app has rendered children into #app.

@@ -39,7 +39,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // atlasBuyerRouteExpectation is one row of the route matrix.

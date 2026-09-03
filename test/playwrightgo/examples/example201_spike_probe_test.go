@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // Where the Initial Render spike comes from.

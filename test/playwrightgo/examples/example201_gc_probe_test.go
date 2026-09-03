@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // TestExample201GCTuningProbe A/Bs Go GC aggressiveness in the browser

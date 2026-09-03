@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // TestRouterNavigationBrowserE2E verifies hash-router navigation in a real

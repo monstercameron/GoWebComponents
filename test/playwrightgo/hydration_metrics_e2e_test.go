@@ -15,7 +15,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/v5/examples/shared/hydrationprobe"
 	"github.com/monstercameron/GoWebComponents/v5/ui"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestHydrationAdoptsServerDOME2E closes the long-standing gap (#37): before this,

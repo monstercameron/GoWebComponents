@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 type example100AuthCallbackRouteArtifact struct {

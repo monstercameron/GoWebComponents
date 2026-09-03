@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 type example100LazyNamespaceEntrySpec struct {

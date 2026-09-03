@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // parseDashboardRouterInt converts Playwright-evaluated numeric values into one Go int for stable assertions.

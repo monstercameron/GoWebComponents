@@ -44,10 +44,10 @@ Invoke-BootstrapStep -StepName "Verify required command-line dependencies" -Step
 if (-not $SkipPlaywrightCheck) {
     Invoke-BootstrapStep -StepName "Verify Playwright Go CLI availability" -StepAction {
         try {
-            go run github.com/playwright-community/playwright-go/cmd/playwright@latest --version
+            go run github.com/mxschmitt/playwright-go/cmd/playwright@latest --version
         }
         catch {
-            throw "Playwright CLI is not available. Install browser runtime with: go run github.com/playwright-community/playwright-go/cmd/playwright@latest install --with-deps chromium"
+            throw "Playwright CLI is not available. Install browser runtime with: go run github.com/mxschmitt/playwright-go/cmd/playwright@latest install --with-deps chromium"
         }
     }
 }

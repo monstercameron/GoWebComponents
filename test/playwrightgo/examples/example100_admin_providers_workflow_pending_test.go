@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestExample100AdminProvidersWorkflowRegression validates the providers workflow from summary through model drill-down, policy mutation, blast-radius preview, and summary refresh.

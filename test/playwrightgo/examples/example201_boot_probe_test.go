@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // TestExample201BootProbe measures cold-start cost per framework: navigation

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestRawHTMLE2E proves the G3 markup nodes in a real browser: RawHTML builds

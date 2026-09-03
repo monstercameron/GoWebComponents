@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // perfBudget holds per-example thresholds used by the performance-budget gate.

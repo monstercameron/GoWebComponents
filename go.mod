@@ -16,9 +16,9 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
 	github.com/monstercameron/GoGRPCBridge v0.0.0-00010101000000-000000000000
+	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/ncruces/go-sqlite3 v0.32.0
 	github.com/openai/openai-go v1.12.0
-	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/yuin/goldmark v1.7.17
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 	go.opentelemetry.io/otel v1.43.0
@@ -52,7 +52,6 @@ require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
-	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect

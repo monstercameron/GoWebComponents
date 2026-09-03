@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // parsePrefsBootHTML is the boot page for the preference-hooks fixture.

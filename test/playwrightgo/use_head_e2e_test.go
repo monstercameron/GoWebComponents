@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestUseHeadE2E is the end-to-end proof of head.UseHead: it builds the use-head fixture to wasm,

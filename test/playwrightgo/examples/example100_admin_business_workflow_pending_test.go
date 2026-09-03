@@ -11,7 +11,7 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestExample100AdminBusinessWorkflowRegression validates the business workflow from revenue summary through failed-payment intervention and filtered-queue route restoration.

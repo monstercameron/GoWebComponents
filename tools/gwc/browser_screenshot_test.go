@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // pngMagic is the 8-byte PNG signature every valid PNG starts with.

@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // TestExample201LongFrameParity asks whether M2's budget of ZERO long frames is

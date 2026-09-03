@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestDisclosureE2E proves the WAI-ARIA disclosure pattern (the `gwc add disclosure` /

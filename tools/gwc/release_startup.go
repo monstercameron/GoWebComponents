@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v5/pwa"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 func measureReleaseStartup(parseConfig releaseConfig, parseArtifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {

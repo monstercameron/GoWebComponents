@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // conditionResult is the JSON payload for expect/wait.

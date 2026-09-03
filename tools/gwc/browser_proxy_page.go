@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // proxyPage is a resolved page for a browser-proxy verb plus the cleanup needed

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v5/pwa"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestMeasureReleaseStartupExercisesControlFlow verifies startup measurement success and failure branches.

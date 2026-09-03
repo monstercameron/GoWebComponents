@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // v5 P0.3 — capture the baseline the whole plan is sized against.

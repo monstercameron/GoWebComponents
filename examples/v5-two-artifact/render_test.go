@@ -28,7 +28,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // stageTwoArtifactApp builds both binaries and assembles a servable directory.

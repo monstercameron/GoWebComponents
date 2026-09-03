@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // M10 — time to first worker command.

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // compareScreenshots decodes two PNG byte slices and computes the fraction of

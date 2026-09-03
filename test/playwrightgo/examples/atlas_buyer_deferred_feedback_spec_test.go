@@ -55,7 +55,7 @@ import (
 	"runtime"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestAtlasBuyerDeferredProductModulesMount asserts the two deferred modules on

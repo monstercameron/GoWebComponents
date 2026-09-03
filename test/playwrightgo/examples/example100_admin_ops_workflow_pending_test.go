@@ -12,7 +12,7 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestExample100AdminOpsWorkflowRegression validates the ops workflow from incident summary through queue detail, action, audit confirmation, and queue-context restoration.

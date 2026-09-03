@@ -509,8 +509,8 @@ func renderScaffoldGoMod(parseSelection startSelection, parseRepoModulePath stri
 	// go.mod — so `go mod tidy` resolves it deterministically from the seeded go.sum + module cache
 	// instead of trying to discover the version over the network (which fails under GOPROXY=off / CI).
 	if scaffoldHasFeature(startSelectionFeatures(parseSelection), "browser-tests") {
-		if parseVersion := readRepoDependencyVersion(parseRepoRoot, "github.com/playwright-community/playwright-go"); parseVersion != "" {
-			parseBuilder.WriteString(fmt.Sprintf("\nrequire github.com/playwright-community/playwright-go %s\n", parseVersion))
+		if parseVersion := readRepoDependencyVersion(parseRepoRoot, "github.com/mxschmitt/playwright-go"); parseVersion != "" {
+			parseBuilder.WriteString(fmt.Sprintf("\nrequire github.com/mxschmitt/playwright-go %s\n", parseVersion))
 		}
 	}
 	return parseBuilder.String()
@@ -827,7 +827,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 func TestMainSuite(t *testing.T) {

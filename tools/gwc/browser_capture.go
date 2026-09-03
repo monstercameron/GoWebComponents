@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // captureCap bounds retained entries so a chatty page cannot exhaust memory;

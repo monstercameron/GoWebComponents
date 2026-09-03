@@ -10,7 +10,7 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestExample100DashboardHomeRegression covers dashboard-home surface routing and data loading for Business, Customers, Chats, Providers, and Ops.

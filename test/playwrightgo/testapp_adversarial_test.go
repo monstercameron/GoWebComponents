@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // readTodoTexts returns the visible todo texts in DOM order.

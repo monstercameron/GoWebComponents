@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // parseIntlBootHTML is the standard Go wasm boot page. It loads wasm_exec.js

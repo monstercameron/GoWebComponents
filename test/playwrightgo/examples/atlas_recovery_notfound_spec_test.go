@@ -49,7 +49,7 @@ import (
 	"strings"
 	"testing"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // atlasRecoveryCase is one not-found route and the recovery it must offer.

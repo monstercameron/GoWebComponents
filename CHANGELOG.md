@@ -11,6 +11,8 @@ stopped in CI before GitHub could publish them.
 - `google.golang.org/grpc` is upgraded to v1.82.1 and
   `github.com/yuin/goldmark` to v1.7.17, resolving the reachable
   GO-2026-6061 and GO-2026-5320 advisories reported by `govulncheck`.
+- Playwright-Go moves to `github.com/mxschmitt/playwright-go` v0.6201.1, whose
+  npm-based driver installer replaces the retired Azure CDN used by v0.5700.1.
 
 ## v5.0.2 - 2026-07-28
 

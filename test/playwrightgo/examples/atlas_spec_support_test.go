@@ -70,7 +70,7 @@ import (
 	"testing"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // atlasSpecHydrationTimeoutMS bounds the wait for wasm to paint into #app.

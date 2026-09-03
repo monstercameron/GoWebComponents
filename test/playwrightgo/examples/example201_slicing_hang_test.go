@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // TestExample201SlicingHang finds the mechanism behind the frame-budget hang.

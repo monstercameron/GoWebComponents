@@ -15,7 +15,7 @@ import (
 
 	gwccapabilities "github.com/monstercameron/GoWebComponents/v5/docs/capabilities"
 	gwcerrorcodes "github.com/monstercameron/GoWebComponents/v5/docs/errorcodes"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 var runModelCommand = func(parseL launcher, parseArgs []string) error {

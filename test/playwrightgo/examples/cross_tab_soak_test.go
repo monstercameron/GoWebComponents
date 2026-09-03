@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // wasmReadyPredicate returns true once the WASM app has rendered at least one

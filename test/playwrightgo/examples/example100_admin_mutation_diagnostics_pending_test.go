@@ -10,7 +10,7 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestExample100DashboardSettingsMutationsRegression validates dashboard settings mutations and verifies refreshed slices return updated rows without stale data.

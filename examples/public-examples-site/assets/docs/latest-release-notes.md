@@ -11,7 +11,8 @@ behavior.
 
 The docs-site release-note mirror now tracks the latest changelog section, the
 release gate builds its generated wasm fixtures, and the release uses patched
-gRPC and Goldmark dependencies.
+gRPC and Goldmark dependencies. Playwright-Go now uses its maintained module
+path and npm-based driver installer instead of the retired Azure CDN.
 
 See the repository root `CHANGELOG.md` for the full entry, methodology, and
 measurements.

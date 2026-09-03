@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // parseSpringBootHTML is the boot page for the spring-hook fixture. It mounts

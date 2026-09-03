@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 type coldStartSample struct {

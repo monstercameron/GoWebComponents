@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // parseLogoutExample100CrossAccount logs the current user out via the logout button in the app shell.

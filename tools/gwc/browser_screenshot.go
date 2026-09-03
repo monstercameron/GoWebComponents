@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // screenshotOptions configures a single capture. When CDPEndpoint is set the

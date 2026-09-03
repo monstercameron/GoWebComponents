@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // inputResult is the JSON payload returned by the input verbs.
