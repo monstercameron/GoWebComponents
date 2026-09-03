@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.0.3 - 2026-09-03
+
+This release completes the v5 promotion path after the earlier tagged builds
+stopped in CI before GitHub could publish them.
+
+- The docs-site release-note mirror now tracks the latest changelog section.
+- Release CI builds the generated Atlas and load-harness wasm assets before the
+  clean-checkout unit-test gate.
+- `google.golang.org/grpc` is upgraded to v1.82.1 and
+  `github.com/yuin/goldmark` to v1.7.17, resolving the reachable
+  GO-2026-6061 and GO-2026-5320 advisories reported by `govulncheck`.
+
 ## v5.0.2 - 2026-07-28
 
 **No framework behaviour changed.** Examples, documentation, measurement and CI
