@@ -33,6 +33,18 @@ jobs:
         with:
           go-version: "1.26.x"
 
+      - name: Build Generated Test Assets
+        run: |
+          New-Item -ItemType Directory -Force -Path examples/static/bin | Out-Null
+          $env:GOOS = "js"
+          $env:GOARCH = "wasm"
+          go build -o examples/static/bin/atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client
+          if ($LASTEXITCODE -ne 0) { throw "Atlas wasm build failed" }
+          go build -tags production -o examples/testing/v5-load-harness/v5harness.wasm ./examples/testing/v5-load-harness
+          if ($LASTEXITCODE -ne 0) { throw "v5 load-harness wasm build failed" }
+          Remove-Item Env:\GOOS, Env:\GOARCH
+        shell: pwsh
+
       - name: Run Go Unit Tests
         run: |
           go test -short -v -count=1 ./...
