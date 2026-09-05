@@ -24,6 +24,8 @@ baseline of 2.614x React to a best observed 1.211x; the release-policy run was
   once at the outer event boundary.
 - The browser benchmark now compares production GWC wasm with React's
   production bundle and includes the public `DataAttr`/`DataAttrs` fast path.
+- The remaining agent-bridge and gRPC bridge CI installers now use the
+  maintained Playwright-Go module and npm-backed driver distribution.
 - Forced idle collections and coarse deadline polling were rejected after A/B
   runs showed that they moved or increased user-visible stalls.
 
