@@ -3,73 +3,90 @@
 package jsdom
 
 import (
-	"strings"
+	"strconv"
 	"syscall/js"
+	"unicode/utf8"
 
 	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
-// Cross-node attribute update batching.
-//
-// Every setAttribute/removeAttribute is one syscall/js bridge call, so a
-// commit touching one attribute on each of 200 rows pays 200 hops — measured
-// as ~78% of the primitive-attribute-update scenario's time. During a commit
-// the adapter instead encodes attribute writes into one control-separated
-// string and applies them with a single bridge call into a JS-side loop.
-//
-// Node identity crosses the bridge as an integer: nodes register lazily in a
-// JS-side WeakRef table (id cached on the wasm node wrapper AND on the DOM
-// node itself, so re-wrapped nodes reuse their id). WeakRefs keep removed
-// subtrees collectable. Registration costs one bridge call per node once;
-// steady-state commits pay one call total.
-//
-// The helpers are installed via eval, which a strict CSP may block — the
-// capability then reports unavailable and every write takes the direct path.
+// wasmDOMMutation is deliberately typed. Building a []interface{} with four
+// entries per mutation costs more in Go wasm than the JavaScript loop saves.
+type wasmDOMMutation struct {
+	node  *WASMDOMNode
+	op    byte
+	name  string
+	value string
+}
 
-const (
-	attrBatchRecordSep = "\x1e"
-	attrBatchFieldSep  = "\x1f"
-)
-
+// Mutated nodes receive a JavaScript-side WeakRef ID on first use. Subsequent
+// dense commits cross the Go/JS bridge once with a length-prefixed payload;
+// sparse commits stay as direct DOM calls. Length prefixes make every string,
+// including control characters, lossless.
 const attrBatchHelperScript = `(() => {
-	if (window.__gwcAttrNid) { return; }
-	const reg = [null];
-	const free = [];
-	const fin = (typeof FinalizationRegistry === "function")
-		? new FinalizationRegistry((id) => {
-			const ref = reg[id];
-			if (ref && !ref.deref()) { reg[id] = null; free.push(id); }
-		})
-		: null;
-	window.__gwcAttrNid = (el) => {
-		let id = el.__gwcAttrId;
-		if (id === undefined) {
-			id = free.length ? free.pop() : reg.length;
-			reg[id] = new WeakRef(el);
-			el.__gwcAttrId = id;
-			if (fin) { fin.register(el, id); }
-		}
-		return id;
-	};
-	window.__gwcAttrFlush = (payload) => {
-		const recs = payload.split("");
-		for (let i = 0; i < recs.length; i++) {
-			const r = recs[i];
-			if (!r) { continue; }
-			const parts = r.slice(1).split("");
-			const ref = reg[+parts[0]];
-			const el = ref && ref.deref();
-			if (!el) { continue; }
-			if (r[0] === "a") {
-				el.setAttribute(parts[1], parts[2]);
-			} else {
-				el.removeAttribute(parts[1]);
+	if (!window.__gwcAttrRegister || !window.__gwcAttrFlush) {
+		const refs = [];
+		const hasWeakRef = typeof WeakRef === "function";
+		const finalizer = typeof FinalizationRegistry === "function"
+			? new FinalizationRegistry((id) => { refs[id] = undefined; })
+			: null;
+		let nextID = 1;
+		window.__gwcAttrRegister = (node) => {
+			const id = nextID++;
+			refs[id] = hasWeakRef ? new WeakRef(node) : node;
+			if (finalizer) { finalizer.register(node, id); }
+			return id;
+		};
+		window.__gwcAttrFlush = (payload) => {
+			let i = 0;
+			const readNumber = () => {
+				let value = 0;
+				while (i < payload.length) {
+					const code = payload.charCodeAt(i++);
+					if (code === 58) { break; }
+					value = value * 10 + code - 48;
+				}
+				return value;
+			};
+			while (i < payload.length) {
+				const op = payload.charCodeAt(i++);
+				const id = readNumber();
+				const nameLength = readNumber();
+				const valueLength = readNumber();
+				const name = payload.slice(i, i + nameLength);
+				i += nameLength;
+				const value = payload.slice(i, i + valueLength);
+				i += valueLength;
+				const entry = refs[id];
+				const node = hasWeakRef ? entry?.deref() : entry;
+				if (!node) { continue; }
+				if (op === 97) {
+					node.setAttribute(name, value);
+				} else if (op === 114) {
+					node.removeAttribute(name);
+				} else if (op === 116) {
+					if (node.nodeType === 3) {
+						node.nodeValue = name;
+					} else if (name !== "" && node.firstChild && node.firstChild.nodeType === 3 && !node.firstChild.nextSibling) {
+						node.firstChild.nodeValue = name;
+					} else {
+						node.textContent = name;
+					}
+				}
 			}
-		}
-	};
+		};
+	}
+	if (!window.__gwcRemoveFlush) {
+		window.__gwcRemoveFlush = (...pairs) => {
+			for (let i = 0; i + 1 < pairs.length; i += 2) {
+				const parent = pairs[i];
+				const child = pairs[i + 1];
+				if (child && child.parentNode === parent) { child.remove(); }
+			}
+		};
+	}
 })()`
 
-// ensureAttrBatchHelpers installs the JS-side registry and flush loop once.
 func (parseA *WASMDOMAdapter) ensureAttrBatchHelpers() bool {
 	if parseA.attrHelpersBound {
 		return !parseA.attrHelpersFailed
@@ -86,87 +103,122 @@ func (parseA *WASMDOMAdapter) ensureAttrBatchHelpers() bool {
 		return false
 	}
 	parseEval.Invoke(attrBatchHelperScript)
-	parseA.attrRegisterNode = js.Global().Get("__gwcAttrNid")
+	parseA.attrRegisterNode = js.Global().Get("__gwcAttrRegister")
 	parseA.attrFlushBatch = js.Global().Get("__gwcAttrFlush")
-	if parseA.attrRegisterNode.Type() != js.TypeFunction || parseA.attrFlushBatch.Type() != js.TypeFunction {
+	parseA.removeFlushBatch = js.Global().Get("__gwcRemoveFlush")
+	if parseA.attrRegisterNode.Type() != js.TypeFunction || parseA.attrFlushBatch.Type() != js.TypeFunction || parseA.removeFlushBatch.Type() != js.TypeFunction {
 		parseA.attrHelpersFailed = true
 		return false
 	}
 	return true
 }
 
-// attrBatchNodeID returns the node's JS-side registry id, registering lazily.
-func (parseA *WASMDOMAdapter) attrBatchNodeID(parseNode *WASMDOMNode) int {
-	if parseNode.batchID > 0 {
-		return parseNode.batchID
-	}
-	parseID := parseA.attrRegisterNode.Invoke(parseNode.value).Int()
-	parseNode.batchID = parseID
-	return parseID
-}
-
-// BeginAttrUpdateBatch starts buffering attribute writes for the current
-// commit. Reads of attributes must not occur until EndAttrUpdateBatch.
 func (parseA *WASMDOMAdapter) BeginAttrUpdateBatch() {
 	if !parseA.ensureAttrBatchHelpers() {
 		return
 	}
 	parseA.attrBatchActive = true
-	parseA.attrBatchPayload.Reset()
+	clear(parseA.mutationBatchOps)
+	parseA.mutationBatchOps = parseA.mutationBatchOps[:0]
+	clear(parseA.removeBatchPairs)
+	parseA.removeBatchPairs = parseA.removeBatchPairs[:0]
 }
 
-// EndAttrUpdateBatch applies all buffered attribute writes in one bridge
-// call. Idempotent; safe to call defensively.
+const denseMutationBatchThreshold = 12
+
 func (parseA *WASMDOMAdapter) EndAttrUpdateBatch() {
 	if !parseA.attrBatchActive {
 		return
 	}
 	parseA.attrBatchActive = false
-	if parseA.attrBatchPayload.Len() == 0 {
-		return
+	for parsePairs := parseA.removeBatchPairs; len(parsePairs) > 0; {
+		parseChunkSize := min(len(parsePairs), 256)
+		parseA.removeFlushBatch.Invoke(parsePairs[:parseChunkSize]...)
+		parsePairs = parsePairs[parseChunkSize:]
 	}
-	parseA.attrFlushBatch.Invoke(parseA.attrBatchPayload.String())
-	parseA.attrBatchPayload.Reset()
+	clear(parseA.removeBatchPairs)
+	parseA.removeBatchPairs = parseA.removeBatchPairs[:0]
+
+	if len(parseA.mutationBatchOps) < denseMutationBatchThreshold {
+		for parseIndex := range parseA.mutationBatchOps {
+			parseA.applyMutationDirect(&parseA.mutationBatchOps[parseIndex])
+		}
+	} else {
+		parseA.attrBatchPayload = parseA.attrBatchPayload[:0]
+		for parseIndex := range parseA.mutationBatchOps {
+			parseMutation := &parseA.mutationBatchOps[parseIndex]
+			if parseMutation.node.batchID == 0 {
+				parseMutation.node.batchID = parseA.attrRegisterNode.Invoke(parseMutation.node.value).Int()
+			}
+			parseA.appendMutationRecord(parseMutation)
+		}
+		parseA.attrFlushBatch.Invoke(string(parseA.attrBatchPayload))
+	}
+	clear(parseA.mutationBatchOps)
+	parseA.mutationBatchOps = parseA.mutationBatchOps[:0]
 }
 
-// queueAttrWrite buffers one attribute write, reporting false when the value
-// cannot be encoded (contains the separators) so the caller writes directly.
+func (parseA *WASMDOMAdapter) applyMutationDirect(parseMutation *wasmDOMMutation) {
+	if parseMutation == nil || parseMutation.node == nil {
+		return
+	}
+	switch parseMutation.op {
+	case 'a':
+		parseMutation.node.value.Call("setAttribute", parseMutation.name, parseMutation.value)
+	case 'r':
+		parseMutation.node.value.Call("removeAttribute", parseMutation.name)
+	case 't':
+		parseA.SetTextContent(parseMutation.node, parseMutation.name)
+	}
+}
+
+func (parseA *WASMDOMAdapter) appendMutationRecord(parseMutation *wasmDOMMutation) {
+	parseA.attrBatchPayload = append(parseA.attrBatchPayload, parseMutation.op)
+	parseA.attrBatchPayload = strconv.AppendInt(parseA.attrBatchPayload, int64(parseMutation.node.batchID), 10)
+	parseA.attrBatchPayload = append(parseA.attrBatchPayload, ':')
+	parseA.attrBatchPayload = strconv.AppendInt(parseA.attrBatchPayload, int64(jsUTF16Length(parseMutation.name)), 10)
+	parseA.attrBatchPayload = append(parseA.attrBatchPayload, ':')
+	parseA.attrBatchPayload = strconv.AppendInt(parseA.attrBatchPayload, int64(jsUTF16Length(parseMutation.value)), 10)
+	parseA.attrBatchPayload = append(parseA.attrBatchPayload, ':')
+	parseA.attrBatchPayload = append(parseA.attrBatchPayload, parseMutation.name...)
+	parseA.attrBatchPayload = append(parseA.attrBatchPayload, parseMutation.value...)
+}
+
+func jsUTF16Length(parseValue string) int {
+	parseLength := 0
+	for len(parseValue) > 0 {
+		parseRune, parseSize := utf8.DecodeRuneInString(parseValue)
+		parseValue = parseValue[parseSize:]
+		parseLength++
+		if parseRune > 0xffff {
+			parseLength++
+		}
+	}
+	return parseLength
+}
+
 func (parseA *WASMDOMAdapter) queueAttrWrite(parseNode *WASMDOMNode, parseOp byte, parseName, parseValue string) bool {
 	if !parseA.attrBatchActive {
 		return false
 	}
-	if strings.ContainsAny(parseName, attrBatchRecordSep+attrBatchFieldSep) ||
-		strings.ContainsAny(parseValue, attrBatchRecordSep+attrBatchFieldSep) {
-		return false
-	}
-	parseID := parseA.attrBatchNodeID(parseNode)
-	parseBuilder := &parseA.attrBatchPayload
-	parseBuilder.WriteByte(parseOp)
-	parseBuilder.WriteString(itoaSmall(parseID))
-	parseBuilder.WriteString(attrBatchFieldSep)
-	parseBuilder.WriteString(parseName)
-	if parseOp == 'a' {
-		parseBuilder.WriteString(attrBatchFieldSep)
-		parseBuilder.WriteString(parseValue)
-	}
-	parseBuilder.WriteString(attrBatchRecordSep)
+	parseA.mutationBatchOps = append(parseA.mutationBatchOps, wasmDOMMutation{node: parseNode, op: parseOp, name: parseName, value: parseValue})
 	return true
 }
 
-// itoaSmall formats a non-negative int without strconv's interface costs on
-// this very hot encode path.
-func itoaSmall(parseValue int) string {
-	if parseValue < 10 {
-		return string([]byte{byte('0' + parseValue)})
+func (parseA *WASMDOMAdapter) queueTextWrite(parseNode *WASMDOMNode, parseText string) bool {
+	if !parseA.attrBatchActive {
+		return false
 	}
-	var parseBuf [20]byte
-	parseIndex := len(parseBuf)
-	for parseValue > 0 {
-		parseIndex--
-		parseBuf[parseIndex] = byte('0' + parseValue%10)
-		parseValue /= 10
+	parseA.mutationBatchOps = append(parseA.mutationBatchOps, wasmDOMMutation{node: parseNode, op: 't', name: parseText})
+	return true
+}
+
+func (parseA *WASMDOMAdapter) queueChildRemoval(parseParent, parseChild *WASMDOMNode) bool {
+	if !parseA.attrBatchActive {
+		return false
 	}
-	return string(parseBuf[parseIndex:])
+	parseA.removeBatchPairs = append(parseA.removeBatchPairs, parseParent.value, parseChild.value)
+	return true
 }
 
 var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)

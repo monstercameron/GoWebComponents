@@ -128,8 +128,9 @@ type PortalProps struct {
 
 // State provides access to hook-managed local state.
 type State[T any] struct {
-	get func() T
-	set func(interface{})
+	get  func() T
+	set  func(interface{})
+	slot runtime.StateSlot[T]
 }
 
 // Reducer provides access to reducer-style local state transitions.
@@ -508,23 +509,37 @@ func Text(parseContent string) Node {
 
 // UseState creates local component state.
 func UseState[T any](parseInitialValue T) State[T] {
-	get, set := runtime.GoUseStateGlobal(parseInitialValue)
-	return State[T]{get: get, set: set}
+	return State[T]{slot: runtime.GoUseStateSlotGlobal(parseInitialValue)}
 }
 
 // Get returns the current state value.
 func (parseS State[T]) Get() T {
+	if parseS.slot.Valid() {
+		return parseS.slot.Get()
+	}
 	return parseS.get()
 }
 
 // Set replaces the current state value.
 func (parseS State[T]) Set(parseValue T) {
-	parseS.set(parseValue)
+	if parseS.set != nil {
+		parseS.set(parseValue)
+		return
+	}
+	parseS.slot.Set(parseValue)
 }
 
 // Update replaces the state value using the previous value.
 func (parseS State[T]) Update(parseFn func(T) T) {
-	parseS.set(parseFn)
+	if parseS.set != nil {
+		parseS.set(parseFn)
+		return
+	}
+	parseS.slot.Set(parseFn)
+}
+
+func (parseS State[T]) valid() bool {
+	return parseS.slot.Valid() || parseS.get != nil
 }
 
 // UseReducer creates reducer-driven local state.

@@ -176,13 +176,13 @@ func (parseRt *Runtime) setTransitionPending(isPending bool) {
 }
 
 // resolveStateUpdateValue is a core package helper.
-func resolveStateUpdateValue[T any](parseCurrentValue T, parseNewValueOrUpdater any, isNilableState bool) (T, bool) {
+func resolveStateUpdateValue[T any](parseCurrentValue T, parseNewValueOrUpdater any) (T, bool) {
 	var parseNewValue T
 	if parseFn, parseOk := parseNewValueOrUpdater.(func(T) T); parseOk {
 		parseNewValue = parseFn(parseCurrentValue)
 	} else if parseDirectValue, parseOk2 := parseNewValueOrUpdater.(T); parseOk2 {
 		parseNewValue = parseDirectValue
-	} else if parseNewValueOrUpdater == nil && isNilableState {
+	} else if parseNewValueOrUpdater == nil && isNilableType[T]() {
 		var parseZero T
 		parseNewValue = parseZero
 	} else {

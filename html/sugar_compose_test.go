@@ -24,6 +24,10 @@ func setFieldNonZero(parseField reflect.Value) {
 		setFieldNonZero(parseVal)
 		parseMap.SetMapIndex(reflect.ValueOf("k"), parseVal)
 		parseField.Set(parseMap)
+	case reflect.Slice:
+		parseSlice := reflect.MakeSlice(parseField.Type(), 1, 1)
+		setFieldNonZero(parseSlice.Index(0))
+		parseField.Set(parseSlice)
 	case reflect.Func:
 		parseType := parseField.Type()
 		parseField.Set(reflect.MakeFunc(parseType, func([]reflect.Value) []reflect.Value {

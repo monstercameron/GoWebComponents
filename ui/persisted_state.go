@@ -102,7 +102,8 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseArea Persist
 	}
 
 	parseResult.parseState = State[T]{
-		get: parseValState.get,
+		get:  parseValState.get,
+		slot: parseValState.slot,
 		set: func(parseRaw any) {
 			if parseTyped, parseOk := parseRaw.(T); parseOk {
 				parseWriteThrough(parseTyped)

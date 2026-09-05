@@ -13,6 +13,12 @@ func GoUseStateGlobal[T any](parseStateInitialValue T) (func() T, func(interface
 	return GoUseState(parseRuntime, parseStateInitialValue)
 }
 
+// GoUseStateSlotGlobal claims a value-type state slot on the global runtime.
+func GoUseStateSlotGlobal[T any](parseStateInitialValue T) StateSlot[T] {
+	parseRuntime := GetGlobalRuntime()
+	return GoUseStateSlot(parseRuntime, parseStateInitialValue)
+}
+
 // GoUseEffectGlobal wraps GoUseEffect
 func GoUseEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...interface{}) {
 	// GoUseEffect doesn't need Runtime, it works with current fiber
@@ -113,11 +119,13 @@ func StartTransitionGlobal(parseTransitionFn func()) {
 
 // Text creates a text node
 func Text(parseTextContent string) *Element {
-	return &Element{
+	parseElem := acquireRenderHostElement()
+	*parseElem = Element{
 		Type:        "TEXT_ELEMENT",
 		TextContent: parseTextContent,
 		Children:    emptyChildren,
 	}
+	return parseElem
 }
 
 // PostAsyncGlobal queues work on the global runtime's async inbox (v5 P2.1).

@@ -23,7 +23,7 @@ func TestNativeToRuntimeCompactPropsEncodesStringAttrs(parseT *testing.T) {
 		Data:  map[string]string{"mode": "demo"},
 		Aria:  map[string]string{"label": "Email"},
 	}
-	parseKey, parseAttrs, isCompact := toRuntimeCompactProps(parseInput, runtimeEventProps(parseInput))
+	parseKey, parseAttrs, isCompact := toRuntimeCompactProps(&parseInput, runtimeEventProps(&parseInput))
 	if !isCompact {
 		parseT.Fatal("expected string-only props to use compact attrs")
 	}
@@ -60,15 +60,23 @@ func TestNativeToRuntimeCompactPropsRejectsNoncompactProps(parseT *testing.T) {
 		{name: "boolean property", props: Props{Disabled: true}},
 		{name: "style map", props: Props{Style: map[string]string{"display": "grid"}}},
 		{name: "raw override", props: Props{Raw: map[string]any{"data-raw": "yes"}}},
-		{name: "event handler", props: Props{OnClick: ui.WrapHandler("click")}},
 	}
 
 	for _, parseTt := range parseTests {
 		parseT.Run(parseTt.name, func(parseT2 *testing.T) {
-			if _, _, isCompact := toRuntimeCompactProps(parseTt.props, runtimeEventProps(parseTt.props)); isCompact {
+			if _, _, isCompact := toRuntimeCompactProps(&parseTt.props, runtimeEventProps(&parseTt.props)); isCompact {
 				parseT2.Fatal("expected noncompact props to use the generic element path")
 			}
 		})
+	}
+}
+
+func TestNativeToRuntimeCompactPropsAcceptsEventWithStringAttrs(parseT *testing.T) {
+	parseProps := Props{ID: "action", Class: "button", OnClick: ui.WrapHandler("click")}
+	parseEvents := runtimeEventProps(&parseProps)
+	_, parseAttrs, isCompact := toRuntimeCompactProps(&parseProps, parseEvents)
+	if !isCompact || len(parseEvents) != 1 || len(parseAttrs) != 2 {
+		parseT.Fatalf("expected compact attrs plus one special event, compact=%t attrs=%#v events=%#v", isCompact, parseAttrs, parseEvents)
 	}
 }
 

@@ -1,5 +1,32 @@
 # Changelog
 
+## v5.0.5 - 2026-09-05
+
+This release cuts renderer overhead across production wasm mounts, updates,
+events, and hook-heavy trees. The same-run Example 201 comparison against the
+vendored React 19.2.4 production harness improved from an untouched v5.0.4
+baseline of 2.614x React to a best observed 1.211x; the release-policy run was
+1.465x. GWC did not yet exceed React across the full 19-scenario geometric mean.
+
+- Typed host elements retain normalized attributes, direct text, event props,
+  and fragment-shape hints outside the generic props-map path in production
+  wasm. Native and development builds preserve the exported `Element.Props`
+  inspection behavior.
+- DOM commits batch attributes, text writes, and removals; unchanged subtrees
+  are pruned; serialized mounts bind DOM handles lazily and append eligible
+  sibling runs as one fragment.
+- Typed component props and hook storage avoid repeated reflection, signature,
+  dependency-slice, and growth allocations on production render paths.
+- Repeated mount/remove workloads reuse a bounded pool of plain host fibers.
+  Component fibers remain unrecycled so stale hook or callback handles cannot
+  target unrelated components.
+- Discrete browser events coalesce redundant scheduling and flush their work
+  once at the outer event boundary.
+- The browser benchmark now compares production GWC wasm with React's
+  production bundle and includes the public `DataAttr`/`DataAttrs` fast path.
+- Forced idle collections and coarse deadline polling were rejected after A/B
+  runs showed that they moved or increased user-visible stalls.
+
 ## v5.0.4 - 2026-09-03
 
 This release restores the browser release gate after v5.0.3 stopped before

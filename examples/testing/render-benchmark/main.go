@@ -765,9 +765,9 @@ func renderBenchmarkContentCard(parseProps renderBenchmarkContentCardProps) ui.N
 	return html.Article(
 		html.Props{
 			Class: "benchmark-content-card rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20",
-			Data: map[string]string{
-				"refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
-				"card-id":       strconv.Itoa(parseProps.GetItem.GetID),
+			DataAttrs: []html.DataAttribute{
+				{Name: "refresh-token", Value: strconv.Itoa(parseProps.GetRefreshToken)},
+				{Name: "card-id", Value: strconv.Itoa(parseProps.GetItem.GetID)},
 			},
 		},
 		html.Div(
@@ -817,9 +817,9 @@ func renderBenchmarkManyHooks(parseProps renderBenchmarkHookCellProps) ui.Node {
 	return html.Div(
 		html.Props{
 			Class: "benchmark-hook-node rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-slate-100",
-			Data: map[string]string{
-				"hook-index":    strconv.Itoa(parseProps.GetIndex),
-				"refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
+			DataAttrs: []html.DataAttribute{
+				{Name: "hook-index", Value: strconv.Itoa(parseProps.GetIndex)},
+				{Name: "refresh-token", Value: strconv.Itoa(parseProps.GetRefreshToken)},
 			},
 		},
 		html.Text("Hooks "+strconv.Itoa(parseProps.GetIndex+1)),
@@ -876,9 +876,9 @@ func renderBenchmarkRuntime3HookRegion(parseProps renderBenchmarkRuntime3HookPro
 	return html.Div(
 		html.Props{
 			Class: "benchmark-hook-node rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm text-cyan-50",
-			Data: map[string]string{
-				"label":         parseProps.GetLabel,
-				"refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
+			DataAttrs: []html.DataAttribute{
+				{Name: "label", Value: parseProps.GetLabel},
+				{Name: "refresh-token", Value: strconv.Itoa(parseProps.GetRefreshToken)},
 			},
 		},
 		html.Text(parseProps.GetLabel),
@@ -978,9 +978,9 @@ func buildBenchmarkDeepTreeChain(parseDepth int, parseRefreshToken int, parseTre
 		html.Props{
 			ID:    "benchmark-deep-leaf",
 			Class: "benchmark-deep-leaf",
-			Data: map[string]string{
-				"refresh-token": getRefreshToken,
-				"tree-version":  getTreeVersion,
+			DataAttrs: []html.DataAttribute{
+				{Name: "refresh-token", Value: getRefreshToken},
+				{Name: "tree-version", Value: getTreeVersion},
 			},
 		},
 		html.Text("Leaf R"+getTreeVersion),
@@ -1003,9 +1003,9 @@ func renderBenchmarkDeepTreeRoot(parseDepth int, parseRefreshToken int, parseTre
 		html.Props{
 			ID:    "benchmark-deep-root",
 			Class: "benchmark-deep-root",
-			Data: map[string]string{
-				"refresh-token": strconv.Itoa(parseRefreshToken),
-				"tree-version":  strconv.Itoa(parseTreeVersion),
+			DataAttrs: []html.DataAttribute{
+				{Name: "refresh-token", Value: strconv.Itoa(parseRefreshToken)},
+				{Name: "tree-version", Value: strconv.Itoa(parseTreeVersion)},
 			},
 		},
 		buildBenchmarkDeepTreeChain(parseDepth, parseRefreshToken, parseTreeVersion),
@@ -1022,8 +1022,8 @@ func renderBenchmarkEnterpriseView(parseSections []benchmarkEnterpriseSectionDat
 			for _, getMetric := range getRecord.GetMetrics {
 				getMetricNodes = append(getMetricNodes, html.Span(
 					html.Props{
-						Class: "benchmark-enterprise-metric rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-300",
-						Data:  map[string]string{"metric-label": getMetric.GetLabel},
+						Class:    "benchmark-enterprise-metric rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-300",
+						DataAttr: html.DataAttribute{Name: "metric-label", Value: getMetric.GetLabel},
 					},
 					html.Text(getMetric.GetLabel+": "+getMetric.GetValue),
 				))
@@ -1032,10 +1032,10 @@ func renderBenchmarkEnterpriseView(parseSections []benchmarkEnterpriseSectionDat
 				html.Props{
 					Key:   getRecord.GetID,
 					Class: "benchmark-enterprise-record rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20",
-					Data: map[string]string{
-						"section-id":          getSection.GetID,
-						"record-id":           getRecord.GetID,
-						"enterprise-revision": strconv.Itoa(getRecord.GetRevision),
+					DataAttrs: []html.DataAttribute{
+						{Name: "section-id", Value: getSection.GetID},
+						{Name: "record-id", Value: getRecord.GetID},
+						{Name: "enterprise-revision", Value: strconv.Itoa(getRecord.GetRevision)},
 					},
 				},
 				html.Div(
@@ -1051,10 +1051,10 @@ func renderBenchmarkEnterpriseView(parseSections []benchmarkEnterpriseSectionDat
 			html.Props{
 				Key:   getSection.GetID,
 				Class: "benchmark-enterprise-section rounded-[24px] border border-white/10 bg-slate-950/35 p-5",
-				Data: map[string]string{
-					"section-id":          getSection.GetID,
-					"enterprise-revision": strconv.Itoa(getSection.GetRevision),
-					"refresh-token":       strconv.Itoa(parseRefreshToken),
+				DataAttrs: []html.DataAttribute{
+					{Name: "section-id", Value: getSection.GetID},
+					{Name: "enterprise-revision", Value: strconv.Itoa(getSection.GetRevision)},
+					{Name: "refresh-token", Value: strconv.Itoa(parseRefreshToken)},
 				},
 			},
 			html.Div(
@@ -1072,9 +1072,9 @@ func renderBenchmarkEnterpriseView(parseSections []benchmarkEnterpriseSectionDat
 	}
 	return html.Div(
 		html.Props{
-			ID:    "enterprise-container",
-			Class: "grid gap-4",
-			Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
+			ID:       "enterprise-container",
+			Class:    "grid gap-4",
+			DataAttr: html.DataAttribute{Name: "refresh-token", Value: strconv.Itoa(parseRefreshToken)},
 		},
 		getSectionNodes...,
 	)
@@ -1085,9 +1085,9 @@ func renderBenchmarkPrimitiveView(parseRows []benchmarkPrimitiveRowData, parseRe
 	getRowNodes := getBenchmarkPrimitiveRowNodes(parseRows)
 	return html.Div(
 		html.Props{
-			ID:    "primitive-container",
-			Class: "benchmark-primitive-grid",
-			Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
+			ID:       "primitive-container",
+			Class:    "benchmark-primitive-grid",
+			DataAttr: html.DataAttribute{Name: "refresh-token", Value: strconv.Itoa(parseRefreshToken)},
 		},
 		getRowNodes...,
 	)
@@ -1106,9 +1106,9 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 		}
 		return html.Div(
 			html.Props{
-				ID:    "content-container",
-				Class: "grid gap-4 lg:grid-cols-2",
-				Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
+				ID:       "content-container",
+				Class:    "grid gap-4 lg:grid-cols-2",
+				DataAttr: html.DataAttribute{Name: "refresh-token", Value: strconv.Itoa(parseRefreshToken)},
 			},
 			getItems...,
 		)
@@ -1128,9 +1128,9 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 		}
 		return html.Div(
 			html.Props{
-				ID:    "hooks-container",
-				Class: "grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
-				Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
+				ID:       "hooks-container",
+				Class:    "grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
+				DataAttr: html.DataAttribute{Name: "refresh-token", Value: strconv.Itoa(parseRefreshToken)},
 			},
 			getItems...,
 		)
@@ -1148,9 +1148,9 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 		}
 		return html.Div(
 			html.Props{
-				ID:    "core-list-container",
-				Class: "grid gap-2",
-				Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
+				ID:       "core-list-container",
+				Class:    "grid gap-2",
+				DataAttr: html.DataAttribute{Name: "refresh-token", Value: strconv.Itoa(parseRefreshToken)},
 			},
 			getItems...,
 		)
@@ -1641,11 +1641,9 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 
 	return html.Div(
 		html.Props{
-			ID:    "benchmark-app",
-			Class: "min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_24%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_20%),linear-gradient(180deg,#020617_0%,#07111f_42%,#0f172a_100%)] px-4 py-8 text-white",
-			Data: map[string]string{
-				"framework": parseProps.GetMode,
-			},
+			ID:       "benchmark-app",
+			Class:    "min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_24%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_20%),linear-gradient(180deg,#020617_0%,#07111f_42%,#0f172a_100%)] px-4 py-8 text-white",
+			DataAttr: html.DataAttribute{Name: "framework", Value: parseProps.GetMode},
 		},
 		html.Div(
 			html.Props{Class: "mx-auto max-w-7xl"},

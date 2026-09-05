@@ -101,6 +101,24 @@ func BenchmarkGoUseMemoSameDeps(parseB *testing.B) {
 	}
 }
 
+func BenchmarkHookHeavyInitialRender(parseB *testing.B) {
+	parseRt := &Runtime{}
+	parseEffect := func() func() { return nil }
+	parseMemo := func(parseDep int) int { return parseDep * 2 }
+
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseFiber := &Fiber{typeOf: "test"}
+		SetCurrentFiber(parseFiber)
+		for parseHook := 0; parseHook < 20; parseHook++ {
+			_ = GoUseStateSlot(parseRt, parseHook)
+			GoUseEffectOf(parseEffect, parseHook)
+			_ = GoUseMemoOf(parseMemo, parseHook)
+		}
+	}
+	SetCurrentFiber(nil)
+}
+
 func BenchmarkGoUseCallbackSameDeps(parseB *testing.B) {
 	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)

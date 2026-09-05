@@ -4,6 +4,8 @@ package runtime
 
 import "time"
 
+const runtimeHotPathProfilingEnabled = true
+
 // Per-fiber commit/cleanup duration capture. The timings feed devtools
 // inspection and slow-operation diagnostics; production-tagged builds swap in
 // no-op implementations so the compiler removes the two time.Now calls per

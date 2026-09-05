@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -11,7 +12,21 @@ var (
 	schedulerMu sync.Mutex
 	// globalInfiniteDeadline is a shared instance to avoid allocation
 	globalInfiniteDeadline = &infiniteDeadline{}
+	globalDiscreteDepth    atomic.Int32
 )
+
+// BeginGlobalDiscreteWork marks a browser event scope. State writes made while
+// it is active are flushed synchronously when the outermost scope exits, so the
+// initial write need not also enqueue a redundant setTimeout continuation.
+func BeginGlobalDiscreteWork() { globalDiscreteDepth.Add(1) }
+
+// EndGlobalDiscreteWork closes a browser event scope and flushes its coalesced
+// work exactly once.
+func EndGlobalDiscreteWork() {
+	if globalDiscreteDepth.Add(-1) == 0 {
+		FlushGlobalDiscreteWork()
+	}
+}
 
 type infiniteDeadline struct{}
 
@@ -218,7 +233,9 @@ func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecor
 	parseContinueWork := parseRt.getContinueWorkFn()
 	parseScheduler := parseRt.scheduler
 	schedulerMu.Unlock()
-	dispatchRuntimeWork(parseScheduler, parseContinueWork)
+	if globalDiscreteDepth.Load() == 0 {
+		dispatchRuntimeWork(parseScheduler, parseContinueWork)
+	}
 }
 
 // FlushScheduledDiscreteWork synchronously runs a freshly scheduled, not yet
@@ -242,7 +259,7 @@ func (parseRt *Runtime) FlushScheduledDiscreteWork() {
 	if !shouldFlush {
 		return
 	}
-	parseRt.continueWorkLoop()
+	parseRt.continueDiscreteWorkLoop()
 }
 
 // FlushGlobalDiscreteWork flushes the global runtime's freshly scheduled
@@ -259,6 +276,17 @@ func FlushGlobalDiscreteWork() {
 
 // continueWorkLoop is a bound method to avoid closure allocation
 func (parseRt *Runtime) continueWorkLoop() {
+	parseRt.continueWorkLoopWithDeadline(parseRt.resolveWorkLoopDeadline())
+}
+
+// continueDiscreteWorkLoop finishes work started by a direct user event in one
+// pass. A 5ms cooperative yield here turns a nominally synchronous click into
+// a second timer task; non-discrete work continues to use the normal deadline.
+func (parseRt *Runtime) continueDiscreteWorkLoop() {
+	parseRt.continueWorkLoopWithDeadline(globalInfiniteDeadline)
+}
+
+func (parseRt *Runtime) continueWorkLoopWithDeadline(parseDeadline Deadline) {
 	defer func() {
 		if parseRecovered := recover(); parseRecovered != nil {
 			parseFiber := parseRt.nextUnitOfWork
@@ -273,7 +301,7 @@ func (parseRt *Runtime) continueWorkLoop() {
 	schedulerMu.Lock()
 	parseRt.schedulerState.currentLane = parseRt.schedulerState.pendingLane
 	schedulerMu.Unlock()
-	parseRt.workLoop(parseRt.resolveWorkLoopDeadline())
+	parseRt.workLoop(parseDeadline)
 }
 
 // resolveWorkLoopDeadline picks the deadline for one work-loop slice (v5 P1.2).
@@ -344,7 +372,6 @@ func (parseRt *Runtime) workLoop(parseDeadline Deadline) {
 		parseUnits++
 		parseRt.profiling.processedUnits++
 
-		// Check if we should yield
 		if parseDeadline.TimeRemaining() < 1 || parseUnits >= parseMaxUnitsPerSlice {
 			shouldYield = true
 		}
@@ -561,7 +588,10 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 	}
 	parseRt.profiling.scheduledFiberMarks++
 	parseLane := laneForUpdateOrigin(parseOrigin)
-	parseRt.recordReplayUpdate(replayUpdateKindFiber, fiberPathIndexes(parseFiber), parseOrigin, parseLane)
+	parseRt.recordReplayFiberUpdate(replayUpdateKindFiber, parseFiber, parseOrigin, parseLane)
+	if parseRt.updateScheduled && parseFiber.dirty && parseFiber.needsUpdate && parseFiber.updateLane == parseLane {
+		return
+	}
 	parseCurrentOrigin := ""
 	if parseFiber.dirty || parseFiber.needsUpdate {
 		parseCurrentOrigin = parseFiber.updateOrigin
@@ -646,7 +676,10 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	parseRt.profiling.scheduledFiberMarks++
 	parseRt.profiling.scheduledGranularMarks++
 	parseLane := laneForUpdateOrigin(parseOrigin)
-	parseRt.recordReplayUpdate(replayUpdateKindGranular, fiberPathIndexes(parseFiber), parseOrigin, parseLane)
+	parseRt.recordReplayFiberUpdate(replayUpdateKindGranular, parseFiber, parseOrigin, parseLane)
+	if parseRt.updateScheduled && parseFiber.dirty && parseFiber.needsUpdate && parseFiber.updateLane == parseLane {
+		return
+	}
 	parseCurrentOrigin := ""
 	if parseFiber.dirty || parseFiber.needsUpdate {
 		parseCurrentOrigin = parseFiber.updateOrigin

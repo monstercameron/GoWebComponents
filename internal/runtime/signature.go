@@ -68,6 +68,9 @@ func (parseSignature ComponentSignature) identityKey() string {
 
 // recordHookSignature is a core package helper.
 func recordHookSignature(parseHooks *Hooks, parseKind string) {
+	if !hookSignatureRecordingEnabled {
+		return
+	}
 	// Callers pass constant kind literals; no sanitization needed on this
 	// per-hook-call hot path.
 	if parseHooks == nil || parseKind == "" {
@@ -109,6 +112,14 @@ func buildComponentSignature(parseFiber *Fiber, parseHooks *Hooks) *ComponentSig
 
 // describeCallableIdentity is a core package helper.
 func describeCallableIdentity(parseValue any) (string, string) {
+	if parseComponent, parseOk := componentTypeFromFiberType(parseValue); parseOk {
+		parsePretty := strings.TrimSpace(parseComponent.Name)
+		parseQualified := strings.TrimSpace(parseComponent.IdentityKey())
+		if parsePretty == "" {
+			parsePretty = trimCallableName(parseQualified)
+		}
+		return parsePretty, parseQualified
+	}
 	if parseComponent, parseOk := parseValue.(*ComponentType); parseOk && parseComponent != nil {
 		parsePretty := strings.TrimSpace(parseComponent.Name)
 		parseQualified := strings.TrimSpace(parseComponent.IdentityKey())

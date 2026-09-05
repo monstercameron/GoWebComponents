@@ -651,6 +651,17 @@ func describeFiber(parseFiber *Fiber) (string, string) {
 			return "component", parseValue.QualifiedName
 		}
 		return "component", "Component"
+	case *Element:
+		if parseComponent, parseOk := componentTypeFromFiberType(parseValue); parseOk {
+			if strings.TrimSpace(parseComponent.Name) != "" {
+				return "component", parseComponent.Name
+			}
+			if strings.TrimSpace(parseComponent.QualifiedName) != "" {
+				return "component", parseComponent.QualifiedName
+			}
+			return "component", "Component"
+		}
+		return "component", "Element"
 	default:
 		parsePrettyName, _ := describeCallableIdentity(parseValue)
 		return "component", parsePrettyName
@@ -713,7 +724,8 @@ func inspectHooks(parseHooks *Hooks) []HookSnapshot {
 		return nil
 	}
 
-	parseResult := make([]HookSnapshot, 0, len(parseHooks.states)/2+len(parseHooks.memos)+len(parseHooks.refs)+len(parseHooks.ids)+len(parseHooks.fetches)+len(parseHooks.atoms)+len(parseHooks.callbacks)+len(parseHooks.deps))
+	parseEffectCount := max(len(parseHooks.deps), len(parseHooks.effectSingleDeps))
+	parseResult := make([]HookSnapshot, 0, len(parseHooks.states)/2+len(parseHooks.memos)+len(parseHooks.refs)+len(parseHooks.ids)+len(parseHooks.fetches)+len(parseHooks.atoms)+len(parseHooks.callbacks)+parseEffectCount)
 	for parseIndex := 0; parseIndex+1 < len(parseHooks.states); parseIndex += 2 {
 		parseResult = append(parseResult, HookSnapshot{Slot: parseIndex / 2, Kind: "state", Value: previewValue(parseHooks.states[parseIndex])})
 	}
@@ -722,7 +734,7 @@ func inspectHooks(parseHooks *Hooks) []HookSnapshot {
 			Slot:         parseIndex2,
 			Kind:         "memo",
 			Value:        previewValue(parseMemo.value),
-			Dependencies: previewDeps(parseMemo.deps),
+			Dependencies: previewDeps(memoizedDependencies(parseMemo)),
 		})
 	}
 	for parseIndex3, parseRef := range parseHooks.refs {
@@ -763,7 +775,14 @@ func inspectHooks(parseHooks *Hooks) []HookSnapshot {
 			Status: parseStatus,
 		})
 	}
-	for parseIndex8, parseDeps := range parseHooks.deps {
+	for parseIndex8 := range parseEffectCount {
+		var parseDeps []any
+		if parseIndex8 < len(parseHooks.deps) {
+			parseDeps = parseHooks.deps[parseIndex8]
+		}
+		if len(parseDeps) == 0 && parseIndex8 < len(parseHooks.effectSingleDeps) && parseHooks.effectSingleDeps[parseIndex8].valid {
+			parseDeps = []any{parseHooks.effectSingleDeps[parseIndex8].value}
+		}
 		parseCleanupStatus := "none"
 		if parseIndex8 < len(parseHooks.cleanups) && parseHooks.cleanups[parseIndex8] != nil {
 			parseCleanupStatus = "registered"

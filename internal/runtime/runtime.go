@@ -141,8 +141,18 @@ type Runtime struct {
 	continueWorkFn          func()
 	pendingBoundaryRecovery bool
 	// fiberSlab batches mount-path fiber allocation; see acquireMountFiber.
-	fiberSlab     []Fiber
-	fiberSlabNext int
+	fiberSlab          []Fiber
+	fiberSlabNext      int
+	recycledHostFibers []*Fiber
+	// elementSlab batches immutable host-element allocation during one render
+	// pass. Slabs are never reused; fibers or callers retaining an element keep
+	// its backing array alive with ordinary Go pointer semantics.
+	elementSlab            []Element
+	elementSlabNext        int
+	componentPropsSlab     []componentPropsBox
+	componentPropsSlabNext int
+	hostAttrSlab           []HostAttr
+	hostAttrSlabNext       int
 
 	pendingEffectOverflow bool
 	// pendingEffectOverflowCount counts lifetime overflows for the P4.2 budget

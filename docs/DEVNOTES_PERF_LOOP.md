@@ -11,6 +11,26 @@ where we can with near-native execution.
 Context (pre-loop state): same-run geomean vs React ≈ 0.79–0.83 band, 4–5
 scenario wins per run. See CHANGELOG v4.1.0 for the campaign that got here.
 
+## v5.0.5 closure — 2026-09-05: production renderer fast paths (KEPT SET)
+
+The refreshed Example 201 harness exposed a different starting point after it
+was corrected to compare a production GWC wasm build with the vendored React
+19.2.4 production bundle. Using the explicit GWC/React DOM-ready ratio, an
+untouched v5.0.4 worktree measured 2.614 across the 19-scenario geometric mean.
+
+The retained set moves common typed hosts, event props, direct text, typed
+component props, hooks, DOM mutations, subtree commits, serialized-tree binding,
+and repeated plain-host allocation off their generic paths. The best observed
+full report was 1.211 (6/19 scenario wins); the final normal-GC release-policy
+run was 1.465. The original sub-1.0 research goal was not reached.
+
+Two late experiments were rejected. Checking a browser deadline every 16 fibers
+reduced clock calls but worsened DOM-ready latency by overshooting frame budgets.
+Forcing a Go collection from an idle callback after large unmounts suppressed a
+hook outlier but moved the pause into subsequent mount interactions, producing
+repeatable 3–5x mount regressions. The release retains GOGC=300 and normal Go
+collection scheduling.
+
 ## Iteration 1 — 2026-07-05: sibling-run serialized mounts (KEPT)
 
 **Hypothesis.** Flat-list mounts (core/primitive/content render, the append

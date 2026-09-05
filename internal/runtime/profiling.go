@@ -178,6 +178,9 @@ func (parseRt *Runtime) recordProfilingEventLocked(parseEvent ProfilingEvent) {
 
 // recordComponentRenderTrace is a core package helper.
 func (parseRt *Runtime) recordComponentRenderTrace(parseFiber *Fiber, parseDurationNs int64) {
+	if !runtimeHotPathProfilingEnabled {
+		return
+	}
 	if parseRt == nil || parseFiber == nil {
 		return
 	}

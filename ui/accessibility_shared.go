@@ -151,7 +151,7 @@ func UseCompositeNavigation(parseItems []CompositeItem, parseOptions ...Composit
 
 // ActiveIndex is a core package helper.
 func (parseN CompositeNavigation) ActiveIndex() int {
-	if parseN.active.get == nil {
+	if !parseN.active.valid() {
 		return -1
 	}
 	return compositeNormalizeIndex(parseN.items, parseN.active.Get(), parseN.options.InitialIndex)
@@ -189,7 +189,7 @@ func (parseN CompositeNavigation) TabIndex(parseIndex int) int {
 
 // SetActive is a core package helper.
 func (parseN CompositeNavigation) SetActive(parseIndex int) {
-	if parseN.active.get == nil {
+	if !parseN.active.valid() {
 		return
 	}
 	if parseIndex < 0 || parseIndex >= len(parseN.items) || parseN.items[parseIndex].Disabled {
@@ -264,7 +264,7 @@ func (parseN CompositeNavigation) OnKeyDown(parseEvent KeyboardEvent) {
 
 // move is a core package helper.
 func (parseN CompositeNavigation) move(parseStep int) {
-	if parseN.active.get == nil || len(parseN.items) == 0 {
+	if !parseN.active.valid() || len(parseN.items) == 0 {
 		return
 	}
 	parseCurrent := parseN.ActiveIndex()
@@ -344,7 +344,7 @@ func (parseA Announcer) Announce(parseMode AnnouncementMode, parseMessage string
 
 // Polite is a core package helper.
 func (parseA Announcer) Polite(parseMessage string) {
-	if parseA.polite.get == nil {
+	if !parseA.polite.valid() {
 		return
 	}
 	parseA.polite.Update(func(parsePrevious announcementState) announcementState {
@@ -356,7 +356,7 @@ func (parseA Announcer) Polite(parseMessage string) {
 
 // Assertive is a core package helper.
 func (parseA Announcer) Assertive(parseMessage string) {
-	if parseA.assertive.get == nil {
+	if !parseA.assertive.valid() {
 		return
 	}
 	parseA.assertive.Update(func(parsePrevious announcementState) announcementState {
@@ -368,10 +368,10 @@ func (parseA Announcer) Assertive(parseMessage string) {
 
 // Clear is a core package helper.
 func (parseA Announcer) Clear() {
-	if parseA.polite.get != nil {
+	if parseA.polite.valid() {
 		parseA.polite.Set(announcementState{})
 	}
-	if parseA.assertive.get != nil {
+	if parseA.assertive.valid() {
 		parseA.assertive.Set(announcementState{})
 	}
 }
@@ -390,10 +390,10 @@ func (parseA Announcer) AssertiveID() string {
 func (parseA Announcer) Region() Node {
 	parsePoliteState := announcementState{}
 	parseAssertiveState := announcementState{}
-	if parseA.polite.get != nil {
+	if parseA.polite.valid() {
 		parsePoliteState = parseA.polite.Get()
 	}
-	if parseA.assertive.get != nil {
+	if parseA.assertive.valid() {
 		parseAssertiveState = parseA.assertive.Get()
 	}
 

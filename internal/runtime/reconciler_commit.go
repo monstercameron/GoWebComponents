@@ -44,6 +44,9 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 						parsePreparedText = parseFiber.textContent
 					}
 					parseDom = parsePreparedAdapter.CreatePreparedElement(parseT, parseFiber.getHostAttrs, parsePreparedText)
+					if parseFiber.hasCompactSpecialProps && !IsDOMNodeNull(parseDom) {
+						parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
+					}
 				}
 			}
 			if IsDOMNodeNull(parseDom) {
@@ -51,6 +54,9 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 				parseDom = parseRt.domAdapter.CreateElement(parseT)
 				if parseFiber.isCompactHostProps {
 					parseRt.applyCompactHostAttrs(parseDom, parseFiber.getHostAttrs)
+					if parseFiber.hasCompactSpecialProps {
+						parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
+					}
 				} else {
 					// Apply properties only for non-text elements
 					parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
@@ -336,9 +342,10 @@ func shouldPreserveHydrationInitialProperty(parseName string) bool {
 }
 
 // attrUpdateBatchDOMAdapter is the optional capability for buffering a
-// commit's attribute writes into one bridge call (browser adapter only).
-// While a batch is open, attribute reads through the adapter may observe
-// stale values — commitRoot flushes before anything that reads the DOM runs.
+// commit's attribute writes, text writes, and removals into a small number of
+// bridge calls (browser adapter only). While a batch is open, reads through the
+// adapter may observe stale values — commitRoot flushes before anything that
+// reads the DOM runs.
 type attrUpdateBatchDOMAdapter interface {
 	BeginAttrUpdateBatch()
 	EndAttrUpdateBatch()
@@ -361,14 +368,16 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.profiling.commitCount++
 		parseRt.profiling.lastCommitDurationNs = parseDurationNs
 		parseRt.profiling.totalCommitDurationNs += parseDurationNs
-		parseRt.recordProfilingEventLocked(ProfilingEvent{
-			Domain:     "runtime",
-			Name:       "commit",
-			Phase:      "finish",
-			Target:     "root",
-			DurationNs: parseDurationNs,
-		})
-		if !parseRt.profiling.startupStartedAt.IsZero() && parseRt.profiling.startupCommitDurationNs == 0 {
+		if runtimeHotPathProfilingEnabled {
+			parseRt.recordProfilingEventLocked(ProfilingEvent{
+				Domain:     "runtime",
+				Name:       "commit",
+				Phase:      "finish",
+				Target:     "root",
+				DurationNs: parseDurationNs,
+			})
+		}
+		if runtimeHotPathProfilingEnabled && !parseRt.profiling.startupStartedAt.IsZero() && parseRt.profiling.startupCommitDurationNs == 0 {
 			parseRt.profiling.startupCommitDurationNs = parseDurationNs
 			parseRt.recordProfilingEventLocked(ProfilingEvent{
 				Domain:     "runtime",
@@ -379,11 +388,10 @@ func (parseRt *Runtime) commitRoot() {
 			})
 		}
 	}()
-	// Cross-node attribute batching: buffer every attribute write in the
-	// commit walk into one bridge call (one setAttribute hop per attribute
-	// otherwise dominates attribute-heavy commits). Nothing in the walk
-	// reads attributes back; the deferred End covers panic unwinds and the
-	// explicit flush below runs before effects, which may read the DOM.
+	// Cross-node mutation batching: buffer every attribute write, text write,
+	// and removal in the commit walk. Nothing in the walk reads those values
+	// back; the deferred End covers panic unwinds and the explicit flush below
+	// runs before effects, which may read the DOM.
 	parseAttrBatchAdapter, hasAttrBatch := parseRt.domAdapter.(attrUpdateBatchDOMAdapter)
 	if hasAttrBatch {
 		parseAttrBatchAdapter.BeginAttrUpdateBatch()
@@ -428,7 +436,7 @@ func (parseRt *Runtime) commitRoot() {
 		}
 	}
 
-	// Flush buffered attribute writes before effects and subscribers run —
+	// Flush buffered mutations before effects and subscribers run —
 	// they may read the DOM. The deferred End above then no-ops.
 	if hasAttrBatch {
 		parseAttrBatchAdapter.EndAttrUpdateBatch()
@@ -639,6 +647,17 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 	if parseFiber == nil {
 		return
 	}
+	// The render/reconcile pass marks every ancestor of a placement, update,
+	// hydration claim, unresolved portal retry, or child-order repair. Outside
+	// hydration, a fiber with neither direct nor descendant work can skip its
+	// whole child subtree; its sibling remains an independent branch.
+	if parseRt.wipRoot != nil && !parseRt.hydrating && parseFiber.effectTag == effectTagNone &&
+		!parseFiber.subtreeCommit && !parseFiber.needsChildOrder && !parseFiber.portalUnresolved {
+		if parseFiber.sibling != nil {
+			parseRt.commitWork(parseFiber.sibling, parseDomParent)
+		}
+		return
+	}
 
 	// Fast path: most calls have valid domParent
 	if IsDOMNodeNull(parseDomParent) {
@@ -694,11 +713,14 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 				}
 			} else {
 				parseStart3 := commitTimingStart()
-				if isFastLaneCompactFiber(parseFiber) {
+				if parseFiber.isCompactHostProps {
 					// Typed fast-lane fibers carry no events or controlled
 					// values; adopting a hydrated node only needs its
 					// attributes reasserted.
 					parseRt.applyCompactHostAttrs(parseFiber.dom, parseFiber.getHostAttrs)
+					if parseFiber.hasCompactSpecialProps {
+						parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseFiber.hydrated)
+					}
 				} else {
 					parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseFiber.hydrated)
 				}
@@ -737,10 +759,15 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 						}
 						isParseCommitted = true
 					}
-					if isFastLaneCompactFiber(parseFiber) && isFastLaneCompactFiber(parseFiber.alternate) {
+					if parseFiber.isCompactHostProps && parseFiber.alternate.isCompactHostProps &&
+						parseFiber.hasCompactSpecialProps == parseFiber.alternate.hasCompactSpecialProps {
 						// Typed fast lane: diff the deterministic attribute
 						// slices directly and touch only changed attributes.
 						if parseRt.updateCompactHostAttrs(parseFiber.dom, parseFiber.alternate.getHostAttrs, parseFiber.getHostAttrs) {
+							isParseCommitted = true
+						}
+						if parseFiber.hasCompactSpecialProps && !propsEqualIgnoringChildren(parseFiber.alternate.props, parseFiber.props) {
+							parseRt.updateDomProperties(parseFiber.dom, parseFiber.alternate.props, parseFiber.props)
 							isParseCommitted = true
 						}
 					} else if parseOldView, parseNewView := fiberPropsView(parseFiber.alternate), fiberPropsView(parseFiber); !propsEqualIgnoringChildren(parseOldView, parseNewView) {
@@ -811,7 +838,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 			// Multiple placements are landing under this parent: pre-mount
 			// runs of eligible siblings from one combined parse before the
 			// per-child walk creates them one template at a time.
-			parseRt.prepareSerializedSiblingRuns(parseFiber)
+			parseRt.prepareSerializedSiblingRuns(parseFiber, parseChildDomParent)
 			parseBatchAdapter.BeginBatch(parseChildDomParent)
 		}
 		parseRt.commitWork(parseFiber.child, parseChildDomParent)
@@ -1186,6 +1213,12 @@ func isHostFiber(parseFiber *Fiber) bool {
 
 // hasFineGrainedAncestor is an internal reconciler helper.
 func hasFineGrainedAncestor(parseFiber *Fiber) bool {
+	if parseFiber == nil {
+		return false
+	}
+	if parseFiber.ancestorFlagsValid {
+		return parseFiber.underFineGrained
+	}
 	for parseParent := parseFiber.parent; parseParent != nil; parseParent = parseParent.parent {
 		if parseParent.fineGrained {
 			return true
@@ -1465,7 +1498,7 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 
 	if parseRt.isPortalFiber(parseFiber) {
 		parseRt.deleteFiberSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber))
-		releaseDeletedSubtree(parseFiber)
+		parseRt.releaseDeletedSubtree(parseFiber)
 		return
 	}
 
@@ -1477,7 +1510,7 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 		// We need to find and remove all actual DOM nodes in the subtree
 		parseRt.deleteFiberSubtree(parseFiber.child, parseDomParent)
 	}
-	releaseDeletedSubtree(parseFiber)
+	parseRt.releaseDeletedSubtree(parseFiber)
 }
 
 // releaseDeletedSubtree drops the references a fully deleted fiber still holds,
@@ -1501,15 +1534,30 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 // retain nothing of consequence, and a late async write that reaches a deleted
 // fiber (a resolved suspension, an in-flight validator) still finds a coherent
 // object to no-op against rather than a stripped one.
-func releaseDeletedSubtree(parseFiber *Fiber) {
+func (parseRt *Runtime) releaseDeletedSubtree(parseFiber *Fiber) {
 	if parseFiber == nil {
 		return
 	}
 	for parseChild := parseFiber.child; parseChild != nil; {
 		// Read the sibling link before the child releases it.
 		parseNext := parseChild.sibling
-		releaseDeletedSubtree(parseChild)
+		parseRt.releaseDeletedSubtree(parseChild)
 		parseChild = parseNext
+	}
+
+	// Only plain host/text fibers are safe to recycle. Component fibers may be
+	// retained by hook setters, async completions, or user callbacks; reusing
+	// one would let a stale handle mutate an unrelated newly-mounted component.
+	// A deleted host fiber has no such public identity once refs, events, and
+	// subscriptions have been detached by teardownDeletedSubtree.
+	parseRecyclableHost := false
+	if parseType, parseOk := parseFiber.typeOf.(string); parseOk &&
+		parseType != "ROOT" && parseType != "FRAGMENT" &&
+		parseFiber.hooks == nil && len(parseFiber.eventCallbacks) == 0 &&
+		parseFiber.asyncSuspension == nil && parseFiber.asyncWait == nil &&
+		parseFiber.reactiveAtomID == "" && len(parseFiber.reactiveSourceIDs) == 0 &&
+		!parseFiber.fineGrained {
+		parseRecyclableHost = true
 	}
 
 	parseFiber.parent = nil
@@ -1530,6 +1578,14 @@ func releaseDeletedSubtree(parseFiber *Fiber) {
 	parseFiber.asyncSuspension = nil
 	parseFiber.asyncWait = nil
 	parseFiber.boundaryError = nil
+
+	// Retain a bounded high-water pool. This converts repeated mount/clear
+	// cycles into pointer reuse without pinning arbitrarily large one-off trees.
+	const parseMaxRecycledHostFibers = 4096
+	if parseRecyclableHost && parseRt != nil && len(parseRt.recycledHostFibers) < parseMaxRecycledHostFibers {
+		*parseFiber = Fiber{}
+		parseRt.recycledHostFibers = append(parseRt.recycledHostFibers, parseFiber)
+	}
 }
 
 // teardownDeletedSubtree unsubscribes atoms, releases DOM refs, and detaches

@@ -315,10 +315,11 @@ func optionMatchValue(parseOption *Element) string {
 // keeps every compact attribute in the serialized output.
 func elementWithSelected(parseOption *Element) *Element {
 	var parseProps map[string]any
-	if parseOption.Props == nil && parseOption.isCompactHostProps {
+	if parseOption.isCompactHostProps && (parseOption.Props == nil || parseOption.hasCompactSpecialProps) {
 		// The materialized view is exclusively owned by this call, so the
 		// selected flag can land in it directly without a defensive copy.
 		parseProps = fastLanePropsView(parseOption.getHostAttrs, parseOption.Key, nil, false)
+		maps.Copy(parseProps, parseOption.Props)
 	} else {
 		parseProps = make(map[string]any, len(parseOption.Props)+1)
 		maps.Copy(parseProps, parseOption.Props)
@@ -360,8 +361,11 @@ func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren [
 		case strings.EqualFold(parseType, "optgroup"):
 			parseBuilder.WriteByte('<')
 			parseBuilder.WriteString(parseType)
-			if parseEl.isCompactHostProps && parseEl.Props == nil {
+			if parseEl.isCompactHostProps && (parseEl.Props == nil || parseEl.hasCompactSpecialProps) {
 				writeSSRCompactAttrs(parseBuilder, parseEl.getHostAttrs)
+				if parseEl.hasCompactSpecialProps {
+					writeSSRProps(parseBuilder, parseEl.Props)
+				}
 			} else {
 				writeSSRProps(parseBuilder, parseEl.Props)
 			}
@@ -448,8 +452,11 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-	if parseElement.isCompactHostProps && parseProps == nil {
+	if parseElement.isCompactHostProps && (parseProps == nil || parseElement.hasCompactSpecialProps) {
 		writeSSRCompactAttrs(parseBuilder, parseElement.getHostAttrs)
+		if parseElement.hasCompactSpecialProps {
+			writeSSRProps(parseBuilder, parseProps)
+		}
 	} else {
 		writeSSRProps(parseBuilder, parseProps)
 	}
@@ -523,6 +530,9 @@ func withSSRHookFiber(parseType any, parseProps map[string]any, parseCtx map[int
 func resolveComponentElement(parseElement *Element, parseCtx map[int64]any) (*Element, error) {
 	if parseComponent, parseOk := parseElement.Type.(*ComponentType); parseOk {
 		return withSSRHookFiber(parseElement.Type, parseElement.Props, parseCtx, func() *Element {
+			if parseElement.hasComponentProps && parseElement.componentProps != nil {
+				return parseComponent.RenderProps(nil, parseElement.componentProps.value, true)
+			}
 			return parseComponent.Render(parseElement.Props)
 		}), nil
 	}
