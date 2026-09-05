@@ -675,7 +675,6 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 		}
 	}
 
-	parseNilableState := isNilableType[T]()
 	isParseAccessorNeedsRefresh := !hasAccessor || parseTrackedAtomID != parseId
 	if isParseAccessorNeedsRefresh {
 		parseNeeded2 := parseAtomIdx + 1
@@ -703,7 +702,7 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 		set := func(parseNewValueOrUpdater any) {
 			apply := func(parseUpdateOrigin string) {
 				parseCurrentValue := get()
-				parseNewValue, parseOk3 := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater, parseNilableState)
+				parseNewValue, parseOk3 := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater)
 				if !parseOk3 {
 					return
 				}

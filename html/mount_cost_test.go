@@ -37,9 +37,10 @@ type countingAdapter struct {
 	traversals int
 }
 
-// Traversal crosses the boundary too. bindSerializedSubtree walks the parsed
-// tree one GetFirstChild/GetNextSibling per node, so a count that ignores it
-// reports a serialized mount as costing two crossings when it costs a walk.
+// Traversal crosses the boundary too. Serialized roots bind eagerly, while
+// descendant handles are resolved one level at a time only if a later render
+// reconciles that parent; mount-only measurements should therefore include the
+// few root traversals without assuming a full-tree bind walk.
 func (parseA *countingAdapter) GetFirstChild(parseNode runtime.DOMNode) runtime.DOMNode {
 	parseA.traversals++
 	return parseA.MockDOMAdapter.GetFirstChild(parseNode)
@@ -146,10 +147,8 @@ func TestCompactLaneMarkupAlreadyMountedInOneCall(parseT *testing.T) {
 	if parseAdapter.subtrees+parseAdapter.fragments == 0 {
 		parseT.Error("compact-lane markup did not take the serialized mount at all")
 	}
-	// About 159: one parse, one append, and a bind walk of roughly two crossings
-	// per node. NOT "a handful" — an earlier version of this bound said 10,
-	// because the counter ignored the GetFirstChild/GetNextSibling traversal
-	// that bindSerializedSubtree performs on every node.
+	// Serialized descendants are now bound lazily, so this is substantially
+	// below the old ~159-crossing eager-bind path.
 	if parseAdapter.total() > 200 {
 		parseT.Errorf("compact-lane markup cost %d bridge crossings; the serialized mount stopped firing",
 			parseAdapter.total())
@@ -164,10 +163,8 @@ func TestCompactLaneMarkupAlreadyMountedInOneCall(parseT *testing.T) {
 // conditions, so the props map alone disqualified the whole subtree and it
 // reverted to one bridge call per node.
 //
-// Measured on this exact tree by toggling the gate, with traversal counted:
-// 279 crossings before, 159 after — a 43% reduction, not the 97x an earlier
-// creation-only count implied. The bind walk costs about two crossings per node
-// either way, so the saving is the per-node creation, not the whole cost.
+// The descendant bind walk is lazy, so mount-only cost is lower still; later
+// updates resolve only the direct child levels they actually reconcile.
 //
 // The same applies to any element built through runtime.CreateElement with a
 // string props map, which is how the ui package and generated code construct
@@ -208,8 +205,10 @@ func TestStyleMapMarkupStillMountsPerNode(parseT *testing.T) {
 		parseAdapter.creates, parseAdapter.texts, parseAdapter.attrs, parseAdapter.appends,
 		parseAdapter.subtrees, parseAdapter.fragments, parseAdapter.total())
 
-	if parseAdapter.total() <= 200 {
-		parseT.Errorf("style-map markup now costs only %d crossings — if it was made serializable, this test documents stale limits and should be rewritten",
-			parseAdapter.total())
+	// The twelve style-bearing card roots themselves must still use ordinary
+	// creation. Their compact descendants may serialize and bind lazily, which
+	// legitimately pulls the aggregate total below the old 200-crossing floor.
+	if parseAdapter.creates < 12 {
+		parseT.Errorf("style-map card roots unexpectedly serialized: only %d element creates", parseAdapter.creates)
 	}
 }

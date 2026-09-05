@@ -71,8 +71,9 @@ type Transition struct {
 
 // State provides access to hook-managed local state.
 type State[T any] struct {
-	get func() T
-	set func(any)
+	get  func() T
+	set  func(any)
+	slot runtime.StateSlot[T]
 }
 
 // Ref stores a stable mutable reference across renders.
@@ -445,6 +446,10 @@ func (parseS State[T]) Update(parseFn func(T) T) {
 	if parseS.set != nil && parseFn != nil {
 		parseS.set(parseFn)
 	}
+}
+
+func (parseS State[T]) valid() bool {
+	return parseS.get != nil
 }
 
 // UseRef creates a stable mutable reference across renders.

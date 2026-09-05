@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"sync"
 	"time"
 	"unsafe"
 )
@@ -33,34 +32,32 @@ func sameFunctionIdentity(parseA, parseB any) bool {
 }
 
 // safeComparableEqual is a core package helper.
-func safeComparableEqual(parseA, parseB any) (isEqual bool, isOk bool) {
-	defer func() {
-		if recover() != nil {
-			isOk = false
-		}
-	}()
+func safeComparableEqual(parseA, parseB any) (bool, bool) {
+	// A statically comparable struct may contain an interface field whose
+	// dynamic value is a slice, map, or function. Comparing two such interface
+	// values panics. This used to discover that case by actually comparing under
+	// recover, which made panic construction/unwinding a production render hot
+	// path for ordinary typed component props. Value.Comparable performs the
+	// same recursive eligibility check without throwing; the caller retains its
+	// DeepEqual fallback when either payload cannot be compared.
+	parseValueA := reflect.ValueOf(parseA)
+	parseValueB := reflect.ValueOf(parseB)
+	if !parseValueA.IsValid() || !parseValueB.IsValid() ||
+		!parseValueA.Comparable() || !parseValueB.Comparable() {
+		return false, false
+	}
 	return parseA == parseB, true
 }
-
-var nilableTypeCache sync.Map
 
 // isNilableType is a core package helper.
 func isNilableType[T any]() bool {
 	parseT := reflect.TypeFor[T]()
-	if parseCached, parseOk := nilableTypeCache.Load(parseT); parseOk {
-		return parseCached.(bool)
-	}
-
-	var isNilable bool
 	switch parseT.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		isNilable = true
+		return true
 	default:
-		isNilable = false
+		return false
 	}
-
-	nilableTypeCache.Store(parseT, isNilable)
-	return isNilable
 }
 
 // stateAccessor caches one state slot's getter/setter closure pair across
@@ -74,47 +71,174 @@ type stateAccessor struct {
 	setter func(any)
 }
 
-// GoUseState provides state management for components
-func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(any)) {
-	parseFiber := requireCurrentHookFiber("GoUseState")
+const initialHookSlotCapacity = 8
 
+func hookBackingCapacity(parseNeeded, parseMinimum int) int {
+	// Hook-heavy components commonly cross the initial eight-slot block. Jump
+	// straight to 32 there: the old needed*2 policy allocated 8, 18, then 38
+	// slots while building a 20-hook component, copying pointer-rich stores on
+	// every step. The plateau removes one allocation/copy and retains fewer
+	// total slots across the construction sequence.
+	if parseMinimum <= initialHookSlotCapacity && parseNeeded > initialHookSlotCapacity && parseNeeded <= 32 {
+		return 32
+	}
+	parseCapacity := parseNeeded * 2
+	if parseCapacity < parseMinimum {
+		return parseMinimum
+	}
+	return parseCapacity
+}
+
+func appendFiberEffect(parseFiber *Fiber, parseEffect Effect) {
+	if parseFiber.effects == nil {
+		parseFiber.effects = make([]Effect, 0, initialHookSlotCapacity)
+	} else if len(parseFiber.effects) == cap(parseFiber.effects) {
+		parseCapacity := hookBackingCapacity(len(parseFiber.effects)+1, initialHookSlotCapacity)
+		parseEffects := make([]Effect, len(parseFiber.effects), parseCapacity)
+		copy(parseEffects, parseFiber.effects)
+		parseFiber.effects = parseEffects
+	}
+	parseFiber.effects = append(parseFiber.effects, parseEffect)
+}
+
+// StateSlot is a value-type handle to one state hook slot. It avoids allocating
+// getter and setter closures for UI callers that can retain the slot directly.
+// The low-level GoUseState API still exposes its historical closure pair.
+type StateSlot[T any] struct {
+	runtime      *Runtime
+	hooks        *Hooks
+	fiber        *Fiber
+	stateIndex   int
+	pendingIndex int
+}
+
+// Valid reports whether the slot was claimed during a component render.
+func (parseSlot StateSlot[T]) Valid() bool {
+	return parseSlot.hooks != nil && parseSlot.stateIndex >= 0 && parseSlot.stateIndex < len(parseSlot.hooks.states)
+}
+
+// Get returns the slot's current value.
+func (parseSlot StateSlot[T]) Get() T {
+	if parseSlot.hooks == nil || parseSlot.stateIndex < 0 || parseSlot.stateIndex >= len(parseSlot.hooks.states) {
+		var parseZero T
+		return parseZero
+	}
+	parseValue, _ := parseSlot.hooks.states[parseSlot.stateIndex].(T)
+	return parseValue
+}
+
+// Set replaces the slot value or applies a functional updater, then schedules
+// the owning fiber through the same lane/async rules as GoUseState.
+func (parseSlot StateSlot[T]) Set(parseNewValueOrUpdater any) {
+	parseHooks := parseSlot.hooks
+	parseRt := parseSlot.runtime
+	if parseHooks == nil || parseRt == nil {
+		return
+	}
+	if parseRt.shouldPostAsyncStateUpdate() {
+		parseRt.PostAsync(func() {
+			if parseRt.ShouldDeferStateUpdates() {
+				parseRt.ScheduleTransition(func() { parseSlot.applyStateUpdate(parseNewValueOrUpdater, "transition") })
+				return
+			}
+			parseSlot.applyStateUpdate(parseNewValueOrUpdater, "async")
+		})
+		return
+	}
+	if parseRt.ShouldDeferStateUpdates() {
+		parseRt.ScheduleTransition(func() { parseSlot.applyStateUpdate(parseNewValueOrUpdater, "transition") })
+		return
+	}
+	parseSlot.applyStateUpdate(parseNewValueOrUpdater, "local-state")
+}
+
+// applyStateUpdate performs the synchronous half of StateSlot.Set. Keeping it
+// as a method lets the overwhelmingly common direct event path avoid creating
+// the escaping closure needed only by async and transition scheduling.
+func (parseSlot StateSlot[T]) applyStateUpdate(parseNewValueOrUpdater any, parseUpdateOrigin string) {
+	parseHooks := parseSlot.hooks
+	parseRt := parseSlot.runtime
+	if parseHooks == nil || parseRt == nil {
+		return
+	}
+	parseTargetFiber := parseHooks.owner
+	if parseTargetFiber == nil {
+		parseTargetFiber = parseSlot.fiber
+	}
+	parseRt.reportStrictSetStateDuringRender(parseTargetFiber, "GoUseState")
+	if parseSlot.pendingIndex >= len(parseHooks.states) {
+		parseNeeded := parseSlot.pendingIndex + 1
+		if parseNeeded > cap(parseHooks.states) {
+			parseNewStates := make([]any, parseNeeded, parseNeeded*2)
+			copy(parseNewStates, parseHooks.states)
+			parseHooks.states = parseNewStates
+		} else if parseNeeded > len(parseHooks.states) {
+			parseHooks.states = parseHooks.states[:parseNeeded]
+		}
+	}
+
+	var parseCurrentValue T
+	if parseValue, parseOk := parseHooks.states[parseSlot.stateIndex].(T); parseOk {
+		parseCurrentValue = parseValue
+	}
+	// Nilability matters only when interpreting a setter payload. Computing it
+	// while claiming the hook made every render inspect T even if Set was never
+	// called.
+	parseNewValue, parseOk := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater)
+	if !parseOk || fastEqual(parseCurrentValue, parseNewValue) {
+		return
+	}
+
+	parseHooks.states[parseSlot.pendingIndex] = parseNewValue
+	parseHooks.states[parseSlot.stateIndex] = parseNewValue
+	if parseRt.activeRenderFiber == parseTargetFiber {
+		parseTargetFiber.renderPhaseUpdate = true
+		return
+	}
+	// One event commonly updates several state slots owned by the same
+	// component. The first setter has already resolved the live owner, marked
+	// it and its ancestors, and scheduled the pass; every later setter only has
+	// to publish its value before that pass starts. Avoid repeating the live-tree
+	// resolution walk and scheduler entry for the already-covered lane.
+	parseLane := laneForUpdateOrigin(parseUpdateOrigin)
+	if parseRt.updateScheduled && parseTargetFiber.dirty && parseTargetFiber.needsUpdate &&
+		parseTargetFiber.updateLane == parseLane {
+		return
+	}
+	parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseTargetFiber, parseUpdateOrigin)
+}
+
+// GoUseStateSlot claims one state hook without constructing accessor closures.
+func GoUseStateSlot[T any](parseRt *Runtime, parseInitialValue T) StateSlot[T] {
+	parseFiber := requireCurrentHookFiber("GoUseState")
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}
 	} else if parseFiber.hooks.owner == nil {
 		parseFiber.hooks.owner = parseFiber
 	}
 
-	recordHookSignature(parseFiber.hooks, "state")
-	parseFiber.hooks.index++
+	parseHooks := parseFiber.hooks
+	recordHookSignature(parseHooks, "state")
+	parseHooks.index++
+	parseStateIdx := parseHooks.stateIndex
+	parseHooks.stateIndex++
 
-	parseStateIdx := parseFiber.hooks.stateIndex
-	parseFiber.hooks.stateIndex++
-
-	// Initialize state if needed
-	// We need 2 slots per state hook: [state, pending]
 	parseNeededLen := (parseStateIdx + 1) * 2
-	if len(parseFiber.hooks.states) < parseNeededLen {
-		if parseNeededLen <= cap(parseFiber.hooks.states) {
-			// Extend slice within capacity
-			parseFiber.hooks.states = parseFiber.hooks.states[:parseNeededLen]
+	if len(parseHooks.states) < parseNeededLen {
+		if parseNeededLen <= cap(parseHooks.states) {
+			parseHooks.states = parseHooks.states[:parseNeededLen]
 		} else {
-			// Grow slice
-			parseNewStates := make([]any, parseNeededLen, parseNeededLen*2)
-			copy(parseNewStates, parseFiber.hooks.states)
-			parseFiber.hooks.states = parseNewStates
+			parseNewStates := make([]any, parseNeededLen, hookBackingCapacity(parseNeededLen, initialHookSlotCapacity*2))
+			copy(parseNewStates, parseHooks.states)
+			parseHooks.states = parseNewStates
 		}
 
-		// Initialize new slots
-		parseRestoredValue, parseOk := parseFiber.hooks.restoreStateValue(parseStateIdx)
+		parseRestoredValue, parseOk := parseHooks.restoreStateValue(parseStateIdx)
 		if !parseOk {
 			parseRestoredValue = parseInitialValue
 		} else if parseCoerced, parseOk2 := coerceHotReloadValue(parseRestoredValue, reflect.TypeOf(parseInitialValue)); parseOk2 {
 			parseRestoredValue = parseCoerced
 		} else {
-			// Coercion failed: the snapshot value is incompatible with the
-			// current state type.  Fall back to the initial value so we do not
-			// silently store an untyped value into the wrong slot, and report a
-			// diagnostic so the developer can see what happened.
 			parseSnapshotType := fmt.Sprintf("%T", parseRestoredValue)
 			parseRestoredValue = parseInitialValue
 			ReportDiagnosticWithContext(
@@ -126,11 +250,24 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 				diagnosticComponentStack(parseFiber),
 			)
 		}
-		parseFiber.hooks.states[parseStateIdx*2] = parseRestoredValue
-		parseFiber.hooks.states[parseStateIdx*2+1] = parseRestoredValue
+		parseHooks.states[parseStateIdx*2] = parseRestoredValue
+		parseHooks.states[parseStateIdx*2+1] = parseRestoredValue
 	}
 
-	parseHooks := parseFiber.hooks
+	return StateSlot[T]{
+		runtime:      parseRt,
+		hooks:        parseHooks,
+		fiber:        parseFiber,
+		stateIndex:   parseStateIdx * 2,
+		pendingIndex: parseStateIdx*2 + 1,
+	}
+}
+
+// GoUseState provides state management for components
+func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(any)) {
+	parseSlot := GoUseStateSlot(parseRt, parseInitialValue)
+	parseHooks := parseSlot.hooks
+	parseStateIdx := parseHooks.stateIndex - 1
 
 	// Cached accessor fast path: steady-state re-renders reuse the slot's
 	// closure pair instead of allocating a fresh getter+setter per call.
@@ -141,94 +278,8 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 		}
 	}
 
-	// Capture indices for closure
-	parseSIdx := parseStateIdx * 2
-	parsePIdx := parseStateIdx*2 + 1
-	parseNilableState := isNilableType[T]()
-
-	parseGetter := func() T {
-		// Bounds check removed for performance - slice is grown before closure creation
-		// Type assertion should always succeed if state was initialized correctly
-		parseValue, _ := parseHooks.states[parseSIdx].(T)
-		return parseValue
-	}
-
-	parseSetter := func(parseNewValueOrUpdater any) {
-		apply := func(parseUpdateOrigin string) {
-			// The accessor outlives the fiber that created it: hooks.owner is
-			// re-pointed at the live fiber every render, so all targeting goes
-			// through it (the creation fiber is only a last-resort fallback).
-			parseTargetFiber := parseHooks.owner
-			if parseTargetFiber == nil {
-				parseTargetFiber = parseFiber
-			}
-			parseRt.reportStrictSetStateDuringRender(parseTargetFiber, "GoUseState")
-			if parsePIdx >= len(parseHooks.states) {
-				parseNeeded := parsePIdx + 1
-				if parseNeeded > cap(parseHooks.states) {
-					parseNewStates2 := make([]any, parseNeeded, parseNeeded*2)
-					copy(parseNewStates2, parseHooks.states)
-					parseHooks.states = parseNewStates2
-				} else if parseNeeded > len(parseHooks.states) {
-					parseHooks.states = parseHooks.states[:parseNeeded]
-				}
-			}
-
-			var parseCurrentValue T
-			if parseCv, parseOk3 := parseHooks.states[parseSIdx].(T); parseOk3 {
-				parseCurrentValue = parseCv
-			}
-
-			parseNewValue, parseOk4 := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater, parseNilableState)
-			if !parseOk4 {
-				return
-			}
-
-			if fastEqual(parseCurrentValue, parseNewValue) {
-				return
-			}
-
-			parseHooks.states[parsePIdx] = parseNewValue
-			parseHooks.states[parseSIdx] = parseNewValue
-			// Render-phase update: the setter was called while its own fiber's
-			// component function is executing. Don't schedule a commit of the
-			// half-rendered output — flag the fiber so renderFunctionComponent
-			// re-runs to convergence with the new state (matching React). The new
-			// value is already stored above, so the re-run observes it.
-			if parseRt != nil && parseRt.activeRenderFiber == parseTargetFiber {
-				parseTargetFiber.renderPhaseUpdate = true
-				return
-			}
-			parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseTargetFiber, parseUpdateOrigin)
-		}
-
-		// Called from outside the frame loop — a goroutine, a gRPC callback, a
-		// worker reply — so the write is queued and applied at the next drain
-		// instead of landing at an arbitrary point relative to the in-flight
-		// tree. The closure allocates only on this path; the on-loop path below
-		// is unchanged, which matters because it is the hot one.
-		if parseRt.shouldPostAsyncStateUpdate() {
-			parseRt.PostAsync(func() {
-				if parseRt.ShouldDeferStateUpdates() {
-					parseRt.ScheduleTransition(func() {
-						apply("transition")
-					})
-					return
-				}
-				apply("async")
-			})
-			return
-		}
-
-		if parseRt != nil && parseRt.ShouldDeferStateUpdates() {
-			parseRt.ScheduleTransition(func() {
-				apply("transition")
-			})
-			return
-		}
-
-		apply("local-state")
-	}
+	parseGetter := func() T { return parseSlot.Get() }
+	parseSetter := func(parseNewValueOrUpdater any) { parseSlot.Set(parseNewValueOrUpdater) }
 
 	if parseNeededAcc := parseStateIdx + 1; len(parseHooks.stateAccessors) < parseNeededAcc {
 		if parseNeededAcc <= cap(parseHooks.stateAccessors) {
@@ -341,12 +392,8 @@ func goUseEffectImpl(parseEffect func() func(), parseLayout bool, parseDeps ...a
 		// commit still finds it. See runOneEffect.
 
 		// Queue the new effect
-		if parseFiber.effects == nil {
-			parseFiber.effects = make([]Effect, 0)
-		}
-
 		// Capture position for cleanup storage
-		parseFiber.effects = append(parseFiber.effects, Effect{
+		appendFiberEffect(parseFiber, Effect{
 			Fn:           parseEffect,
 			CleanupIndex: parseCleanupIdx,
 			Layout:       parseLayout,
@@ -383,7 +430,7 @@ func goUseMemo(parseCompute func() any, parseTargetType reflect.Type, parseDeps 
 		if parseNeeded <= cap(parseHooks.memos) {
 			parseHooks.memos = parseHooks.memos[:parseNeeded]
 		} else {
-			parseNewMemos := make([]memoizedValue, parseNeeded, parseNeeded*2)
+			parseNewMemos := make([]memoizedValue, parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
 			copy(parseNewMemos, parseHooks.memos)
 			parseHooks.memos = parseNewMemos
 		}
@@ -396,6 +443,8 @@ func goUseMemo(parseCompute func() any, parseTargetType reflect.Type, parseDeps 
 			if parseCoerced, parseOk2 := coerceHotReloadValue(parseRestoredValue, parseTargetType); parseOk2 {
 				parseMemo.value = parseCoerced
 				parseMemo.deps = parseRestoredDeps
+				parseMemo.singleDep = nil
+				parseMemo.hasSingleDep = false
 			}
 		}
 	}
@@ -406,6 +455,8 @@ func goUseMemo(parseCompute func() any, parseTargetType reflect.Type, parseDeps 
 	if parseMemo.deps == nil || !areDepsEqual(parseMemo.deps, parseDeps) {
 		parseMemo.value = parseCompute()
 		parseMemo.deps = parseDeps
+		parseMemo.singleDep = nil
+		parseMemo.hasSingleDep = false
 	}
 
 	return parseMemo.value
@@ -434,7 +485,7 @@ func ensureMemoSlot(parseName string) *memoizedValue {
 		if parseNeeded <= cap(parseHooks.memos) {
 			parseHooks.memos = parseHooks.memos[:parseNeeded]
 		} else {
-			parseNewMemos := make([]memoizedValue, parseNeeded, parseNeeded*2)
+			parseNewMemos := make([]memoizedValue, parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
 			copy(parseNewMemos, parseHooks.memos)
 			parseHooks.memos = parseNewMemos
 		}
@@ -464,6 +515,8 @@ func GoUseMemoFor[T any](parseCompute func() T, parseDeps ...any) T {
 			if parseCoerced, parseOk2 := coerceHotReloadValue(parseRestoredValue, reflect.TypeFor[T]()); parseOk2 {
 				parseMemo.value = parseCoerced
 				parseMemo.deps = parseRestoredDeps
+				parseMemo.singleDep = nil
+				parseMemo.hasSingleDep = false
 			}
 		}
 	}
@@ -472,6 +525,8 @@ func GoUseMemoFor[T any](parseCompute func() T, parseDeps ...any) T {
 		parseValue := parseCompute()
 		parseMemo.value = parseValue
 		parseMemo.deps = parseDeps
+		parseMemo.singleDep = nil
+		parseMemo.hasSingleDep = false
 		return parseValue
 	}
 	parseValue, _ := parseMemo.value.(T)
@@ -506,14 +561,20 @@ func GoUseMemoOf[T any, D comparable](parseCompute func(D) T, parseDep D) T {
 		if parseNeeded <= cap(parseHooks.memos) {
 			parseHooks.memos = parseHooks.memos[:parseNeeded]
 		} else {
-			parseNewMemos := make([]memoizedValue, parseNeeded, parseNeeded*2)
+			parseNewMemos := make([]memoizedValue, parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
 			copy(parseNewMemos, parseHooks.memos)
 			parseHooks.memos = parseNewMemos
 		}
 	}
 
 	parseMemo := &parseHooks.memos[parseMemoIdx]
-	if len(parseMemo.deps) == 1 {
+	if parseMemo.hasSingleDep {
+		if parsePrev, parseOk := parseMemo.singleDep.(D); parseOk && parsePrev == parseDep {
+			if parseValue, parseOk2 := parseMemo.value.(T); parseOk2 {
+				return parseValue
+			}
+		}
+	} else if len(parseMemo.deps) == 1 {
 		if parsePrev, parseOk := parseMemo.deps[0].(D); parseOk && parsePrev == parseDep {
 			if parseValue, parseOk2 := parseMemo.value.(T); parseOk2 {
 				return parseValue
@@ -523,7 +584,9 @@ func GoUseMemoOf[T any, D comparable](parseCompute func(D) T, parseDep D) T {
 
 	parseValue := parseCompute(parseDep)
 	parseMemo.value = parseValue
-	parseMemo.deps = []any{parseDep}
+	parseMemo.deps = nil
+	parseMemo.singleDep = parseDep
+	parseMemo.hasSingleDep = true
 	return parseValue
 }
 
@@ -548,19 +611,31 @@ func GoUseEffectOf[D comparable](parseEffect func() func(), parseDep D) {
 	parseCleanupIdx := parseHooks.cleanupIndex
 	parseHooks.cleanupIndex++
 
-	growEffectSlots(parseHooks, parseDepIdx, parseCleanupIdx)
+	growTypedEffectSlots(parseHooks, parseCleanupIdx)
+	if len(parseHooks.effectSingleDeps) <= parseDepIdx {
+		parseNeeded := parseDepIdx + 1
+		if parseNeeded <= cap(parseHooks.effectSingleDeps) {
+			parseHooks.effectSingleDeps = parseHooks.effectSingleDeps[:parseNeeded]
+		} else {
+			parseNewDeps := make([]singleEffectDependency, parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
+			copy(parseNewDeps, parseHooks.effectSingleDeps)
+			parseHooks.effectSingleDeps = parseNewDeps
+		}
+	}
 
 	shouldRun := false
-	parsePrevDeps := parseHooks.deps[parseDepIdx]
-	if parsePrevDeps == nil {
-		parseHooks.deps[parseDepIdx] = []any{parseDep}
+	parseSingleDep := &parseHooks.effectSingleDeps[parseDepIdx]
+	if !parseSingleDep.valid {
+		parseSingleDep.value = parseDep
+		parseSingleDep.valid = true
 		shouldRun = true
 	} else {
-		parsePrev, parseOk := parsePrevDeps[0].(D)
-		if len(parsePrevDeps) != 1 || !parseOk || parsePrev != parseDep || parseHooks.effectEpochs[parseCleanupIdx] != parseHooks.effectEpoch {
-			parseHooks.deps[parseDepIdx] = []any{parseDep}
+		parsePrev, parseOk := parseSingleDep.value.(D)
+		if !parseOk || parsePrev != parseDep || parseHooks.effectEpochs[parseCleanupIdx] != parseHooks.effectEpoch {
 			shouldRun = true
 		}
+		parseSingleDep.value = parseDep
+		parseSingleDep.valid = true
 	}
 
 	if shouldRun {
@@ -572,14 +647,37 @@ func GoUseEffectOf[D comparable](parseEffect func() func(), parseDep D) {
 			recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
 			parseHooks.cleanups[parseCleanupIdx] = nil
 		}
-		if parseFiber.effects == nil {
-			parseFiber.effects = make([]Effect, 0)
-		}
-		parseFiber.effects = append(parseFiber.effects, Effect{
+		appendFiberEffect(parseFiber, Effect{
 			Fn:           parseEffect,
 			CleanupIndex: parseCleanupIdx,
 		})
 		parseHooks.effectEpochs[parseCleanupIdx] = parseHooks.effectEpoch
+	}
+}
+
+// growTypedEffectSlots omits the generic dependency slice. UseEffectOf's API
+// contract forbids swapping it with UseEffect at the same hook position, and
+// its single comparable dependency already has dedicated storage.
+func growTypedEffectSlots(parseHooks *Hooks, parseCleanupIdx int) {
+	if len(parseHooks.cleanups) <= parseCleanupIdx {
+		parseNeeded := parseCleanupIdx + 1
+		if parseNeeded <= cap(parseHooks.cleanups) {
+			parseHooks.cleanups = parseHooks.cleanups[:parseNeeded]
+		} else {
+			parseNewCleanups := make([]func(), parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
+			copy(parseNewCleanups, parseHooks.cleanups)
+			parseHooks.cleanups = parseNewCleanups
+		}
+	}
+	if len(parseHooks.effectEpochs) <= parseCleanupIdx {
+		parseNeeded := parseCleanupIdx + 1
+		if parseNeeded <= cap(parseHooks.effectEpochs) {
+			parseHooks.effectEpochs = parseHooks.effectEpochs[:parseNeeded]
+		} else {
+			parseNewEpochs := make([]int, parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
+			copy(parseNewEpochs, parseHooks.effectEpochs)
+			parseHooks.effectEpochs = parseNewEpochs
+		}
 	}
 }
 
@@ -591,7 +689,7 @@ func growEffectSlots(parseHooks *Hooks, parseDepIdx, parseCleanupIdx int) {
 		if parseNeeded <= cap(parseHooks.deps) {
 			parseHooks.deps = parseHooks.deps[:parseNeeded]
 		} else {
-			parseNewDeps := make([][]any, parseNeeded, parseNeeded*2)
+			parseNewDeps := make([][]any, parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
 			copy(parseNewDeps, parseHooks.deps)
 			parseHooks.deps = parseNewDeps
 		}
@@ -601,7 +699,7 @@ func growEffectSlots(parseHooks *Hooks, parseDepIdx, parseCleanupIdx int) {
 		if parseNeeded2 <= cap(parseHooks.cleanups) {
 			parseHooks.cleanups = parseHooks.cleanups[:parseNeeded2]
 		} else {
-			parseNewCleanups := make([]func(), parseNeeded2, parseNeeded2*2)
+			parseNewCleanups := make([]func(), parseNeeded2, hookBackingCapacity(parseNeeded2, initialHookSlotCapacity))
 			copy(parseNewCleanups, parseHooks.cleanups)
 			parseHooks.cleanups = parseNewCleanups
 		}
@@ -611,7 +709,7 @@ func growEffectSlots(parseHooks *Hooks, parseDepIdx, parseCleanupIdx int) {
 		if parseNeeded3 <= cap(parseHooks.effectEpochs) {
 			parseHooks.effectEpochs = parseHooks.effectEpochs[:parseNeeded3]
 		} else {
-			parseNewEpochs := make([]int, parseNeeded3, parseNeeded3*2)
+			parseNewEpochs := make([]int, parseNeeded3, hookBackingCapacity(parseNeeded3, initialHookSlotCapacity))
 			copy(parseNewEpochs, parseHooks.effectEpochs)
 			parseHooks.effectEpochs = parseNewEpochs
 		}

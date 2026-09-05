@@ -7,6 +7,193 @@ import (
 	"strings"
 )
 
+// Common host tags are boxed once instead of once per element. Element.Type is
+// intentionally `any` for component functions and special runtime types; a
+// string assigned to that escaping interface otherwise allocates a separate
+// string-header object for every host element in Go/Wasm. The dynamic values
+// remain ordinary strings, so public Type assertions and comparisons retain
+// their existing behavior.
+var (
+	boxedHostA        any = "a"
+	boxedHostArticle  any = "article"
+	boxedHostButton   any = "button"
+	boxedHostCode     any = "code"
+	boxedHostDiv      any = "div"
+	boxedHostForm     any = "form"
+	boxedHostH1       any = "h1"
+	boxedHostH2       any = "h2"
+	boxedHostH3       any = "h3"
+	boxedHostHeader   any = "header"
+	boxedHostImg      any = "img"
+	boxedHostInput    any = "input"
+	boxedHostLabel    any = "label"
+	boxedHostLi       any = "li"
+	boxedHostMain     any = "main"
+	boxedHostNav      any = "nav"
+	boxedHostOption   any = "option"
+	boxedHostP        any = "p"
+	boxedHostPre      any = "pre"
+	boxedHostSection  any = "section"
+	boxedHostSelect   any = "select"
+	boxedHostSmall    any = "small"
+	boxedHostSpan     any = "span"
+	boxedHostStrong   any = "strong"
+	boxedHostTable    any = "table"
+	boxedHostTBody    any = "tbody"
+	boxedHostTd       any = "td"
+	boxedHostTextArea any = "textarea"
+	boxedHostTh       any = "th"
+	boxedHostThead    any = "thead"
+	boxedHostTr       any = "tr"
+	boxedHostUl       any = "ul"
+)
+
+func boxedHostType(parseTag string) any {
+	switch parseTag {
+	case "a":
+		return boxedHostA
+	case "article":
+		return boxedHostArticle
+	case "button":
+		return boxedHostButton
+	case "code":
+		return boxedHostCode
+	case "div":
+		return boxedHostDiv
+	case "form":
+		return boxedHostForm
+	case "h1":
+		return boxedHostH1
+	case "h2":
+		return boxedHostH2
+	case "h3":
+		return boxedHostH3
+	case "header":
+		return boxedHostHeader
+	case "img":
+		return boxedHostImg
+	case "input":
+		return boxedHostInput
+	case "label":
+		return boxedHostLabel
+	case "li":
+		return boxedHostLi
+	case "main":
+		return boxedHostMain
+	case "nav":
+		return boxedHostNav
+	case "option":
+		return boxedHostOption
+	case "p":
+		return boxedHostP
+	case "pre":
+		return boxedHostPre
+	case "section":
+		return boxedHostSection
+	case "select":
+		return boxedHostSelect
+	case "small":
+		return boxedHostSmall
+	case "span":
+		return boxedHostSpan
+	case "strong":
+		return boxedHostStrong
+	case "table":
+		return boxedHostTable
+	case "tbody":
+		return boxedHostTBody
+	case "td":
+		return boxedHostTd
+	case "textarea":
+		return boxedHostTextArea
+	case "th":
+		return boxedHostTh
+	case "thead":
+		return boxedHostThead
+	case "tr":
+		return boxedHostTr
+	case "ul":
+		return boxedHostUl
+	default:
+		return parseTag
+	}
+}
+
+const elementSlabSize = 128
+const hostAttrSlabSize = 512
+
+// acquireRenderHostElement batches the host element objects created while a
+// component is actively rendering. Outside a live client render (public tree
+// construction, SSR, tests that build literals) it behaves like new(Element).
+// A fresh backing array is used whenever a slab fills; no slot is ever reused,
+// so retaining a Node remains safe.
+func acquireRenderHostElement() *Element {
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil {
+		return new(Element)
+	}
+	parseRt := runtimeForFiber(parseFiber)
+	if parseRt == nil || parseRt.activeRenderFiber != parseFiber {
+		return new(Element)
+	}
+	if parseRt.elementSlabNext >= len(parseRt.elementSlab) {
+		parseRt.elementSlab = make([]Element, elementSlabSize)
+		parseRt.elementSlabNext = 0
+	}
+	parseElem := &parseRt.elementSlab[parseRt.elementSlabNext]
+	parseRt.elementSlabNext++
+	return parseElem
+}
+
+func acquireRenderComponentProps(parseValue any) *componentPropsBox {
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil {
+		return &componentPropsBox{value: parseValue}
+	}
+	parseRt := runtimeForFiber(parseFiber)
+	if parseRt == nil || parseRt.activeRenderFiber != parseFiber {
+		return &componentPropsBox{value: parseValue}
+	}
+	if parseRt.componentPropsSlabNext >= len(parseRt.componentPropsSlab) {
+		parseRt.componentPropsSlab = make([]componentPropsBox, elementSlabSize)
+		parseRt.componentPropsSlabNext = 0
+	}
+	parseBox := &parseRt.componentPropsSlab[parseRt.componentPropsSlabNext]
+	parseRt.componentPropsSlabNext++
+	parseBox.value = parseValue
+	return parseBox
+}
+
+// AcquireRenderHostAttrs returns an empty attribute slice with the requested
+// capacity. During a live component render it carves the slice from an
+// immutable backing slab, reducing one heap object per host node to roughly
+// one per 512 attributes. The slab is never reused, so fibers and callers may
+// retain the returned slice normally.
+func AcquireRenderHostAttrs(parseCapacity int) []HostAttr {
+	if parseCapacity <= 0 {
+		return nil
+	}
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil {
+		return make([]HostAttr, 0, parseCapacity)
+	}
+	parseRt := runtimeForFiber(parseFiber)
+	if parseRt == nil || parseRt.activeRenderFiber != parseFiber {
+		return make([]HostAttr, 0, parseCapacity)
+	}
+	if parseCapacity > len(parseRt.hostAttrSlab)-parseRt.hostAttrSlabNext {
+		parseSize := hostAttrSlabSize
+		if parseCapacity > parseSize {
+			parseSize = parseCapacity
+		}
+		parseRt.hostAttrSlab = make([]HostAttr, parseSize)
+		parseRt.hostAttrSlabNext = 0
+	}
+	parseStart := parseRt.hostAttrSlabNext
+	parseRt.hostAttrSlabNext += parseCapacity
+	return parseRt.hostAttrSlab[parseStart:parseStart:parseRt.hostAttrSlabNext]
+}
+
 func GetCurrentFiber() *Fiber {
 	return currentFiber
 }
@@ -187,6 +374,77 @@ func CreateElementOwned(parseTyp any, parseProps map[string]any, parseChildren .
 	return buildElement(parseTyp, parseProps, parseChildren...)
 }
 
+// CreateHostElementOwned is the string-tag counterpart to CreateElementOwned.
+// It reuses the pre-boxed common host type table while retaining the map props
+// lane needed by events, numeric properties, style maps, and custom values.
+func CreateHostElementOwned(parseTag string, parseProps map[string]any, parseChildren ...any) *Element {
+	return buildElement(boxedHostType(parseTag), parseProps, parseChildren...)
+}
+
+// CreateTypedComponentElement creates a component element whose typed props
+// are stored directly rather than wrapped in a one-entry map. It is the hot
+// constructor behind ui.Typed; map-built component elements remain unchanged.
+func CreateTypedComponentElement(parseTyp *ComponentType, parseProps any) *Element {
+	parseElem := acquireRenderHostElement()
+	*parseElem = Element{
+		Type:              parseTyp,
+		Children:          emptyChildren,
+		componentProps:    acquireRenderComponentProps(parseProps),
+		hasComponentProps: true,
+		fragmentHintValid: true,
+	}
+	return parseElem
+}
+
+// elementFiberType keeps typed props off the Fiber itself: a typed component
+// fiber retains its current element as the type descriptor, while every other
+// fiber stores the element's ordinary public Type value.
+func elementFiberType(parseElem *Element) any {
+	if parseElem != nil && parseElem.hasComponentProps {
+		return parseElem
+	}
+	if parseElem == nil {
+		return nil
+	}
+	return parseElem.Type
+}
+
+func typedComponentFiberElement(parseFiber *Fiber) (*Element, bool) {
+	if parseFiber == nil {
+		return nil, false
+	}
+	parseElem, parseOk := parseFiber.typeOf.(*Element)
+	return parseElem, parseOk && parseElem != nil && parseElem.hasComponentProps && parseElem.componentProps != nil
+}
+
+// componentTypeFromFiberType unwraps typed component descriptors for identity
+// comparison and diagnostics while leaving Element.Type itself API-compatible.
+func componentTypeFromFiberType(parseType any) (*ComponentType, bool) {
+	if parseComponent, parseOk := parseType.(*ComponentType); parseOk {
+		return parseComponent, parseComponent != nil
+	}
+	parseElem, parseOk := parseType.(*Element)
+	if !parseOk || parseElem == nil || !parseElem.hasComponentProps {
+		return nil, false
+	}
+	parseComponent, parseOk := parseElem.Type.(*ComponentType)
+	return parseComponent, parseOk && parseComponent != nil
+}
+
+func renderComponentFiber(parseFiber *Fiber) (*Element, bool) {
+	if parseFiber == nil {
+		return nil, false
+	}
+	parseComponent, parseOk := componentTypeFromFiberType(parseFiber.typeOf)
+	if !parseOk {
+		return nil, false
+	}
+	if parseTypedElem, hasTyped := typedComponentFiberElement(parseFiber); hasTyped {
+		return parseComponent.RenderProps(nil, parseTypedElem.componentProps.value, true), true
+	}
+	return parseComponent.Render(parseFiber.props), true
+}
+
 // CreateElementCompactHostOwned creates one typed fast-lane host element from a
 // reconciliation key and a caller-normalized, deterministic compact
 // string-attribute view. Fast-lane elements carry no props map at all; cold
@@ -197,23 +455,57 @@ func CreateElementCompactHostOwned(parseTag string, parseKey string, parseAttrs 
 		parseElem.Key = parseKey
 		return parseElem
 	}
-	parseElem := buildElementWithHostProps(parseTag, nil, nil, parseAttrs, true, true, parseChildren...)
+	parseElem := buildElementWithHostProps(boxedHostType(parseTag), nil, parseAttrs, true, true, parseChildren...)
 	parseElem.Key = parseKey
+	return parseElem
+}
+
+// CreateElementCompactHostOwnedSpecial keeps ordinary string attributes in
+// the compact slice while retaining only event/property values in parseProps.
+// This avoids rebuilding and rescanning a full map for event-bearing buttons
+// and links on every parent render.
+func CreateElementCompactHostOwnedSpecial(parseTag string, parseKey string, parseAttrs []HostAttr, parseProps map[string]any, parseChildren ...any) *Element {
+	parseElem := buildElementWithHostProps(boxedHostType(parseTag), parseProps, parseAttrs, true, false, parseChildren...)
+	parseElem.Key = parseKey
+	parseElem.hasCompactSpecialProps = true
+	return parseElem
+}
+
+// CreateElementCompactHostOwnedSpecialText is the direct-text counterpart to
+// CreateElementCompactHostOwnedSpecial.
+func CreateElementCompactHostOwnedSpecialText(parseTag string, parseKey string, parseAttrs []HostAttr, parseProps map[string]any, parseText string) *Element {
+	parseElem := acquireRenderHostElement()
+	parseProps["children"] = emptyChildren
+	*parseElem = Element{
+		Type:                   boxedHostType(parseTag),
+		Props:                  parseProps,
+		Children:               emptyChildren,
+		Key:                    parseKey,
+		TextContent:            parseText,
+		getHostAttrs:           parseAttrs,
+		isCompactHostProps:     true,
+		hasCompactSpecialProps: true,
+		hasDirectText:          true,
+		fragmentHintValid:      true,
+	}
 	return parseElem
 }
 
 // CreateElementCompactHostOwnedText creates one typed fast-lane host element
 // whose only child is plain text, skipping child-slice normalization entirely.
 func CreateElementCompactHostOwnedText(parseTag string, parseKey string, parseAttrs []HostAttr, parseText string) *Element {
-	return &Element{
-		Type:               parseTag,
+	parseElem := acquireRenderHostElement()
+	*parseElem = Element{
+		Type:               boxedHostType(parseTag),
 		Children:           emptyChildren,
 		Key:                parseKey,
 		TextContent:        parseText,
 		getHostAttrs:       parseAttrs,
 		isCompactHostProps: true,
 		hasDirectText:      true,
+		fragmentHintValid:  true,
 	}
+	return parseElem
 }
 
 // PlainTextContent reports the text carried by one plain text node (as built
@@ -231,13 +523,13 @@ func PlainTextContent(parseElem *Element) (string, bool) {
 }
 
 // buildElementHostProps creates one host-only props map and optional compact string attrs for one public element payload.
-func buildElementHostProps(parseTyp any, parseProps map[string]any) (map[string]any, []HostAttr, bool) {
+func buildElementHostProps(parseTyp any, parseProps map[string]any) ([]HostAttr, bool) {
 	parseTag, parseOk := parseTyp.(string)
 	if !parseOk || parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
-		return nil, nil, false
+		return nil, false
 	}
 	if len(parseProps) == 0 {
-		return nil, nil, true
+		return nil, true
 	}
 
 	// Host fibers alias the element's props map directly instead of building a
@@ -245,7 +537,7 @@ func buildElementHostProps(parseTyp any, parseProps map[string]any) (map[string]
 	// reaching here, and the DOM differ skips propKindSkip entries (including
 	// "children"), so the copy only added one map allocation per host element
 	// per render â€” the single largest allocation site in component updates.
-	getHostAttrs := make([]HostAttr, 0, len(parseProps))
+	getHostAttrs := AcquireRenderHostAttrs(len(parseProps))
 	isCompactHostProps := true
 	for parseName, parseValue := range parseProps {
 		if parseName == "children" {
@@ -284,7 +576,7 @@ func buildElementHostProps(parseTyp any, parseProps map[string]any) (map[string]
 	if !isCompactHostProps {
 		getHostAttrs = nil
 	}
-	return parseProps, getHostAttrs, isCompactHostProps
+	return getHostAttrs, isCompactHostProps
 }
 
 // cloneElementProps clones one props map so callers can safely retain and reuse their original input.
@@ -355,6 +647,17 @@ func DemoteDirectTextChild(parseElem *Element) {
 	parseElem.Props["children"] = parseChildren
 }
 
+// MarkElementFragmentChild keeps the production flatten-scan hint correct for
+// post-construction child composition.
+func MarkElementFragmentChild(parseElem *Element, parseChild *Element) {
+	if parseElem == nil || parseChild == nil {
+		return
+	}
+	if parseType, parseOk := parseChild.Type.(string); parseOk && parseType == "FRAGMENT" {
+		parseElem.hasFragmentChildren = true
+	}
+}
+
 // getElementChildren returns one element's structural children while tolerating legacy props-backed child storage.
 func getElementChildren(parseElem *Element) []any {
 	if parseElem == nil {
@@ -410,8 +713,8 @@ func getElementFiberProps(parseElem *Element) map[string]any {
 	if parseElem == nil {
 		return nil
 	}
-	if parseElem.getHostProps != nil || parseElem.isCompactHostProps {
-		return parseElem.getHostProps
+	if parseElem.isCompactHostProps && parseElem.Props == nil {
+		return nil
 	}
 	return parseElem.Props
 }
@@ -469,6 +772,11 @@ func fiberPropsView(parseFiber *Fiber) map[string]any {
 	if parseFiber == nil {
 		return nil
 	}
+	if parseFiber.hasCompactSpecialProps {
+		parseProps := fastLanePropsView(parseFiber.getHostAttrs, parseFiber.key, parseFiber.children, parseFiber.hasDirectText)
+		maps.Copy(parseProps, parseFiber.props)
+		return parseProps
+	}
 	if parseFiber.props != nil || !parseFiber.isCompactHostProps {
 		return parseFiber.props
 	}
@@ -482,6 +790,14 @@ func fiberPropsView(parseFiber *Fiber) map[string]any {
 func EnsureElementProps(parseElem *Element) map[string]any {
 	if parseElem == nil {
 		return nil
+	}
+	if parseElem.hasCompactSpecialProps {
+		parseProps := fastLanePropsView(parseElem.getHostAttrs, parseElem.Key, parseElem.Children, parseElem.hasDirectText)
+		maps.Copy(parseProps, parseElem.Props)
+		parseElem.Props = parseProps
+		parseElem.getHostAttrs, parseElem.isCompactHostProps = buildElementHostProps(parseElem.Type, parseProps)
+		parseElem.hasCompactSpecialProps = false
+		return parseProps
 	}
 	if parseElem.Props != nil || !parseElem.isCompactHostProps {
 		return parseElem.Props
@@ -499,20 +815,20 @@ func RefreshElementHostProps(parseElem *Element) {
 		return
 	}
 	EnsureElementProps(parseElem)
-	parseElem.getHostProps, parseElem.getHostAttrs, parseElem.isCompactHostProps = buildElementHostProps(parseElem.Type, parseElem.Props)
+	parseElem.getHostAttrs, parseElem.isCompactHostProps = buildElementHostProps(parseElem.Type, parseElem.Props)
 }
 
 // buildElement builds one virtual DOM element and stores the normalized children slice on the props map.
 func buildElement(parseTyp any, parseProps map[string]any, parseChildren ...any) *Element {
-	getHostProps, getHostAttrs, isCompactHostProps := buildElementHostProps(parseTyp, parseProps)
-	return buildElementWithHostProps(parseTyp, parseProps, getHostProps, getHostAttrs, isCompactHostProps, false, parseChildren...)
+	getHostAttrs, isCompactHostProps := buildElementHostProps(parseTyp, parseProps)
+	return buildElementWithHostProps(parseTyp, parseProps, getHostAttrs, isCompactHostProps, false, parseChildren...)
 }
 
 // buildElementWithHostProps builds one virtual DOM element from an
 // already-normalized host-prop view. isMapFree marks the typed fast lane:
 // those elements never receive a props map at construction time (cold readers
 // materialize one through EnsureElementProps).
-func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostProps map[string]any, getHostAttrs []HostAttr, isCompactHostProps bool, isMapFree bool, parseChildren ...any) *Element {
+func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostAttrs []HostAttr, isCompactHostProps bool, isMapFree bool, parseChildren ...any) *Element {
 	if len(parseChildren) == 0 {
 		parseChildren = emptyChildren
 	}
@@ -526,25 +842,34 @@ func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostP
 		if parseProps != nil {
 			parseProps["children"] = parseChildren
 		}
-		return &Element{
+		parseElem := acquireRenderHostElement()
+		*parseElem = Element{
 			Type:               parseTyp,
 			Props:              parseProps,
 			Children:           emptyChildren,
 			TextContent:        parseDirectText,
-			getHostProps:       getHostProps,
 			getHostAttrs:       getHostAttrs,
 			isCompactHostProps: isCompactHostProps,
 			hasDirectText:      true,
+			fragmentHintValid:  true,
 		}
+		return parseElem
 	}
 
 	// Normalize string children once so downstream reconciliation sees only
 	// Elements.  All text elements for one parent share a single backing array
 	// so N string children cost one allocation instead of N.
 	parseTextCount := 0
+	hasFragmentChildren := false
 	for _, parseChild := range parseChildren {
 		if _, hasParseText := parseChild.(string); hasParseText {
 			parseTextCount++
+			continue
+		}
+		if parseChildElem, parseOk := parseChild.(*Element); parseOk && parseChildElem != nil {
+			if parseChildType, parseTypeOk := parseChildElem.Type.(string); parseTypeOk && parseChildType == "FRAGMENT" {
+				hasFragmentChildren = true
+			}
 		}
 	}
 	if parseTextCount > 0 {
@@ -570,14 +895,17 @@ func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostP
 		parseProps["children"] = parseChildren
 	}
 
-	return &Element{
-		Type:               parseTyp,
-		Props:              parseProps,
-		Children:           parseChildren,
-		getHostProps:       getHostProps,
-		getHostAttrs:       getHostAttrs,
-		isCompactHostProps: isCompactHostProps,
+	parseElem := acquireRenderHostElement()
+	*parseElem = Element{
+		Type:                parseTyp,
+		Props:               parseProps,
+		Children:            parseChildren,
+		getHostAttrs:        getHostAttrs,
+		isCompactHostProps:  isCompactHostProps,
+		hasFragmentChildren: hasFragmentChildren,
+		fragmentHintValid:   true,
 	}
+	return parseElem
 }
 
 // flattenFragments is an internal reconciler helper.
@@ -632,6 +960,10 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 	if parseParent.alternate == nil || parseParent.alternate.child == nil {
 		return
 	}
+	// Subtree-only work bypasses reconcileChildren. Bind the direct old child
+	// level here so a dirty serialized descendant reaches performUnitOfWork
+	// with the existing DOM node rather than being mistaken for a fresh mount.
+	parseRt.bindSerializedChildLevel(parseParent.alternate)
 
 	var parsePrevSibling *Fiber
 	parseOldFiber := parseParent.alternate.child
@@ -650,27 +982,33 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			// reconciliation key ONLY here (props is nil), and the keyed
 			// reconciler treats key==""+props==nil as unkeyed — dropping it
 			// destroyed row identity on the next keyed update after a bailout.
-			key:                 parseOldFiber.key,
-			portalUnresolved:    parseOldFiber.portalUnresolved,
-			getHostAttrs:        parseOldFiber.getHostAttrs,
-			textContent:         parseOldFiber.textContent,
-			dom:                 parseOldFiber.dom,
-			parent:              parseParent,
-			alternate:           parseOldFiber,
-			effectTag:           parseEffectTag,
-			dirty:               parseOldFiber.dirty,
-			subtreeDirty:        parseOldFiber.subtreeDirty,
-			needsUpdate:         parseOldFiber.needsUpdate,
-			needsChildReconcile: parseOldFiber.needsChildReconcile,
-			hooks:               parseOldFiber.hooks, // Share hooks for non-updated components
-			eventCallbacks:      parseOldFiber.eventCallbacks,
-			contextValues:       parseOldFiber.contextValues,
-			reactiveAtomID:      parseOldFiber.reactiveAtomID,
-			reactiveSourceIDs:   parseOldFiber.reactiveSourceIDs,
-			fineGrained:         parseOldFiber.fineGrained,
-			hasDirectText:       parseOldFiber.hasDirectText,
-			isCompactHostProps:  parseOldFiber.isCompactHostProps,
-			updateOrigin:        parseOldFiber.updateOrigin,
+			key:                    parseOldFiber.key,
+			portalUnresolved:       parseOldFiber.portalUnresolved,
+			getHostAttrs:           parseOldFiber.getHostAttrs,
+			textContent:            parseOldFiber.textContent,
+			dom:                    parseOldFiber.dom,
+			parent:                 parseParent,
+			alternate:              parseOldFiber,
+			effectTag:              parseEffectTag,
+			dirty:                  parseOldFiber.dirty,
+			subtreeDirty:           parseOldFiber.subtreeDirty,
+			needsUpdate:            parseOldFiber.needsUpdate,
+			needsChildReconcile:    parseOldFiber.needsChildReconcile,
+			hooks:                  parseOldFiber.hooks, // Share hooks for non-updated components
+			eventCallbacks:         parseOldFiber.eventCallbacks,
+			contextValues:          parseOldFiber.contextValues,
+			reactiveAtomID:         parseOldFiber.reactiveAtomID,
+			reactiveSourceIDs:      parseOldFiber.reactiveSourceIDs,
+			fineGrained:            parseOldFiber.fineGrained,
+			hasDirectText:          parseOldFiber.hasDirectText,
+			isCompactHostProps:     parseOldFiber.isCompactHostProps,
+			hasCompactSpecialProps: parseOldFiber.hasCompactSpecialProps,
+			hasFragmentChildren:    parseOldFiber.hasFragmentChildren,
+			fragmentHintValid:      parseOldFiber.fragmentHintValid,
+			underFineGrained:       parseParent.fineGrained || parseParent.underFineGrained,
+			ancestorFlagsValid:     true,
+			serializedUnbound:      parseOldFiber.serializedUnbound,
+			updateOrigin:           parseOldFiber.updateOrigin,
 			// Same reason as buildUpdatedFiber: the bailout clone is the OTHER
 			// way a marked fiber reaches the work loop, so dropping the lane
 			// here defeats P2.2 just as completely. The suspension fields travel
@@ -685,6 +1023,9 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		}
 		ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
 		parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
+		if parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved {
+			markFiberCommitPath(parseParent)
+		}
 
 		if parsePrevSibling == nil {
 			parseParent.child = parseNewFiber
@@ -718,7 +1059,7 @@ func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fib
 	for parseCurrent := parseFiber; parseCurrent != nil; parseCurrent = parseCurrent.sibling {
 		if parseCurrent.parent == parseParent &&
 			parseCurrent.effectTag == effectTagNone &&
-			!parseCurrent.dirty && !parseCurrent.subtreeDirty &&
+			!parseCurrent.dirty && !parseCurrent.subtreeDirty && !parseCurrent.subtreeCommit &&
 			!parseCurrent.needsUpdate && !parseCurrent.needsChildReconcile && !parseCurrent.needsChildOrder &&
 			(parseCurrent.hooks == nil || parseCurrent.hooks.owner == parseCurrent) {
 			continue
@@ -727,6 +1068,7 @@ func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fib
 		parseCurrent.effectTag = effectTagNone
 		parseCurrent.dirty = false
 		parseCurrent.subtreeDirty = false
+		parseCurrent.subtreeCommit = false
 		parseCurrent.needsUpdate = false
 		parseCurrent.needsChildReconcile = false
 		parseCurrent.needsChildOrder = false

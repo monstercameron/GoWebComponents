@@ -1,9 +1,6 @@
 package runtime
 
-import (
-	"html"
-	"strings"
-)
+import "strings"
 
 // htmlSubtreeDOMAdapter is the optional capability for mounting one serialized
 // HTML subtree in a single bridge call (browser adapter only; the mock and
@@ -42,19 +39,14 @@ const serializedMountMinHosts = 3
 // node's tag to check it would add a third, erasing the reason this path
 // exists. Refusing the shapes costs nothing and cannot be wrong about the ones
 // it names.
-var serializedMountReshapedTags = map[string]struct{}{
-	// Table structure. The parser inserts tbody, hoists non-table content out,
-	// and relocates anything appearing before a valid child.
-	"table": {}, "thead": {}, "tbody": {}, "tfoot": {}, "tr": {}, "td": {}, "th": {},
-	"caption": {}, "colgroup": {}, "col": {},
-	// Option lists. Anything that is not an option or optgroup is dropped, and
-	// an option's own content is restricted to text.
-	"select": {}, "optgroup": {}, "option": {}, "datalist": {},
-	// Document structure — never legitimate inside a mounted subtree, and each
-	// one triggers its own insertion mode.
-	"html": {}, "head": {}, "body": {}, "frameset": {}, "frame": {}, "template": {},
-	// A nested form is dropped outright.
-	"form": {},
+func isSerializedMountReshapedTag(parseTag string) bool {
+	switch parseTag {
+	case "table", "thead", "tbody", "tfoot", "tr", "td", "th", "caption", "colgroup", "col",
+		"select", "optgroup", "option", "datalist", "html", "head", "body", "frameset", "frame", "template", "form":
+		return true
+	default:
+		return false
+	}
 }
 
 // serializedMountNonNestingTags cannot contain themselves at any depth.
@@ -70,19 +62,27 @@ var serializedMountReshapedTags = map[string]struct{}{
 // against every ancestor inside the serialized subtree rather than the parent.
 // Ancestors OUTSIDE it are irrelevant — the fragment is parsed standalone, so
 // an <a> already in the document cannot affect it.
-var serializedMountNonNestingTags = map[string]struct{}{
-	"a": {}, "li": {}, "dt": {}, "dd": {}, "button": {}, "nobr": {}, "p": {},
+func isSerializedMountNonNestingTag(parseTag string) bool {
+	switch parseTag {
+	case "a", "li", "dt", "dd", "button", "nobr", "p":
+		return true
+	default:
+		return false
+	}
 }
 
 // serializedMountSVGTags mirrors the adapter-side SVG routing: template
 // innerHTML parses in the HTML namespace, so SVG subtrees must keep the
 // per-node createElementNS path.
-var serializedMountSVGTags = map[string]struct{}{
-	"svg": {}, "g": {}, "defs": {}, "use": {}, "symbol": {}, "marker": {},
-	"path": {}, "rect": {}, "circle": {}, "ellipse": {}, "line": {},
-	"polyline": {}, "polygon": {}, "tspan": {}, "clippath": {}, "mask": {},
-	"pattern": {}, "image": {}, "foreignobject": {},
-	"lineargradient": {}, "radialgradient": {}, "stop": {},
+func isSerializedMountSVGTag(parseTag string) bool {
+	switch parseTag {
+	case "svg", "g", "defs", "use", "symbol", "marker", "path", "rect", "circle", "ellipse", "line",
+		"polyline", "polygon", "tspan", "clippath", "mask", "pattern", "image", "foreignobject",
+		"lineargradient", "radialgradient", "stop":
+		return true
+	default:
+		return false
+	}
 }
 
 // shouldDeferHostDomToCommit reports whether one render-phase host fiber may
@@ -131,7 +131,7 @@ func (parseRt *Runtime) shouldDeferHostDomToCommit(parseFiber *Fiber) bool {
 // "children", which needs no attribute, and a DOM ref, which needs the node —
 // a ref-bearing fiber must take the per-node path or its ref is never filled.
 func isSerializableHostFiber(parseFiber *Fiber) bool {
-	if parseFiber == nil || !parseFiber.isCompactHostProps {
+	if parseFiber == nil || !parseFiber.isCompactHostProps || parseFiber.hasCompactSpecialProps {
 		return false
 	}
 	if parseFiber.props == nil {
@@ -141,8 +141,8 @@ func isSerializableHostFiber(parseFiber *Fiber) bool {
 	return !hasRef
 }
 
-// serializedAttrsRoundTrip reports whether every attribute survives the SSR
-// writer byte-for-byte.
+// writeSerializedAttrsRoundTrip writes compact attributes only when every one
+// survives the SSR writer byte-for-byte.
 //
 // writeSSRCompactAttrs silently DROPS names it rejects and REWRITES url-bearing
 // values. Both are correct for SSR and wrong here: the per-node mount path
@@ -152,15 +152,45 @@ func isSerializableHostFiber(parseFiber *Fiber) bool {
 // sibling grouping, not on anything the author wrote. Rejecting those subtrees
 // keeps the two paths identical. Map-lane attribute names come from user maps
 // (data-*, aria-*, spread props), so this is reachable input, not paranoia.
-func serializedAttrsRoundTrip(parseAttrs []HostAttr) bool {
+//
+// Validation and emission deliberately share this pass. The serialized mount
+// path used to validate here and then call writeSSRCompactAttrs, which sorted,
+// normalized, and validated every name a second time. Large append runs spend
+// enough time in this wasm loop for that duplicate safety check to dominate.
+func writeSerializedAttrsRoundTrip(parseBuilder *strings.Builder, parseAttrs []HostAttr) bool {
+	if len(parseAttrs) == 0 {
+		return true
+	}
+	var parseStorage [16]HostAttr
+	parsePairs := parseStorage[:0]
 	for _, parseAttr := range parseAttrs {
-		parseName := normalizeSSRAttrName(compactAttrPropName(parseAttr.Name))
+		parsePairs = append(parsePairs, HostAttr{Name: compactAttrPropName(parseAttr.Name), Value: parseAttr.Value})
+	}
+	for parseIndex := 1; parseIndex < len(parsePairs); parseIndex++ {
+		parsePair := parsePairs[parseIndex]
+		parseSlot := parseIndex
+		for parseSlot > 0 && parsePairs[parseSlot-1].Name > parsePair.Name {
+			parsePairs[parseSlot] = parsePairs[parseSlot-1]
+			parseSlot--
+		}
+		parsePairs[parseSlot] = parsePair
+	}
+	for parseIndex := range parsePairs {
+		parseName := normalizeSSRAttrName(parsePairs[parseIndex].Name)
 		if !isValidSSRAttrName(parseName) {
 			return false
 		}
-		if urlBearingSSRAttr(parseName) && sanitizeSSRURLValue(parseAttr.Value) != parseAttr.Value {
+		if urlBearingSSRAttr(parseName) && sanitizeSSRURLValue(parsePairs[parseIndex].Value) != parsePairs[parseIndex].Value {
 			return false
 		}
+		parsePairs[parseIndex].Name = parseName
+	}
+	for _, parsePair := range parsePairs {
+		parseBuilder.WriteByte(' ')
+		parseBuilder.WriteString(parsePair.Name)
+		parseBuilder.WriteString(`="`)
+		writeSerializedEscapedString(parseBuilder, parsePair.Value)
+		parseBuilder.WriteByte('"')
 	}
 	return true
 }
@@ -204,7 +234,7 @@ func (parseRt *Runtime) tryCommitSerializedSubtree(parseFiber *Fiber) bool {
 	if IsDOMNodeNull(parseRoot) {
 		return false
 	}
-	parseRt.bindSerializedSubtree(parseFiber, parseRoot)
+	parseRt.bindSerializedSubtreeRoot(parseFiber, parseRoot)
 	parseRt.profiling.serializedMountRoots++
 	return true
 }
@@ -226,6 +256,12 @@ type htmlFragmentDOMAdapter interface {
 	CreateHTMLFragment(parseHTML string) DOMNode
 }
 
+// htmlFragmentAppendDOMAdapter can parse and append a serialized sibling run
+// without round-tripping every root handle through Go.
+type htmlFragmentAppendDOMAdapter interface {
+	AppendHTMLFragment(parseParent DOMNode, parseHTML string) bool
+}
+
 // prepareSerializedSiblingRuns pre-mounts maximal runs of consecutive
 // eligible placement siblings from ONE combined HTML parse. Flat lists are
 // the motivating shape: each row is a one-host subtree, too small for
@@ -234,7 +270,7 @@ type htmlFragmentDOMAdapter interface {
 // pre-bound — the normal commit recursion appends them in order through the
 // existing batched append — while their descendants are bound and cleared
 // exactly like the single-subtree path.
-func (parseRt *Runtime) prepareSerializedSiblingRuns(parseParent *Fiber) {
+func (parseRt *Runtime) prepareSerializedSiblingRuns(parseParent *Fiber, parseDomParent DOMNode) {
 	if parseRt == nil || parseParent == nil || parseParent.child == nil {
 		return
 	}
@@ -246,9 +282,23 @@ func (parseRt *Runtime) prepareSerializedSiblingRuns(parseParent *Fiber) {
 	var parseBuilder strings.Builder
 	var parseRun []*Fiber
 	parseHostCount := 0
+	parseCanDirectAppend := true
 
-	parseFlush := func() {
+	parseFlush := func(parseAllowDirectAppend bool) {
 		if len(parseRun) >= 2 && parseHostCount >= serializedMountMinHosts && parseBuilder.Len() > 0 {
+			if parseAllowDirectAppend && parseCanDirectAppend {
+				if parseAppendAdapter, parseAppendOk := parseRt.domAdapter.(htmlFragmentAppendDOMAdapter); parseAppendOk &&
+					!IsDOMNodeNull(parseDomParent) && parseAppendAdapter.AppendHTMLFragment(parseDomParent, parseBuilder.String()) {
+					for _, parseMember := range parseRun {
+						markSerializedRootUnbound(parseMember)
+						parseRt.profiling.serializedMountRoots++
+					}
+					parseBuilder.Reset()
+					parseRun = parseRun[:0]
+					parseHostCount = 0
+					return
+				}
+			}
 			parseFragment := parseFragmentAdapter.CreateHTMLFragment(parseBuilder.String())
 			if !IsDOMNodeNull(parseFragment) {
 				parseDomChild := parseRt.domAdapter.GetFirstChild(parseFragment)
@@ -259,7 +309,7 @@ func (parseRt *Runtime) prepareSerializedSiblingRuns(parseParent *Fiber) {
 					// Bind the member and its descendants; the member keeps
 					// its placement tag so the commit walk appends it in
 					// sibling order.
-					parseRt.bindSerializedSubtree(parseMember, parseDomChild)
+					parseRt.bindSerializedSubtreeRoot(parseMember, parseDomChild)
 					parseMember.effectTag = effectTagPlacement
 					parseRt.profiling.serializedMountRoots++
 					parseDomChild = parseRt.domAdapter.GetNextSibling(parseDomChild)
@@ -285,9 +335,22 @@ func (parseRt *Runtime) prepareSerializedSiblingRuns(parseParent *Fiber) {
 		parseKept := parseTruncated
 		parseBuilder.Reset()
 		parseBuilder.WriteString(parseKept)
-		parseFlush()
+		parseCanDirectAppend = false
+		parseFlush(false)
 	}
-	parseFlush()
+	parseFlush(true)
+}
+
+// markSerializedRootUnbound records that a directly appended serialized root
+// and its descendants already exist in the DOM but do not yet have Go handles.
+func markSerializedRootUnbound(parseFiber *Fiber) {
+	if parseFiber == nil {
+		return
+	}
+	parseFiber.dom = nil
+	parseFiber.effectTag = effectTagNone
+	parseFiber.serializedUnbound = true
+	markSerializedDescendantsUnbound(parseFiber)
 }
 
 // serializeMountSubtree writes one fiber subtree as HTML, reporting false as
@@ -318,13 +381,13 @@ func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builde
 		return false
 	}
 	parseLowerTag := strings.ToLower(parseTag)
-	if _, isSVG := serializedMountSVGTags[parseLowerTag]; isSVG {
+	if isSerializedMountSVGTag(parseLowerTag) {
 		return false
 	}
-	if _, isReshaped := serializedMountReshapedTags[parseLowerTag]; isReshaped {
+	if isSerializedMountReshapedTag(parseLowerTag) {
 		return false
 	}
-	if _, cannotNest := serializedMountNonNestingTags[parseLowerTag]; cannotNest {
+	if isSerializedMountNonNestingTag(parseLowerTag) {
 		for _, parseAncestor := range parseAncestors {
 			if parseAncestor == parseLowerTag {
 				return false
@@ -347,14 +410,12 @@ func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builde
 		parseFiber.hydration != nil || parseFiber.effectTag != effectTagPlacement {
 		return false
 	}
-	if !serializedAttrsRoundTrip(parseFiber.getHostAttrs) {
-		return false
-	}
-
-	*parseHostCount++
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-	writeSSRCompactAttrs(parseBuilder, parseFiber.getHostAttrs)
+	if !writeSerializedAttrsRoundTrip(parseBuilder, parseFiber.getHostAttrs) {
+		return false
+	}
+	*parseHostCount++
 	parseBuilder.WriteByte('>')
 	if isVoidElement(parseTag) {
 		return parseFiber.child == nil && !parseFiber.hasDirectText
@@ -363,7 +424,7 @@ func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builde
 		if parseFiber.child != nil {
 			return false
 		}
-		parseBuilder.WriteString(html.EscapeString(parseFiber.textContent))
+		writeSerializedEscapedString(parseBuilder, parseFiber.textContent)
 	} else {
 		// Children may mix plain text nodes with nested hosts (e.g. a label
 		// text plus a nested element per layer of a deep tree). Text children
@@ -378,7 +439,7 @@ func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builde
 				if parseText == "" || wasTextChild {
 					return false
 				}
-				parseBuilder.WriteString(html.EscapeString(parseText))
+				writeSerializedEscapedString(parseBuilder, parseText)
 				wasTextChild = true
 				continue
 			}
@@ -393,6 +454,35 @@ func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builde
 	parseBuilder.WriteString(parseTag)
 	parseBuilder.WriteByte('>')
 	return true
+}
+
+// writeSerializedEscapedString appends Go html.EscapeString-compatible output
+// directly to the existing mount builder. The standard helper first counts
+// replacements and then builds a second string; serialized mounts can emit the
+// same five escapes in one pass and avoid that temporary entirely.
+func writeSerializedEscapedString(parseBuilder *strings.Builder, parseValue string) {
+	parseStart := 0
+	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
+		var parseEscape string
+		switch parseValue[parseIndex] {
+		case '&':
+			parseEscape = "&amp;"
+		case '\'':
+			parseEscape = "&#39;"
+		case '<':
+			parseEscape = "&lt;"
+		case '>':
+			parseEscape = "&gt;"
+		case '"':
+			parseEscape = "&#34;"
+		default:
+			continue
+		}
+		parseBuilder.WriteString(parseValue[parseStart:parseIndex])
+		parseBuilder.WriteString(parseEscape)
+		parseStart = parseIndex + 1
+	}
+	parseBuilder.WriteString(parseValue[parseStart:])
 }
 
 // isSafeSerializedMountTag reports whether one tag name can round-trip through
@@ -435,23 +525,53 @@ func serializableTextChildValue(parseFiber *Fiber) string {
 	return parseText
 }
 
-// bindSerializedSubtree zips the fiber subtree against the freshly parsed DOM
-// subtree — the serializer emitted exactly this structure, so fiber children
-// and DOM children correspond positionally — assigning each fiber its node
-// and clearing descendant placement tags so the commit walk does not re-append
-// nodes that arrived with the parsed subtree.
-func (parseRt *Runtime) bindSerializedSubtree(parseFiber *Fiber, parseDom DOMNode) {
+// bindSerializedSubtreeRoot installs the parsed root handle and marks its
+// descendants as already materialized but not yet bound into Go. The previous
+// implementation eagerly zipped every descendant using GetFirstChild plus
+// GetNextSibling, paying roughly two Go/JS crossings per node during mount.
+// Reconciliation only needs those handles when a parent is subsequently
+// visited, so bindSerializedChildLevel resolves them one level at a time.
+func (parseRt *Runtime) bindSerializedSubtreeRoot(parseFiber *Fiber, parseDom DOMNode) {
 	parseFiber.dom = parseDom
-	if parseFiber.child == nil {
+	parseFiber.serializedUnbound = false
+	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+		parseChild.effectTag = effectTagNone
+		parseChild.serializedUnbound = true
+		markSerializedDescendantsUnbound(parseChild)
+	}
+}
+
+func markSerializedDescendantsUnbound(parseFiber *Fiber) {
+	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+		parseChild.effectTag = effectTagNone
+		parseChild.serializedUnbound = true
+		markSerializedDescendantsUnbound(parseChild)
+	}
+}
+
+// bindSerializedChildLevel resolves one already-parsed direct child list while
+// its committed sibling order is still authoritative. It intentionally does
+// not descend; untouched subtrees retain the mount-time bridge savings.
+func (parseRt *Runtime) bindSerializedChildLevel(parseParent *Fiber) {
+	if parseRt == nil || parseParent == nil || parseParent.child == nil {
 		return
 	}
-	parseDomChild := parseRt.domAdapter.GetFirstChild(parseDom)
-	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
-		if IsDOMNodeNull(parseDomChild) {
-			return
+	parseNeedsBinding := false
+	for parseChild := parseParent.child; parseChild != nil; parseChild = parseChild.sibling {
+		if parseChild.serializedUnbound {
+			parseNeedsBinding = true
+			break
 		}
-		parseChild.effectTag = effectTagNone
-		parseRt.bindSerializedSubtree(parseChild, parseDomChild)
+	}
+	if !parseNeedsBinding || IsDOMNodeNull(parseParent.dom) {
+		return
+	}
+	parseDomChild := parseRt.domAdapter.GetFirstChild(parseParent.dom)
+	for parseChild := parseParent.child; parseChild != nil && !IsDOMNodeNull(parseDomChild); parseChild = parseChild.sibling {
+		if parseChild.serializedUnbound {
+			parseChild.dom = parseDomChild
+			parseChild.serializedUnbound = false
+		}
 		parseDomChild = parseRt.domAdapter.GetNextSibling(parseDomChild)
 	}
 }

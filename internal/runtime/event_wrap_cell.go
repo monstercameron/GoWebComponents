@@ -13,6 +13,18 @@ func (parseRuntime *Runtime) wrapEventHandlerCell(parseCell *funcHandlerCell) an
 		return parseCell.fn
 	}
 
+	// DOM handlers overwhelmingly use one of these signatures. Keeping them as
+	// ordinary Go closures avoids reflect.MakeFunc at registration and
+	// reflect.Value.Call on every interaction (particularly costly in wasm).
+	// The cell is still dereferenced at dispatch, so the wrapper keeps UseEvent's
+	// latest-closure semantics.
+	switch parseCell.fn.(type) {
+	case func():
+		return func() { parseRuntime.invokeEventCellNoArgs(parseCell) }
+	case func(string):
+		return func(parseValue string) { parseRuntime.invokeEventCellString(parseCell, parseValue) }
+	}
+
 	parseWrapper := reflect.MakeFunc(parseFnType, func(parseArgs []reflect.Value) (parseResults []reflect.Value) {
 		parseRuntime.recordFirstInteraction("event")
 		defer func() {
@@ -44,6 +56,39 @@ func (parseRuntime *Runtime) wrapEventHandlerCell(parseCell *funcHandlerCell) an
 	})
 
 	return parseWrapper.Interface()
+}
+
+func (parseRuntime *Runtime) invokeEventCellNoArgs(parseCell *funcHandlerCell) {
+	parseRuntime.invokeEventCell(parseCell, func() {
+		if parseFn, parseOk := parseCell.fn.(func()); parseOk {
+			parseFn()
+		}
+	})
+}
+
+func (parseRuntime *Runtime) invokeEventCellString(parseCell *funcHandlerCell, parseValue string) {
+	parseRuntime.invokeEventCell(parseCell, func() {
+		if parseFn, parseOk := parseCell.fn.(func(string)); parseOk {
+			parseFn(parseValue)
+		}
+	})
+}
+
+func (parseRuntime *Runtime) invokeEventCell(parseCell *funcHandlerCell, parseInvoke func()) {
+	parseRuntime.recordFirstInteraction("event")
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			if panicPhaseMayRecoverWithBoundary(PanicPhaseEvent) {
+				if _, parseHandled := parseRuntime.recoverBoundaryError(parseCell.owner, parseRecovered, boundaryPhaseEvent); parseHandled {
+					return
+				}
+			}
+			panicFinalUnhandledPanic(parseCell.owner, boundaryPhaseEvent, parseRecovered)
+		}
+	}()
+	parseRuntime.enterFrameLoop()
+	defer parseRuntime.exitFrameLoop()
+	parseInvoke()
 }
 
 // buildEventResultValues allocates zero-valued results for one event wrapper signature.

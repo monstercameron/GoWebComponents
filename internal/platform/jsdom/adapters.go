@@ -14,9 +14,7 @@ import (
 
 // WASMDOMNode wraps a js.Value representing a DOM node.
 type WASMDOMNode struct {
-	value js.Value
-	// batchID caches the node's JS-side attr-batch registry id (0 = not yet
-	// registered; ids start at 1). See attr_batch.go.
+	value   js.Value
 	batchID int
 }
 
@@ -137,9 +135,12 @@ type WASMDOMAdapter struct {
 	attrBatchActive   bool
 	attrHelpersBound  bool
 	attrHelpersFailed bool
-	attrBatchPayload  strings.Builder
 	attrRegisterNode  js.Value
 	attrFlushBatch    js.Value
+	mutationBatchOps  []wasmDOMMutation
+	attrBatchPayload  []byte
+	removeFlushBatch  js.Value
+	removeBatchPairs  []interface{}
 }
 
 type wasmBatchState struct {
@@ -419,6 +420,18 @@ func (parseA *WASMDOMAdapter) CreateHTMLFragment(parseHTML string) runtime.DOMNo
 	return &WASMDOMNode{value: parseA.storeTemplateContent}
 }
 
+// AppendHTMLFragment parses and moves a whole sibling run under parseParent in
+// two bridge operations, leaving root handles to the runtime's lazy binder.
+func (parseA *WASMDOMAdapter) AppendHTMLFragment(parseParent runtime.DOMNode, parseHTML string) bool {
+	parseParentNode, parseOk := parseParent.(*WASMDOMNode)
+	if !parseOk || parseParentNode.IsNull() || parseHTML == "" || !parseA.ensureStoreTemplate() {
+		return false
+	}
+	parseA.storeTemplate.Set("innerHTML", parseHTML)
+	parseParentNode.value.Call("appendChild", parseA.storeTemplateContent)
+	return true
+}
+
 // CreateHTMLSubtree parses one serialized HTML subtree through the shared
 // template element in a single bridge call and returns its root node (still
 // detached; appending it later moves it out of the template content).
@@ -526,6 +539,9 @@ func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNod
 	parseParentNode, parseOk1 := parseParent.(*WASMDOMNode)
 	parseChildNode, parseOk2 := parseChild.(*WASMDOMNode)
 	if !parseOk1 || !parseOk2 {
+		return
+	}
+	if !parseParentNode.IsNull() && !parseChildNode.IsNull() && parseA.queueChildRemoval(parseParentNode, parseChildNode) {
 		return
 	}
 	parseChildParent := parseChildNode.value.Get("parentNode")
@@ -681,8 +697,39 @@ func (parseA *WASMDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseTex
 	// typed-nil (*WASMDOMNode) passes the type assertion but nil-derefs on .value,
 	// and .Set on a null/undefined value panics with "not an object". Both crash
 	// the whole app from the render/commit path, so guard before touching JS.
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk && !parseWasmNode.IsNull() {
-		parseWasmNode.value.Set("textContent", parseText)
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
+		if parseA.queueTextWrite(parseWasmNode, parseText) {
+			return
+		}
+		parseValue := parseWasmNode.value
+		parseNodeType := parseValue.Get("nodeType")
+		if parseNodeType.Type() == js.TypeNumber && parseNodeType.Int() == 3 {
+			// Updating Text.data/nodeValue produces one characterData mutation.
+			// Assigning Text.textContent is equivalent in the browser, but keeping
+			// the explicit nodeValue path also documents that text-fiber identity is
+			// preserved across commits.
+			parseValue.Set("nodeValue", parseText)
+			return
+		}
+		if parseText != "" {
+			parseFirstChild := parseValue.Get("firstChild")
+			if !parseFirstChild.IsNull() && !parseFirstChild.IsUndefined() {
+				parseFirstType := parseFirstChild.Get("nodeType")
+				parseNextSibling := parseFirstChild.Get("nextSibling")
+				if parseFirstType.Type() == js.TypeNumber && parseFirstType.Int() == 3 &&
+					(parseNextSibling.IsNull() || parseNextSibling.IsUndefined()) {
+					// Direct-text host nodes own exactly one Text child. Mutate that
+					// child in place instead of replacing it through Element.textContent;
+					// list and card updates otherwise create two DOM mutations and a new
+					// node for every changed label.
+					parseFirstChild.Set("nodeValue", parseText)
+					return
+				}
+			}
+		}
+		// Empty text must retain textContent semantics (remove all children), and
+		// mixed-content elements must replace their complete child list.
+		parseValue.Set("textContent", parseText)
 	}
 }
 
@@ -992,15 +1039,17 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 	switch parseF := parseFn.(type) {
 	case func():
 		return js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			runtime.BeginGlobalDiscreteWork()
+			defer runtime.EndGlobalDiscreteWork()
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			parseF()
-			runtime.FlushGlobalDiscreteWork()
 			return nil
 		})
 	case func(string):
 		return js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			runtime.BeginGlobalDiscreteWork()
+			defer runtime.EndGlobalDiscreteWork()
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
-			defer runtime.FlushGlobalDiscreteWork()
 			if len(parseArgs2) == 0 {
 				parseF("")
 				return nil
@@ -1020,44 +1069,49 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 		})
 	case func(js.Value):
 		return js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			runtime.BeginGlobalDiscreteWork()
+			defer runtime.EndGlobalDiscreteWork()
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs3) > 0 {
 				parseF(parseArgs3[0])
-				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})
 	case func() error:
 		return js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			runtime.BeginGlobalDiscreteWork()
+			defer runtime.EndGlobalDiscreteWork()
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			parseF()
-			runtime.FlushGlobalDiscreteWork()
 			return nil
 		})
 	case func(js.Value) error:
 		return js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			runtime.BeginGlobalDiscreteWork()
+			defer runtime.EndGlobalDiscreteWork()
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs5) > 0 {
 				parseF(parseArgs5[0])
-				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})
 	case func(runtime.GoEvent):
 		return js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			runtime.BeginGlobalDiscreteWork()
+			defer runtime.EndGlobalDiscreteWork()
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs6) > 0 {
 				parseF(runtime.NewGoEvent(parseArgs6[0]))
-				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})
 	case func(runtime.GoEvent) error:
 		return js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
+			runtime.BeginGlobalDiscreteWork()
+			defer runtime.EndGlobalDiscreteWork()
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs7) > 0 {
 				parseF(runtime.NewGoEvent(parseArgs7[0]))
-				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})
@@ -1128,6 +1182,8 @@ func (parseH *wasmEventHandler) Release() {
 func (parseA *WASMEventAdapter) CreateEventHandler(parseFn func(runtime.Event)) runtime.EventHandler {
 	// Create a wasmEvent wrapper
 	parseJsFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		runtime.BeginGlobalDiscreteWork()
+		defer runtime.EndGlobalDiscreteWork()
 		defer runtime.RecoverContainedPanic("dom", "event handler bridge")
 		if len(parseArgs) > 0 {
 			parseEvent := &wasmEvent{value: parseArgs[0]}

@@ -11,7 +11,7 @@ import (
 )
 
 // TestExample201GCTuningProbe A/Bs Go GC aggressiveness in the browser
-// subject: default GOGC=100 vs the localStorage["benchmark:gogc"] override.
+// subject: default GOGC=100 vs the localStorage["gwc:gogc"] override.
 // Reports per-scenario GC collections, total pause, and DOM-ready mean/max —
 // the tail-latency question, not the mean. Diagnostic only.
 func TestExample201GCTuningProbe(parseT *testing.T) {

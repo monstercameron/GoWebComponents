@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1108,6 +1109,7 @@ func cloneProps(parseInput Props) Props {
 	parseClone.Data = cloneStringMap(parseInput.Data)
 	parseClone.Aria = cloneStringMap(parseInput.Aria)
 	parseClone.Raw = cloneAnyMap(parseInput.Raw)
+	parseClone.DataAttrs = slices.Clone(parseInput.DataAttrs)
 	return parseClone
 }
 
@@ -1304,7 +1306,8 @@ func StyleVar(parseName string, parseValue string) PropOption {
 }
 
 // MergeProps overlays parseOverride onto parseBase: each non-zero scalar field of
-// parseOverride wins, and the Style/Data/Aria/Raw maps are unioned with
+// parseOverride wins, DataAttrs is replaced as a scalar value, and the
+// Style/Data/Aria/Raw maps are unioned with
 // parseOverride taking precedence per key. Neither input is mutated. Use it to
 // forward and override props through a wrapper component.
 //
@@ -1397,6 +1400,7 @@ func WithChildren(parseNode ui.Node, parseChildren ...ui.Node) ui.Node {
 	runtime.DemoteDirectTextChild(parseNode)
 	for _, parseChild := range parseChildren {
 		if parseChild != nil {
+			runtime.MarkElementFragmentChild(parseNode, parseChild)
 			parseNode.Children = append(parseNode.Children, parseChild)
 		}
 	}

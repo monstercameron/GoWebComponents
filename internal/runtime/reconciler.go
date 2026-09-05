@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
+	"unsafe"
 )
 
 type elementScratchPool struct {
@@ -218,6 +218,13 @@ func (parseRt *Runtime) acquireMountFiber() *Fiber {
 	if parseRt == nil {
 		return new(Fiber)
 	}
+	if parseCount := len(parseRt.recycledHostFibers); parseCount != 0 {
+		parseFiber := parseRt.recycledHostFibers[parseCount-1]
+		parseRt.recycledHostFibers[parseCount-1] = nil
+		parseRt.recycledHostFibers = parseRt.recycledHostFibers[:parseCount-1]
+		*parseFiber = Fiber{}
+		return parseFiber
+	}
 	if parseRt.fiberSlabNext >= len(parseRt.fiberSlab) {
 		parseRt.fiberSlab = make([]Fiber, fiberSlabSize)
 		parseRt.fiberSlabNext = 0
@@ -268,6 +275,32 @@ func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Ele
 		return parseOldText != parseNewText, false
 	}
 
+	// ui.Typed stores its payload directly on the element/fiber, avoiding a
+	// one-entry props map for every component instance. Mixed typed/map shapes
+	// conservatively re-render; two typed shapes use the same shallow-oriented
+	// equality helper as ordinary component props.
+	parseOldTypedElement, hasParseOldTyped := typedComponentFiberElement(parseOldFiber)
+	if hasParseOldTyped || parseElem.hasComponentProps {
+		if hasParseOldTyped != parseElem.hasComponentProps {
+			return true, false
+		}
+		isParsePropsEqual := false
+		isParsePropsHandled := false
+		if parseComponent, parseOk := componentTypeFromFiberType(parseElem.Type); parseOk {
+			isParsePropsEqual, isParsePropsHandled = parseComponent.EqualTypedProps(parseOldTypedElement.componentProps.value, parseElem.componentProps.value)
+		}
+		if !isParsePropsHandled {
+			isParsePropsEqual = fastEqual(parseOldTypedElement.componentProps.value, parseElem.componentProps.value)
+		}
+		if !isParsePropsEqual {
+			return true, false
+		}
+		if childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
+			return false, false
+		}
+		return false, true
+	}
+
 	// Typed fast lane: both sides carry deterministic compact attribute
 	// slices and no props map, so the diff is a positional slice walk plus
 	// the dedicated key field — no map iteration at all.
@@ -285,6 +318,27 @@ func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Ele
 			return false, false
 		}
 		if childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
+			return false, false
+		}
+		return false, true
+	}
+	// Event-bearing typed hosts keep their ordinary attributes compact and a
+	// tiny props map containing only special values. Compare those two channels
+	// independently so a stable control does not materialize a combined map.
+	if parseOldFiber.isCompactHostProps && parseOldFiber.hasCompactSpecialProps &&
+		parseElem.isCompactHostProps && parseElem.hasCompactSpecialProps {
+		if parseOldFiber.hasDirectText != parseElem.hasDirectText {
+			return true, true
+		}
+		if parseOldFiber.hasDirectText && parseOldFiber.textContent != parseElem.TextContent {
+			return true, false
+		}
+		if parseOldFiber.key != parseElem.Key ||
+			!hostAttrsEqual(parseOldFiber.getHostAttrs, parseElem.getHostAttrs) ||
+			!propsEqualIgnoringChildren(parseOldFiber.props, parseElemProps) {
+			return true, false
+		}
+		if parseOldFiber.hasDirectText || childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
 			return false, false
 		}
 		return false, true
@@ -311,17 +365,18 @@ func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Ele
 		return true, false
 	}
 
-	if propsEqual(parseOldView, parseNewView) {
-		if childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
-			return false, false
-		}
-		return false, true
+	// Children already have their own structural representation on Element and
+	// Fiber. Comparing the props map INCLUDING "children" first, then scanning
+	// it again while ignoring children whenever the slices differ, performed two
+	// complete map walks for the normal rerender shape. One non-children compare
+	// plus one pointer-oriented child compare is exactly the same decision table.
+	if !propsEqualIgnoringChildren(parseOldView, parseNewView) {
+		return true, false
 	}
-	if propsEqualIgnoringChildren(parseOldView, parseNewView) {
-		return false, true
+	if childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
+		return false, false
 	}
-
-	return true, false
+	return false, true
 }
 
 // childrenEqual compares one structural children slice using the same pointer-oriented semantics as propsEqual.
@@ -368,29 +423,35 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 		// built from one func literal render each other's captured props. With
 		// per-closure handles the fiber has to pick its implementation up from
 		// the element, or an inline component's captures would freeze at mount.
-		typeOf:              parseElem.Type,
-		props:               parseElemProps,
-		children:            getElementChildren(parseElem),
-		getHostAttrs:        parseElem.getHostAttrs,
-		key:                 parseElem.Key,
-		textContent:         parseElem.TextContent,
-		dom:                 parseOldFiber.dom,
-		parent:              parseWipFiber,
-		alternate:           parseOldFiber,
-		effectTag:           parseEffectTag,
-		dirty:               isParseNeedsUpdate,
-		subtreeDirty:        parseOldFiber.subtreeDirty,
-		needsUpdate:         parseOldFiber.needsUpdate,
-		needsChildReconcile: isParseNeedsChildReconcile,
-		hooks:               parseOldFiber.hooks,
-		eventCallbacks:      parseOldFiber.eventCallbacks,
-		hydration:           parseWipFiber.childHydration,
-		reactiveAtomID:      parseOldFiber.reactiveAtomID,
-		reactiveSourceIDs:   parseOldFiber.reactiveSourceIDs,
-		fineGrained:         parseOldFiber.fineGrained,
-		hasDirectText:       parseElem.hasDirectText,
-		isCompactHostProps:  parseElem.isCompactHostProps,
-		updateOrigin:        parseOldFiber.updateOrigin,
+		typeOf:                 elementFiberType(parseElem),
+		props:                  parseElemProps,
+		children:               getElementChildren(parseElem),
+		getHostAttrs:           parseElem.getHostAttrs,
+		key:                    parseElem.Key,
+		textContent:            parseElem.TextContent,
+		dom:                    parseOldFiber.dom,
+		parent:                 parseWipFiber,
+		alternate:              parseOldFiber,
+		effectTag:              parseEffectTag,
+		dirty:                  isParseNeedsUpdate,
+		subtreeDirty:           parseOldFiber.subtreeDirty,
+		needsUpdate:            parseOldFiber.needsUpdate,
+		needsChildReconcile:    isParseNeedsChildReconcile,
+		hooks:                  parseOldFiber.hooks,
+		eventCallbacks:         parseOldFiber.eventCallbacks,
+		hydration:              parseWipFiber.childHydration,
+		reactiveAtomID:         parseOldFiber.reactiveAtomID,
+		reactiveSourceIDs:      parseOldFiber.reactiveSourceIDs,
+		fineGrained:            parseOldFiber.fineGrained,
+		hasDirectText:          parseElem.hasDirectText,
+		isCompactHostProps:     parseElem.isCompactHostProps,
+		hasCompactSpecialProps: parseElem.hasCompactSpecialProps,
+		hasFragmentChildren:    parseElem.hasFragmentChildren,
+		fragmentHintValid:      parseElem.fragmentHintValid,
+		underFineGrained:       parseWipFiber.fineGrained || parseWipFiber.underFineGrained,
+		ancestorFlagsValid:     true,
+		serializedUnbound:      parseOldFiber.serializedUnbound,
+		updateOrigin:           parseOldFiber.updateOrigin,
 		// A suspension has to survive the clone or every re-render re-subscribes.
 		//
 		// subscribeAsyncBoundary dedupes on asyncWait, so dropping it here made the
@@ -421,6 +482,9 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 	}
 	ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
 	parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
+	if parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved {
+		markFiberCommitPath(parseWipFiber)
+	}
 	return parseNewFiber
 }
 
@@ -443,23 +507,39 @@ func (parseRt *Runtime) buildPlacementFiber(parseWipFiber *Fiber, parseElem *Ele
 	parseElemProps := getElementFiberProps(parseElem)
 	parseNewFiber := parseRt.acquireMountFiber()
 	*parseNewFiber = Fiber{
-		typeOf:             parseElem.Type,
-		props:              parseElemProps,
-		children:           getElementChildren(parseElem),
-		getHostAttrs:       parseElem.getHostAttrs,
-		key:                parseElem.Key,
-		textContent:        parseElem.TextContent,
-		parent:             parseWipFiber,
-		effectTag:          effectTagPlacement,
-		dirty:              true,
-		hydration:          parseWipFiber.childHydration,
-		fineGrained:        isFineGrainedType(parseElem.Type),
-		hasDirectText:      parseElem.hasDirectText,
-		isCompactHostProps: parseElem.isCompactHostProps,
-		updateOrigin:       oldFiberUpdateOrigin(parseOldFiber, parseElem.Type),
-		ownerRuntime:       runtimeForFiber(parseWipFiber),
+		typeOf:                 elementFiberType(parseElem),
+		props:                  parseElemProps,
+		children:               getElementChildren(parseElem),
+		getHostAttrs:           parseElem.getHostAttrs,
+		key:                    parseElem.Key,
+		textContent:            parseElem.TextContent,
+		parent:                 parseWipFiber,
+		effectTag:              effectTagPlacement,
+		dirty:                  true,
+		hydration:              parseWipFiber.childHydration,
+		fineGrained:            isFineGrainedType(parseElem.Type),
+		hasDirectText:          parseElem.hasDirectText,
+		isCompactHostProps:     parseElem.isCompactHostProps,
+		hasCompactSpecialProps: parseElem.hasCompactSpecialProps,
+		hasFragmentChildren:    parseElem.hasFragmentChildren,
+		fragmentHintValid:      parseElem.fragmentHintValid,
+		underFineGrained:       parseWipFiber.fineGrained || parseWipFiber.underFineGrained,
+		ancestorFlagsValid:     true,
+		updateOrigin:           oldFiberUpdateOrigin(parseOldFiber, parseElem.Type),
+		ownerRuntime:           runtimeForFiber(parseWipFiber),
 	}
+	markFiberCommitPath(parseWipFiber)
 	return parseNewFiber
+}
+
+// markFiberCommitPath marks the ancestor chain that commitWork must descend.
+// Stop at the first marked ancestor: that ancestor was marked by walking the
+// same remaining path earlier in this pass, keeping the total cost linear.
+func markFiberCommitPath(parseFiber *Fiber) {
+	for parseFiber != nil && !parseFiber.subtreeCommit {
+		parseFiber.subtreeCommit = true
+		parseFiber = parseFiber.parent
+	}
 }
 
 // buildUpdateEffectTag returns the effect tag used when one reused fiber keeps its existing DOM node.
@@ -623,7 +703,8 @@ func reportDuplicateKeyOnce(parseParent *Fiber, parseKey any) {
 			parseParentName, parseKey))
 }
 
-// tryReconcileKeyedChildrenInOrder fast-paths keyed lists that kept the same sibling order.
+// tryReconcileKeyedChildrenInOrder fast-paths keyed lists that kept the same
+// sibling order, including trailing append and trailing removal.
 func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, parseElements []any, parseOldFirst *Fiber) bool {
 	if parseWipFiber == nil {
 		return false
@@ -649,12 +730,8 @@ func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, p
 		}
 		parseOldFiber = parseOldFiber.sibling
 	}
-	if parseOldFiber != nil {
-		return false
-	}
-
 	// Phase 2: build the chain — updates over the matched prefix, placements
-	// for the appended tail.
+	// for the appended tail, or deletions for the old trailing tail.
 	parseOldFiber = parseOldFirst
 	var parseFirstChild *Fiber
 	var parsePrevSibling *Fiber
@@ -676,12 +753,24 @@ func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, p
 		parsePrevSibling = parseNewFiber
 	}
 	parseWipFiber.child = parseFirstChild
+	for parseOldFiber != nil {
+		parseNextOldFiber := parseOldFiber.sibling
+		parseOldFiber.effectTag = effectTagDeletion
+		parseRt.deletions = append(parseRt.deletions, parseOldFiber)
+		parseOldFiber = parseNextOldFiber
+	}
 	return true
 }
 
 // GetCurrentFiber returns the fiber currently being processed
 func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []any) {
 	parseWipFiber.needsChildOrder = false
+	// A serialized mount binds its root immediately and leaves descendants as
+	// lightweight positional handles. Resolve this parent's direct old child
+	// level before reconciliation changes sibling order or replaces nodes.
+	if parseWipFiber.alternate != nil {
+		parseRt.bindSerializedChildLevel(parseWipFiber.alternate)
+	}
 	// Fast path: empty elements
 	if len(parseElements) == 0 {
 		if parseWipFiber.alternate != nil && parseWipFiber.alternate.child != nil {
@@ -697,7 +786,11 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	}
 
 	// Flatten any Fragment elements before reconciliation
-	parseFlatElements, parseWasAllocated := flattenFragments(parseElements)
+	parseFlatElements := parseElements
+	parseWasAllocated := false
+	if !parseWipFiber.fragmentHintValid || parseWipFiber.hasFragmentChildren || !isHostFiber(parseWipFiber) {
+		parseFlatElements, parseWasAllocated = flattenFragments(parseElements)
+	}
 	if parseWasAllocated {
 		defer func() {
 			slicePool.clear(parseFlatElements)
@@ -705,6 +798,26 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	}
 	parseElements = parseFlatElements
 	reportUnkeyedComponentAliasing(parseWipFiber, parseElements)
+
+	// A parent with no previous child is a pure mount. Keys cannot match,
+	// move, replace, or delete anything in that shape, so classifying the new
+	// child list as keyed and routing it through the general reconciler only
+	// adds a full sibling scan before building the exact same placement chain.
+	// Keep the development-only key diagnostics, then mount directly. The
+	// hookThreadingGuardEnabled constant lets the compiler erase those scans
+	// completely from production builds.
+	var parseOldFirst *Fiber
+	if parseWipFiber.alternate != nil {
+		parseOldFirst = parseWipFiber.alternate.child
+	}
+	if parseOldFirst == nil {
+		if hookThreadingGuardEnabled && shouldUseKeyedReconciliation(parseElements, parseWipFiber) {
+			reportMissingKeys(parseWipFiber, parseElements)
+			reportDuplicateKeys(parseWipFiber, parseElements)
+		}
+		parseRt.mountChildren(parseWipFiber, parseElements)
+		return
+	}
 
 	if shouldUseKeyedReconciliation(parseElements, parseWipFiber) {
 		// Both key diagnostics moved INSIDE the keyed branch.
@@ -725,9 +838,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 
 	parseIndex := 0
 	var parseOldFiber2 *Fiber
-	if parseWipFiber.alternate != nil {
-		parseOldFiber2 = parseWipFiber.alternate.child
-	}
+	parseOldFiber2 = parseOldFirst
 	var parsePrevSibling *Fiber
 	isParseFirstChildSet := false
 
@@ -759,6 +870,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 					// REPLACE logic (Placement + Deletion)
 					if parseOldFiber2.sibling != nil || parseIndex < parseElemCount-1 {
 						parseWipFiber.needsChildOrder = true
+						markFiberCommitPath(parseWipFiber.parent)
 					}
 					parseNewFiber = parseRt.buildPlacementFiber(parseWipFiber, parseElem, parseOldFiber2)
 
@@ -819,6 +931,29 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	}
 }
 
+// mountChildren builds a sibling chain when the parent has no previous child.
+// It deliberately accepts the already-flattened element slice used by
+// reconcileChildren, and mirrors that function's treatment of nil/non-element
+// entries.
+func (parseRt *Runtime) mountChildren(parseWipFiber *Fiber, parseElements []any) {
+	var parseFirstChild *Fiber
+	var parsePrevSibling *Fiber
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil {
+			continue
+		}
+		parseNewFiber := parseRt.buildPlacementFiber(parseWipFiber, parseElem, nil)
+		if parseFirstChild == nil {
+			parseFirstChild = parseNewFiber
+		} else {
+			parsePrevSibling.sibling = parseNewFiber
+		}
+		parsePrevSibling = parseNewFiber
+	}
+	parseWipFiber.child = parseFirstChild
+}
+
 // shouldUseKeyedReconciliation is an internal reconciler helper.
 func shouldUseKeyedReconciliation(parseElements []any, parseWipFiber *Fiber) bool {
 	for _, parseElement := range parseElements {
@@ -846,6 +981,18 @@ func shouldUseKeyedReconciliation(parseElements []any, parseWipFiber *Fiber) boo
 // reconcileKeyedChildren is an internal reconciler helper.
 func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElements []any) {
 	parseWipFiber.needsChildOrder = false
+	var parseOldFirst *Fiber
+	if parseWipFiber.alternate != nil {
+		parseOldFirst = parseWipFiber.alternate.child
+	}
+	if parseRt.tryReconcileKeyedChildrenInOrder(parseWipFiber, parseElements, parseOldFirst) {
+		return
+	}
+
+	// Everything below belongs to the reorder/fallback path. Acquire its maps,
+	// scratch slices, and deferred cleanup only after the ordered path declines;
+	// stable lists, appends, and suffix removals otherwise paid two allocations
+	// plus four pool operations immediately before returning.
 	parseOldByKey := keyedFiberMapPool.Get().(map[any]*Fiber)
 	parseOldFallbackKeyed := fiberScratchSlicePool.get()
 	parseOldUnkeyed := fiberScratchSlicePool.get()
@@ -858,14 +1005,6 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 		fiberScratchSlicePool.clear(parseOldFallbackKeyed)
 		fiberScratchSlicePool.clear(parseOldUnkeyed)
 	}()
-
-	var parseOldFirst *Fiber
-	if parseWipFiber.alternate != nil {
-		parseOldFirst = parseWipFiber.alternate.child
-	}
-	if parseRt.tryReconcileKeyedChildrenInOrder(parseWipFiber, parseElements, parseOldFirst) {
-		return
-	}
 
 	parseOldIndex := 0
 	for parseOldFiber := parseOldFirst; parseOldFiber != nil; parseOldFiber = parseOldFiber.sibling {
@@ -922,6 +1061,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 			if parseMatchedOldIndex, hasParseMatchedOldIndex := parseOldIndexByFiber[parseMatchedOld]; hasParseMatchedOldIndex {
 				if parseMatchedOldIndex < parseLastMatchedOldIndex {
 					parseWipFiber.needsChildOrder = true
+					markFiberCommitPath(parseWipFiber.parent)
 				}
 				if parseMatchedOldIndex > parseLastMatchedOldIndex {
 					parseLastMatchedOldIndex = parseMatchedOldIndex
@@ -932,6 +1072,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 		} else {
 			if len(parseOldByKey) > 0 || hasRemainingFallbackKeyed(parseOldFallbackKeyed) || parseUnkeyedIndex < len(parseOldUnkeyed) {
 				parseWipFiber.needsChildOrder = true
+				markFiberCommitPath(parseWipFiber.parent)
 			}
 			if parseMatchedOld != nil {
 				parseMatchedOld.effectTag = effectTagDeletion
@@ -1149,6 +1290,9 @@ func takeMatchingFallbackKeyed(parseOldFibers []*Fiber, parseElem *Element) *Fib
 
 // propsEqual compares two property maps for equality
 func propsEqual(parseA, parseB map[string]any) bool {
+	if samePropsMap(parseA, parseB) {
+		return true
+	}
 	if len(parseA) == 0 && len(parseB) == 0 {
 		return true
 	}
@@ -1217,6 +1361,9 @@ func propsEqual(parseA, parseB map[string]any) bool {
 
 // propsEqualIgnoringChildren compares two property maps while ignoring child slices.
 func propsEqualIgnoringChildren(parseA, parseB map[string]any) bool {
+	if samePropsMap(parseA, parseB) {
+		return true
+	}
 	if len(parseA) == 0 && len(parseB) == 0 {
 		return true
 	}
@@ -1252,6 +1399,16 @@ func propsEqualIgnoringChildren(parseA, parseB map[string]any) bool {
 	return true
 }
 
+// samePropsMap compares the one-word Go map headers. Host fibers retain the
+// element-owned props map, so memoized/reused elements commonly present the
+// exact same immutable map on both sides; iterating and probing every key
+// cannot discover a difference. In-place mutation was already invisible to
+// the old fiber because it aliases this same map, so the fast path does not
+// weaken the existing semantics.
+func samePropsMap(parseA, parseB map[string]any) bool {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&parseA)) == *(*unsafe.Pointer)(unsafe.Pointer(&parseB))
+}
+
 // isSameType checks if two component types are the same
 func isSameType(parseType1, parseType2 any) bool {
 	// String types (HTML tags)
@@ -1262,8 +1419,8 @@ func isSameType(parseType1, parseType2 any) bool {
 		return false
 	}
 
-	if parseComponent1, parseOk12 := parseType1.(*ComponentType); parseOk12 {
-		parseComponent2, parseOk22 := parseType2.(*ComponentType)
+	if parseComponent1, parseOk12 := componentTypeFromFiberType(parseType1); parseOk12 {
+		parseComponent2, parseOk22 := componentTypeFromFiberType(parseType2)
 		if !parseOk22 {
 			return false
 		}
@@ -1350,12 +1507,32 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	// still traversed so higher-priority work below it renders normally.
 	// Skipping the walk would strand descendants behind a low-priority ancestor.
 	isParseLaneDeferred := false
-	if isParseSelfDirty && parseRt.laneQueuesEnabled() &&
-		!parseRt.laneAdmitsFiber(parseRt.schedulerState.currentLane, parseFiber.updateLane, time.Now()) {
+	if isParseSelfDirty && parseRt.shouldDeferFiberLane(parseRt.schedulerState.currentLane, parseFiber.updateLane) {
 		parseRt.noteLaneDeferred(parseFiber)
 		isParseLaneDeferred = true
 		isParseSelfDirty = false
 		isParseSubtreeOnly = true
+	}
+
+	// A host node that was childless before and remains childless has no render,
+	// hook, context, hydration, or child-reconciliation work. Its WIP fiber was
+	// already diffed by the parent; leave the mutation/ref work to commit. The
+	// alternate-child check is essential: a newly childless node may still own
+	// an old subtree whose deletions and cleanups must be traversed.
+	if !isParseLaneDeferred && isParseSelfDirty && parseFiber.hydration == nil &&
+		(parseFiber.alternate == nil || parseFiber.alternate.child == nil) {
+		if parseTag, parseIsHost := parseFiber.typeOf.(string); parseIsHost &&
+			parseTag != "ROOT" && parseTag != "FRAGMENT" && parseTag != "TEXT_ELEMENT" &&
+			len(getFiberChildren(parseFiber)) == 0 &&
+			(!IsDOMNodeNull(parseFiber.dom) || parseRt.shouldDeferHostDomToCommit(parseFiber)) {
+			if runtimeHotPathProfilingEnabled {
+				parseFiber.renderDurationNs = 0
+				parseFiber.diffDurationNs = 0
+			}
+			parseFiber.childHydration = nil
+			parseRt.clearFiberDirty(parseFiber)
+			return parseRt.getNextSiblingUnitOfWork(parseFiber)
+		}
 	}
 
 	// Reuse the committed child chain when neither the fiber nor any
@@ -1363,8 +1540,10 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	// no render or reconcile ran, and the pair of clock reads was the
 	// dominant cost of visiting a clean fiber.
 	if !isParseSelfDirty && !isParseSubtreeOnly {
-		parseFiber.renderDurationNs = 0
-		parseFiber.diffDurationNs = 0
+		if runtimeHotPathProfilingEnabled {
+			parseFiber.renderDurationNs = 0
+			parseFiber.diffDurationNs = 0
+		}
 		if parseFiber.hooks != nil {
 			parseFiber.hooks.owner = parseFiber
 		}
@@ -1373,9 +1552,14 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	}
 
 	parseStart := commitTimingStart()
-	parseFiber.renderDurationNs = 0
-	parseFiber.diffDurationNs = 0
+	if runtimeHotPathProfilingEnabled {
+		parseFiber.renderDurationNs = 0
+		parseFiber.diffDurationNs = 0
+	}
 	parseFinalize := func(parseNext *Fiber) *Fiber {
+		if !runtimeHotPathProfilingEnabled {
+			return parseNext
+		}
 		parseDiffDurationNs := max(commitTimingSinceNs(parseStart)-parseFiber.renderDurationNs, 0)
 		parseFiber.diffDurationNs = parseDiffDurationNs
 		parseRt.profiling.totalDiffDurationNs += parseDiffDurationNs
@@ -1427,6 +1611,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 					parseFiber.dom = parseHydratedDOM
 					parseFiber.hydrated = true
 					parseFiber.effectTag = effectTagHydrate
+					markFiberCommitPath(parseFiber.parent)
 					parseFiber.childHydration = newHydrationBoundary(parseHydratedDOM, parseRt.domAdapter.GetFirstChild(parseHydratedDOM))
 				} else if parseRt.shouldDeferHostDomToCommit(parseFiber) {
 					// Serialized-mount candidate: leave dom null so commit can
@@ -1500,6 +1685,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 					parseFiber.dom = parseHydratedDOM2
 					parseFiber.hydrated = true
 					parseFiber.effectTag = effectTagHydrate
+					markFiberCommitPath(parseFiber.parent)
 				} else {
 					parseFiber.dom = parseRt.createDom(parseFiber)
 					parseFiber.hydrated = false

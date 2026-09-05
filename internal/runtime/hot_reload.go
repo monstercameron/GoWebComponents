@@ -267,7 +267,7 @@ func captureHotReloadComponentSnapshot(parseFiber *Fiber) *HotReloadComponentSna
 			for _, parseMemo := range parseFiber.hooks.memos {
 				parseSnapshot.Memos = append(parseSnapshot.Memos, HotReloadMemoSnapshot{
 					Value: normalizeHotReloadValue(parseMemo.value),
-					Deps:  normalizeHotReloadDeps(parseMemo.deps),
+					Deps:  normalizeHotReloadDeps(memoizedDependencies(parseMemo)),
 				})
 			}
 		}
@@ -908,8 +908,8 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 				parseElement = parseFn2(parseFiber.props)
 			} else if parseFn3, parseOk3 := parseFiber.typeOf.(func(Attrs) *Element); parseOk3 {
 				parseElement = parseFn3(Attrs(parseFiber.props))
-			} else if parseComponent, parseOk4 := parseFiber.typeOf.(*ComponentType); parseOk4 {
-				parseElement = parseComponent.Render(parseFiber.props)
+			} else if parseRendered, parseOk4 := renderComponentFiber(parseFiber); parseOk4 {
+				parseElement = parseRendered
 			}
 		}()
 		renderDurationNs := commitTimingSinceNs(renderStart)
@@ -968,6 +968,8 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 					parseElement = parseFn(Attrs(parseFiber.props))
 				case *ComponentType:
 					parseElement = parseFn.Render(parseFiber.props)
+				case *Element:
+					parseElement, _ = renderComponentFiber(parseFiber)
 				}
 			}()
 		}

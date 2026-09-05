@@ -434,8 +434,11 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-	if parseElement.isCompactHostProps && parseProps == nil {
+	if parseElement.isCompactHostProps && (parseProps == nil || parseElement.hasCompactSpecialProps) {
 		writeSSRCompactAttrs(parseBuilder, parseElement.getHostAttrs)
+		if parseElement.hasCompactSpecialProps {
+			writeSSRProps(parseBuilder, parseProps)
+		}
 	} else {
 		writeSSRProps(parseBuilder, parseProps)
 	}

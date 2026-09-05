@@ -579,6 +579,9 @@ func TestRuntimeInspectCapturesExtendedProfilingSurface(parseT *testing.T) {
 }
 
 func TestRuntimeInspectCapturesPerComponentRenderTracing(parseT *testing.T) {
+	if !runtimeHotPathProfilingEnabled {
+		parseT.Skip("per-component hot-path tracing is stripped from production builds")
+	}
 	parseRt := &Runtime{}
 	parseRoot := &Fiber{typeOf: "ROOT"}
 	parseComponentFn := func() *Element {

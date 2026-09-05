@@ -137,6 +137,20 @@ func (parseRt *Runtime) laneAdmitsFiber(parsePassLane UpdateLane, parseFiberLane
 	return parseRt.schedulerState.lanes.isLaneExpired(parseFiberLane, parseNow)
 }
 
+// shouldDeferFiberLane is the hot work-loop form of laneAdmitsFiber. It keeps
+// the clock read behind the cheap cases: equal/more-urgent and non-deferrable
+// lanes can never wait, so asking time.Now for every dirty fiber was wasted.
+func (parseRt *Runtime) shouldDeferFiberLane(parsePassLane UpdateLane, parseFiberLane UpdateLane) bool {
+	if !parseRt.laneQueuesEnabled() || parseFiberLane == 0 || parsePassLane == 0 || parseFiberLane <= parsePassLane {
+		return false
+	}
+	parseIndex := int(normalizeUpdateLane(parseFiberLane))
+	if parseIndex <= 0 || parseIndex >= laneCount || laneExpiryMs[parseIndex] <= 0 {
+		return false
+	}
+	return !parseRt.schedulerState.lanes.isLaneExpired(parseFiberLane, time.Now())
+}
+
 // laneQueuesEnabled reports whether per-lane deferral is active (R2: off by
 // default until its acceptance test passes).
 func (parseRt *Runtime) laneQueuesEnabled() bool {

@@ -12,10 +12,16 @@ type Element struct {
 	// key helpers consult this field first.
 	Key                string
 	TextContent        string // Optimization for TEXT_ELEMENT to avoid map allocation
-	getHostProps       map[string]any
 	getHostAttrs       []HostAttr
+	componentProps     *componentPropsBox
 	isCompactHostProps bool
-	hasDirectText      bool
+	// hasCompactSpecialProps means getHostAttrs carries every ordinary string
+	// attribute while Props contains only event/property values plus children.
+	hasCompactSpecialProps bool
+	hasDirectText          bool
+	hasFragmentChildren    bool
+	fragmentHintValid      bool
+	hasComponentProps      bool
 }
 
 // HostAttr stores one normalized string attribute for one compact host mount.
@@ -84,6 +90,10 @@ type Fiber struct {
 	portalUnresolved    bool // portal target selector did not resolve at commit; retry on the next commit
 	needsChildReconcile bool
 	needsChildOrder     bool
+	// subtreeCommit reports that at least one descendant has DOM commit work.
+	// It occupies the final byte in this flag block's existing pointer-alignment
+	// padding, so commit pruning does not enlarge Fiber.
+	subtreeCommit bool
 	// renderPhaseUpdate is set when a hook setter is called while this fiber is
 	// rendering (a render-phase update). renderFunctionComponent re-runs the
 	// component to converge on the new state instead of committing an output that
@@ -91,16 +101,30 @@ type Fiber struct {
 	renderPhaseUpdate bool
 
 	// Component info
-	hooks              *Hooks
-	props              map[string]any
-	children           []any
-	getHostAttrs       []HostAttr
-	contextValues      map[int64]any
-	hydration          *hydrationBoundary
-	childHydration     *hydrationBoundary
-	hydrated           bool
-	hasDirectText      bool
-	isCompactHostProps bool
+	hooks                  *Hooks
+	props                  map[string]any
+	children               []any
+	getHostAttrs           []HostAttr
+	contextValues          map[int64]any
+	hydration              *hydrationBoundary
+	childHydration         *hydrationBoundary
+	hydrated               bool
+	hasDirectText          bool
+	isCompactHostProps     bool
+	hasCompactSpecialProps bool
+	hasFragmentChildren    bool
+	fragmentHintValid      bool
+	// underFineGrained caches whether an ancestor is a fine-grained region.
+	// ancestorFlagsValid distinguishes a runtime-built false value from a
+	// synthetic/test fiber whose ancestry must still be inspected. These occupy
+	// existing pointer-alignment padding after the nearby host-state flags.
+	underFineGrained   bool
+	ancestorFlagsValid bool
+	// serializedUnbound marks a host/text node that already exists inside a
+	// parsed serialized subtree but whose DOM handle has not been materialized
+	// in Go yet. The parent binds one direct child level before reconciling it,
+	// avoiding two Go/JS bridge crossings for every descendant on pure mount.
+	serializedUnbound bool
 
 	// Interfaces and Strings (16 bytes each)
 	typeOf any
@@ -137,6 +161,14 @@ type Fiber struct {
 	ownerRuntime *Runtime
 }
 
+// componentPropsBox lets typed component elements keep their props without a
+// map while occupying the Element word previously used by the now-redundant
+// host-props alias. Fibers retain the element itself as their typed component
+// descriptor, so ordinary fibers do not grow for this optimization.
+type componentPropsBox struct {
+	value any
+}
+
 type hydrationBoundary struct {
 	parent   DOMNode
 	cursor   DOMNode
@@ -146,8 +178,27 @@ type hydrationBoundary struct {
 
 // memoizedValue stores a memoized computation result with its dependencies
 type memoizedValue struct {
+	value        any
+	deps         []any
+	singleDep    any
+	hasSingleDep bool
+}
+
+type singleEffectDependency struct {
 	value any
-	deps  []any
+	valid bool
+}
+
+// memoizedDependencies returns the generic dependency view used by cold
+// inspection and hot-reload snapshot paths.
+func memoizedDependencies(parseMemo memoizedValue) []any {
+	if parseMemo.deps != nil {
+		return parseMemo.deps
+	}
+	if parseMemo.hasSingleDep {
+		return []any{parseMemo.singleDep}
+	}
+	return nil
 }
 
 // HotReloadMemoSnapshot stores a memoized computation and its dependencies.
@@ -225,6 +276,7 @@ type Hooks struct {
 	states           []any // Interleaved: state, pending, state, pending...
 	stateAccessors   []stateAccessor
 	deps             [][]any
+	effectSingleDeps []singleEffectDependency
 	memos            []memoizedValue
 	callbacks        []callbackValue
 	refs             []*RefValue        // Store refs separately to persist across renders

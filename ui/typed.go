@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"reflect"
+
 	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
@@ -45,7 +47,92 @@ func Typed[P any](parseComponent func(P) Node) func(P) Node {
 		}
 		return parseTypedImplementation(parseProps)
 	})
+	parseHandle.SetImplementationTypedRenderer(parseComponent, func(parseImplementation any, parseRawProps any) *runtime.Element {
+		parseTypedImplementation, parseOk := parseImplementation.(func(P) Node)
+		if !parseOk {
+			return renderComponent(parseImplementation, map[string]any{propsKey: parseRawProps})
+		}
+		parseProps, _ := parseRawProps.(P)
+		return parseTypedImplementation(parseProps)
+	})
+	parseHandle.SetTypedPropsEqual(buildTypedPropsEqual[P]())
 	return func(parseProps P) Node {
-		return runtime.CreateElementOwned(parseHandle, map[string]any{propsKey: parseProps})
+		return runtime.CreateTypedComponentElement(parseHandle, parseProps)
+	}
+}
+
+// buildTypedPropsEqual constructs one comparer per Typed registration. Values
+// with ordinary comparable types retain exact Go equality. Structs/arrays that
+// contain slices, maps, pointers, or functions use conservative shallow
+// identity for those reference fields and exact equality for scalar fields.
+// A false result merely rerenders; a true result always means the observable
+// typed payload is unchanged under the framework's shallow dependency model.
+func buildTypedPropsEqual[P any]() func(any, any) bool {
+	parseType := reflect.TypeFor[P]()
+	return func(parseLeft, parseRight any) bool {
+		parseLeftTyped, parseLeftOK := parseLeft.(P)
+		parseRightTyped, parseRightOK := parseRight.(P)
+		if !parseLeftOK || !parseRightOK {
+			return false
+		}
+		parseLeftValue := reflect.ValueOf(parseLeftTyped)
+		parseRightValue := reflect.ValueOf(parseRightTyped)
+		if parseType == nil {
+			return !parseLeftValue.IsValid() && !parseRightValue.IsValid()
+		}
+		if parseLeftValue.Comparable() && parseRightValue.Comparable() {
+			return parseLeft == parseRight
+		}
+		return shallowTypedPropsEqualValue(parseLeftValue, parseRightValue)
+	}
+}
+
+func shallowTypedPropsEqualValue(parseLeft, parseRight reflect.Value) bool {
+	if !parseLeft.IsValid() || !parseRight.IsValid() {
+		return parseLeft.IsValid() == parseRight.IsValid()
+	}
+	if parseLeft.Type() != parseRight.Type() {
+		return false
+	}
+	switch parseLeft.Kind() {
+	case reflect.Interface:
+		if parseLeft.IsNil() || parseRight.IsNil() {
+			return parseLeft.IsNil() && parseRight.IsNil()
+		}
+		return shallowTypedPropsEqualValue(parseLeft.Elem(), parseRight.Elem())
+	case reflect.Struct:
+		for parseIndex := 0; parseIndex < parseLeft.NumField(); parseIndex++ {
+			if !shallowTypedPropsEqualValue(parseLeft.Field(parseIndex), parseRight.Field(parseIndex)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Array:
+		for parseIndex := 0; parseIndex < parseLeft.Len(); parseIndex++ {
+			if !shallowTypedPropsEqualValue(parseLeft.Index(parseIndex), parseRight.Index(parseIndex)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Slice:
+		return parseLeft.IsNil() == parseRight.IsNil() && parseLeft.Len() == parseRight.Len() && parseLeft.Pointer() == parseRight.Pointer()
+	case reflect.Map, reflect.Pointer, reflect.Chan, reflect.UnsafePointer:
+		return parseLeft.IsNil() == parseRight.IsNil() && parseLeft.Pointer() == parseRight.Pointer()
+	case reflect.Func:
+		return parseLeft.IsNil() && parseRight.IsNil()
+	case reflect.String:
+		return parseLeft.String() == parseRight.String()
+	case reflect.Bool:
+		return parseLeft.Bool() == parseRight.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return parseLeft.Int() == parseRight.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return parseLeft.Uint() == parseRight.Uint()
+	case reflect.Float32, reflect.Float64:
+		return parseLeft.Float() == parseRight.Float()
+	case reflect.Complex64, reflect.Complex128:
+		return parseLeft.Complex() == parseRight.Complex()
+	default:
+		return false
 	}
 }

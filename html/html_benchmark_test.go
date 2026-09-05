@@ -23,6 +23,28 @@ func BenchmarkTagDivWithCommonProps(parseB *testing.B) {
 	}
 }
 
+func BenchmarkCompactPropsClassOnly(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseProps := Props{Class: "row"}
+	for parseB.Loop() {
+		_, parseAttrs, parseOK := toRuntimeCompactProps(&parseProps, nil)
+		if !parseOK || len(parseAttrs) != 1 {
+			parseB.Fatal("class-only props missed compact lane")
+		}
+	}
+}
+
+func BenchmarkCompactPropsClassData(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseProps := Props{Class: "row", Data: map[string]string{"row-id": "42", "state": "ready"}}
+	for parseB.Loop() {
+		_, parseAttrs, parseOK := toRuntimeCompactProps(&parseProps, nil)
+		if !parseOK || len(parseAttrs) != 3 {
+			parseB.Fatal("class/data props missed compact lane")
+		}
+	}
+}
+
 func BenchmarkCustomElementWithAttributesAndProperties(parseB *testing.B) {
 	parseB.ReportAllocs()
 	parseProps := CustomElementProps{

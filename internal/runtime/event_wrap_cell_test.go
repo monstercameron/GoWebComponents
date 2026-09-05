@@ -19,6 +19,24 @@ func TestWrapEventHandlerCellNilAndNonFunctionContracts(parseT *testing.T) {
 	}
 }
 
+func TestWrapEventHandlerCellCommonNoArgDispatchDoesNotAllocate(parseT *testing.T) {
+	parseRt := NewRuntime(Config{})
+	parseCalls := 0
+	parseFn := func() { parseCalls++ }
+	parseCell := &funcHandlerCell{fn: parseFn, fnVal: reflect.ValueOf(parseFn)}
+	parseWrapped, parseOK := parseRt.wrapEventHandlerCell(parseCell).(func())
+	if !parseOK {
+		parseT.Fatalf("wrapped handler has unexpected type %T", parseRt.wrapEventHandlerCell(parseCell))
+	}
+	parseAllocs := testing.AllocsPerRun(1000, parseWrapped)
+	if parseAllocs != 0 {
+		parseT.Fatalf("common no-arg event dispatch allocated %.2f objects per call", parseAllocs)
+	}
+	if parseCalls == 0 {
+		parseT.Fatal("wrapped handler was not invoked")
+	}
+}
+
 func TestWrapEventHandlerCellCallsCachedFunctionAndReturnsZerosWhenInvalid(parseT *testing.T) {
 	parseRt := NewRuntime(Config{})
 	parseCalledWith := ""

@@ -15,6 +15,26 @@ func resetTypedHookIndices(parseFiber *Fiber) {
 	parseFiber.hooks.signature = parseFiber.hooks.signature[:0]
 }
 
+func TestGoUseStateSlotUpdatesWithoutAccessorClosures(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{}}
+	parseFiber := &Fiber{typeOf: "test"}
+	SetCurrentFiber(parseFiber)
+	defer SetCurrentFiber(nil)
+
+	parseSlot := GoUseStateSlot(parseRt, 5)
+	if !parseSlot.Valid() || parseSlot.Get() != 5 {
+		parseT.Fatalf("initial slot = (%t, %d), want (true, 5)", parseSlot.Valid(), parseSlot.Get())
+	}
+	if len(parseFiber.hooks.stateAccessors) != 0 {
+		parseT.Fatalf("slot path created %d accessor closures", len(parseFiber.hooks.stateAccessors))
+	}
+	parseSlot.Set(func(parseValue int) int { return parseValue + 3 })
+	if parseSlot.Get() != 8 {
+		parseT.Fatalf("updated slot = %d, want 8", parseSlot.Get())
+	}
+}
+
 func TestGoUseMemoOf_CachesAndRecomputesOnDepChange(parseT *testing.T) {
 	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
@@ -45,6 +65,26 @@ func TestGoUseMemoOf_CachesAndRecomputesOnDepChange(parseT *testing.T) {
 	}
 }
 
+func TestGoUseMemoOf_StoresSingleDependencyWithoutSlice(parseT *testing.T) {
+	parseFiber := &Fiber{typeOf: "test"}
+	SetCurrentFiber(parseFiber)
+	defer SetCurrentFiber(nil)
+
+	if parseGot := GoUseMemoOf(func(parseDep int) int { return parseDep * 2 }, 7); parseGot != 14 {
+		parseT.Fatalf("expected computed value 14, got %d", parseGot)
+	}
+	parseMemo := parseFiber.hooks.memos[0]
+	if !parseMemo.hasSingleDep || parseMemo.singleDep != 7 {
+		parseT.Fatalf("expected specialized dependency 7, got %#v", parseMemo)
+	}
+	if parseMemo.deps != nil {
+		parseT.Fatalf("expected no dependency slice on typed single-dependency path, got %#v", parseMemo.deps)
+	}
+	if parseDeps := memoizedDependencies(parseMemo); len(parseDeps) != 1 || parseDeps[0] != 7 {
+		parseT.Fatalf("expected cold dependency view [7], got %#v", parseDeps)
+	}
+}
+
 func TestGoUseEffectOf_RunsOnceAndRerunsOnDepChange(parseT *testing.T) {
 	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
@@ -67,6 +107,9 @@ func TestGoUseEffectOf_RunsOnceAndRerunsOnDepChange(parseT *testing.T) {
 	}
 
 	GoUseEffectOf(parseEffect, "a")
+	if len(parseFiber.hooks.deps) != 0 || !parseFiber.hooks.effectSingleDeps[0].valid || parseFiber.hooks.effectSingleDeps[0].value != "a" {
+		parseT.Fatalf("typed effect allocated generic deps instead of storing one specialized dependency: deps=%#v specialized=%#v", parseFiber.hooks.deps[0], parseFiber.hooks.effectSingleDeps[0])
+	}
 	runQueuedTypedEffects()
 	if parseRunCount != 1 {
 		parseT.Fatalf("first render runs = %d, want 1", parseRunCount)

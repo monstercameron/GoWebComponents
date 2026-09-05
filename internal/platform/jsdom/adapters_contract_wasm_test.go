@@ -57,6 +57,130 @@ func TestSetTextContentToleratesNullAndTypedNilNodes(parseT *testing.T) {
 	}
 }
 
+// TestSetTextContentPreservesSingleTextNodeIdentity verifies the hot update path
+// mutates an existing Text child rather than replacing it through the parent's
+// textContent property.
+func TestSetTextContentPreservesSingleTextNodeIdentity(parseT *testing.T) {
+	parseAdapter := &WASMDOMAdapter{}
+	parseObject := js.Global().Get("Object")
+	parseTextNode := parseObject.New()
+	parseTextNode.Set("nodeType", 3)
+	parseTextNode.Set("nodeValue", "before")
+	parseTextNode.Set("nextSibling", js.Null())
+	parseElement := parseObject.New()
+	parseElement.Set("nodeType", 1)
+	parseElement.Set("firstChild", parseTextNode)
+	parseElement.Set("textContent", "before")
+
+	parseAdapter.SetTextContent(&WASMDOMNode{value: parseElement}, "after")
+
+	if parseGot := parseTextNode.Get("nodeValue").String(); parseGot != "after" {
+		parseT.Fatalf("expected existing text child to update in place, got %q", parseGot)
+	}
+	if parseGot := parseElement.Get("textContent").String(); parseGot != "before" {
+		parseT.Fatalf("single-text fast path replaced parent textContent, got %q", parseGot)
+	}
+}
+
+// TestSetTextContentFallsBackForMixedChildren verifies the identity-preserving
+// optimization never changes Element.textContent semantics for mixed content.
+func TestSetTextContentFallsBackForMixedChildren(parseT *testing.T) {
+	parseAdapter := &WASMDOMAdapter{}
+	parseObject := js.Global().Get("Object")
+	parseTextNode := parseObject.New()
+	parseTextNode.Set("nodeType", 3)
+	parseTextNode.Set("nodeValue", "before")
+	parseTextNode.Set("nextSibling", parseObject.New())
+	parseElement := parseObject.New()
+	parseElement.Set("nodeType", 1)
+	parseElement.Set("firstChild", parseTextNode)
+	parseElement.Set("textContent", "before")
+
+	parseAdapter.SetTextContent(&WASMDOMNode{value: parseElement}, "after")
+
+	if parseGot := parseElement.Get("textContent").String(); parseGot != "after" {
+		parseT.Fatalf("expected mixed-content fallback to set parent textContent, got %q", parseGot)
+	}
+	if parseGot := parseTextNode.Get("nodeValue").String(); parseGot != "before" {
+		parseT.Fatalf("mixed-content fallback mutated the first child directly, got %q", parseGot)
+	}
+}
+
+// TestSetTextContentBatchDefersAndPreservesIdentity verifies a commit batch
+// turns many text writes into one flush without exposing partial DOM state or
+// replacing an existing single Text child.
+func TestSetTextContentBatchDefersAndPreservesIdentity(parseT *testing.T) {
+	// The node-based wasm test runner has globalThis but no browser `window`;
+	// expose the usual alias so the browser helper can install normally.
+	parseWindow := js.Global().Get("window")
+	if parseWindow.IsUndefined() {
+		js.Global().Set("window", js.Global())
+		defer js.Global().Delete("window")
+	}
+	parseAdapter := &WASMDOMAdapter{}
+	parseObject := js.Global().Get("Object")
+	parseTextNode := parseObject.New()
+	parseTextNode.Set("nodeType", 3)
+	parseTextNode.Set("nodeValue", "before")
+	parseTextNode.Set("nextSibling", js.Null())
+	parseElement := parseObject.New()
+	parseElement.Set("nodeType", 1)
+	parseElement.Set("firstChild", parseTextNode)
+	parseElement.Set("textContent", "before")
+
+	parseAdapter.BeginAttrUpdateBatch()
+	parseAdapter.SetTextContent(&WASMDOMNode{value: parseElement}, "after")
+	if parseGot := parseTextNode.Get("nodeValue").String(); parseGot != "before" {
+		parseT.Fatalf("expected text update to remain buffered before flush, got %q", parseGot)
+	}
+	parseAdapter.EndAttrUpdateBatch()
+
+	if parseGot := parseTextNode.Get("nodeValue").String(); parseGot != "after" {
+		parseT.Fatalf("expected existing text child to update during flush, got %q", parseGot)
+	}
+	if parseGot := parseElement.Get("textContent").String(); parseGot != "before" {
+		parseT.Fatalf("batched single-text update replaced parent textContent, got %q", parseGot)
+	}
+}
+
+func TestRemoveChildBatchDefersAndChecksParent(parseT *testing.T) {
+	parseWindow := js.Global().Get("window")
+	if parseWindow.IsUndefined() {
+		js.Global().Set("window", js.Global())
+		defer js.Global().Delete("window")
+	}
+	parseAdapter := &WASMDOMAdapter{}
+	parseObject := js.Global().Get("Object")
+	parseParent := parseObject.New()
+	parseChild := parseObject.New()
+	parseChild.Set("parentNode", parseParent)
+	wasRemoved := false
+	parseRemove := js.FuncOf(func(js.Value, []js.Value) any {
+		wasRemoved = true
+		return nil
+	})
+	defer parseRemove.Release()
+	parseChild.Set("remove", parseRemove)
+
+	parseAdapter.BeginAttrUpdateBatch()
+	parseAdapter.RemoveChild(&WASMDOMNode{value: parseParent}, &WASMDOMNode{value: parseChild})
+	if wasRemoved {
+		parseT.Fatal("expected removal to remain buffered before flush")
+	}
+	parseAdapter.EndAttrUpdateBatch()
+	if !wasRemoved {
+		parseT.Fatal("expected matching-parent child to be removed during flush")
+	}
+
+	wasRemoved = false
+	parseAdapter.BeginAttrUpdateBatch()
+	parseAdapter.RemoveChild(&WASMDOMNode{value: parseObject.New()}, &WASMDOMNode{value: parseChild})
+	parseAdapter.EndAttrUpdateBatch()
+	if wasRemoved {
+		parseT.Fatal("expected stale-parent removal to remain a no-op")
+	}
+}
+
 // TestClassAndStyleMutatorsTolerateNullAndTypedNilNodes pins #80: the class and
 // style write paths — which run on every commit and routinely see detached or
 // not-yet-created nodes — must no-op rather than panic on a typed-nil or

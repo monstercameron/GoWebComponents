@@ -166,7 +166,7 @@ func UseForm[T any](parseInitial T) Form[T] {
 
 // Get returns the current form value.
 func (parseF Form[T]) Get() T {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		var parseZero T
 		return parseZero
 	}
@@ -175,7 +175,7 @@ func (parseF Form[T]) Get() T {
 
 // Set replaces the current form value.
 func (parseF Form[T]) Set(parseValue T) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return
 	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
@@ -188,7 +188,7 @@ func (parseF Form[T]) Set(parseValue T) {
 
 // SetSubmitIntent records the current submit intent for intent-aware validation or submission flows.
 func (parseF Form[T]) SetSubmitIntent(parseIntent string) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return
 	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
@@ -199,7 +199,7 @@ func (parseF Form[T]) SetSubmitIntent(parseIntent string) {
 
 // SubmitIntent returns the most recently selected submit intent.
 func (parseF Form[T]) SubmitIntent() string {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return ""
 	}
 	return parseF.state.Get().submitIntent
@@ -207,7 +207,7 @@ func (parseF Form[T]) SubmitIntent() string {
 
 // Update replaces the current form value using the previous value.
 func (parseF Form[T]) Update(parseFn func(T) T) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return
 	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
@@ -220,7 +220,7 @@ func (parseF Form[T]) Update(parseFn func(T) T) {
 
 // SetField updates one named struct field and marks it touched.
 func (parseF Form[T]) SetField(parseName string, parseValue interface{}) bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 
@@ -260,8 +260,8 @@ func (parseF Form[T]) SetField(parseName string, parseValue interface{}) bool {
 // dev-time guard catch a misspelled field name specifically.
 func (parseF Form[T]) HasField(parseName string) bool {
 	var parseValue T
-	if parseF.state.get != nil {
-		parseValue = parseF.state.get().value
+	if parseF.state.valid() {
+		parseValue = parseF.state.Get().value
 	}
 	_, parseOk := readNamedField(parseValue, parseName)
 	return parseOk
@@ -278,7 +278,7 @@ func (parseF Form[T]) MustSetField(parseName string, parseValue interface{}) {
 
 // Touch marks one field as touched.
 func (parseF Form[T]) Touch(parseName string) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return
 	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
@@ -292,7 +292,7 @@ func (parseF Form[T]) Touch(parseName string) {
 
 // Touched reports whether a field has been touched.
 func (parseF Form[T]) Touched(parseName string) bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	return parseF.state.Get().touched[parseName]
@@ -300,7 +300,7 @@ func (parseF Form[T]) Touched(parseName string) bool {
 
 // Dirty reports whether a field differs from its initial value.
 func (parseF Form[T]) Dirty(parseName string) bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	return parseF.state.Get().dirty[parseName]
@@ -308,7 +308,7 @@ func (parseF Form[T]) Dirty(parseName string) bool {
 
 // SetErrors replaces the current field error map.
 func (parseF Form[T]) SetErrors(parseErrors FieldErrors) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return
 	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
@@ -321,7 +321,7 @@ func (parseF Form[T]) SetErrors(parseErrors FieldErrors) {
 
 // SetFormError sets the form-level error message.
 func (parseF Form[T]) SetFormError(parseMessage string) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return
 	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
@@ -332,7 +332,7 @@ func (parseF Form[T]) SetFormError(parseMessage string) {
 
 // Errors returns a copy of the current field error map.
 func (parseF Form[T]) Errors() FieldErrors {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return FieldErrors{}
 	}
 	return cloneFieldErrors(parseF.state.Get().errors)
@@ -340,7 +340,7 @@ func (parseF Form[T]) Errors() FieldErrors {
 
 // Error returns the field error for name.
 func (parseF Form[T]) Error(parseName string) string {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return ""
 	}
 	return parseF.state.Get().errors[parseName]
@@ -359,7 +359,7 @@ func (parseF Form[T]) FieldMessage(parseName string) string {
 // FieldStatus returns the current touched, dirty, pending, and error state for one field.
 func (parseF Form[T]) FieldStatus(parseName string) FieldStatus {
 	parseStatus := FieldStatus{Name: parseName}
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return parseStatus
 	}
 	parseState := parseF.state.Get()
@@ -372,7 +372,7 @@ func (parseF Form[T]) FieldStatus(parseName string) FieldStatus {
 
 // FormError returns the form-level error message.
 func (parseF Form[T]) FormError() string {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return ""
 	}
 	return parseF.state.Get().formError
@@ -380,7 +380,7 @@ func (parseF Form[T]) FormError() string {
 
 // TouchedAny reports whether any field has been touched.
 func (parseF Form[T]) TouchedAny() bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	for _, parseTouched := range parseF.state.Get().touched {
@@ -393,7 +393,7 @@ func (parseF Form[T]) TouchedAny() bool {
 
 // DirtyAny reports whether any field differs from its initial value.
 func (parseF Form[T]) DirtyAny() bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	for _, parseDirty := range parseF.state.Get().dirty {
@@ -406,7 +406,7 @@ func (parseF Form[T]) DirtyAny() bool {
 
 // HasErrors reports whether the form currently has field or form-level errors.
 func (parseF Form[T]) HasErrors() bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	parseState := parseF.state.Get()
@@ -415,7 +415,7 @@ func (parseF Form[T]) HasErrors() bool {
 
 // ApplyServerErrors projects a structured server validation response onto the form state.
 func (parseF Form[T]) ApplyServerErrors(parseResponse ServerFormErrors) bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	parseF.SetErrors(parseResponse.Fields)
@@ -431,7 +431,7 @@ func (parseF Form[T]) ApplyServerActionResult(parseResult ServerActionResult) bo
 
 // Validate runs synchronous validation and stores the resulting field errors.
 func (parseF Form[T]) Validate(parseValidate func(T) FieldErrors) bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return true
 	}
 	if parseValidate == nil {
@@ -446,7 +446,7 @@ func (parseF Form[T]) Validate(parseValidate func(T) FieldErrors) bool {
 
 // ValidateIntent runs validation against the current value plus an explicit submit intent.
 func (parseF Form[T]) ValidateIntent(parseIntent string, parseValidate func(T, string) FieldErrors) bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return true
 	}
 	parseTrimmedIntent := strings.TrimSpace(parseIntent)
@@ -465,7 +465,7 @@ func (parseF Form[T]) ValidateIntent(parseIntent string, parseValidate func(T, s
 
 // ValidateAsync runs asynchronous validation and updates form state when it completes.
 func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string), parseOnComplete func(bool)) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		if parseOnComplete != nil {
 			parseOnComplete(true)
 		}
@@ -513,7 +513,7 @@ func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string),
 
 // Submit runs the submit function in a goroutine and updates submission lifecycle state.
 func (parseF Form[T]) Submit(parseRun func(T) error) {
-	if parseF.state.get == nil || parseRun == nil {
+	if !parseF.state.valid() || parseRun == nil {
 		return
 	}
 	parseSnapshot := parseF.Get()
@@ -545,7 +545,7 @@ func (parseF Form[T]) Submit(parseRun func(T) error) {
 
 // SubmitWithIntent runs the submit function with an explicit intent and tracks that intent while submission is pending.
 func (parseF Form[T]) SubmitWithIntent(parseIntent string, parseRun func(T, string) error) {
-	if parseF.state.get == nil || parseRun == nil {
+	if !parseF.state.valid() || parseRun == nil {
 		return
 	}
 	parseTrimmedIntent := strings.TrimSpace(parseIntent)
@@ -578,7 +578,7 @@ func (parseF Form[T]) SubmitWithIntent(parseIntent string, parseRun func(T, stri
 
 // Submitting reports whether a submission is in flight.
 func (parseF Form[T]) Submitting() bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	return parseF.state.Get().submitting
@@ -586,7 +586,7 @@ func (parseF Form[T]) Submitting() bool {
 
 // Validating reports whether async validation is in flight.
 func (parseF Form[T]) Validating() bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	return parseF.state.Get().validating
@@ -594,7 +594,7 @@ func (parseF Form[T]) Validating() bool {
 
 // Validated reports whether validation has completed at least once.
 func (parseF Form[T]) Validated() bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	return parseF.state.Get().validated
@@ -602,7 +602,7 @@ func (parseF Form[T]) Validated() bool {
 
 // Submitted reports whether the last submission completed successfully.
 func (parseF Form[T]) Submitted() bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	return parseF.state.Get().submitted
@@ -610,7 +610,7 @@ func (parseF Form[T]) Submitted() bool {
 
 // IntentPending reports whether the given intent is the currently pending submit action.
 func (parseF Form[T]) IntentPending(parseIntent string) bool {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return false
 	}
 	parseState := parseF.state.Get()
@@ -619,7 +619,7 @@ func (parseF Form[T]) IntentPending(parseIntent string) bool {
 
 // SubmitError returns the last submission error.
 func (parseF Form[T]) SubmitError() error {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return nil
 	}
 	return parseF.state.Get().submitError
@@ -627,7 +627,7 @@ func (parseF Form[T]) SubmitError() error {
 
 // Reset restores the form to its initial value or the provided next value.
 func (parseF Form[T]) Reset(parseNext ...T) {
-	if parseF.state.get == nil {
+	if !parseF.state.valid() {
 		return
 	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {

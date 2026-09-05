@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 )
 
 // UpdateLane names one runtime scheduling priority. Lower values run with
@@ -411,8 +412,8 @@ func renderFunctionComponentElement(parseFiber *Fiber) (*Element, bool) {
 	if parseFn, parseOk := parseFiber.typeOf.(func(Attrs) *Element); parseOk {
 		return parseFn(Attrs(parseFiber.props)), true
 	}
-	if parseComponent, parseOk := parseFiber.typeOf.(*ComponentType); parseOk {
-		return parseComponent.Render(parseFiber.props), true
+	if parseElement, parseOk := renderComponentFiber(parseFiber); parseOk {
+		return parseElement, true
 	}
 	return nil, false
 }
@@ -454,7 +455,7 @@ type ReplayEvent struct {
 }
 
 type runtimeReplayState struct {
-	recording bool
+	recording atomic.Bool
 	events    []ReplayEvent
 	nextSeq   int
 	limit     int
@@ -474,7 +475,7 @@ func (parseRt *Runtime) StartReplayRecording() {
 	parseRt.replay.events = parseRt.replay.events[:0]
 	parseRt.replay.nextSeq = 0
 	parseRt.replay.dropped = 0
-	parseRt.replay.recording = true
+	parseRt.replay.recording.Store(true)
 }
 
 // StopReplayRecording stops recording and returns a stable copy of captured events.
@@ -484,7 +485,7 @@ func (parseRt *Runtime) StopReplayRecording() []ReplayEvent {
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	parseRt.replay.recording = false
+	parseRt.replay.recording.Store(false)
 	return parseRt.replayEventsLocked()
 }
 
@@ -517,8 +518,24 @@ func (parseRt *Runtime) recordReplayUpdate(parseKind replayUpdateKind, parsePath
 	parseRt.recordReplayUpdateLocked(parseKind, parsePath, parseOrigin, parseLane)
 }
 
+// recordReplayFiberUpdate avoids constructing a fiber path unless replay is
+// actually recording. State setters call this on every write, while recording
+// is normally off, so building the path at the call site was pure allocation
+// and sibling/ancestor traversal on the render thread.
+func (parseRt *Runtime) recordReplayFiberUpdate(parseKind replayUpdateKind, parseFiber *Fiber, parseOrigin string, parseLane UpdateLane) {
+	if parseRt == nil || !parseRt.replay.recording.Load() {
+		return
+	}
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+	if !parseRt.replay.recording.Load() {
+		return
+	}
+	parseRt.recordReplayUpdateLocked(parseKind, fiberPathIndexes(parseFiber), parseOrigin, parseLane)
+}
+
 func (parseRt *Runtime) recordReplayUpdateLocked(parseKind replayUpdateKind, parsePath []int, parseOrigin string, parseLane UpdateLane) {
-	if parseRt == nil || !parseRt.replay.recording {
+	if parseRt == nil || !parseRt.replay.recording.Load() {
 		return
 	}
 	parseLimit := parseRt.replay.limit
@@ -595,12 +612,12 @@ func (parseRt *Runtime) ReplayUpdates(parseEvents []ReplayEvent) {
 	// schedulerMu, so guard each access with it — but do NOT hold the lock
 	// across the schedule* calls below, which acquire schedulerMu themselves.
 	schedulerMu.Lock()
-	wasRecording := parseRt.replay.recording
-	parseRt.replay.recording = false
+	wasRecording := parseRt.replay.recording.Load()
+	parseRt.replay.recording.Store(false)
 	schedulerMu.Unlock()
 	defer func() {
 		schedulerMu.Lock()
-		parseRt.replay.recording = wasRecording
+		parseRt.replay.recording.Store(wasRecording)
 		schedulerMu.Unlock()
 	}()
 	for _, parseEvent := range parseEvents {

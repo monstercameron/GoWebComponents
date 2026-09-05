@@ -1255,6 +1255,43 @@ func TestReconcileKeyedChildrenAppendsRemainingDeletionsInOldOrder(parseT *testi
 	}
 }
 
+func TestReconcileKeyedChildrenTrailingRemovalUsesOrderedFastPath(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+
+	parseOld := make([]*Fiber, 6)
+	for parseIndex := range parseOld {
+		parseOld[parseIndex] = &Fiber{
+			typeOf: "div",
+			props:  map[string]any{"key": parseIndex + 1},
+			dom:    parseAdapter.CreateElement("div"),
+		}
+		if parseIndex > 0 {
+			parseOld[parseIndex-1].sibling = parseOld[parseIndex]
+		}
+	}
+	parseWipFiber := &Fiber{typeOf: "div", alternate: &Fiber{child: parseOld[0]}}
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "div", Props: map[string]any{"key": 1}},
+		&Element{Type: "div", Props: map[string]any{"key": 2}},
+	})
+
+	if parseWipFiber.child == nil || parseWipFiber.child.dom != parseOld[0].dom || parseWipFiber.child.sibling == nil || parseWipFiber.child.sibling.dom != parseOld[1].dom {
+		parseT.Fatal("expected the retained keyed prefix to preserve DOM identity")
+	}
+	if parseWipFiber.child.sibling.sibling != nil {
+		parseT.Fatal("expected the retained keyed chain to end after key 2")
+	}
+	if len(parseRt.deletions) != 4 {
+		parseT.Fatalf("expected 4 trailing deletions, got %d", len(parseRt.deletions))
+	}
+	for parseIndex, parseDeleted := range parseRt.deletions {
+		if parseDeleted.props["key"] != parseIndex+3 || parseDeleted.effectTag != effectTagDeletion {
+			parseT.Fatalf("deletion %d = key %#v tag %q, want key %d deletion", parseIndex, parseDeleted.props["key"], parseDeleted.effectTag, parseIndex+3)
+		}
+	}
+}
+
 func TestReconcileChildren_AlternatingUpdatesAndPlacements(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
