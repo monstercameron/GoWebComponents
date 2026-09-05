@@ -85,7 +85,7 @@ jobs:
         # Verifies the tag being released has a CHANGELOG.md section. This is a
         # blocking release gate so tags do not ship with generated notes only.
         run: |
-          $tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.release_tag }}" }
+          $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ github.event.inputs.release_tag }}" } else { $env:GITHUB_REF_NAME }
           go run ./tools/changelogcheck/cmd/changelogcheck CHANGELOG.md $tag
         shell: pwsh
 
