@@ -148,5 +148,19 @@ One post-migration native attempt used GOTMPDIR inside repository `bin`, causing
 four negative repository-discovery tests to see the parent module and causing
 the dev watcher to ignore a fixture under its intentionally ignored bin path.
 These five failures were retained, not hidden. The dev-loop regression passed
-five repeats with an external temp directory without source changes. A clean
-full rerun is in progress. No production deployment is claimed here.
+five repeats with an external temp directory without source changes.
+
+The clean final post-migration native rerun exited zero: 151 packages and 6,467
+passing test/subtest events, zero failures, four test skips and five no-test
+packages. It used Go 1.26.3, external GOTMPDIR, `-count=1 -p=1`; production
+artifacts and security scanning separately used patched Go 1.26.6. The four
+root skips remain the two Atlas opt-ins and two symlink privilege checks.
+All maintained nested modules passed uncached: agenthub 25 events, livereload
+74, desktop/wails three, wails-counter 49. The counter also has one unexecuted
+symlink-privilege test; it is not counted as a pass or covered by the two earlier
+elevated root tests. Post-migration doccompile passed all 15 samples and the
+v6.0.0 changelog gate passed.
+
+Local release verification is complete within this documented scope. The full
+example sweep remains paused and failing as disclosed. Remote release and Pages
+deployment must succeed before production publication is claimed.

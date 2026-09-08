@@ -22,6 +22,10 @@
 - Updated release verification to check the exact candidate rather than
   `@latest`. Go 1.26.6 removes the reachable standard-library findings observed
   with the older local toolchain; no security suppressions were added.
+- Post-migration native, nested-module, Wasm/hydration, root browser and focused
+  role-guard checks passed with documented conditional skips. Go 1.26.6 desktop
+  smoke and production Pages/site builds passed. Astra cleared its bounded
+  release-review findings; remote publication remains the next step.
 
 See [regression verification](docs/plans/v6-regression-verification.md) and
 [paused example migration](docs/plans/v6-examples-migration.md).
