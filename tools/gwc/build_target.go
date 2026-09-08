@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
 )
 
 // normalizeDesktopFeatures validates and canonicalizes a native feature ceiling.

@@ -1,8 +1,8 @@
 # Desktop frontend bridge
 
 Experimental optional bridge for GWC Wasm frontends hosted by a native desktop
-application. The root module remains `/v5`; the `v6` Git branch is not a module
-path migration. No native Wails package is imported by this package.
+application. The root module uses `/v6`. No native Wails package is imported by
+this package; web and desktop UIs share the portable contract.
 
 ## Portable file dialogs
 

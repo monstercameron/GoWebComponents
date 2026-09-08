@@ -3,7 +3,7 @@ package app
 import (
 	"strings"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
 )
 
 type parseAdminListQueryShape struct {

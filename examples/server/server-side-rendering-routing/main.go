@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v5/router"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 var initialBootstrap = ui.SSRBootstrap{}

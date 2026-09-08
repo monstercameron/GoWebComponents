@@ -5,7 +5,7 @@ package ui
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 func defaultDownload(parseData []byte, parseName, parseMime string) {

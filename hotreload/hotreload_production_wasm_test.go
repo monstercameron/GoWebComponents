@@ -5,7 +5,7 @@ package hotreload
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 const productionBridgeGlobalKey = "GoWebComponentsHotReloadApp"

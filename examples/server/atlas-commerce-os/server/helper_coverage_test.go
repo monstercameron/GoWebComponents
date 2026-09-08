@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/bootfallback"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/repository"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/bootfallback"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/repository"
 )
 
 // TestServerLoggingHelperBranches covers direct logging helper and extraction branches.

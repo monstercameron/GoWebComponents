@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/devtools"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/devtools"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 type RUMEvent struct {
@@ -112,7 +112,7 @@ func BuildOTLPJSON(parseEvents []RUMEvent, parseOptions ExportOptions) ([]byte, 
 			},
 			"scopeSpans": []map[string]any{{
 				"scope": map[string]string{
-					"name": "github.com/monstercameron/GoWebComponents/v5/telemetry",
+					"name": "github.com/monstercameron/GoWebComponents/v6/telemetry",
 				},
 				"spans": parseSpans,
 			}},

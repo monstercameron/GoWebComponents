@@ -71,8 +71,8 @@ func TestDevLoopLargeAppRebuildBudget(parseT *testing.T) {
 		parseSource := fmt.Sprintf(`package main
 
 import (
-	html "github.com/monstercameron/GoWebComponents/v5/html"
-	ui "github.com/monstercameron/GoWebComponents/v5/ui"
+	html "github.com/monstercameron/GoWebComponents/v6/html"
+	ui "github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // %s is a generated budget-fixture component.
@@ -85,7 +85,7 @@ func %s() ui.Node {
 		}
 	}
 	var parseRegistry strings.Builder
-	parseRegistry.WriteString("package main\n\nimport ui \"github.com/monstercameron/GoWebComponents/v5/ui\"\n\n// genRegistry keeps every generated component reachable for the linker.\nvar genRegistry = []func() ui.Node{\n")
+	parseRegistry.WriteString("package main\n\nimport ui \"github.com/monstercameron/GoWebComponents/v6/ui\"\n\n// genRegistry keeps every generated component reachable for the linker.\nvar genRegistry = []func() ui.Node{\n")
 	for _, parseName := range parseRegistryNames {
 		parseRegistry.WriteString("\t" + parseName + ",\n")
 	}

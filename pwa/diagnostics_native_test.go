@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 func TestInspectDiagnosticsReportsUnavailableOnNativeBuilds(parseT *testing.T) {

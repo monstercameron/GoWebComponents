@@ -6,6 +6,16 @@ import (
 	"testing"
 )
 
+// TestResolveStaticDirectoriesHonorsExplicitClientBundle isolates deployment assets from cwd discovery.
+func TestResolveStaticDirectoriesHonorsExplicitClientBundle(parseT *testing.T) {
+	parsePath := filepath.Join(parseT.TempDir(), "isolated-client")
+	parseT.Setenv("CHAT_CLIENT_DIR", parsePath)
+	parseClientDir, _ := parseResolveStaticDirectories()
+	if parseClientDir != parsePath {
+		parseT.Fatalf("explicit client directory = %q, want %q", parseClientDir, parsePath)
+	}
+}
+
 func TestResolveStaticDirectoriesUsesNearestExistingPaths(parseT *testing.T) {
 	parseOriginalWD, parseErr := os.Getwd()
 	if parseErr != nil {

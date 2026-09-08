@@ -377,7 +377,11 @@ func TestAtlasOperatorDashboardToInventoryTriage(parseT *testing.T) {
 		// specifically and must offer the way back to the queue.
 		parseSKUText := atlasSpecBodyText(parseT, parsePage, parseDiagnostics)
 		assertAtlasSpecTextContains(parseT, "sku lane workspace", parseSKUText, "SKU frame-desk", parseDiagnostics)
-		assertAtlasSpecTextContains(parseT, "sku lane workspace", parseSKUText, "Lane roster", parseDiagnostics)
+		assertAtlasSpecTextContains(parseT, "sku lane workspace", parseSKUText, "On hand by hub", parseDiagnostics)
+		parseLaneLinks, parseLaneErr := parsePage.Locator(`[role="region"][aria-label="On hand by hub"] tbody a[href$="/items/frame-desk"]`).Count()
+		if parseLaneErr != nil || parseLaneLinks == 0 {
+			parseT.Fatalf("SKU hub table must expose frame-desk lane navigation: links=%d error=%v | %s", parseLaneLinks, parseLaneErr, parseDiagnostics.Summary())
+		}
 		assertAtlasSpecTextContains(parseT, "sku lane workspace", parseSKUText, "Back to inventory queue", parseDiagnostics)
 
 		assertAtlasSpecClean(parseT, parseDiagnostics, "atlas operator dashboard to inventory triage")

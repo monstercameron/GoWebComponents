@@ -3,7 +3,7 @@ package state
 import (
 	"reflect"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // GlobalAtom is a non-hook handle to a shared atom, readable and writable from

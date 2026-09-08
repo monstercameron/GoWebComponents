@@ -3,8 +3,8 @@
 package app
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/interop"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 type threadScrollMemory struct {

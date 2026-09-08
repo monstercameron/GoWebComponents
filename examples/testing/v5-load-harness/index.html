@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GWC v5 Load Harness</title>
+<title>GWC v6 Load Harness</title>
 <style>
   :root { color-scheme: light dark; }
   body { font: 14px/1.55 system-ui, sans-serif; margin: 0; padding: 24px; }
@@ -19,81 +19,14 @@
 </style>
 </head>
 <body>
-  <h1>GWC v5 Load Harness</h1>
-  <p class="muted">
-    Measures whether main-thread frame time is invariant to workload size. Background
-    workloads run while a typing probe drives real input; only the probe is measured.
-    A drifted run fails regardless of its numbers.
-  </p>
-
-  <div class="bar">
-    <button id="run" disabled>Run harness</button>
-    <span id="status" class="muted">Loading wasm…</span>
-  </div>
-
-  <div id="app"></div>
-  <div id="out">No run yet.</div>
-
+  <div id="root"></div>
   <script src="/wasm_exec.js"></script>
   <script type="module">
-    import { runComparison, gate } from './harness.js';
-
-    const statusEl = document.getElementById('status');
-    const outEl = document.getElementById('out');
-    const runEl = document.getElementById('run');
-
-    const go = new Go();
-    const result = await WebAssembly.instantiateStreaming(fetch('./v5harness.wasm'), go.importObject);
-    go.run(result.instance);
-
-    // main() sets this after the first render, so the harness never starts
-    // measuring a tree that does not exist yet.
-    await new Promise((resolve) => {
-      const poll = () => (globalThis.__gwcV5Ready ? resolve() : setTimeout(poll, 10));
-      poll();
-    });
-
-    statusEl.textContent = 'Ready.';
-    runEl.disabled = false;
-
-    // Adapt the Go-exported objects to the Workload/Probe shapes harness.js
-    // expects. Kept here rather than in Go so the contract lives in one place.
-    const wrapWorkload = (name) => {
-      const w = globalThis.__gwcV5Workloads[name];
-      return {
-        name,
-        start: async () => w.start(),
-        stop: async () => w.stop(),
-        stats: () => {
-          const s = w.stats();
-          return { completed: s.completed, err: s.err };
-        },
-      };
-    };
-
-    runEl.addEventListener('click', async () => {
-      runEl.disabled = true;
-      statusEl.textContent = 'Running… (this takes about a minute)';
-      outEl.textContent = 'Running…';
-
-      const report = await runComparison({
-        probe: {
-          name: 'typing',
-          run: (ms) => globalThis.__gwcV5Probes.typing(ms),
-        },
-        workloads: ['import', 'reindex', 'decode'].map(wrapWorkload),
-      });
-
-      const budgets = await (await fetch('./budgets.json')).json();
-      const verdict = gate(report, budgets);
-
-      globalThis.__gwcV5Report = report;
-      globalThis.__gwcV5Verdict = verdict;
-
-      outEl.textContent = JSON.stringify({ verdict, metrics: report.metrics, valid: report.valid }, null, 2);
-      statusEl.textContent = verdict.passed ? 'PASS' : 'FAIL';
-      runEl.disabled = false;
-    });
+    import { runDashboardComparison } from './dashboard.js';
+    globalThis.__gwcRunDashboardComparison = () => runDashboardComparison();
+    const parseGo = new Go();
+    const parseResult = await WebAssembly.instantiateStreaming(fetch('./v5harness.wasm'), parseGo.importObject);
+    await parseGo.run(parseResult.instance);
   </script>
 </body>
 </html>

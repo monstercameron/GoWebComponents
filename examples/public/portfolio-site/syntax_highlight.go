@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // HighlightGoCode performs simple syntax highlighting for Go code

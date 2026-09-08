@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // TestListMountComponents pins that RegisterMountComponent makes a component

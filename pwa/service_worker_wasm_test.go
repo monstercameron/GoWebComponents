@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 func setPWAServiceWorkerGlobal(parseName string, parseValue interface{}) func() {

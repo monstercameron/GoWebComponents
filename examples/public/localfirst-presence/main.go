@@ -6,14 +6,14 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/localfirst"
-	"github.com/monstercameron/GoWebComponents/v5/localfirst/facepile"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/localfirst"
+	"github.com/monstercameron/GoWebComponents/v6/localfirst/facepile"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // presence is the awareness set (TTL of 3 ticks). It is a package var so it persists across renders.

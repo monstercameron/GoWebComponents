@@ -5,7 +5,7 @@ package router
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // withRouteTransition runs apply (the route's DOM swap) inside the browser View Transitions API

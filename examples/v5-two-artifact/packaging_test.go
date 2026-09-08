@@ -21,8 +21,8 @@ import (
 // so that is checked on the dependency graph rather than inferred from a size
 // that could be small for unrelated reasons.
 
-const appPackage = "github.com/monstercameron/GoWebComponents/v5/examples/v5-two-artifact/app"
-const servicesPackage = "github.com/monstercameron/GoWebComponents/v5/examples/v5-two-artifact/services"
+const appPackage = "github.com/monstercameron/GoWebComponents/v6/examples/v5-two-artifact/app"
+const servicesPackage = "github.com/monstercameron/GoWebComponents/v6/examples/v5-two-artifact/services"
 
 // m5BudgetBytes is M5's target for the render-thread binary, gzipped.
 const m5BudgetBytes = 1_600_000
@@ -173,7 +173,7 @@ func TestAppArtifactDoesNotLinkTheEngine(parseT *testing.T) {
 			"github.com/tetratelabs/wazero",
 			"github.com/ncruces/go-sqlite3",
 			"modernc.org/sqlite",
-			"github.com/monstercameron/GoWebComponents/v5/db/sqlite",
+			"github.com/monstercameron/GoWebComponents/v6/db/sqlite",
 		} {
 			if parseDep == parseEngine || strings.HasPrefix(parseDep, parseEngine+"/") {
 				parseT.Errorf("app.wasm links %q — the two-artifact split is not holding", parseDep)

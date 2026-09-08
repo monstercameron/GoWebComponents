@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/delta"
-	"github.com/monstercameron/GoWebComponents/v5/projection"
+	"github.com/monstercameron/GoWebComponents/v6/delta"
+	"github.com/monstercameron/GoWebComponents/v6/projection"
 )
 
 type scalingRow struct {

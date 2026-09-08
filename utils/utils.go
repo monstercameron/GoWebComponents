@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/deprecation"
-	"github.com/monstercameron/GoWebComponents/v5/hotreload"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/deprecation"
+	"github.com/monstercameron/GoWebComponents/v6/hotreload"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // FastComparable is an interface for types that can provide fast equality comparison

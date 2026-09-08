@@ -669,12 +669,26 @@ func buildExample201Artifact(parseT *testing.T, parsePage playwright.Page, parse
 		parseT.Fatalf("decode benchmark report: %v\n%s", parseErr2, getReportJSON)
 	}
 	getExpectedFrameworkIDs := buildExample201ExpectedFrameworkIDs(getRoute)
+	if len(getExpectedFrameworkIDs) == 0 || len(getReport.GetScenarioOrder) == 0 {
+		parseT.Fatal("a successful benchmark must measure supported frameworks and scenarios")
+	}
 	if len(getReport.GetFrameworks) != len(getExpectedFrameworkIDs) {
 		parseT.Fatalf("expected %d framework results, got %#v", len(getExpectedFrameworkIDs), getReport.GetFrameworks)
 	}
 	getFrameworkSet := map[string]struct{}{}
 	for _, getFramework := range getReport.GetFrameworks {
 		getFrameworkSet[getFramework.GetFramework] = struct{}{}
+		if len(getFramework.GetScenarioResults) != len(getReport.GetScenarioOrder) {
+			parseT.Fatalf("framework %s did not measure every scenario", getFramework.GetFramework)
+		}
+		for _, parseScenario := range getFramework.GetScenarioResults {
+			if parseScenario.GetIterationCount < 1 || len(parseScenario.GetDomReadySamplesMs) != parseScenario.GetIterationCount || len(parseScenario.GetPaintVisibleSamplesMs) != parseScenario.GetIterationCount {
+				parseT.Fatalf("framework %s scenario %s has missing real measurement samples", getFramework.GetFramework, parseScenario.GetScenarioID)
+			}
+			if parseScenario.HasWorkerMetrics {
+				parseT.Fatalf("supported framework %s falsely advertised retired runtime2 worker metrics", getFramework.GetFramework)
+			}
+		}
 	}
 	for _, getFrameworkID := range getExpectedFrameworkIDs {
 		if _, hasFramework := getFrameworkSet[getFrameworkID]; !hasFramework {
@@ -1031,20 +1045,17 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 	if len(parseArtifact.GetReport.GetScenarioFrameworkOrders) > 0 {
 		getBuilder.WriteString("- Fairness note: framework order rotates per scenario, so no framework keeps the same warm-cache or JIT slot across the whole run.\n")
 	}
-	getBuilder.WriteString("- Important boundary: the `runtime2` subjects here still keep DOM ownership on the main thread.\n")
-	getBuilder.WriteString("- Worker note: each `Runtime 2 (N Workers)` subject opens the requested Go WASM worker count to prepare core and content chunks before the local runtime2 shell commits DOM updates.\n")
-	getBuilder.WriteString("- Non-worker note: deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios remain main-thread-owned today, so the worker-backed benefit is expected to concentrate in the core and content scenarios.\n")
+	getBuilder.WriteString("- Supported subjects: React and runtime1. Runtime2 was retired in v5 P5.2; retired worker configurations are explicitly rejected rather than measured under another renderer's label.\n")
 	getBuilder.WriteString("- React subject note: the page uses a vendored React 19.2.4 browser bundle under `examples/testing/render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
 	getBuilder.WriteString("- Finish lines: `DOM Ready` means the scenario correctness contract became true. `Paint Proxy` means one `requestAnimationFrame` boundary after the DOM-ready checkpoint.\n")
 	getBuilder.WriteString("- Primary comparison: category summaries and scenario ordering use `DOM Ready Rep.` as the lead timing. It equals the mean unless samples split into two stable clusters; bimodal ties choose the slower cluster. `Paint Proxy` stays in the report as secondary frame-bound context only.\n")
 	getBuilder.WriteString(fmt.Sprintf("- Score reference: `%s` on `%s` from route `%s`. `DOM Score` is `100 * geometric_mean(reference DOM Ready / measured DOM Ready)`.\n", parseReference.GetReferenceLabel, parseReference.GetReferenceBrowser, parseReference.GetRoute))
 	getBuilder.WriteString("- Mixed-framework score direction: higher `DOM Score` is faster than the fixed reference profile. `DOM vs React` stays as a separate same-run diagnostic column.\n")
-	getBuilder.WriteString("- Worker diagnostics: worker-backed subjects also report whether the measured run triggered chunk preparation, the mean batch count, the last-batch duration, and the prepared-item count for that run window.\n")
-	getBuilder.WriteString("- RT2 scaling view: the dedicated scaling section compares worker-preparation batch time first, because paint-proxy is often frame-quantized and can hide real worker-count differences.\n")
+	getBuilder.WriteString("- Historical worker diagnostics and scaling fields remain readable for archived reports; a current supported-subject run must not advertise worker samples.\n")
 	if parseArtifact.GetScalingRun != nil {
 		getBuilder.WriteString(fmt.Sprintf("- RT2 stress route: `%s` reruns RT2-only scaling with heavier worker prep so the end-to-end timing spreads beyond one frame when possible.\n", parseArtifact.GetScalingRun.GetRoute))
 	}
-	getBuilder.WriteString("- Headline scope note: worker-relevant overall score excludes deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios because those paths are still main-thread-owned in runtime2 today.\n\n")
+	getBuilder.WriteString("- Headline scope note: the historical worker-relevant subset excludes deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios. It is a scenario subset, not evidence of a current worker renderer.\n\n")
 	getBuilder.WriteString("## Overall DOM Score (Worker-Relevant)\n\n")
 	getBuilder.WriteString("- Score contract: `100` equals the checked-in reference profile for the worker-relevant scenarios only.\n\n")
 	getBuilder.WriteString("| Framework | DOM Score | Geom. DOM Score Factor | Scored Scenarios | Total Scenarios |\n")
@@ -1690,114 +1701,50 @@ func TestBuildExample201ScalingRowsKeepsZeroBatchRows(parseT *testing.T) {
 	}
 }
 
-// TestExample201BrowserBenchmarkReport builds the benchmark subject, runs the browser comparison through gwc examples, and writes a local report.
+// TestExample201BrowserBenchmarkReport measures the supported React/runtime1 comparison and writes its real sample report.
 func TestExample201BrowserBenchmarkReport(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
-	getRepoRoot := examplesRepoRootFromFile(parseFile)
-	buildExample201BenchmarkWasm(parseT, getRepoRoot)
-	buildExample201BenchmarkWorkerWasm(parseT, getRepoRoot)
-	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18101")
+	parseRoot := examplesRepoRootFromFile(parseFile)
+	buildExample201BenchmarkWasm(parseT, parseRoot)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRoot, "18101")
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		getArtifact := buildExample201Artifact(parseT, parsePage, getBaseURL, "")
-		getArtifact.GetScalingRun = &example201ScalingRun{
-			GetDescription: "RT2-only stress run with runtime2WorkScale=12 to expose worker-count scaling beyond frame-quantized paint-proxy timing.",
-			GetRoute:       buildExample201ScalingRoute(),
-			GetReport:      buildExample201Artifact(parseT, parsePage, getBaseURL, buildExample201ScalingRoute()).GetReport,
-		}
-		getJSONPath, getMarkdownPath := storeExample201Artifact(parseT, getRepoRoot, getArtifact)
-		parseT.Logf("example 201 benchmark json report: %s", getJSONPath)
-		parseT.Logf("example 201 benchmark markdown report: %s", getMarkdownPath)
+		parseArtifact := buildExample201Artifact(parseT, parsePage, parseBaseURL, "")
+		parseJSONPath, parseMarkdownPath := storeExample201Artifact(parseT, parseRoot, parseArtifact)
+		parseT.Logf("supported React/runtime1 benchmark reports: %s; %s", parseJSONPath, parseMarkdownPath)
 	})
 }
 
-// TestExample201BrowserBenchmarkReportRuntime2OneAndFourWorkers runs the mixed-framework browser report for React, runtime1, RT2x1, and RT2x4 only.
-func TestExample201BrowserBenchmarkReportRuntime2OneAndFourWorkers(parseT *testing.T) {
+// TestExample201RetiredRuntime2ConfigurationsFailExplicitly rejects old dispatch and worker-count requests instead of emitting vacuous reports.
+func TestExample201RetiredRuntime2ConfigurationsFailExplicitly(parseT *testing.T) {
+	// eeda966e retired runtime2; 37b21540 restored the benchmark with only React/runtime1.
 	_, parseFile, _, _ := runtime.Caller(0)
-	getRepoRoot := examplesRepoRootFromFile(parseFile)
-	buildExample201BenchmarkWasm(parseT, getRepoRoot)
-	buildExample201BenchmarkWorkerWasm(parseT, getRepoRoot)
-	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18101")
+	parseRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRoot, "18101")
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		getArtifact := buildExample201Artifact(parseT, parsePage, getBaseURL, buildExample201OneAndFourWorkerRoute())
-		getJSONPath, getMarkdownPath := storeExample201ArtifactNamed(parseT, getRepoRoot, getArtifact, "browser-benchmark-report-rt2-1-4")
-		parseT.Logf("example 201 1x4 benchmark json report: %s", getJSONPath)
-		parseT.Logf("example 201 1x4 benchmark markdown report: %s", getMarkdownPath)
-	})
-}
-
-// TestExample201BrowserBenchmarkDispatchCompare runs RT2 stress routes for legacy per-chunk and optimized lane-batch dispatch.
-func TestExample201BrowserBenchmarkDispatchCompare(parseT *testing.T) {
-	_, parseFile, _, _ := runtime.Caller(0)
-	getRepoRoot := examplesRepoRootFromFile(parseFile)
-	buildExample201BenchmarkWasm(parseT, getRepoRoot)
-	buildExample201BenchmarkWorkerWasm(parseT, getRepoRoot)
-	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18101")
-	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		getChunkRoute := buildExample201ScalingRouteWithDispatch("chunk")
-		getBatchRoute := buildExample201ScalingRouteWithDispatch("batch")
-		getChunkArtifact := buildExample201Artifact(parseT, parsePage, getBaseURL, getChunkRoute)
-		getBatchArtifact := buildExample201Artifact(parseT, parsePage, getBaseURL, getBatchRoute)
-		getChunkJSONPath, getChunkMarkdownPath := storeExample201ArtifactNamed(parseT, getRepoRoot, getChunkArtifact, "browser-benchmark-report-rt2-dispatch-chunk")
-		getBatchJSONPath, getBatchMarkdownPath := storeExample201ArtifactNamed(parseT, getRepoRoot, getBatchArtifact, "browser-benchmark-report-rt2-dispatch-batch")
-		parseT.Logf("example 201 dispatch chunk benchmark json report: %s", getChunkJSONPath)
-		parseT.Logf("example 201 dispatch chunk benchmark markdown report: %s", getChunkMarkdownPath)
-		parseT.Logf("example 201 dispatch batch benchmark json report: %s", getBatchJSONPath)
-		parseT.Logf("example 201 dispatch batch benchmark markdown report: %s", getBatchMarkdownPath)
-
-		getChunkWorkerBatchMean, getChunkDomReadyMean, getChunkSampleCount := buildExample201WorkerMetricMeans(getChunkArtifact.GetReport)
-		getBatchWorkerBatchMean, getBatchDomReadyMean, getBatchSampleCount := buildExample201WorkerMetricMeans(getBatchArtifact.GetReport)
-		if getChunkSampleCount < 1 || getBatchSampleCount < 1 {
-			parseT.Fatalf("expected worker metric samples for dispatch compare, got chunk=%d batch=%d", getChunkSampleCount, getBatchSampleCount)
-		}
-		parseT.Logf("example 201 dispatch chunk means: workerBatch=%.3fms domReady=%.3fms samples=%d", getChunkWorkerBatchMean, getChunkDomReadyMean, getChunkSampleCount)
-		parseT.Logf("example 201 dispatch batch means: workerBatch=%.3fms domReady=%.3fms samples=%d", getBatchWorkerBatchMean, getBatchDomReadyMean, getBatchSampleCount)
-		if getChunkWorkerBatchMean > 0 {
-			parseT.Logf("example 201 dispatch worker-batch delta: %.2f%%", ((getChunkWorkerBatchMean-getBatchWorkerBatchMean)/getChunkWorkerBatchMean)*100)
-		}
-		if getChunkDomReadyMean > 0 {
-			parseT.Logf("example 201 dispatch dom-ready delta: %.2f%%", ((getChunkDomReadyMean-getBatchDomReadyMean)/getChunkDomReadyMean)*100)
-		}
-		if getChunkWorkerBatchMean > 0 && getBatchWorkerBatchMean > getChunkWorkerBatchMean*1.35 {
-			parseT.Fatalf("expected lane-batch dispatch to avoid large regression; chunk=%.3fms batch=%.3fms", getChunkWorkerBatchMean, getBatchWorkerBatchMean)
-		}
-	})
-}
-
-// TestExample201BrowserBenchmarkHonorsConfiguredWorkerCounts verifies the configurable RT2 worker matrix reports the requested worker counts.
-func TestExample201BrowserBenchmarkHonorsConfiguredWorkerCounts(parseT *testing.T) {
-	_, parseFile, _, _ := runtime.Caller(0)
-	getRepoRoot := examplesRepoRootFromFile(parseFile)
-	buildExample201BenchmarkWasm(parseT, getRepoRoot)
-	buildExample201BenchmarkWorkerWasm(parseT, getRepoRoot)
-	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18101")
-	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		getArtifact := buildExample201Artifact(parseT, parsePage, getBaseURL, "/examples/testing/render-benchmark/?iterations=2&warmups=1&seed=20101&runtime2WorkerCounts=2,8")
-		getExpectedLabels := map[string]string{
-			"runtime2-workers2": "Runtime 2 (2 Workers)",
-			"runtime2-workers8": "Runtime 2 (8 Workers)",
-		}
-		for parseFrameworkIndex := range getArtifact.GetReport.GetFrameworks {
-			getFramework := getArtifact.GetReport.GetFrameworks[parseFrameworkIndex]
-			getExpectedLabel, hasExpectedLabel := getExpectedLabels[getFramework.GetFramework]
-			if !hasExpectedLabel {
-				continue
+		for _, parseRoute := range []string{
+			buildExample201ScalingRouteWithDispatch("chunk"),
+			buildExample201ScalingRouteWithDispatch("batch"),
+			buildExample201OneAndFourWorkerRoute(),
+			"/examples/testing/render-benchmark/?runtime2WorkerCounts=2,8",
+			"/examples/testing/render-benchmark/?runtime2Workers=4",
+		} {
+			if _, parseErr := parsePage.Goto(parseBaseURL+parseRoute, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
+				parseT.Fatal(parseErr)
 			}
-			if getFramework.GetLabel != getExpectedLabel {
-				parseT.Fatalf("expected configurable worker label %q, got %q", getExpectedLabel, getFramework.GetLabel)
+			if _, parseErr := parsePage.WaitForFunction("() => !!window.__example201Runner", nil); parseErr != nil {
+				parseT.Fatal(parseErr)
 			}
-			getExpectedWorkerCount := 0.0
-			if strings.HasSuffix(getFramework.GetFramework, "2") {
-				getExpectedWorkerCount = 2
-			} else if strings.HasSuffix(getFramework.GetFramework, "8") {
-				getExpectedWorkerCount = 8
-			}
-			for _, getScenario := range getFramework.GetScenarioResults {
-				if !getScenario.HasWorkerMetrics {
-					continue
+			parseResult, parseErr := parsePage.Evaluate(`async () => {
+				window.__example201Report = { stale: true };
+				try { await window.__example201Runner.runBenchmarks(); return "unexpected success"; }
+				catch (error) {
+					if (window.__example201Report !== undefined) return "stale report survived rejection";
+					if (!document.querySelector("#benchmark-status").textContent.includes("Benchmark failed:")) return "missing visible failure";
+					return String(error);
 				}
-				if getScenario.GetWorkerCountMean != getExpectedWorkerCount {
-					parseT.Fatalf("expected worker metrics to report %.1f workers for %s, got %.1f", getExpectedWorkerCount, getScenario.GetScenarioID, getScenario.GetWorkerCountMean)
-				}
+			}`)
+			if parseErr != nil || !strings.Contains(fmt.Sprint(parseResult), "runtime2 was retired in v5") {
+				parseT.Fatalf("retired configuration %s did not fail explicitly: %v; %v", parseRoute, parseResult, parseErr)
 			}
 		}
 	})

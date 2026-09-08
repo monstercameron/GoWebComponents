@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
+	"github.com/monstercameron/GoWebComponents/v6/css"
 )
 
 // TestPreflightEmitsResetRules proves Preflight emits the base reset (CSS5).

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // i18nTestNoOpScheduler keeps wasm locale tests deterministic without background runtime scheduling.

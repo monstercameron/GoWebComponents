@@ -1,7 +1,7 @@
 package state_test
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v6/state"
 )
 
 // ExampleUseAtom shows shared atom state: components that bind the same atom id

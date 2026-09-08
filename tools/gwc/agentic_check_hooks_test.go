@@ -13,8 +13,8 @@ import (
 const hookContextFixture = `package sample
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/state"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // valid: a Use* hook function may call hooks.
@@ -91,8 +91,8 @@ func TestCollectCheckHookContextDiagnosticsIgnoresValidContexts(parseT *testing.
 	parseValid := `package sample
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/state"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 func UseThing() state.Atom[int] { return state.UseAtom("thing", 0) }

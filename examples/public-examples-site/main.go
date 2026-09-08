@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/fetch"
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v5/logging"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/utils"
+	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/logging"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/utils"
 )
 
 var log = logging.New("public-examples-site")

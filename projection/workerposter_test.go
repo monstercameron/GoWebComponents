@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/projection"
+	"github.com/monstercameron/GoWebComponents/v6/projection"
 )
 
 // The wire envelope between app.wasm and services.wasm.

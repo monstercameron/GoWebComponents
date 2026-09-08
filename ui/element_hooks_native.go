@@ -2,7 +2,7 @@
 
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v5/interop"
+import "github.com/monstercameron/GoWebComponents/v6/interop"
 
 // Element-scoped hooks are no-ops on non-browser builds (no live DOM). The
 // reactive implementations live in the js/wasm build.

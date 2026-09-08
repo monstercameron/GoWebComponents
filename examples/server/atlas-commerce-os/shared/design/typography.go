@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v5/css"
+import "github.com/monstercameron/GoWebComponents/v6/css"
 
 // This file is the most important file in the package, because in Atlas the type
 // system IS the information architecture. See the package doc for the argument; this

@@ -5,8 +5,8 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // TestConditionalNilRenderTogglesMount: a component that returns nil renders

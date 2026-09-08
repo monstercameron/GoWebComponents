@@ -5,7 +5,7 @@ package logging
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // resolveExternalContextDetails reads native framework metadata exposed by ui.

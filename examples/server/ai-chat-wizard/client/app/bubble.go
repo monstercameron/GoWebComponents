@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/i18n"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/i18n"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // msg-bubble-assistant / msg-bubble-user are stable behavioral markers for
@@ -226,10 +226,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 					parseThoughtBubble(parseM.Thought, false),
 				),
 				Div(ClassStr(assistantRichTextMessageBubbleClass),
-					Tag("div", FromProps(Props{
-						Class: "prose text-[1.0625rem] leading-[1.75] text-[#e8e7f2] min-w-0",
-						Raw:   map[string]interface{}{innerHTMLProp: parseRendered},
-					})),
+					renderMessageMarkup(parseRendered),
 				),
 				parseAssistantMessageMetaRow(assistantMessageMetaProps{
 					Intl:              parseProps.Intl,
@@ -274,10 +271,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				parseThoughtBubble(parseM.Thought, false),
 			),
 			Div(ClassStr(assistantRichTextMessageBubbleClass),
-				Tag("div", FromProps(Props{
-					Class: "prose text-[1.0625rem] leading-[1.75] text-[#e8e7f2] min-w-0",
-					Raw:   map[string]interface{}{innerHTMLProp: parseRendered2},
-				})),
+				renderMessageMarkup(parseRendered2),
 			),
 			parseAssistantMessageMetaRow(assistantMessageMetaProps{
 				Intl:              parseProps.Intl,

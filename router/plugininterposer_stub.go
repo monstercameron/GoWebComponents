@@ -5,7 +5,7 @@ package router
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/pluginruntime"
 )
 
 type buildRouteService struct{}

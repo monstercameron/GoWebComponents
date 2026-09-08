@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v5/agentbridge"
-	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v6/agentbridge"
+	"github.com/monstercameron/GoWebComponents/v6/state"
 )
 
 // gorillaSocket adapts a gorilla *websocket.Conn to agentbridge.AgentSocket so

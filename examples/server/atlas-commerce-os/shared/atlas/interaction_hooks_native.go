@@ -59,10 +59,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/fetch"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
-	"github.com/monstercameron/GoWebComponents/v5/state"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // atlasLocalState mirrors the wasm declaration field-for-field: it holds a

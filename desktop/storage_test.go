@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
-	"github.com/monstercameron/GoWebComponents/v5/kvstate"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v6/kvstate"
 )
 
 type storageTransport struct {

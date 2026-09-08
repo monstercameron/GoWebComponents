@@ -11,6 +11,10 @@ This example is now organized into four top-level folders:
 
 This is the current production-shaped reference server example for the repo.
 
+Set `ATLAS_DB_PATH` to use an isolated SQLite database. If unset, the existing
+`server/data/atlas-commerce-os.db` default is preserved. Browser test launches
+use temporary databases so test mutations do not alter a developer's saved data.
+
 ## Current Status
 
 - Atlas is the largest integrated example in the repo and the main production-shaped server plus hydration reference.

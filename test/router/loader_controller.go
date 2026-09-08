@@ -2,8 +2,8 @@
 
 package routertest
 
-import base "github.com/monstercameron/GoWebComponents/v5/testkit/router"
-import appRouter "github.com/monstercameron/GoWebComponents/v5/router"
+import base "github.com/monstercameron/GoWebComponents/v6/testkit/router"
+import appRouter "github.com/monstercameron/GoWebComponents/v6/router"
 
 type LoaderAttempt = base.LoaderAttempt
 type LoaderController = base.LoaderController

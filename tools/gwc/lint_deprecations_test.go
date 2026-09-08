@@ -72,7 +72,7 @@ func TestCollectLintDeprecationRuleIssuesAcceptsWarnCalls(parseT *testing.T) {
 	}
 	parseSource := `package api
 
-import gwcdep "github.com/monstercameron/GoWebComponents/v5/deprecation"
+import gwcdep "github.com/monstercameron/GoWebComponents/v6/deprecation"
 
 // OldFunc is kept for compatibility.
 //

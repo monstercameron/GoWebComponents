@@ -691,6 +691,17 @@
         const getStatusNode = document.querySelector("#benchmark-status");
         const getConfig = buildRunnerConfig();
         const getFrameworkOrder = buildRunnerShuffledList(buildRunnerSubjectConfigs(getConfig), getConfig.getSeed);
+        // An empty legacy arm is not a successful measurement. Runtime2 was
+        // deliberately retired in v5 P5.2; never relabel runtime1 as that renderer.
+        delete window.__example201Report;
+        delete window.__example201ReportError;
+        const getRetiredOptions = Array.from(new URLSearchParams(window.location.search).keys()).filter((parseKey) => parseKey.startsWith("runtime2"));
+        if (getFrameworkOrder.length === 0 || getRetiredOptions.length > 0) {
+            const getError = new Error("Unsupported benchmark configuration: " + (getConfig.getSubjectSet || getRetiredOptions.join(", ")) + "; runtime2 was retired in v5. Use the React/runtime1 comparison.");
+            if (getStatusNode) getStatusNode.textContent = "Benchmark failed: " + getError.message;
+            window.__example201ReportError = getError.message;
+            throw getError;
+        }
         const getScoreReference = await handleRunnerLoadScoreReference();
         if (getStatusNode) {
             getStatusNode.textContent = "Loading benchmark subjects...";

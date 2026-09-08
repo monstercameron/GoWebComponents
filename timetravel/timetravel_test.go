@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/timetravel"
+	"github.com/monstercameron/GoWebComponents/v6/timetravel"
 )
 
 // TestRecordAndCurrent proves recording advances the current state.

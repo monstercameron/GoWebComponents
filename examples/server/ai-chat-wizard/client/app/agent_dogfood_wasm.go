@@ -10,7 +10,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/agentbridge"
+	"github.com/monstercameron/GoWebComponents/v6/agentbridge"
 )
 
 type parseDogfoodAgentSocket struct {

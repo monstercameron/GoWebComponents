@@ -11,8 +11,8 @@ import (
 	"example.com/gwc-wails-counter/assets"
 	"example.com/gwc-wails-counter/contracts"
 	"example.com/gwc-wails-counter/internal/services"
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
-	wailsadapter "github.com/monstercameron/GoWebComponents/v5/desktop/wails"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
+	wailsadapter "github.com/monstercameron/GoWebComponents/v6/desktop/wails"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 

@@ -3,7 +3,7 @@ package kvstate
 import (
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
 )
 
 // Durability selects the db/sqlite persistence backend. Its zero value

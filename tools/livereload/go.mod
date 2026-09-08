@@ -4,12 +4,12 @@ go 1.26.0
 
 require (
 	agenthub v0.0.0
-	github.com/monstercameron/GoWebComponents/v5 v5.0.0
+	github.com/monstercameron/GoWebComponents/v6 v6.0.0
 )
 
 replace agenthub => ../agenthub
 
-replace github.com/monstercameron/GoWebComponents/v5 => ../..
+replace github.com/monstercameron/GoWebComponents/v6 => ../..
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0

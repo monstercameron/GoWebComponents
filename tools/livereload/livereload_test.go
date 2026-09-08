@@ -18,7 +18,7 @@ import (
 	"agenthub"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v5/tools/runnerconfig"
+	"github.com/monstercameron/GoWebComponents/v6/tools/runnerconfig"
 )
 
 func TestLiveReloadOriginValidation(parseT *testing.T) {
@@ -349,7 +349,7 @@ func TestBuildChangedComponentManifestExtractsTopLevelComponents(parseT *testing
 	parseMainPath := filepath.Join(parseAppDir, "main.go")
 	parseContent := `package main
 
-import "github.com/monstercameron/GoWebComponents/v5/ui"
+import "github.com/monstercameron/GoWebComponents/v6/ui"
 
 func App() ui.Node { return nil }
 func helper() int { return 1 }
@@ -742,21 +742,32 @@ func TestNewHTTPHandlerReportsAndDisconnectsClientSessions(parseT *testing.T) {
 	}
 	defer parseConn.Close()
 
-	parseStatusResp, parseErr := http.Get(parseTestServer.URL + "/__gwc/status")
-	if parseErr != nil {
-		parseT.Fatalf("get status: %v", parseErr)
-	}
-	defer parseStatusResp.Body.Close()
-	if parseStatusResp.StatusCode != http.StatusOK {
-		parseT.Fatalf("expected status 200, got %s", parseStatusResp.Status)
-	}
-
 	var parseStatus LiveReloadStatus
-	if parseErr2 := json.NewDecoder(parseStatusResp.Body).Decode(&parseStatus); parseErr2 != nil {
-		parseT.Fatalf("decode status payload: %v", parseErr2)
-	}
-	if parseStatus.ClientCount != 1 || len(parseStatus.Clients) != 1 {
-		parseT.Fatalf("expected one connected client in status, got %+v", parseStatus)
+	// Dial observes the handshake before the server finishes registering the
+	// session; wait for registration without relaxing the exact client assertion.
+	parseDeadline := time.Now().Add(2 * time.Second)
+	for {
+		parseStatusResp, parseErr := http.Get(parseTestServer.URL + "/__gwc/status")
+		if parseErr != nil {
+			parseT.Fatalf("get status: %v", parseErr)
+		}
+		if parseStatusResp.StatusCode != http.StatusOK {
+			parseStatusResp.Body.Close()
+			parseT.Fatalf("expected status 200, got %s", parseStatusResp.Status)
+		}
+		parseStatus = LiveReloadStatus{}
+		parseErr2 := json.NewDecoder(parseStatusResp.Body).Decode(&parseStatus)
+		parseStatusResp.Body.Close()
+		if parseErr2 != nil {
+			parseT.Fatalf("decode status payload: %v", parseErr2)
+		}
+		if parseStatus.ClientCount == 1 && len(parseStatus.Clients) == 1 {
+			break
+		}
+		if time.Now().After(parseDeadline) {
+			parseT.Fatalf("expected one connected client in status, got %+v", parseStatus)
+		}
+		time.Sleep(time.Millisecond)
 	}
 	if parseStatus.Clients[0].ID == "" || parseStatus.Clients[0].UserAgent != "gwc-dashboard-test" {
 		parseT.Fatalf("unexpected client metadata: %+v", parseStatus.Clients[0])

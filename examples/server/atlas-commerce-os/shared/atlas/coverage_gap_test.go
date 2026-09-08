@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // TestAtlasResourceCacheFetchBranches covers HTTP fetch and startup resource branches.

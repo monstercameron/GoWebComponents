@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // TestDataAttrSingleAttribute pins the zero-alloc single data-* field on both

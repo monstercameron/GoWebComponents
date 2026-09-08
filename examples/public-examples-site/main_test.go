@@ -11,11 +11,11 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/fetch"
-	gwchtml "github.com/monstercameron/GoWebComponents/v5/html"
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/testkit/render"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	gwchtml "github.com/monstercameron/GoWebComponents/v6/html"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 func testArticleItem() docsItem {

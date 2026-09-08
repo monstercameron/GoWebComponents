@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 
 // DeferStatus is the state of a deferred, possibly-async view. It models Angular @defer's
 // blocks: a placeholder before work begins, a loading block while an async resource resolves,

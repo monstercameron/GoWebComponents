@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/events"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/events"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // getWasmFixture imports the actual embedded ES module and gives tests pure-JS controlled promises/events.

@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // bailoutRowProps parameterizes one keyed row's inner component. The inner is

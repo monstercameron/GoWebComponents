@@ -5,8 +5,8 @@ package main
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // ScrollToTopButton creates a floating action button that appears when scrolling down.

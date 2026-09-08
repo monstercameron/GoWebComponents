@@ -5,7 +5,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // fakeMediaSource is a substitutable mediaQuerySource for deterministic tests.

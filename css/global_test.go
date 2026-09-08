@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
+	"github.com/monstercameron/GoWebComponents/v6/css"
 )
 
 // TestGlobalEmitsLiteralElementSelector proves Global emits an un-prefixed

@@ -56,7 +56,7 @@
 // pointer-based so zero values are not overloaded as absence.
 //
 // The preferred happy-path import is an ordinary package import such as
-// `html "github.com/monstercameron/GoWebComponents/v5/html"`. Dot-importing html
+// `html "github.com/monstercameron/GoWebComponents/v6/html"`. Dot-importing html
 // is acceptable only in tiny example packages where collisions are tightly
 // controlled. When one-call mixed props plus children is preferable, use the
 // narrower companion package `github.com/monstercameron/GoWebComponents/html/shorthand`.

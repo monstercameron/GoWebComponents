@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // mountAsyncTestComponent mounts a component with a synchronous mock scheduler

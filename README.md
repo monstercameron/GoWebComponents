@@ -4,28 +4,45 @@
 
 # GoWebComponents
 
-[![CI + Release](https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml)
-[![Deploy Examples To Pages](https://github.com/monstercameron/GoWebComponents/actions/workflows/pages.yml/badge.svg?branch=master)](https://github.com/monstercameron/GoWebComponents/actions/workflows/pages.yml)
+[![CI + Release](https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml/badge.svg)](https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml)
+[![Deploy Examples To Pages](https://github.com/monstercameron/GoWebComponents/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/monstercameron/GoWebComponents/actions/workflows/pages.yml)
 [![Release Version](https://img.shields.io/github/v/release/monstercameron/GoWebComponents)](https://github.com/monstercameron/GoWebComponents/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/monstercameron/GoWebComponents)](https://goreportcard.com/report/github.com/monstercameron/GoWebComponents)
 
-GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring helpers, a typed compile-checked CSS engine, client-side routing, and shared state. It also ships streaming SSR with real async suspension, hydration and static islands, crash containment by default, realtime data hooks, feature flags, i18n, accessibility primitives, and PWA/offline support.
+**Build web apps and desktop apps in Go.** GoWebComponents gives you a shared
+Go + WebAssembly UI layer with components, hooks, typed HTML/CSS, routing and
+state. Run it in a browser, or host it in a native desktop window with an
+optional Wails adapter.
 
-It is **batteries-included**: rendering, hooks, routing, shared state, data fetching, SSR/hydration, i18n, accessibility, PWA/offline, feature flags, and devtools all ship in the same Go module, so there is no separate JavaScript build, bundler config, or npm dependency tree to assemble. The trade-offs that come with that — wasm runtime cost and bundle size — are described under [Performance and Trade-offs](#performance-and-trade-offs); read that section before adopting so expectations are set honestly.
+The framework includes data fetching, streaming SSR, hydration, realtime hooks,
+accessibility helpers, i18n, feature flags, PWA/offline support and devtools.
+The GWC UI build does not require a separate JavaScript app, bundler or npm
+pipeline. See [Performance and Trade-offs](#performance-and-trade-offs) for
+the costs of the Wasm runtime and a batteries-included module.
 
-It is aimed at teams that want to build browser UI in Go without dropping into a separate JavaScript application stack for rendering, state, routing, and browser lifecycle management.
+Desktop support is **Windows-first**, using WebView2. Native file pickers,
+clipboard access, message dialogs, window controls and screen information are
+available through typed GWC APIs. Wails stays in the native host module—not in
+your web build. Build-mode gates and capability checks let shared UI handle
+desktop-only features explicitly. macOS and Linux native hosts are not yet
+certified.
+
+Version 6 uses the `/v6` module path. See [migration and known limitations](CHANGELOG.md#v600---2026-09-08)
+before upgrading. The example modernization and full browser acceptance sweep
+are not complete.
 
 ## Why GoWebComponents
 
-- Write browser UI in Go instead of splitting application logic across Go backends and JavaScript frontends.
+- Build web and Windows desktop apps with the same Go component model.
 - Use a familiar component and hook model for local state, effects, async work, and composition.
 - Build DOM trees with typed helpers in `html` or the mixed-argument sugar surface in `html/shorthand` instead of raw string templates.
 - Add routing, shared state, fetch helpers, SSR, hydration, and devtools from the same module.
+- Keep desktop integrations optional, typed and capability-gated without coupling web apps to Wails.
 - Validate behavior with native Go tests, js/wasm tests, browser suites, and benchmark coverage already used in this repo.
 
 ## Quick Start
 
-### 30-second golden path
+### Run a web app
 
 Clone the repo and run a real example with rebuild-on-save:
 
@@ -39,34 +56,56 @@ To scaffold your own app, use `go run ./tools/gwc start` (interactive); the
 starter gallery is documented in [docs/STARTERS.md](docs/STARTERS.md). Browse
 the example catalog with `go run ./tools/gwc examples`.
 
+### Run a Windows desktop app
+
+From a repository checkout, initialize the pinned native host dependency and
+launch the Windows API Lab:
+
+```powershell
+git -c core.longpaths=true submodule update --init third_party/wails
+go run ./tools/gwc desktop doctor -root ./examples/desktop/wails-counter
+go run ./tools/gwc desktop dev -root ./examples/desktop/wails-counter
+```
+
+Requires Windows, Go 1.26.6 or newer and the WebView2 runtime. The native host embeds the GWC
+Wasm frontend; `desktop dev` rebuilds and restarts it on source changes.
+Use `desktop build` for an executable or `desktop package` for an unsigned ZIP.
+Signing and installer distribution are separate steps.
+
+See the [Windows API Lab](examples/desktop/wails-counter/WINDOWS_API_TESTER.md),
+[desktop SDK](desktop/README.md) and [host setup](examples/desktop/wails-counter/README.md).
+The current desktop scaffold is checkout-linked; it is not a standalone
+published template.
+
 ### Add to an existing module
 
 Install the module:
 
 ```bash
-go get github.com/monstercameron/GoWebComponents@latest
+go get github.com/monstercameron/GoWebComponents/v6@latest
 ```
 
 Import public packages from the module path exactly as declared in `go.mod`:
 
 ```go
 import (
-  "github.com/monstercameron/GoWebComponents/v5/css"
-  "github.com/monstercameron/GoWebComponents/v5/css/u"
-  "github.com/monstercameron/GoWebComponents/v5/fetch"
-  "github.com/monstercameron/GoWebComponents/v5/flags"
-  "github.com/monstercameron/GoWebComponents/v5/hotreload"
-  "github.com/monstercameron/GoWebComponents/v5/html"
-    . "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-  "github.com/monstercameron/GoWebComponents/v5/router"
-  "github.com/monstercameron/GoWebComponents/v5/state"
-  "github.com/monstercameron/GoWebComponents/v5/ui"
+  "github.com/monstercameron/GoWebComponents/v6/css"
+  "github.com/monstercameron/GoWebComponents/v6/css/u"
+  "github.com/monstercameron/GoWebComponents/v6/fetch"
+  "github.com/monstercameron/GoWebComponents/v6/flags"
+  "github.com/monstercameron/GoWebComponents/v6/hotreload"
+  "github.com/monstercameron/GoWebComponents/v6/html"
+    . "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+  "github.com/monstercameron/GoWebComponents/v6/router"
+  "github.com/monstercameron/GoWebComponents/v6/state"
+  "github.com/monstercameron/GoWebComponents/v6/ui"
 )
 ```
 
 Requirements:
 
-- Go 1.26+ (matches the `go` directive in `go.mod`)
+- Go 1.26.6 or newer is recommended for current standard-library security fixes
+  (the module's language-version floor remains Go 1.26)
 - A browser with WebAssembly support
 
 The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `html/shorthand`, `css`, `css/u`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`.
@@ -94,6 +133,7 @@ Use these entry docs instead of wandering the tree blindly:
 - Library user: [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md) and [docs/REFERENCE_MANUAL/01-getting-started.md](docs/REFERENCE_MANUAL/01-getting-started.md)
 - Package author working in public APIs: [ui/README.md](ui/README.md), [html/README.md](html/README.md), [state/README.md](state/README.md), [fetch/README.md](fetch/README.md), [flags/README.md](flags/README.md), [router/README.md](router/README.md)
 - Framework contributor: [internal/README.md](internal/README.md), [internal/runtime/README.md](internal/runtime/README.md), [internal/platform/README.md](internal/platform/README.md), [internal/runtime2/README.md](internal/runtime2/README.md)
+- Desktop app author: [desktop/README.md](desktop/README.md) and [Windows API Lab](examples/desktop/wails-counter/WINDOWS_API_TESTER.md)
 - Tooling contributor: [tools/README.md](tools/README.md), [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md), [tools/gwc/docs/README.md](tools/gwc/docs/README.md)
 - Example explorer: [examples/README.md](examples/README.md)
 - Test or validation work: [test/README.md](test/README.md) and [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md)
@@ -104,6 +144,7 @@ If you are contributing to the repo rather than just consuming the module, use t
 
 - `ui/`, `html/`, `html/shorthand/`, `css/`, `css/u/`, `state/`, `fetch/`, `flags/`, `router/`: primary public library packages
 - `devtools/`, `head/`, `hotreload/`, `i18n/`, `logging/`, `plugin/`, `prerender/`, `pwa/`, `virtualization/`: companion public packages
+- `desktop/`: portable desktop contracts; `desktop/wails/`: isolated native host adapter
 - `internal/platform/`, `internal/runtime/`, `internal/runtime2/`: platform adapters and runtime internals
 - `testkit/`: reusable consumer-facing test helpers
 - `test/`: repo-owned validation suites, fixtures, and browser coverage
@@ -127,10 +168,10 @@ package main
 import (
     "fmt"
 
-    "github.com/monstercameron/GoWebComponents/v5/css"
-    "github.com/monstercameron/GoWebComponents/v5/css/u"
-    . "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-    "github.com/monstercameron/GoWebComponents/v5/ui"
+    "github.com/monstercameron/GoWebComponents/v6/css"
+    "github.com/monstercameron/GoWebComponents/v6/css/u"
+    . "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 type StarterAppProps struct {

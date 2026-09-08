@@ -589,7 +589,8 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 	parseRt.profiling.scheduledFiberMarks++
 	parseLane := laneForUpdateOrigin(parseOrigin)
 	parseRt.recordReplayFiberUpdate(replayUpdateKindFiber, parseFiber, parseOrigin, parseLane)
-	if parseRt.updateScheduled && parseFiber.dirty && parseFiber.needsUpdate && parseFiber.updateLane == parseLane {
+	if parseRt.updateScheduled && parseRt.wipRoot != nil && parseRt.nextUnitOfWork == parseRt.wipRoot &&
+		parseFiber.dirty && parseFiber.needsUpdate && parseFiber.updateLane == parseLane {
 		return
 	}
 	parseCurrentOrigin := ""
@@ -677,7 +678,8 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	parseRt.profiling.scheduledGranularMarks++
 	parseLane := laneForUpdateOrigin(parseOrigin)
 	parseRt.recordReplayFiberUpdate(replayUpdateKindGranular, parseFiber, parseOrigin, parseLane)
-	if parseRt.updateScheduled && parseFiber.dirty && parseFiber.needsUpdate && parseFiber.updateLane == parseLane {
+	if parseRt.updateScheduled && parseRt.wipRoot != nil && parseRt.nextUnitOfWork == parseRt.wipRoot &&
+		parseFiber.dirty && parseFiber.needsUpdate && parseFiber.updateLane == parseLane {
 		return
 	}
 	parseCurrentOrigin := ""

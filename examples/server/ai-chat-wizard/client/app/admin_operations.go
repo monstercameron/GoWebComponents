@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v5/logging"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v6/logging"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 const (

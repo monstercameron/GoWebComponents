@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // getExampleCatalogItems keeps the public site focused on runnable learning examples.

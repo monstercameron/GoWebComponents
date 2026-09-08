@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/logging"
+	"github.com/monstercameron/GoWebComponents/v6/logging"
 )
 
 var traceReplayState struct {

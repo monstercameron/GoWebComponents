@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/internal/buildinfo"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/internal/buildinfo"
 )
 
 const chatBootShellStyles = `<style>
@@ -728,31 +728,6 @@ loadChatWasm().catch(failBoot);
 
 const codeObserver = new MutationObserver(() => {
   renderMermaidInRoot(appRoot).catch(() => {});
-
-  document.querySelectorAll('.prose pre:not([data-copy])').forEach(pre => {
-    if (pre.dataset.mermaidProcessed === '1' || isMermaidCodeBlock(pre)) {
-      return;
-    }
-    pre.dataset.copy = '1';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'prose-pre-wrap';
-    pre.parentNode.insertBefore(wrap, pre);
-    wrap.appendChild(pre);
-
-    const btn = document.createElement('button');
-    btn.className = 'prose-copy-btn';
-    btn.textContent = 'Copy';
-    btn.addEventListener('click', () => {
-      const code = pre.querySelector('code');
-      navigator.clipboard.writeText((code || pre).textContent).then(() => {
-        btn.textContent = 'Copied!';
-        btn.classList.add('copied');
-        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-      }).catch(() => {});
-    });
-    wrap.appendChild(btn);
-  });
 
   renderMathInRoot(appRoot);
 });

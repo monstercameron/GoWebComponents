@@ -1,5 +1,5 @@
 // Package design is Atlas Commerce OS's design system, authored entirely in Go on
-// top of the repo's typed-CSS package (github.com/monstercameron/GoWebComponents/v5/css).
+// top of the repo's typed-CSS package (github.com/monstercameron/GoWebComponents/v6/css).
 // There is no Tailwind build step, no .css file, and no CDN: every rule in the
 // running app is a Go value that the css package folds into a hashed class and
 // emits through its Sink — the in-memory buffer on native (harvested into the SSR

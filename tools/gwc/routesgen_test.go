@@ -9,7 +9,7 @@ import (
 
 const routesFixture = `package myapp
 
-import "github.com/monstercameron/GoWebComponents/v5/router"
+import "github.com/monstercameron/GoWebComponents/v6/router"
 
 var (
 	HomeRoute = router.MustDefineRoute("/")

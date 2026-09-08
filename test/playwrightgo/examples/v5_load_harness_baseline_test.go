@@ -119,7 +119,7 @@ func buildV5Wasm(parseT *testing.T, parseRepoRoot string, parseOutPath string, p
 // Self-contained rather than reusing the example catalog server: the harness
 // needs exactly two things on one origin, and a local server keeps the run
 // independent of catalog wiring.
-func serveV5Harness(parseT *testing.T, parseRepoRoot string) *httptest.Server {
+func serveV5Harness(parseT *testing.T, parseRepoRoot string, parseArtifactDirs ...string) *httptest.Server {
 	parseT.Helper()
 	parseDir := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness")
 	parseShim := filepath.Join(runtime.GOROOT(), "lib", "wasm", "wasm_exec.js")
@@ -128,6 +128,14 @@ func serveV5Harness(parseT *testing.T, parseRepoRoot string) *httptest.Server {
 	}
 
 	parseMux := http.NewServeMux()
+	if len(parseArtifactDirs) > 0 {
+		for _, parseName := range []string{"v5harness.wasm", "v5services.wasm"} {
+			parseMux.HandleFunc("/"+parseName, func(parseW http.ResponseWriter, parseR *http.Request) {
+				parseW.Header().Set("Content-Type", "application/wasm")
+				http.ServeFile(parseW, parseR, filepath.Join(parseArtifactDirs[0], parseName))
+			})
+		}
+	}
 	parseMux.HandleFunc("/wasm_exec.js", func(parseW http.ResponseWriter, parseR *http.Request) {
 		parseW.Header().Set("Content-Type", "text/javascript")
 		http.ServeFile(parseW, parseR, parseShim)

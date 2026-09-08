@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	serverdb "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/db"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/atlas"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/repository"
+	serverdb "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/db"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/atlas"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/repository"
 )
 
 type routeSummaryData struct {

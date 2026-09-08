@@ -3,12 +3,12 @@
 package main
 
 import (
-	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v5/router"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/utils"
+	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/utils"
 )
 
 func setRolloutStatus(parseMessage string) {

@@ -35,11 +35,11 @@ import (
 	"sync/atomic"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v5/gcpacing"
-	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
-	"github.com/monstercameron/GoWebComponents/v5/projection"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/gcpacing"
+	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v6/projection"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // rowCount and windowSize size the table the probe interacts with. 5k rows is
@@ -291,8 +291,12 @@ func renderApp() ui.Node {
 	}
 
 	return h.Main(
+		h.Attr("data-filter", getFilter.Get()),
+		h.Attr("data-offset", strconv.Itoa(getOffset.Get())),
+		h.Attr("data-deferred-filter", getDeferredFilter),
 		h.Section(
-			h.H1("v5 load harness"),
+			h.H2("Workload subject"),
+			h.Label(h.For("filter"), "Filter rows"),
 			h.Input(h.ID("filter"), h.Value(getFilter.Get()), h.OnInput(handleFilter)),
 			h.Button(h.ID("scroll"), h.Type("button"), h.OnClick(handleScroll), "advance window"),
 		),
@@ -680,7 +684,7 @@ func main() {
 	registerWorkloads()
 	registerProbes()
 
-	ui.Render(ui.Component(renderApp), "#app")
+	ui.Render(ui.Component(renderDashboard), "#root")
 	js.Global().Set("__gwcV5Ready", true)
 	interop.KeepAlive()
 }

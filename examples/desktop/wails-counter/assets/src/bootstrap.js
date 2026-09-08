@@ -24,8 +24,8 @@ const setBootStatus = (parseMessage, isError = false) => {
 // Native calls and subscriptions are owned by the reusable desktop adapter.
 globalThis.__gwcWailsReady = (async () => {
   getRuntime = await import("/wails/runtime.js");
-  getFileDialogHost = (await import("/bindings/github.com/monstercameron/GoWebComponents/v5/desktop/index.js")).FileDialogHost;
-  getDesktopBindings = await import("/bindings/github.com/monstercameron/GoWebComponents/v5/desktop/index.js");
+  getFileDialogHost = (await import("/bindings/github.com/monstercameron/GoWebComponents/v6/desktop/index.js")).FileDialogHost;
+  getDesktopBindings = await import("/bindings/github.com/monstercameron/GoWebComponents/v6/desktop/index.js");
   if (typeof getFileDialogHost?.SelectPaths !== "function") throw new Error("Missing FileDialogHost.SelectPaths binding");
   getBindings = await import(getSmokeFault === "missing-binding" ? "/missing-bindings.js" : getBindingURL);
   for (const parseMethod of ["Increment", "OpenFile", "RunProgress", "Reject", "RunWork", "GetWorkState", "GetCapabilities"]) {

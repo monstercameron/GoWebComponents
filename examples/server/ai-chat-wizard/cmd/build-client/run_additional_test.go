@@ -64,10 +64,10 @@ func TestRunBuildClientOrchestratesTargets(parseT *testing.T) {
 		parseT.Fatalf("unexpected initial call order %#v", parseCalls)
 	}
 	for _, parseNeedle := range []string{
-		filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "client", "chat.wasm"),
-		filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "client", "backgroundworker", "background-worker.wasm"),
-		"./examples/server/ai-chat-wizard/client->" + filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "app", "chat.wasm"),
-		"./examples/server/ai-chat-wizard/client/backgroundworker->" + filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm"),
+		filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "client", "chat.wasm"),
+		filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "client", "backgroundworker", "background-worker.wasm"),
+		"./examples/server/ai-chat-wizard/client->" + filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "bin", "client", "app", "chat.wasm"),
+		"./examples/server/ai-chat-wizard/client/backgroundworker->" + filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm"),
 	} {
 		parseJoined := strings.Join(append(append([]string{}, parseRemoved...), parseBuilt...), "\n")
 		if !strings.Contains(parseJoined, parseNeedle) {

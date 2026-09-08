@@ -33,8 +33,8 @@ func runBuildClient() error {
 	}
 
 	parseLegacyArtifacts := []string{
-		filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "client", "chat.wasm"),
-		filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "client", "backgroundworker", "background-worker.wasm"),
+		filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "client", "chat.wasm"),
+		filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "client", "backgroundworker", "background-worker.wasm"),
 	}
 	for _, parseLegacyPath := range parseLegacyArtifacts {
 		if parseErr3 := runBuildClientRemoveLegacyArtifact(parseLegacyPath); parseErr3 != nil {
@@ -50,12 +50,12 @@ func runBuildClient() error {
 		{
 			label:       "chat client",
 			packagePath: "./examples/server/ai-chat-wizard/client",
-			outputPath:  filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "app", "chat.wasm"),
+			outputPath:  filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "bin", "client", "app", "chat.wasm"),
 		},
 		{
 			label:       "background worker",
 			packagePath: "./examples/server/ai-chat-wizard/client/backgroundworker",
-			outputPath:  filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm"),
+			outputPath:  filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm"),
 		},
 	}
 

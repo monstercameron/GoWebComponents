@@ -238,150 +238,19 @@ func startKernelPluginDevtoolsServer(parseT *testing.T, parseRepoRoot string, pa
 	return parseBaseURL
 }
 
-// TestKernelPluginDevtoolsExampleBrowser verifies the kernel-backed devtools example through one focused browser flow.
-func TestKernelPluginDevtoolsExampleBrowser(parseT *testing.T) {
+// TestKernelPluginDevtoolsRetiredRouteIsUnavailable protects the intentional runtime2 retirement boundary.
+func TestKernelPluginDevtoolsRetiredRouteIsUnavailable(parseT *testing.T) {
+	// eeda966e removed this runtime2-backed plugin example in v5 P5.2.
 	_, parseFile, _, _ := runtime.Caller(0)
-	getRepoRoot := kernelPluginDevtoolsRepoRootFromFile(parseFile)
-	buildKernelPluginDevtoolsExampleWasm(parseT, getRepoRoot)
-	getBaseURL := startKernelPluginDevtoolsServer(parseT, getRepoRoot, getKernelPluginDevtoolsFreePort(parseT))
-
+	parseRoot := kernelPluginDevtoolsRepoRootFromFile(parseFile)
+	if _, parseErr := os.Stat(filepath.Join(parseRoot, "examples", "testing", "kernel-plugin-devtools", "main.go")); !os.IsNotExist(parseErr) {
+		parseT.Fatalf("retired kernel plugin example source unexpectedly present or unreadable: %v", parseErr)
+	}
+	parseBaseURL := startKernelPluginDevtoolsServer(parseT, parseRoot, getKernelPluginDevtoolsFreePort(parseT))
 	withKernelPluginDevtoolsPage(parseT, func(parsePage playwright.Page) {
-		getConsoleErrors := make([]string, 0, 8)
-		getPageErrors := make([]string, 0, 8)
-		if parseErr := parsePage.AddInitScript(playwright.Script{
-			Content: playwright.String(`(() => {
-				const storeKernelPluginDevtoolsErrors = [];
-				const formatKernelPluginDevtoolsValue = (value) => {
-					if (typeof value === "string") {
-						return value;
-					}
-					try {
-						return JSON.stringify(value);
-					} catch (error) {
-						return String(value);
-					}
-				};
-				window.__kernelPluginDevtoolsConsoleErrors = storeKernelPluginDevtoolsErrors;
-				const reportKernelPluginDevtoolsConsoleError = console.error.bind(console);
-				console.error = (...args) => {
-					storeKernelPluginDevtoolsErrors.push(args.map(formatKernelPluginDevtoolsValue).join(" | "));
-					return reportKernelPluginDevtoolsConsoleError(...args);
-				};
-			})();`),
-		}); parseErr != nil {
-			parseT.Fatalf("add init script: %v", parseErr)
-		}
-		parsePage.OnConsole(func(parseMessage playwright.ConsoleMessage) {
-			if parseMessage.Type() == "error" && len(getConsoleErrors) < 8 {
-				getConsoleErrors = append(getConsoleErrors, strings.TrimSpace(parseMessage.Text()))
-			}
-		})
-		parsePage.OnPageError(func(parseErr error) {
-			if parseErr != nil && len(getPageErrors) < 8 {
-				getPageErrors = append(getPageErrors, strings.TrimSpace(parseErr.Error()))
-			}
-		})
-		if _, parseErr := parsePage.Goto(getBaseURL+"/examples/testing/kernel-plugin-devtools/kernel-plugin-devtools.html", playwright.PageGotoOptions{
-			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		}); parseErr != nil {
-			parseT.Fatalf("goto example 111 route: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForSelector("#kernel-plugin-root", playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(15000),
-		}); parseErr != nil {
-			parseBodyText, _ := parsePage.TextContent("body")
-			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
-			parseT.Fatalf(
-				"wait for example 111 root: %v body=%q console=%q page=%q",
-				parseErr,
-				parseBodyText,
-				strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "),
-				strings.Join(getPageErrors, " || "),
-			)
-		}
-		if parseErr := parsePage.Click("#kernel-plugin-theme"); parseErr != nil {
-			parseT.Fatalf("click theme toggle: %v", parseErr)
-		}
-		if parseErr := parsePage.Click("#kernel-plugin-increment"); parseErr != nil {
-			parseT.Fatalf("click increment: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForSelector("text=Theme: midnight", playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(10000),
-		}); parseErr != nil {
-			parseT.Fatalf("wait for runtime2 region theme update: %v", parseErr)
-		}
-		if parseErr := parsePage.Click("button:has-text(\"Kernel Plugin Devtools\")", playwright.PageClickOptions{
-			Force:   playwright.Bool(true),
-			Timeout: playwright.Float(10000),
-		}); parseErr != nil {
-			parseT.Fatalf("open devtools panel: %v", parseErr)
-		}
-		for _, parseValue := range getKernelPluginDevtoolsStoredConsoleErrors(parsePage) {
-			if len(getConsoleErrors) >= 8 {
-				break
-			}
-			getConsoleErrors = append(getConsoleErrors, parseValue)
-		}
-		if _, parseErr := parsePage.WaitForSelector("text=Example Kernel Plugin", playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(10000),
-		}); parseErr != nil {
-			parseBodyText, _ := parsePage.TextContent("body")
-			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
-			parseT.Fatalf(
-				"wait for example kernel section: %v body=%q console=%q page=%q",
-				parseErr,
-				parseBodyText,
-				strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "),
-				strings.Join(getPageErrors, " || "),
-			)
-		}
-		if _, parseWaitErr := parsePage.WaitForSelector("text=runtime2 regions: 1", playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(10000),
-		}); parseWaitErr != nil {
-			parseBodyText, _ := parsePage.TextContent("body")
-			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
-			parseT.Fatalf("wait for runtime2 region text: %v body=%q console=%q", parseWaitErr, parseBodyText, strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "))
-		}
-		if _, parseWaitErr := parsePage.WaitForSelector("text=events: 3", playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(10000),
-		}); parseWaitErr != nil {
-			parseBodyText, _ := parsePage.TextContent("body")
-			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
-			parseT.Fatalf("wait for refreshed kernel event count: %v body=%q console=%q", parseWaitErr, parseBodyText, strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "))
-		}
-		if _, parseWaitErr := parsePage.WaitForSelector("text=latest event: click on button", playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(10000),
-		}); parseWaitErr != nil {
-			parseBodyText, _ := parsePage.TextContent("body")
-			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
-			parseT.Fatalf("wait for refreshed kernel latest event: %v body=%q console=%q", parseWaitErr, parseBodyText, strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "))
-		}
-		if _, parseWaitErr := parsePage.WaitForSelector("text=style variables:", playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(10000),
-		}); parseWaitErr != nil {
-			parseBodyText, _ := parsePage.TextContent("body")
-			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
-			parseT.Fatalf("wait for kernel plugin diagnostics: %v body=%q console=%q", parseWaitErr, parseBodyText, strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "))
-		}
-		parseBodyText, parseBodyErr := parsePage.TextContent("body")
-		if parseBodyErr != nil {
-			parseT.Fatalf("read body text: %v", parseBodyErr)
-		}
-		getBodyText := strings.ToLower(parseBodyText)
-		for _, parseNeedle := range []string{
-			"example kernel plugin",
-			"theme: midnight",
-			"runtime2 regions: 1",
-			"latest event: click on button",
-			"events: 3",
-			"style variables:",
-		} {
-			if !strings.Contains(getBodyText, strings.ToLower(parseNeedle)) {
-				parseT.Fatalf("expected body text to contain %q, got %q", parseNeedle, parseBodyText)
-			}
-		}
-		if len(getConsoleErrors) > 0 || len(getPageErrors) > 0 {
-			parseT.Fatalf("unexpected browser errors: console=%q page=%q", strings.Join(getConsoleErrors, " || "), strings.Join(getPageErrors, " || "))
+		parseResponse, parseErr := parsePage.Goto(parseBaseURL+"/examples/testing/kernel-plugin-devtools/kernel-plugin-devtools.html", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded})
+		if parseErr != nil || parseResponse == nil || parseResponse.Status() != 404 {
+			parseT.Fatalf("retired plugin route must explicitly return 404, got response=%v error=%v", parseResponse, parseErr)
 		}
 	})
 }

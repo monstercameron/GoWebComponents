@@ -3,8 +3,8 @@ package agentbridge
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/state"
 )
 
 // seedAtom registers an atom id with a starting value in the global runtime so

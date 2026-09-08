@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
+	serverauth "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/auth"
 )
 
 const (

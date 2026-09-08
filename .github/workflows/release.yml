@@ -110,8 +110,13 @@ jobs:
         shell: pwsh
 
       - name: Run Canonical Go Get Smoke (Release Guard)
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
         run: |
           $ErrorActionPreference = "Stop"
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release tag' }
+          $parseCandidateRoot = $PWD.Path
           $workDir = Join-Path $env:TEMP ("gwc-release-smoke-" + [guid]::NewGuid().ToString("N"))
           New-Item -ItemType Directory -Path $workDir | Out-Null
           try {
@@ -119,18 +124,23 @@ jobs:
             go mod init example.com/gwc-release-smoke
             if ($LASTEXITCODE -ne 0) { throw "go mod init failed" }
             # Write a tiny external consumer that imports the released module, so the
-            # smoke proves go-get + import-path resolution + a real compile, not just
-            # that the module path resolves. Uses a long-stable symbol so '@latest'
-            # (the previously published tag during a tag push) always has it.
+            # smoke proves import-path resolution and a real consumer compile.
+            # Tag pushes resolve exactly that tag, never a previous @latest.
+            # Manual releases have no tag yet, so validate the checked-out candidate.
             $main = @(
               'package main',
-              'import "github.com/monstercameron/GoWebComponents/v5/ui"',
+              'import "github.com/monstercameron/GoWebComponents/v6/ui"',
               'var _ = ui.Text("release-smoke")',
               'func main() {}'
             ) -join "`n"
             Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
-            go get github.com/monstercameron/GoWebComponents/v5@latest
-            if ($LASTEXITCODE -ne 0) { throw "go get GoWebComponents/v5@latest failed" }
+            if ($env:RELEASE_EVENT -eq 'workflow_dispatch') {
+              go mod edit "-require=github.com/monstercameron/GoWebComponents/v6@$($env:RELEASE_TAG)" "-replace=github.com/monstercameron/GoWebComponents/v6=$parseCandidateRoot"
+              if ($LASTEXITCODE -ne 0) { throw 'Configure candidate consumer failed' }
+            } else {
+              go get "github.com/monstercameron/GoWebComponents/v6@$($env:RELEASE_TAG)"
+              if ($LASTEXITCODE -ne 0) { throw 'Fetch exact release candidate failed' }
+            }
             # Populate go.sum for the full transitive closure so the consumer build resolves every
             # dependency (go get of the module alone does not add transitive deps' go.sum entries).
             go mod tidy
@@ -194,6 +204,10 @@ jobs:
         shell: bash
         run: |
           if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [ "$(git rev-list -n 1 "$RELEASE_TAG")" != "$GITHUB_SHA" ]; then
+              echo "Existing tag does not identify the verified candidate. Refusing release."
+              exit 1
+            fi
             echo "Tag $RELEASE_TAG already exists. Skipping."
             exit 0
           fi
@@ -266,7 +280,7 @@ jobs:
 
             Changes in this release:
             - Release tag explicitly selected (no auto patch increment on main)
-            - Passed unit/e2e and release verification gates
+            - Passed the configured release workflow gates; see CHANGELOG.md for verification scope and known limitations
             - Includes source archive with SHA-256 checksum
             - Prebuilt `gwc` binaries for linux/macOS/windows (amd64 + arm64) with SHA256SUMS
             - Includes GitHub build provenance attestation (source + binaries)

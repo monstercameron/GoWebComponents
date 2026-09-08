@@ -8,7 +8,7 @@ package main
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v5/projection"
+	"github.com/monstercameron/GoWebComponents/v6/projection"
 )
 
 type createItemArgs struct {

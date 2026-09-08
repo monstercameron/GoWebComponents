@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 type inventoryCMSPage struct {
@@ -300,6 +300,7 @@ func inventoryCMSContent(parsePayload Payload) ui.Node {
 		}
 		return html.Section(html.Props{Class: atlasWorkspaceSplitClass()},
 			html.Div(html.Props{Class: atlasStackClass(design.Space5)},
+				html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Inventory triage shell")),
 				inventoryCMSSummaryBand(parsePage, parseWorkspace),
 				inventoryCMSFilterForm(parseForm, parseDebounced.Pending() || parseTransition.Pending(), parseSubmit, parseTransition),
 				// The old "Route action cluster" region sat here. It is gone: all three
@@ -593,6 +594,7 @@ func inventoryDetailContent(parsePayload Payload) ui.Node {
 	parseAsideChildren = append(parseAsideChildren, thresholdForm(parsePage.Rows[0], parsePayload))
 	return html.Section(html.Props{Class: atlasWorkspaceSplitClass()},
 		html.Div(html.Props{Class: atlasStackClass(design.Space5)},
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Inventory lane workspace")),
 			inventoryDetailHero(parsePage, parseRollup),
 			// The rollup appears exactly once now. It used to be printed three times on
 			// this route: as four pills in the hero, as four stat cards here, and again
@@ -630,7 +632,7 @@ func inventoryDetailHero(parsePage inventoryDetailPage, parseRollup InventoryRol
 			// The SKU is a machine fact, so the eyebrow slot gets Data rather than the
 			// Display-role Eyebrow: an eyebrow that is an identifier should read as
 			// something the system printed.
-			html.Span(html.Props{Class: atlasMetaClass()}, html.Text(parsePage.SKU)),
+				html.Span(html.Props{Class: atlasMetaClass()}, html.Text("SKU "+parsePage.SKU)),
 			html.H2(html.Props{Class: design.Class(design.PageTitle())}, html.Text(parsePage.Title)),
 		),
 		html.Div(html.Props{Class: atlasSplitRowClass()},
@@ -638,7 +640,7 @@ func inventoryDetailHero(parsePage inventoryDetailPage, parseRollup InventoryRol
 				atlasFact("Lanes", fmt.Sprintf("%d", len(parsePage.Rows))),
 				atlasFact("Primary hub", parsePrimaryWarehouse),
 			),
-			html.A(html.Props{Href: "/app/inventory", Class: warehouseQuietButtonClass()}, html.Text("Back to queue")),
+			html.A(html.Props{Href: "/app/inventory", Class: warehouseQuietButtonClass()}, html.Text("Back to inventory queue")),
 		),
 	)
 }

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // renderHeroCodeSnippet renders a compact, syntax-colored Go counter example for the landing hero.

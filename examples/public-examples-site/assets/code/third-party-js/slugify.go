@@ -10,7 +10,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // slugifyModuleSpecifier is the ESM URL the browser dynamically imports. Any CDN that serves the

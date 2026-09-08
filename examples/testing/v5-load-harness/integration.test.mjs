@@ -203,11 +203,26 @@ test('SEAM: interaction latency reaches the M3 statistic step-down', () => {
   assert.match(m3Failure.reason, /p95/);
 });
 
-test('SEAM: buildReport marks a drifted run invalid and gate fails it', () => {
-  // Second half 50% slower than the first — a warming machine.
+test('SEAM: loaded-arm drift remains valid and fails the measured M1 budget', () => {
+  // Growing workload cost is the phenomenon under test, not control-arm drift.
   const drifting = [...Array(150).fill(16), ...Array(150).fill(24)];
   const built = report([rawWindow({ frames: drifting })], [rawWindow({ label: 'idle-0' })]);
-  assert.equal(built.valid, false, 'buildReport must flag drift');
+  assert.equal(built.drift.loaded.drifted, true);
+  assert.equal(built.drift.idle.drifted, false);
+  assert.equal(built.valid, true, 'loaded-arm trends must not invalidate the control');
+  const result = gate(built, BUDGETS);
+  assert.equal(result.passed, false, 'loaded degradation must still fail its metric');
+  assert.ok(result.failures.some((f) => f.metric === 'M1'));
+  assert.equal(result.failures.some((f) => f.metric === 'validity'), false);
+});
+
+test('SEAM: idle-arm drift invalidates the comparison and gate fails validity', () => {
+  // Second half 50% slower without background work means the control drifted.
+  const drifting = [...Array(150).fill(16), ...Array(150).fill(24)];
+  const built = report([rawWindow()], [rawWindow({ label: 'idle-0', frames: drifting })]);
+  assert.equal(built.drift.idle.drifted, true);
+  assert.equal(built.drift.loaded.drifted, false);
+  assert.equal(built.valid, false, 'idle control drift must invalidate the run');
   assert.ok(gate(built, BUDGETS).failures.some((f) => f.metric === 'validity'));
 });
 

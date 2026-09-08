@@ -5,8 +5,8 @@ package app
 import (
 	"strings"
 
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // renderSupportIDChip renders one compact copyable request-identifier chip suitable for customer support handoff.

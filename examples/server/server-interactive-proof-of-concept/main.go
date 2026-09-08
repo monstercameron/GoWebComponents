@@ -1,3 +1,5 @@
+//go:build !js || !wasm
+
 package main
 
 import (
@@ -5,29 +7,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 	"strings"
 	"sync"
 	"time"
 )
-
-type serverInteractiveState struct {
-	Version          int
-	ActiveUsers      int
-	PendingApprovals int
-	IncidentsToday   int
-	RecentEvents     []string
-	UpdatedAt        time.Time
-}
-
-type serverInteractiveAction struct {
-	Action string `json:"action"`
-}
-
-type serverInteractiveSnapshot struct {
-	HTML      string `json:"html"`
-	Version   int    `json:"version"`
-	UpdatedAt string `json:"updatedAt"`
-}
 
 type serverInteractiveHub struct {
 	applyMutex   sync.Mutex
@@ -57,44 +45,9 @@ func buildServerInteractiveHub() *serverInteractiveHub {
 	}
 }
 
-// renderServerInteractiveHTML renders the server-owned dashboard surface for one state snapshot.
-func renderServerInteractiveHTML(renderState serverInteractiveState) string {
-	var renderBuilder strings.Builder
-	renderBuilder.WriteString("<section class=\"panel-grid\">")
-	renderBuilder.WriteString(renderServerInteractiveMetric("Active Users", fmt.Sprintf("%d", renderState.ActiveUsers)))
-	renderBuilder.WriteString(renderServerInteractiveMetric("Pending Approvals", fmt.Sprintf("%d", renderState.PendingApprovals)))
-	renderBuilder.WriteString(renderServerInteractiveMetric("Incidents Today", fmt.Sprintf("%d", renderState.IncidentsToday)))
-	renderBuilder.WriteString("</section>")
-	renderBuilder.WriteString("<section class=\"action-panel\">")
-	renderBuilder.WriteString("<h2>Operator Actions</h2>")
-	renderBuilder.WriteString("<div class=\"actions\">")
-	renderBuilder.WriteString("<button data-action=\"add-user\">Add User</button>")
-	renderBuilder.WriteString("<button data-action=\"resolve-approval\">Resolve Approval</button>")
-	renderBuilder.WriteString("<button data-action=\"add-incident\">Add Incident</button>")
-	renderBuilder.WriteString("<button data-action=\"clear-incidents\">Clear Incidents</button>")
-	renderBuilder.WriteString("</div>")
-	renderBuilder.WriteString("</section>")
-	renderBuilder.WriteString("<section class=\"events-panel\">")
-	renderBuilder.WriteString("<h2>Recent Server Events</h2>")
-	renderBuilder.WriteString("<ul>")
-	for _, renderEvent := range renderState.RecentEvents {
-		renderBuilder.WriteString("<li>")
-		renderBuilder.WriteString(renderEvent)
-		renderBuilder.WriteString("</li>")
-	}
-	renderBuilder.WriteString("</ul>")
-	renderBuilder.WriteString(fmt.Sprintf("<p class=\"meta\">Version %d · Updated %s UTC</p>", renderState.Version, renderState.UpdatedAt.Format("15:04:05")))
-	renderBuilder.WriteString("</section>")
-	return renderBuilder.String()
-}
-
-// renderServerInteractiveMetric renders one metric tile.
-func renderServerInteractiveMetric(renderLabel string, renderValue string) string {
-	return fmt.Sprintf(
-		"<article class=\"metric\"><p class=\"metric-label\">%s</p><p class=\"metric-value\">%s</p></article>",
-		renderLabel,
-		renderValue,
-	)
+// renderServerInteractiveHTML renders the shared GWC view for an SSE compatibility snapshot.
+func renderServerInteractiveHTML(parseState serverInteractiveState) (string, error) {
+	return ui.RenderToString(renderServerInteractiveView(serverInteractiveView{State: parseState, IsBusy: true, Status: "Connecting to server stream..."}))
 }
 
 // buildServerInteractiveSnapshot builds one JSON payload for SSE delivery.
@@ -102,8 +55,13 @@ func (buildHub *serverInteractiveHub) buildServerInteractiveSnapshot() ([]byte, 
 	buildHub.applyMutex.Lock()
 	buildState := buildHub.storeState
 	buildHub.applyMutex.Unlock()
+	parseMarkup, parseErr := renderServerInteractiveHTML(buildState)
+	if parseErr != nil {
+		return nil, parseErr
+	}
 	buildPayload := serverInteractiveSnapshot{
-		HTML:      renderServerInteractiveHTML(buildState),
+		HTML:      parseMarkup,
+		State:     buildState,
 		Version:   buildState.Version,
 		UpdatedAt: buildState.UpdatedAt.Format(time.RFC3339),
 	}
@@ -120,8 +78,8 @@ func (storeHub *serverInteractiveHub) storeServerInteractiveClient(storeClient c
 // clearServerInteractiveClient unregisters one SSE client channel.
 func (clearHub *serverInteractiveHub) clearServerInteractiveClient(clearClient chan []byte) {
 	clearHub.applyMutex.Lock()
+	defer clearHub.applyMutex.Unlock()
 	delete(clearHub.storeClients, clearClient)
-	clearHub.applyMutex.Unlock()
 	close(clearClient)
 }
 
@@ -163,9 +121,18 @@ func (handleHub *serverInteractiveHub) handleServerInteractiveIndex(handleWriter
 		handleWriter.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if handleRequest.URL.Path != "/" {
+		http.NotFound(handleWriter, handleRequest)
+		return
+	}
+	parseMarkup, parseErr := renderServerInteractiveHTML(serverInteractiveState{})
+	if parseErr != nil {
+		http.Error(handleWriter, parseErr.Error(), http.StatusInternalServerError)
+		return
+	}
 	handleWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
 	handleWriter.WriteHeader(http.StatusOK)
-	_, _ = handleWriter.Write([]byte(serverInteractiveShellHTML))
+	_, _ = handleWriter.Write([]byte(strings.Replace(serverInteractiveShellHTML, "<!--gwc-view-->", parseMarkup, 1)))
 }
 
 // handleServerInteractiveEvents serves SSE snapshots whenever server-owned state changes.
@@ -232,26 +199,40 @@ func (handleHub *serverInteractiveHub) handleServerInteractiveAction(handleWrite
 // broadcastServerInteractiveSnapshot fan-outs one snapshot to connected SSE clients.
 func (parseBroadcastHub *serverInteractiveHub) broadcastServerInteractiveSnapshot(parseBroadcastPayload []byte) {
 	parseBroadcastHub.applyMutex.Lock()
-	parseBroadcastClients := make([]chan []byte, 0, len(parseBroadcastHub.storeClients))
+	defer parseBroadcastHub.applyMutex.Unlock()
+	// Hold the registration lock through nonblocking sends so disconnect cannot
+	// close a channel between selection and delivery.
 	for parseBroadcastClient := range parseBroadcastHub.storeClients {
-		parseBroadcastClients = append(parseBroadcastClients, parseBroadcastClient)
-	}
-	parseBroadcastHub.applyMutex.Unlock()
-	for _, parseBroadcastClient2 := range parseBroadcastClients {
 		select {
-		case parseBroadcastClient2 <- parseBroadcastPayload:
+		case parseBroadcastClient <- parseBroadcastPayload:
 		default:
 		}
 	}
 }
 
+// main serves the native state owner and the GWC Wasm client.
 func main() {
 	parseMainHub := buildServerInteractiveHub()
 	http.HandleFunc("/", parseMainHub.handleServerInteractiveIndex)
+	http.HandleFunc("/client.wasm", func(parseWriter http.ResponseWriter, parseRequest *http.Request) {
+		parsePath := os.Getenv("GWC_INTERACTIVE_WASM")
+		if parsePath == "" {
+			parsePath = "examples/server/server-interactive-proof-of-concept/client.wasm"
+		}
+		parseWriter.Header().Set("Content-Type", "application/wasm")
+		http.ServeFile(parseWriter, parseRequest, parsePath)
+	})
+	http.HandleFunc("/wasm_exec.js", func(parseWriter http.ResponseWriter, parseRequest *http.Request) {
+		http.ServeFile(parseWriter, parseRequest, filepath.Join(runtime.GOROOT(), "lib", "wasm", "wasm_exec.js"))
+	})
 	http.HandleFunc("/events", parseMainHub.handleServerInteractiveEvents)
 	http.HandleFunc("/action", parseMainHub.handleServerInteractiveAction)
-	log.Println("server-interactive POC: http://127.0.0.1:8180")
-	if parseRunErr := http.ListenAndServe("127.0.0.1:8180", nil); parseRunErr != nil {
+	parseAddress := os.Getenv("GWC_INTERACTIVE_ADDRESS")
+	if parseAddress == "" {
+		parseAddress = "127.0.0.1:8180"
+	}
+	log.Printf("server-interactive POC: http://%s", parseAddress)
+	if parseRunErr := http.ListenAndServe(parseAddress, nil); parseRunErr != nil {
 		log.Fatal(parseRunErr)
 	}
 }
@@ -357,45 +338,12 @@ const serverInteractiveShellHTML = `<!doctype html>
   </style>
 </head>
 <body>
-  <h1>Server-Interactive Dashboard POC</h1>
-  <p class="subtitle">
-    This narrow experiment keeps state and rendering authority on the server.
-    Browser clients only send actions and apply streamed server snapshots.
-  </p>
-  <div id="app" class="layout"></div>
-  <p id="status" class="status">Connecting to server stream...</p>
-
-  <script>
-    const appEl = document.getElementById('app');
-    const statusEl = document.getElementById('status');
-
-    function bindActions() {
-      const buttons = appEl.querySelectorAll('button[data-action]');
-      buttons.forEach((button) => {
-        button.addEventListener('click', async () => {
-          const action = button.getAttribute('data-action');
-          await fetch('/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action }),
-          });
-        });
-      });
-    }
-
-    const stream = new EventSource('/events');
-    stream.onopen = () => {
-      statusEl.textContent = 'Connected. Waiting for server-driven snapshots.';
-    };
-    stream.onmessage = (event) => {
-      const payload = JSON.parse(event.data);
-      appEl.innerHTML = payload.html;
-      bindActions();
-      statusEl.textContent = 'Snapshot v' + payload.version + ' applied at ' + payload.updatedAt + '.';
-    };
-    stream.onerror = () => {
-      statusEl.textContent = 'Connection lost. Browser will retry automatically.';
-    };
-  </script>
+ <div id="app"><!--gwc-view--></div>
+ <script src="/wasm_exec.js"></script>
+ <script>
+  const go = new Go();
+  WebAssembly.instantiateStreaming(fetch('/client.wasm'), go.importObject)
+    .then(result => go.run(result.instance)).catch(error => console.error('GWC startup failed', error));
+ </script>
 </body>
 </html>`

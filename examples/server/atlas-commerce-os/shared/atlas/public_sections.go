@@ -86,11 +86,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/api"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/api"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // =============================================================================
@@ -419,6 +419,7 @@ func renderCatalogContent(parsePage catalogPage) ui.Node {
 		})
 		parseFilteredItems := filterCatalogItems(parsePage.Items, parseDeferred)
 		return html.Section(html.Props{Class: design.Class(design.Stack(design.Space5))},
+			html.P(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Catalog overview")),
 			storeCatalogControls(parseForm, parseDebounced.Pending(), parseSubmit),
 			// SurfaceFlush, not Surface: the manifest reaches its own hairline the
 			// way a table does. A ruled list inside a 16px gutter throws away the

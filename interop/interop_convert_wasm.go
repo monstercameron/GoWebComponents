@@ -603,6 +603,7 @@ func clientCapabilitiesJS(parseCapabilities ClientCapabilities) js.Value {
 	return parseValue
 }
 
+// jsValueSummary preserves useful rejection messages before falling back to JSON.
 func jsValueSummary(parseValue js.Value) string {
 	if parseValue.IsUndefined() {
 		return "undefined"
@@ -621,6 +622,17 @@ func jsValueSummary(parseValue js.Value) string {
 	case js.TypeNumber:
 		return fmt.Sprint(parseValue.Float())
 	default:
+		// Error.message is non-enumerable: JSON.stringify(new Error(...)) is
+		// merely "{}". Read a data descriptor without invoking arbitrary getters.
+		if parseValue.Type() == js.TypeObject {
+			parseDescriptor := js.Global().Get("Object").Call("getOwnPropertyDescriptor", parseValue, "message")
+			if !parseDescriptor.IsUndefined() {
+				parseMessage := parseDescriptor.Get("value")
+				if parseMessage.Type() == js.TypeString && strings.TrimSpace(parseMessage.String()) != "" {
+					return parseMessage.String()
+				}
+			}
+		}
 		parseStringified := js.Global().Get("JSON").Call("stringify", parseValue)
 		if parseStringified.IsUndefined() || parseStringified.IsNull() {
 			return parseValue.String()

@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
-	"github.com/monstercameron/GoWebComponents/v5/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 type BackgroundTask struct {

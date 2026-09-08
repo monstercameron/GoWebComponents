@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
+	"github.com/monstercameron/GoWebComponents/v6/css"
 )
 
 // declBody harvests the emitted CSS for a freshly folded rule-set and returns the

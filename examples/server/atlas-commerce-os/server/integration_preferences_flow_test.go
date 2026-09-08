@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
+	serverauth "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/auth"
 )
 
 // TestThemeAndLocalePersistenceIntegration verifies first paint defaults, preference save, and SSR-stable preference resume across reloads.

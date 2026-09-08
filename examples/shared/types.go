@@ -2,7 +2,7 @@
 
 package shared
 
-import "github.com/monstercameron/GoWebComponents/v5/ui"
+import "github.com/monstercameron/GoWebComponents/v6/ui"
 
 // Common type aliases used across examples
 type Attrs = map[string]interface{}

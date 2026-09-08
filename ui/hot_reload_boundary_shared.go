@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 
 type HotReloadBoundaryProps struct {
 	Child     Node

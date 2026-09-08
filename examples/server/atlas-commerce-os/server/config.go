@@ -67,6 +67,14 @@ func loadConfig() (config, error) {
 	}
 	parseLogsRaw := strings.TrimSpace(strings.ToLower(os.Getenv("ATLAS_DEBUG_LOGS")))
 	parseLogsEnabled := parseLogsRaw == "1" || parseLogsRaw == "true" || parseLogsRaw == "yes" || parseLogsRaw == "on"
+	parseDatabasePath := strings.TrimSpace(os.Getenv("ATLAS_DB_PATH"))
+	if parseDatabasePath == "" {
+		parseDatabasePath = filepath.Join(parseExampleRoot, "server", "data", "atlas-commerce-os.db")
+	}
+	parseDatabasePath, parseErr = filepath.Abs(parseDatabasePath)
+	if parseErr != nil {
+		return config{}, fmt.Errorf("resolve ATLAS_DB_PATH: %w", parseErr)
+	}
 	return config{
 		Addr:              parseAddr,
 		LogsEnabled:       parseLogsEnabled,
@@ -74,7 +82,7 @@ func loadConfig() (config, error) {
 		ExampleRoot:       parseExampleRoot,
 		FallbackSchema:    filepath.Join(parseExampleRoot, "server", "data", "schema.sql"),
 		MigrationsDir:     filepath.Join(parseExampleRoot, "server", "data", "migrations"),
-		SQLitePath:        filepath.Join(parseExampleRoot, "server", "data", "atlas-commerce-os.db"),
+		SQLitePath:        parseDatabasePath,
 		StaticDir:         parseStaticDir,
 		WASMExecJS:        filepath.Join(parseStaticDir, "script", "wasm_exec.js"),
 		AtlasWASM:         filepath.Join(parseStaticDir, filepath.FromSlash(atlasWASMAssetPath)),

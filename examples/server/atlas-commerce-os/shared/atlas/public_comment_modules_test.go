@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // TestValidatePublicCommentFormCoversInvalidAndValidInputs verifies public comment form validation messages and the valid happy path.

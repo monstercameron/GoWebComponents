@@ -3,7 +3,7 @@ package hotreload
 import (
 	"encoding/json"
 
-	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v6/state"
 )
 
 // snapshotWedgeShouldClear decides whether a stored hot-reload snapshot that

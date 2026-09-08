@@ -5,9 +5,9 @@
 package gallery
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/workbench"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/workbench"
 )
 
 // Gallery renders each story as a labeled section containing its live preview. Restyle via

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/tools/runnerconfig"
+	"github.com/monstercameron/GoWebComponents/v6/tools/runnerconfig"
 )
 
 func resolveBuildDir(parseEntryPath string) (string, error) {

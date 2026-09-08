@@ -3449,6 +3449,36 @@
         },
         {
             "id": 217,
+            "title": "Hydration Metrics",
+            "status": "stable",
+            "module": "rendering",
+            "type": "Example",
+            "level": "Core",
+            "tags": [
+                "hydration",
+                "metrics"
+            ],
+            "searchTags": [
+                "hydration",
+                "metrics",
+                "hydration metrics"
+            ],
+            "blurb": "Interactive example for Hydration Metrics with mirrored Go source and a generated wasm build.",
+            "readTime": "Interactive",
+            "content": {
+                "kind": "example",
+                "embedPath": "assets/bins/hydration-metrics.wasm",
+                "previewPath": "assets/examples/hydration-metrics/index.html",
+                "sourcePath": "assets/code/hydration-metrics/main.go",
+                "description": "Run the live Hydration Metrics demo and inspect the mirrored Go source side by side.",
+                "tips": [
+                    "Use the live panel to connect the rendered output to the mirrored Go source.",
+                    "Open the example package directly when you want to inspect the same binary outside the docs shell."
+                ]
+            }
+        },
+        {
+            "id": 218,
             "title": "Lazy Loading",
             "status": "stable",
             "module": "core",
@@ -3478,7 +3508,7 @@
             }
         },
         {
-            "id": 218,
+            "id": 219,
             "title": "Locale Routing",
             "status": "stable",
             "module": "router",
@@ -3508,7 +3538,7 @@
             }
         },
         {
-            "id": 219,
+            "id": 220,
             "title": "Locale Switcher",
             "status": "stable",
             "module": "router",
@@ -3538,7 +3568,7 @@
             }
         },
         {
-            "id": 220,
+            "id": 221,
             "title": "Localfirst Crdt",
             "status": "stable",
             "module": "core",
@@ -3568,7 +3598,7 @@
             }
         },
         {
-            "id": 221,
+            "id": 222,
             "title": "Localfirst Presence",
             "status": "stable",
             "module": "core",
@@ -3598,7 +3628,7 @@
             }
         },
         {
-            "id": 222,
+            "id": 223,
             "title": "Multi Client Binary",
             "status": "experimental",
             "module": "interop",
@@ -3630,7 +3660,7 @@
             }
         },
         {
-            "id": 223,
+            "id": 224,
             "title": "Multi Client Presence",
             "status": "experimental",
             "module": "interop",
@@ -3662,7 +3692,7 @@
             }
         },
         {
-            "id": 224,
+            "id": 225,
             "title": "Multi Window Console",
             "status": "experimental",
             "module": "interop",
@@ -3694,7 +3724,7 @@
             }
         },
         {
-            "id": 225,
+            "id": 226,
             "title": "Named Slots",
             "status": "stable",
             "module": "core",
@@ -3724,7 +3754,7 @@
             }
         },
         {
-            "id": 226,
+            "id": 227,
             "title": "Nested Layout Routes",
             "status": "stable",
             "module": "router",
@@ -3756,7 +3786,7 @@
             }
         },
         {
-            "id": 227,
+            "id": 228,
             "title": "Nested Routes",
             "status": "stable",
             "module": "router",
@@ -3786,7 +3816,7 @@
             }
         },
         {
-            "id": 228,
+            "id": 229,
             "title": "OMI",
             "status": "stable",
             "module": "ecosystem",
@@ -3813,7 +3843,7 @@
             }
         },
         {
-            "id": 229,
+            "id": 230,
             "title": "Overlay Anchor",
             "status": "stable",
             "module": "rendering",
@@ -3843,7 +3873,7 @@
             }
         },
         {
-            "id": 230,
+            "id": 231,
             "title": "Overlay Stack",
             "status": "stable",
             "module": "rendering",
@@ -3873,7 +3903,7 @@
             }
         },
         {
-            "id": 231,
+            "id": 232,
             "title": "Plugin Host",
             "status": "experimental",
             "module": "plugins",
@@ -3903,7 +3933,7 @@
             }
         },
         {
-            "id": 232,
+            "id": 233,
             "title": "Portal Selector",
             "status": "stable",
             "module": "rendering",
@@ -3933,7 +3963,7 @@
             }
         },
         {
-            "id": 233,
+            "id": 234,
             "title": "Portal Target",
             "status": "stable",
             "module": "rendering",
@@ -3963,7 +3993,7 @@
             }
         },
         {
-            "id": 234,
+            "id": 235,
             "title": "Portals",
             "status": "stable",
             "module": "rendering",
@@ -3990,7 +4020,7 @@
             }
         },
         {
-            "id": 235,
+            "id": 236,
             "title": "Portfolio Site",
             "status": "stable",
             "module": "ecosystem",
@@ -4020,7 +4050,7 @@
             }
         },
         {
-            "id": 236,
+            "id": 237,
             "title": "Progressive Web App Installability",
             "status": "stable",
             "module": "core",
@@ -4052,7 +4082,7 @@
             }
         },
         {
-            "id": 237,
+            "id": 238,
             "title": "Progressive Web App Multi Client",
             "status": "experimental",
             "module": "interop",
@@ -4086,7 +4116,7 @@
             }
         },
         {
-            "id": 238,
+            "id": 239,
             "title": "Progressive Web App Offline Cache",
             "status": "stable",
             "module": "data",
@@ -4120,7 +4150,7 @@
             }
         },
         {
-            "id": 239,
+            "id": 240,
             "title": "Protected Routes",
             "status": "stable",
             "module": "router",
@@ -4150,7 +4180,7 @@
             }
         },
         {
-            "id": 240,
+            "id": 241,
             "title": "Radiogroup",
             "status": "stable",
             "module": "core",
@@ -4177,7 +4207,7 @@
             }
         },
         {
-            "id": 241,
+            "id": 242,
             "title": "Raw Handler",
             "status": "stable",
             "module": "core",
@@ -4207,7 +4237,7 @@
             }
         },
         {
-            "id": 242,
+            "id": 243,
             "title": "Raw HTML",
             "status": "stable",
             "module": "rendering",
@@ -4237,7 +4267,7 @@
             }
         },
         {
-            "id": 243,
+            "id": 244,
             "title": "Ready Signal",
             "status": "stable",
             "module": "core",
@@ -4267,7 +4297,7 @@
             }
         },
         {
-            "id": 244,
+            "id": 245,
             "title": "Route Loaders",
             "status": "stable",
             "module": "router",
@@ -4297,7 +4327,7 @@
             }
         },
         {
-            "id": 245,
+            "id": 246,
             "title": "Route Params",
             "status": "stable",
             "module": "router",
@@ -4327,7 +4357,7 @@
             }
         },
         {
-            "id": 246,
+            "id": 247,
             "title": "Route Query",
             "status": "stable",
             "module": "router",
@@ -4357,7 +4387,7 @@
             }
         },
         {
-            "id": 247,
+            "id": 248,
             "title": "Routed Accessibility",
             "status": "stable",
             "module": "router",
@@ -4387,7 +4417,7 @@
             }
         },
         {
-            "id": 248,
+            "id": 249,
             "title": "Router Guards",
             "status": "stable",
             "module": "router",
@@ -4417,7 +4447,7 @@
             }
         },
         {
-            "id": 249,
+            "id": 250,
             "title": "Router Hydrate Mount",
             "status": "stable",
             "module": "router",
@@ -4449,7 +4479,7 @@
             }
         },
         {
-            "id": 250,
+            "id": 251,
             "title": "Router Metadata",
             "status": "stable",
             "module": "router",
@@ -4479,7 +4509,7 @@
             }
         },
         {
-            "id": 251,
+            "id": 252,
             "title": "Router Redirects",
             "status": "stable",
             "module": "router",
@@ -4509,7 +4539,7 @@
             }
         },
         {
-            "id": 252,
+            "id": 253,
             "title": "Scaling Local State With Use Reducer",
             "status": "stable",
             "module": "state",
@@ -4547,7 +4577,7 @@
             }
         },
         {
-            "id": 253,
+            "id": 254,
             "title": "Semantic HTML",
             "status": "stable",
             "module": "rendering",
@@ -4577,7 +4607,7 @@
             }
         },
         {
-            "id": 254,
+            "id": 255,
             "title": "Server Side Rendering Cache Bootstrap",
             "status": "experimental",
             "module": "data",
@@ -4613,7 +4643,7 @@
             }
         },
         {
-            "id": 255,
+            "id": 256,
             "title": "Server Side Rendering Internationalization Bootstrap",
             "status": "experimental",
             "module": "rendering",
@@ -4649,7 +4679,7 @@
             }
         },
         {
-            "id": 256,
+            "id": 257,
             "title": "Server Side Rendering Route Data Reuse",
             "status": "experimental",
             "module": "router",
@@ -4687,7 +4717,7 @@
             }
         },
         {
-            "id": 257,
+            "id": 258,
             "title": "Shared Form Validation",
             "status": "stable",
             "module": "forms",
@@ -4719,7 +4749,7 @@
             }
         },
         {
-            "id": 258,
+            "id": 259,
             "title": "Single Shell Auth",
             "status": "stable",
             "module": "core",
@@ -4751,7 +4781,7 @@
             }
         },
         {
-            "id": 259,
+            "id": 260,
             "title": "Snapshot Export Import",
             "status": "experimental",
             "module": "data",
@@ -4783,7 +4813,7 @@
             }
         },
         {
-            "id": 260,
+            "id": 261,
             "title": "Snapshot Now",
             "status": "experimental",
             "module": "data",
@@ -4813,7 +4843,7 @@
             }
         },
         {
-            "id": 261,
+            "id": 262,
             "title": "Snapshot Storage",
             "status": "experimental",
             "module": "data",
@@ -4843,7 +4873,7 @@
             }
         },
         {
-            "id": 262,
+            "id": 263,
             "title": "Sqlite Persistence",
             "status": "stable",
             "module": "data",
@@ -4873,7 +4903,7 @@
             }
         },
         {
-            "id": 263,
+            "id": 264,
             "title": "State Atoms",
             "status": "stable",
             "module": "state",
@@ -4903,7 +4933,7 @@
             }
         },
         {
-            "id": 264,
+            "id": 265,
             "title": "Static Islands",
             "status": "experimental",
             "module": "core",
@@ -4933,7 +4963,7 @@
             }
         },
         {
-            "id": 265,
+            "id": 266,
             "title": "Static Server Side Rendering Routing",
             "status": "experimental",
             "module": "rendering",
@@ -4969,7 +4999,7 @@
             }
         },
         {
-            "id": 266,
+            "id": 267,
             "title": "Text Input",
             "status": "stable",
             "module": "forms",
@@ -4999,7 +5029,7 @@
             }
         },
         {
-            "id": 267,
+            "id": 268,
             "title": "Timetravel Devpanel",
             "status": "stable",
             "module": "core",
@@ -5029,7 +5059,7 @@
             }
         },
         {
-            "id": 268,
+            "id": 269,
             "title": "Timetravel History",
             "status": "stable",
             "module": "core",
@@ -5059,7 +5089,7 @@
             }
         },
         {
-            "id": 269,
+            "id": 270,
             "title": "Todo Advanced",
             "status": "stable",
             "module": "forms",
@@ -5089,7 +5119,7 @@
             }
         },
         {
-            "id": 270,
+            "id": 271,
             "title": "Todo Basic",
             "status": "stable",
             "module": "forms",
@@ -5119,7 +5149,7 @@
             }
         },
         {
-            "id": 271,
+            "id": 272,
             "title": "Toggle",
             "status": "stable",
             "module": "state",
@@ -5146,7 +5176,7 @@
             }
         },
         {
-            "id": 272,
+            "id": 273,
             "title": "Transition Hooks",
             "status": "stable",
             "module": "core",
@@ -5176,7 +5206,7 @@
             }
         },
         {
-            "id": 273,
+            "id": 274,
             "title": "Typed CSS",
             "status": "stable",
             "module": "rendering",
@@ -5206,7 +5236,7 @@
             }
         },
         {
-            "id": 274,
+            "id": 275,
             "title": "Typed Decode Query",
             "status": "experimental",
             "module": "core",
@@ -5238,7 +5268,7 @@
             }
         },
         {
-            "id": 275,
+            "id": 276,
             "title": "Typed Events",
             "status": "stable",
             "module": "core",
@@ -5268,7 +5298,7 @@
             }
         },
         {
-            "id": 276,
+            "id": 277,
             "title": "UI Render",
             "status": "stable",
             "module": "rendering",
@@ -5298,7 +5328,7 @@
             }
         },
         {
-            "id": 277,
+            "id": 278,
             "title": "Use Atom",
             "status": "stable",
             "module": "state",
@@ -5328,7 +5358,7 @@
             }
         },
         {
-            "id": 278,
+            "id": 279,
             "title": "Use Cached Resource",
             "status": "stable",
             "module": "data",
@@ -5360,7 +5390,7 @@
             }
         },
         {
-            "id": 279,
+            "id": 280,
             "title": "Use Callback",
             "status": "stable",
             "module": "state",
@@ -5390,7 +5420,7 @@
             }
         },
         {
-            "id": 280,
+            "id": 281,
             "title": "Use Channel",
             "status": "stable",
             "module": "state",
@@ -5420,7 +5450,7 @@
             }
         },
         {
-            "id": 281,
+            "id": 282,
             "title": "Use Computed",
             "status": "deprecated",
             "module": "state",
@@ -5450,7 +5480,7 @@
             }
         },
         {
-            "id": 282,
+            "id": 283,
             "title": "Use Debounced",
             "status": "stable",
             "module": "state",
@@ -5480,7 +5510,7 @@
             }
         },
         {
-            "id": 283,
+            "id": 284,
             "title": "Use Deferred Value",
             "status": "stable",
             "module": "state",
@@ -5512,7 +5542,7 @@
             }
         },
         {
-            "id": 284,
+            "id": 285,
             "title": "Use Derived",
             "status": "stable",
             "module": "state",
@@ -5542,7 +5572,7 @@
             }
         },
         {
-            "id": 285,
+            "id": 286,
             "title": "Use Effect",
             "status": "stable",
             "module": "state",
@@ -5572,7 +5602,7 @@
             }
         },
         {
-            "id": 286,
+            "id": 287,
             "title": "Use Fetch",
             "status": "deprecated",
             "module": "data",
@@ -5602,7 +5632,7 @@
             }
         },
         {
-            "id": 287,
+            "id": 288,
             "title": "Use Form",
             "status": "stable",
             "module": "forms",
@@ -5632,7 +5662,7 @@
             }
         },
         {
-            "id": 288,
+            "id": 289,
             "title": "Use Head",
             "status": "stable",
             "module": "state",
@@ -5662,7 +5692,7 @@
             }
         },
         {
-            "id": 289,
+            "id": 290,
             "title": "Use ID",
             "status": "stable",
             "module": "state",
@@ -5692,7 +5722,7 @@
             }
         },
         {
-            "id": 290,
+            "id": 291,
             "title": "Use Inspect",
             "status": "stable",
             "module": "state",
@@ -5722,7 +5752,7 @@
             }
         },
         {
-            "id": 291,
+            "id": 292,
             "title": "Use Lazy Node",
             "status": "stable",
             "module": "state",
@@ -5754,7 +5784,7 @@
             }
         },
         {
-            "id": 292,
+            "id": 293,
             "title": "Use Navigate",
             "status": "stable",
             "module": "state",
@@ -5784,7 +5814,7 @@
             }
         },
         {
-            "id": 293,
+            "id": 294,
             "title": "Use Previous",
             "status": "stable",
             "module": "state",
@@ -5814,7 +5844,7 @@
             }
         },
         {
-            "id": 294,
+            "id": 295,
             "title": "Use Query",
             "status": "stable",
             "module": "state",
@@ -5844,7 +5874,7 @@
             }
         },
         {
-            "id": 295,
+            "id": 296,
             "title": "Use Reducer",
             "status": "stable",
             "module": "state",
@@ -5874,7 +5904,7 @@
             }
         },
         {
-            "id": 296,
+            "id": 297,
             "title": "Use Ref",
             "status": "stable",
             "module": "state",
@@ -5904,7 +5934,7 @@
             }
         },
         {
-            "id": 297,
+            "id": 298,
             "title": "Use Resource",
             "status": "stable",
             "module": "data",
@@ -5934,7 +5964,7 @@
             }
         },
         {
-            "id": 298,
+            "id": 299,
             "title": "Use Revalidator",
             "status": "stable",
             "module": "state",
@@ -5964,7 +5994,7 @@
             }
         },
         {
-            "id": 299,
+            "id": 300,
             "title": "Use Snapshot",
             "status": "experimental",
             "module": "data",
@@ -5994,7 +6024,7 @@
             }
         },
         {
-            "id": 300,
+            "id": 301,
             "title": "Use State",
             "status": "stable",
             "module": "state",
@@ -6024,7 +6054,7 @@
             }
         },
         {
-            "id": 301,
+            "id": 302,
             "title": "Use Task",
             "status": "stable",
             "module": "state",
@@ -6054,7 +6084,7 @@
             }
         },
         {
-            "id": 302,
+            "id": 303,
             "title": "Use Throttled",
             "status": "stable",
             "module": "state",
@@ -6084,7 +6114,7 @@
             }
         },
         {
-            "id": 303,
+            "id": 304,
             "title": "Virtualized Feed",
             "status": "stable",
             "module": "rendering",
@@ -6114,7 +6144,7 @@
             }
         },
         {
-            "id": 304,
+            "id": 305,
             "title": "Web Components",
             "status": "stable",
             "module": "platform",
@@ -6144,7 +6174,7 @@
             }
         },
         {
-            "id": 305,
+            "id": 306,
             "title": "Worker Text Index",
             "status": "experimental",
             "module": "interop",

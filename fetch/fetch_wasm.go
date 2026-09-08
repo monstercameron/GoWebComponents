@@ -11,7 +11,7 @@ import (
 	"sync"
 	"syscall/js"
 
-	gwcruntime "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	gwcruntime "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // Fetch performs an asynchronous HTTP fetch operation and returns a channel for the result.

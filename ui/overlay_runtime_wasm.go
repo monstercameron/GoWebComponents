@@ -5,7 +5,7 @@ package ui
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // UseOverlayStack registers a surface in the shared overlay manager and returns its derived stack state.

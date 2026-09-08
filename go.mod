@@ -1,4 +1,4 @@
-module github.com/monstercameron/GoWebComponents/v5
+module github.com/monstercameron/GoWebComponents/v6
 
 go 1.26.0
 

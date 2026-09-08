@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
 )
 
 // runCommand executes a child in the example module and preserves failures.

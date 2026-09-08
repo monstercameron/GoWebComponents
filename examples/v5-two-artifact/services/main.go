@@ -28,11 +28,11 @@ import (
 	"sync"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v5/db/offthread"
-	"github.com/monstercameron/GoWebComponents/v5/db/offthread/server"
-	"github.com/monstercameron/GoWebComponents/v5/db/sqlite"
-	"github.com/monstercameron/GoWebComponents/v5/delta"
-	"github.com/monstercameron/GoWebComponents/v5/domain"
+	"github.com/monstercameron/GoWebComponents/v6/db/offthread"
+	"github.com/monstercameron/GoWebComponents/v6/db/offthread/server"
+	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v6/delta"
+	"github.com/monstercameron/GoWebComponents/v6/domain"
 )
 
 // commandHandler runs one named command and returns its encoded result.

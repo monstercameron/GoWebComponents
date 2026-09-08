@@ -3,7 +3,7 @@ package anim_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/apidump"
+	"github.com/monstercameron/GoWebComponents/v6/internal/apidump"
 )
 
 // TestPublicAPIBaseline pins this package's exported surface. A change to any exported

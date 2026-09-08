@@ -5,7 +5,7 @@ package app
 import (
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
 )
 
 func TestShouldRedirectUnauthenticatedRouteToLanding(parseT *testing.T) {
@@ -143,6 +143,31 @@ func TestPostLoginRouteIntentHelpers(parseT *testing.T) {
 		if parseGot := parseIsAdminRouteIntentPath(parseTest.path); parseGot != parseTest.want {
 			parseT.Fatalf("parseIsAdminRouteIntentPath(%q) = %v, want %v", parseTest.path, parseGot, parseTest.want)
 		}
+	}
+}
+
+// TestShouldRedirectUnauthorizedAdminRouteToChat verifies redirects wait for resolved authorization.
+func TestShouldRedirectUnauthorizedAdminRouteToChat(parseT *testing.T) {
+	parseTests := []struct {
+		name           string
+		path           string
+		authResolved   bool
+		authenticated  bool
+		canAccessAdmin bool
+		want           bool
+	}{
+		{name: "resolved normal user admin deep link", path: "/app/admin/users", authResolved: true, authenticated: true, want: true},
+		{name: "admin may remain", path: "/app/dashboard/usage", authResolved: true, authenticated: true, canAccessAdmin: true, want: false},
+		{name: "ordinary chat route remains", path: "/app", authResolved: true, authenticated: true, want: false},
+		{name: "unresolved session waits", path: "/app/admin/users", authenticated: true, want: false},
+		{name: "unauthenticated route uses landing guard", path: "/app/admin/users", authResolved: true, want: false},
+	}
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldRedirectUnauthorizedAdminRouteToChat(parseTest.path, parseTest.authResolved, parseTest.authenticated, parseTest.canAccessAdmin); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldRedirectUnauthorizedAdminRouteToChat() = %v, want %v", parseGot, parseTest.want)
+			}
+		})
 	}
 }
 

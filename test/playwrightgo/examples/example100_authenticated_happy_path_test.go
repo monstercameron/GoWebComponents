@@ -77,6 +77,22 @@ func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, par
 	parseAddress := "127.0.0.1:" + strings.TrimSpace(parsePort)
 	seedExample100HappyPathDatabase(parseT, parseRepoRoot, parseDBPath)
 	buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
+	parsePreviousPlatformFee, parseHadPlatformFee := os.LookupEnv("CHAT_PLATFORM_FEE_USD")
+	parsePreviousPremium, parseHadPremium := os.LookupEnv("CHAT_USAGE_PREMIUM_PERCENT")
+	_ = os.Setenv("CHAT_PLATFORM_FEE_USD", "29")
+	_ = os.Setenv("CHAT_USAGE_PREMIUM_PERCENT", "5")
+	parseT.Cleanup(func() {
+		if parseHadPlatformFee {
+			_ = os.Setenv("CHAT_PLATFORM_FEE_USD", parsePreviousPlatformFee)
+		} else {
+			_ = os.Unsetenv("CHAT_PLATFORM_FEE_USD")
+		}
+		if parseHadPremium {
+			_ = os.Setenv("CHAT_USAGE_PREMIUM_PERCENT", parsePreviousPremium)
+		} else {
+			_ = os.Unsetenv("CHAT_USAGE_PREMIUM_PERCENT")
+		}
+	})
 
 	parseStop := startExamplesCommandWithEnv(
 		parseT,
@@ -84,6 +100,8 @@ func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, par
 		[]string{
 			"LISTEN_ADDR=" + parseAddress,
 			"CHAT_DB_PATH=" + parseDBPath,
+			"CHAT_PLATFORM_FEE_USD=29",
+			"CHAT_USAGE_PREMIUM_PERCENT=5",
 			"CHAT_LOG_DIR=" + parseLogDir,
 			"CHAT_STUB_PROVIDERS=all",
 		},
@@ -262,7 +280,12 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 		parseT.Fatalf("goto /app before reopen: %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
-		parseT.Fatalf("wait for chat input before reopen: %v", parseErr)
+		parseDebug, _ := parsePage.Evaluate(`() => ({path: location.pathname, body: document.body.innerText.slice(0, 3000)})`)
+		parseMu.Lock()
+		parseConsole := strings.Join(parseConsoleSamples, "\n")
+		parseErrors := strings.Join(parsePageErrorSamples, "\n")
+		parseMu.Unlock()
+		parseT.Fatalf("wait for chat input before reopen: %v\ndebug=%#v\nconsole=%s\npageErrors=%s", parseErr, parseDebug, parseConsole, parseErrors)
 	}
 	if _, parseErr := parsePage.Goto(parseBaseURL+parseArtifact.GetThreadPath, playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,

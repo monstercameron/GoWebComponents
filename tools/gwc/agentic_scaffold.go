@@ -336,8 +336,8 @@ func renderAgenticComponentScaffold(parseConfig agenticScaffoldConfig) string {
 	return fmt.Sprintf(`package %s
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // %s renders a starter component scaffold.
@@ -356,7 +356,7 @@ func renderAgenticHookScaffold(parseConfig agenticScaffoldConfig) string {
 	}
 	return fmt.Sprintf(`package %s
 
-import "github.com/monstercameron/GoWebComponents/v5/ui"
+import "github.com/monstercameron/GoWebComponents/v6/ui"
 
 // Use%sState returns scaffolded component-local state for %s.
 func Use%sState(parseInitial %s) ui.State[%s] {
@@ -372,9 +372,9 @@ func renderAgenticExampleScaffold(parseConfig agenticScaffoldConfig) string {
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/utils"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/utils"
 )
 
 // App renders the %s example.

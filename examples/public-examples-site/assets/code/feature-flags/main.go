@@ -4,13 +4,13 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v5/flags"
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/utils"
+	"github.com/monstercameron/GoWebComponents/v6/flags"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/utils"
 )
 
 // FeatureFlagsExample shows the flags package: seed a flag Set with UseRegistry, then read

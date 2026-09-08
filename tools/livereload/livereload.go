@@ -26,8 +26,8 @@ import (
 	"agenthub"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v5/diagnostics"
-	"github.com/monstercameron/GoWebComponents/v5/tools/runnerconfig"
+	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v6/tools/runnerconfig"
 )
 
 const (

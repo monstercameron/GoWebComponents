@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"example.com/gwc-wails-counter/contracts"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // TestTesterInteractiveTimeouts limits longer waits to explicitly interactive cases.

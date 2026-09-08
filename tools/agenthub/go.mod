@@ -2,9 +2,9 @@ module agenthub
 
 go 1.26.0
 
-require github.com/monstercameron/GoWebComponents/v5 v5.0.0
+require github.com/monstercameron/GoWebComponents/v6 v6.0.0
 
-replace github.com/monstercameron/GoWebComponents/v5 => ../..
+replace github.com/monstercameron/GoWebComponents/v6 => ../..
 
 require github.com/gorilla/websocket v1.5.3
 

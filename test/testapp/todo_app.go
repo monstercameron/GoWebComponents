@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"syscall/js"
 
-	rt "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v5/state"
+	rt "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/state"
 )
 
 // Header shows shared atom data (using UseAtom)

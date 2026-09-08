@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/delta"
-	"github.com/monstercameron/GoWebComponents/v5/projection"
+	"github.com/monstercameron/GoWebComponents/v6/delta"
+	"github.com/monstercameron/GoWebComponents/v6/projection"
 )
 
 // v5 P3.7 — the render-thread projection.

@@ -246,5 +246,35 @@ func runSeedTestDB() (string, error) {
 		}
 	}
 
+	// Seed recent provider usage so dashboard, billing, provider, and anomaly
+	// slices have deterministic rows inside the browser lookback windows.
+	parseUsageRows := []struct {
+		parseEventID, parseProviderID, parseModelID, parseStatus, parseError string
+		parseConversationID, parseUserID                                     int64
+		parsePromptTokens, parseCompletionTokens                             int
+		parseTotalCost                                                       float64
+		parseCreatedAt                                                       time.Time
+	}{
+		{"seed-usage-completed", "openai", "gpt-5.4-mini", "completed", "", parseId2, parseUserID, 160, 80, 0.00020, parseNow.Add(-45 * time.Minute)},
+		{"seed-usage-high-cost", "openai", "gpt-5.4", "completed", "", parseId1, parseUserID, 1200, 900, 0.01080, parseNow.Add(-30 * time.Minute)},
+		{"seed-usage-failed", "anthropic", "claude-sonnet-4-5", "failed", "provider timeout", parseId3, parseUserID, 320, 0, 0, parseNow.Add(-15 * time.Minute)},
+	}
+	for _, parseUsage := range parseUsageRows {
+		if _, parseErrUsage := parseDb.Exec(`
+			INSERT INTO usage_events (
+				event_id, user_id, conversation_id, provider_id, model_id,
+				prompt_tokens, completion_tokens, usage_source, provider_request_id,
+				input_cost_per_million_usd, output_cost_per_million_usd, pricing_currency,
+				input_cost_usd, output_cost_usd, total_cost_usd, client_id,
+				trace_id, span_id, trace_state, status, error_message, created_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, 'seed', ?, 0, 0, 'USD', 0, 0, ?, 'seed-client', '', '', '', ?, ?, ?)`,
+			parseUsage.parseEventID, parseUsage.parseUserID, parseUsage.parseConversationID,
+			parseUsage.parseProviderID, parseUsage.parseModelID, parseUsage.parsePromptTokens,
+			parseUsage.parseCompletionTokens, "req-"+parseUsage.parseEventID, parseUsage.parseTotalCost,
+			parseUsage.parseStatus, parseUsage.parseError, parseUsage.parseCreatedAt.Format(time.RFC3339)); parseErrUsage != nil {
+			return "", fmt.Errorf("usage %s: %w", parseUsage.parseEventID, parseErrUsage)
+		}
+	}
+
 	return fmt.Sprintf("seeded test DB: %s (users: customer@email.com / password, admin@email.com / password; customer user id: %d, admin user id: %d; conversations: %d, %d, %d, %d, %d)", parseDbPath, parseUserID, parseAdminUserID, parseId1, parseId2, parseId3, parseId4, parseId5), nil
 }

@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
-	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
-	serverdb "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/db"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/api"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/atlas"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/bootfallback"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/repository"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/css"
+	serverauth "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/auth"
+	serverdb "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/db"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/api"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/atlas"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/bootfallback"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/repository"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 type atlasServer struct {

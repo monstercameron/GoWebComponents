@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	appRouter "github.com/monstercameron/GoWebComponents/v5/router"
-	routertest "github.com/monstercameron/GoWebComponents/v5/test/router"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	appRouter "github.com/monstercameron/GoWebComponents/v6/router"
+	routertest "github.com/monstercameron/GoWebComponents/v6/test/router"
 )
 
 func productRouteExample(_ appRouter.Attrs) *appRouter.Element {

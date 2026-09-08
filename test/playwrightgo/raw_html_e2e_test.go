@@ -23,7 +23,7 @@ func TestRawHTMLE2E(parseT *testing.T) {
 	parseDir := parseT.TempDir()
 
 	parseWasmPath := filepath.Join(parseDir, "app.wasm")
-	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v5/examples/public/raw-html")
+	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v6/examples/public/raw-html")
 	parseBuild.Dir = parseRoot
 	parseBuild.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOut, parseErr := parseBuild.CombinedOutput(); parseErr != nil {
@@ -110,6 +110,26 @@ func TestRawHTMLE2E(parseT *testing.T) {
 	// And no literal "<script" leaked into the rendered rich-text node.
 	if parseRichHTML := evalString(parseT, parsePage, `document.getElementById('rich').innerHTML`); strings.Contains(parseRichHTML, "<script") {
 		parseT.Fatalf("script markup leaked into the DOM: %s", parseRichHTML)
+	}
+	// Replacing a parsed tree must remove old nodes without damaging adjacent SVG
+	// or the GWC handler that triggers the next replacement.
+	for parseIteration := 0; parseIteration < 3; parseIteration++ {
+		if parseErr := parsePage.Locator("#replace-markup").Click(); parseErr != nil {
+			parseT.Fatal(parseErr)
+		}
+		if _, parseErr := parsePage.WaitForSelector("#replacement code"); parseErr != nil {
+			parseT.Fatal(parseErr)
+		}
+		parseValid, parseErr := parsePage.Evaluate(`() => !document.getElementById('bold') && document.querySelector('#replacement code').textContent === 'one < two' && !document.querySelector('#replacement a').hasAttribute('href') && document.getElementById('dot').namespaceURI === 'http://www.w3.org/2000/svg'`)
+		if parseErr != nil || parseValid != true {
+			parseT.Fatalf("replacement %d corrupted markup: valid=%v err=%v", parseIteration, parseValid, parseErr)
+		}
+		if parseErr := parsePage.Locator("#replace-markup").Click(); parseErr != nil {
+			parseT.Fatal(parseErr)
+		}
+		if _, parseErr := parsePage.WaitForSelector("#bold"); parseErr != nil {
+			parseT.Fatal(parseErr)
+		}
 	}
 }
 

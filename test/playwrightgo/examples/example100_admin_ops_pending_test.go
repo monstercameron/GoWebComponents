@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	playwright "github.com/mxschmitt/playwright-go"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
-	playwright "github.com/mxschmitt/playwright-go"
 )
 
 type example100AdminOpsFixture struct {
@@ -342,6 +342,17 @@ func seedExample100AdminOpsFixtures(parseT *testing.T, parseDBPath string) examp
 		parseNowRFC3339,
 	); parseErr != nil {
 		parseT.Fatalf("insert admin-ops dunning event: %v", parseErr)
+	}
+
+	if _, parseErr := parseDB.Exec(
+		`INSERT INTO billing_events (customer_id, subscription_id, invoice_id, event_type, event_source, event_summary, event_payload_json, actor_user_id, created_at)
+		 VALUES (?, ?, ?, 'invoice.payment_failed', 'stripe', 'Card declined for open invoice', '{"failure_reason":"card_declined"}', 0, ?)`,
+		parseCustomerID,
+		parseSubscriptionID,
+		parseInvoiceID,
+		parseNowRFC3339,
+	); parseErr != nil {
+		parseT.Fatalf("insert admin-ops billing event: %v", parseErr)
 	}
 
 	parseTicketResult, parseErr := parseDB.Exec(

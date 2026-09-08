@@ -16,7 +16,7 @@ import (
 
 	"agenthub"
 	"github.com/joho/godotenv"
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -619,6 +619,11 @@ func parseResolveStaticDirectories() (parseClientDir, parseSharedDir string) {
 	}
 	if parseClientDir == "" {
 		parseClientDir = "bin/client"
+	}
+	// Explicit deployments and browser tests must not silently serve a stale bundle
+	// from a different checkout or build mode. Invalid overrides fail as missing assets.
+	if parseOverride := strings.TrimSpace(os.Getenv("CHAT_CLIENT_DIR")); parseOverride != "" {
+		parseClientDir = parseOverride
 	}
 
 	parseSharedCandidates := []string{

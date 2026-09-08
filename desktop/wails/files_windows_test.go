@@ -6,8 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 	"testing"
 )
 

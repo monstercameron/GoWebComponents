@@ -12,8 +12,12 @@ commits the actual rules so a release's number is predictable, not a judgment ca
 | **Minor** (`x.Y.0`) | A backward-compatible **addition**. | New exported function/type/method; a new package; a new optional field with a zero-value default. |
 | **Patch** (`x.y.Z`) | A backward-compatible **fix** with no API change. | Bug fixes, performance, docs, internal refactors, new tests. |
 
-The module is currently **`github.com/monstercameron/GoWebComponents/v5`**. It moved
-there in v5.0.0 because retiring runtime2 as a renderer removed `ui.ParallelRegion`
+The module is currently **`github.com/monstercameron/GoWebComponents/v6`**. v6.0.0
+introduces the Windows-first desktop integration and an explicit major-version
+import migration. Update `/v5` imports and requirements to `/v6` as documented
+in the changelog.
+
+It previously moved to `/v5` in v5.0.0 because retiring runtime2 as a renderer removed `ui.ParallelRegion`
 and the surrounding public API, and changed the `ui.Hydrate`/`ui.HydrateInto`
 signatures — exactly the trigger in the Major row above. The change had been sitting
 on the branch under `/v4`, where `go get -u` would have delivered it to consumers
@@ -47,7 +51,7 @@ by this rule:
 
 - If any **library-consumer** `require`/`go.sum` line changes (it will, because transitive
   tool deps disappear from consumers' graphs), the split is a **breaking** change to the
-  module graph and **must** ship as a major (import-path bump to `/v6`).
+  module graph and **must** ship as a major (the next import-path bump is `/v7`).
 - If it is a pure internal reorg with **no** change to any public import path or consumer
   `go.sum`, it can ship as a **minor**.
 

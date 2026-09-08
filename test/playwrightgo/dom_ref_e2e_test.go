@@ -24,7 +24,7 @@ func TestDOMRefE2E(parseT *testing.T) {
 	parseDir := parseT.TempDir()
 
 	parseWasmPath := filepath.Join(parseDir, "app.wasm")
-	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v5/examples/public/dom-ref")
+	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v6/examples/public/dom-ref")
 	parseBuild.Dir = parseRoot
 	parseBuild.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOut, parseErr := parseBuild.CombinedOutput(); parseErr != nil {

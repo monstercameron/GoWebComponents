@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/query"
-	"github.com/monstercameron/GoWebComponents/v5/serverfn"
+	"github.com/monstercameron/GoWebComponents/v6/query"
+	"github.com/monstercameron/GoWebComponents/v6/serverfn"
 )
 
 type likeReq struct {

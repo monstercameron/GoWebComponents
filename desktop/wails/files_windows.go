@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 

@@ -1,3 +1,5 @@
+//go:build !js || !wasm
+
 package main
 
 import (
@@ -6,8 +8,39 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
+
+// TestServerInteractiveEscapesEvents verifies text cannot become executable markup.
+func TestServerInteractiveEscapesEvents(parseT *testing.T) {
+	parseState := buildServerInteractiveState()
+	parseState.RecentEvents = []string{`<img src=x onerror=alert(1)> & "event"`}
+	parseMarkup, parseErr := renderServerInteractiveHTML(parseState)
+	if parseErr != nil {
+		parseT.Fatal(parseErr)
+	}
+	if strings.Contains(parseMarkup, "<img") || !strings.Contains(parseMarkup, "&lt;img") {
+		parseT.Fatalf("GWC must render events as text: %s", parseMarkup)
+	}
+	if strings.Contains(serverInteractiveShellHTML, "innerHTML") || strings.Contains(serverInteractiveShellHTML, "createElement(") {
+		parseT.Fatal("the bootstrap must not own dashboard DOM")
+	}
+}
+
+// TestServerInteractiveConcurrentDisconnect verifies fan-out cannot send to a closed client.
+func TestServerInteractiveConcurrentDisconnect(parseT *testing.T) {
+	parseHub := buildServerInteractiveHub()
+	for range 1000 {
+		parseClient := make(chan []byte, 1)
+		parseHub.storeServerInteractiveClient(parseClient)
+		var parseWait sync.WaitGroup
+		parseWait.Add(2)
+		go func() { defer parseWait.Done(); parseHub.broadcastServerInteractiveSnapshot([]byte("snapshot")) }()
+		go func() { defer parseWait.Done(); parseHub.clearServerInteractiveClient(parseClient) }()
+		parseWait.Wait()
+	}
+}
 
 // buildServerInteractiveNoFlushRecorder captures handler output without implementing http.Flusher.
 type buildServerInteractiveNoFlushRecorder struct {

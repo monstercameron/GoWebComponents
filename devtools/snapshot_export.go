@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v5/logging"
+	"github.com/monstercameron/GoWebComponents/v6/logging"
 )
 
 // ExportSnapshotJSON serializes a devtools snapshot into stable JSON.

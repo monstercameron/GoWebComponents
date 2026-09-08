@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/delta"
-	"github.com/monstercameron/GoWebComponents/v5/domain"
+	"github.com/monstercameron/GoWebComponents/v6/delta"
+	"github.com/monstercameron/GoWebComponents/v6/domain"
 )
 
 // v5 P3.14 — domain hot-reload.

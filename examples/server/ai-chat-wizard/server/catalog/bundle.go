@@ -1,6 +1,6 @@
 package catalog
 
-import "github.com/monstercameron/GoWebComponents/v5/i18n"
+import "github.com/monstercameron/GoWebComponents/v6/i18n"
 
 const chatI18nNamespace = "chat"
 const marketingI18nNamespace = "marketing"

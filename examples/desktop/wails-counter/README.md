@@ -2,9 +2,9 @@
 
 Experimental Windows desktop example in an isolated Go module. The existing
 GoWebComponents renderer runs as js/wasm inside native Wails WebView2 windows.
-Use Go 1.26.3 or a compatible toolchain and an installed WebView2 runtime. This
+Use Go 1.26.6 or newer and an installed WebView2 runtime. This
 checkout uses Wails beta.17 from `../../../third_party/wails/v3` and GWC's current
-`/v5` module from `../../..`. Initialize the pinned submodule from the repository
+`/v6` module from `../../..`. Initialize the pinned submodule from the repository
 root first:
 
 ```powershell
@@ -27,7 +27,8 @@ go run ./tools/build
 The helper explicitly builds native children for Windows and its own running
 architecture, with CGO disabled, and frontend children for js/wasm. Selecting
 the helper's target explicitly also handles machines with persisted cross-target
-Go defaults. ARM64 and other OS targets have not been verified.
+Go defaults. Windows ARM64 builds and automated WebView2 smoke probes have also
+been verified. Other native OS targets have not been certified.
 
 The build copies local HTML/CSS/bootstrap into assets/dist before the embedding
 package can be inspected, compiles Wasm, runs the pinned Wails source CLI to

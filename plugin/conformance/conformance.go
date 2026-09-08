@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/plugin"
+	"github.com/monstercameron/GoWebComponents/v6/plugin"
 )
 
 // Check holds the outcome of a single conformance assertion.

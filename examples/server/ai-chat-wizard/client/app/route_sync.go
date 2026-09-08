@@ -5,7 +5,7 @@ package app
 import (
 	"strings"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
 )
 
 // shouldRedirectUnauthenticatedRouteToLanding returns whether the client should send a resolved unauthenticated app route back to landing.
@@ -14,6 +14,11 @@ func shouldRedirectUnauthenticatedRouteToLanding(parseCurrentPath string, isAuth
 		return false
 	}
 	return isChatRoute(parseCurrentPath)
+}
+
+// shouldRedirectUnauthorizedAdminRouteToChat reports whether an authenticated non-admin must leave an admin deep link.
+func shouldRedirectUnauthorizedAdminRouteToChat(parseCurrentPath string, isAuthResolved bool, isAuthenticated bool, isCanAccessAdmin bool) bool {
+	return isAuthResolved && isAuthenticated && !isCanAccessAdmin && parseIsAdminRouteIntentPath(parseCurrentPath)
 }
 
 // parseResolvePostLoginRoute resolves one auth-success route target from intent and role capability.

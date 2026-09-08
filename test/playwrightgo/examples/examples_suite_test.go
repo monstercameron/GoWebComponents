@@ -71,6 +71,25 @@ func terminateExamplesProcessTree(parseCmd *exec.Cmd) {
 
 func startExamplesCommandWithEnv(parseT *testing.T, parseDir string, parseEnv []string, parseName string, parseArgs ...string) (parseStop func()) {
 	parseT.Helper()
+	// Chat test hosts consume only the assets compiled for this test, never a
+	// previous interactive build or another test's gwcagent-tagged bundle.
+	parseChatHost, parseAgentMode := false, false
+	for _, parseEntry := range parseEnv {
+		parseChatHost = parseChatHost || strings.HasPrefix(parseEntry, "CHAT_DB_PATH=")
+		parseAgentMode = parseAgentMode || parseEntry == "GWC_AGENT_HUB=1"
+	}
+	if parseChatHost {
+		parseEnv = append(parseEnv, "CHAT_CLIENT_DIR="+buildExample100IsolatedAssets(parseT, parseDir, parseAgentMode))
+		for _, parseEntry := range parseEnv {
+			if parseEntry == "CHAT_STUB_PROVIDERS=all" || parseEntry == "CHAT_PROVIDER_STUBS=all" {
+				// Real API keys take precedence over fallback stub providers. Keep
+				// deterministic browser tests off external paid services even when
+				// the developer's shell or .env contains configured credentials.
+				parseEnv = append(parseEnv, "CHAT_PROVIDER_STUBS=all", "OPENAI_API_KEY=", "ANTHROPIC_API_KEY=", "CEREBRAS_API_KEY=")
+				break
+			}
+		}
+	}
 	parseCmd := exec.Command(parseName, parseArgs...)
 	parseCmd.Dir = parseDir
 	if len(parseEnv) > 0 {
@@ -197,7 +216,7 @@ func startAtlasExamplesServer(parseT *testing.T, parseRepoRoot string, parsePort
 	parseStop := startExamplesCommandWithEnv(
 		parseT,
 		parseRepoRoot,
-		[]string{"ATLAS_ADDR=" + parseAddress},
+		[]string{"ATLAS_ADDR=" + parseAddress, "ATLAS_DB_PATH=" + filepath.Join(parseT.TempDir(), "atlas-browser.db")},
 		"go",
 		"run", "./examples/server/atlas-commerce-os/server",
 	)

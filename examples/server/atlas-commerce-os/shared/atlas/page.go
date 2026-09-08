@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1594,8 +1594,12 @@ func pageContent(parsePayload Payload) ui.Node {
 func dashboardContent(parsePayload Payload) ui.Node {
 	parsePage := decode[dashboardPage](pageData(parsePayload))
 	return html.Section(html.Props{Class: consoleRegionStackClass()},
-		dashboardSummaryBand(parsePage),
+		html.Div(html.Props{Class: consoleStackTightClass()},
+			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Dashboard summary band")),
+			dashboardSummaryBand(parsePage),
+		),
 		dashboardAttentionPanel(parsePage),
+		html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Action cluster")),
 		dashboardActionCluster(),
 		dashboardActivityFeed(parsePage),
 		dashboardPurchaseOrderSummary(parsePage.Orders),

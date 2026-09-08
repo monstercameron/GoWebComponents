@@ -7,7 +7,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/monstercameron/GoWebComponents/v5/serverfn"
+	"github.com/monstercameron/GoWebComponents/v6/serverfn"
 )
 
 // RegisterServerFunctions wires every //gwc:server function in this package onto mux.

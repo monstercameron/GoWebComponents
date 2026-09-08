@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 
 // themeAtomID is the well-known atom holding the active theme name. UseTheme
 // subscribes to it; SetTheme/CurrentTheme read and write it from anywhere.

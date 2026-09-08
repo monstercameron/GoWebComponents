@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // InspectDiagnostics is a non-browser stub that always returns an unavailable error.

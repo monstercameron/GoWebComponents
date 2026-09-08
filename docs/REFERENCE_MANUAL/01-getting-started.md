@@ -76,8 +76,8 @@ The smallest useful GWC app is one browser-mounted component plus one stateful e
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // renderHelloApp renders the smallest useful interactive app for a first-run check.
@@ -147,8 +147,8 @@ package main
 import (
 	"fmt"
 
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 type counterPanelProps struct {
@@ -246,8 +246,8 @@ package main
 import (
 	"my-app/internal/app"
 
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/utils"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/utils"
 )
 
 // main mounts the application entrypoint owned by the app package.
@@ -263,8 +263,8 @@ func main() {
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 
 	"my-app/internal/feature/counter"
 )

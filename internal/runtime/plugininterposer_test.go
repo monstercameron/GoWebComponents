@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/pluginruntime"
 )
 
 func TestPluginInterposerMapsRuntimeSnapshotDefensively(t *testing.T) {

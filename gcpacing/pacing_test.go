@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/gcpacing"
+	"github.com/monstercameron/GoWebComponents/v6/gcpacing"
 )
 
 // v5 P4.4 — the GC pacing pass, acceptance M7.

@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v5/agentbridge"
-	"github.com/monstercameron/GoWebComponents/v5/events"
-	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v6/agentbridge"
+	"github.com/monstercameron/GoWebComponents/v6/events"
+	"github.com/monstercameron/GoWebComponents/v6/state"
 )
 
 // describeResult mirrors the bridge.describe ack payload for assertions.

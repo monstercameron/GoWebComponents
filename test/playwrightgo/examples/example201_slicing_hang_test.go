@@ -36,7 +36,7 @@ func TestExample201SlicingHang(parseT *testing.T) {
 		if _, parseErr := parsePage.WaitForFunction(
 			"() => !!window.__example201Subject && window.__example201Subject.isReady && typeof window.__gwcPhaseTotals === 'function'",
 			nil, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(60000)}); parseErr != nil {
-			parseT.Skipf("subject or phase totals unavailable: %v", parseErr)
+			parseT.Fatalf("development subject or required phase totals unavailable: %v", parseErr)
 		}
 
 		// Run core-render WITHOUT the harness's wait, sampling the runtime's own

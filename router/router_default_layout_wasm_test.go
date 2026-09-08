@@ -5,7 +5,7 @@ package router
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
 // TestDefaultRouteFallbackKeepsLayout pins #82 finding (4): an unmatched path that

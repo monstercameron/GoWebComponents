@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/apidump"
+	"github.com/monstercameron/GoWebComponents/v6/internal/apidump"
 )
 
 //go:embed *.go

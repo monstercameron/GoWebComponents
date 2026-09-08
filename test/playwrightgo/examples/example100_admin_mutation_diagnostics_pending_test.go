@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
 	playwright "github.com/mxschmitt/playwright-go"
 )
 
@@ -45,6 +45,32 @@ func TestExample100DashboardSettingsMutationsRegression(parseT *testing.T) {
 // parseApplyExample100DashboardSettingsMutations executes billing, feature-flag, and incident settings mutations used by the regression.
 func parseApplyExample100DashboardSettingsMutations(parseT *testing.T, parseClient chatpb.ChatServiceClient, parseWorkspaceID int64, parsePlanCode string, parseQuotaKey string, parseFlagKey string, parseSLOKey string, parseIncidentKey string) {
 	parseT.Helper()
+
+	parsePlanCtx, parsePlanCancel := parseBuildExample100AdminMutationCallContext()
+	parsePlanResp, parseErr := parseClient.SetSuperuserBillingPlan(parsePlanCtx, &chatpb.SetSuperuserBillingPlanRequest{
+		PlanCode:                parsePlanCode,
+		PlanName:                "Dashboard Settings Regression Plan",
+		PlanRank:                200,
+		IsActive:                true,
+		MonthlyBaseCents:        2500,
+		MonthlyPlatformFeeCents: 2500,
+		YearlyBaseCents:         25000,
+		UsagePremiumBasisPoints: 1000,
+		IncludedTokensMonthly:   1000,
+		IncludedSeats:           1,
+		MinSeats:                1,
+		MaxSeats:                1,
+		WorkspaceMode:           "individual",
+		Confirm:                 true,
+		Reason:                  "playwright dashboard-settings regression: create plan",
+	})
+	parsePlanCancel()
+	if parseErr != nil {
+		parseT.Fatalf("SetSuperuserBillingPlan: %v", parseErr)
+	}
+	if parsePlanResp.GetPlan() == nil || parsePlanResp.GetPlan().GetPlanCode() != parsePlanCode {
+		parseT.Fatalf("SetSuperuserBillingPlan returned invalid row: %+v", parsePlanResp)
+	}
 
 	parseOverageCtx, parseOverageCancel := parseBuildExample100AdminMutationCallContext()
 	parseOverageResp, parseErr := parseClient.SetSuperuserBillingPlanOverage(parseOverageCtx, &chatpb.SetSuperuserBillingPlanOverageRequest{

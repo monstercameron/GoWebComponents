@@ -2,7 +2,7 @@ package devtools
 
 import "maps"
 
-import "github.com/monstercameron/GoWebComponents/v5/plugin"
+import "github.com/monstercameron/GoWebComponents/v6/plugin"
 
 // ApplyHostExtensions registers one compatibility host source and returns a cleanup that removes it.
 func ApplyHostExtensions(parseHost *plugin.Host) func() {

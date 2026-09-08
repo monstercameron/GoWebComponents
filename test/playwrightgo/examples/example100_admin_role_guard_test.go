@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
+	playwright "github.com/mxschmitt/playwright-go"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
-	playwright "github.com/mxschmitt/playwright-go"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const example100AdminGuardWorkspaceEmail = "workspace-admin@example.com"
 const example100AdminGuardWorkspacePassword = "password123"
-const example100AdminGuardNormalEmail = "admin@email.com"
+const example100AdminGuardNormalEmail = "customer@email.com"
 const example100AdminGuardNormalPassword = "password"
 
 type example100AdminGuardRuntimeEvidence struct {
@@ -207,6 +207,15 @@ func startExample100AdminGuardServer(parseT *testing.T, parseRepoRoot string, pa
 // loginExample100AdminGuardUser authenticates one user in the browser and mirrors the auth token into the cookie used by deep-link guards.
 func loginExample100AdminGuardUser(parseT *testing.T, parsePage playwright.Page, parseBaseURL string, parseEmail string, parsePassword string) string {
 	parseT.Helper()
+	if parseErr := parsePage.Context().ClearCookies(); parseErr != nil {
+		parseT.Fatalf("clear auth cookies (%s): %v", parseEmail, parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseBaseURL, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
+		parseT.Fatalf("goto origin before login reset (%s): %v", parseEmail, parseErr)
+	}
+	if _, parseErr := parsePage.Evaluate(`() => window.localStorage && window.localStorage.clear()`); parseErr != nil {
+		parseT.Fatalf("clear auth local storage (%s): %v", parseEmail, parseErr)
+	}
 	if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	}); parseErr != nil {
@@ -304,14 +313,14 @@ func TestExample100AdminRoleGuardsAndDeepLinks(parseT *testing.T) {
 			}
 
 			parseSnapshot := captureExample100AdminJourneyRPCSnapshot(parseBaseURL, parseAuthToken)
-			if !parseSnapshot.HasAdminDashboardLoaded || !parseSnapshot.HasAdminUsersSliceLoaded {
+			if parseSnapshot.HasAdminDashboardLoaded || !parseSnapshot.HasAdminUsersSliceLoaded {
 				parseT.Fatalf("workspace-admin dashboard/users snapshot incomplete: %+v", parseSnapshot)
 			}
 			if parseSnapshot.HasAdminConvsSliceLoaded || parseSnapshot.GetRecentConversationsCount != 0 {
 				parseT.Fatalf("workspace-admin expected empty scoped conversations, got %+v", parseSnapshot)
 			}
-			if strings.TrimSpace(parseSnapshot.GetDashboardErrorText) != "" || strings.TrimSpace(parseSnapshot.GetUsersErrorText) != "" || strings.TrimSpace(parseSnapshot.GetConversationsErrorText) != "" {
-				parseT.Fatalf("workspace-admin expected empty-state without RPC errors, got %+v", parseSnapshot)
+			if !hasExample100PermissionDeniedError(parseSnapshot.GetDashboardErrorText) || strings.TrimSpace(parseSnapshot.GetUsersErrorText) != "" || strings.TrimSpace(parseSnapshot.GetConversationsErrorText) != "" {
+				parseT.Fatalf("workspace-admin expected superuser dashboard denial with scoped slice access, got %+v", parseSnapshot)
 			}
 			assertExample100AdminGuardNoRuntimeErrors(parseT, "workspace-admin deep link flow", parseEvidence)
 		})

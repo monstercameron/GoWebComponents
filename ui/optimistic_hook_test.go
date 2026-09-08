@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/query"
+	"github.com/monstercameron/GoWebComponents/v6/query"
 )
 
 // TestUseOptimisticAppliesImmediately proves the optimistic setter writes the cache at once

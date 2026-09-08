@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/monstercameron/GoWebComponents/v5/db/offthread"
-	"github.com/monstercameron/GoWebComponents/v5/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v6/db/offthread"
+	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
 )
 
 // defaultMaxRows caps a result set when a request does not.

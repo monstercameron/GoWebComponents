@@ -28,7 +28,7 @@ func TestDesktopInitCopiesAllowlistedContributorTemplate(parseT *testing.T) {
 		parseT.Fatalf("generated bin unexpectedly copied, err=%v", parseErr)
 	}
 	parseGoMod, parseErr := os.ReadFile(filepath.Join(parseRoot, "go.mod"))
-	if parseErr != nil || !strings.Contains(string(parseGoMod), "replace github.com/monstercameron/GoWebComponents/v5 => "+strconv.Quote(filepath.ToSlash(parseLauncher.repoRoot))) {
+	if parseErr != nil || !strings.Contains(string(parseGoMod), "replace github.com/monstercameron/GoWebComponents/v6 => "+strconv.Quote(filepath.ToSlash(parseLauncher.repoRoot))) {
 		parseT.Fatalf("fresh module replacement missing: err=%v\n%s", parseErr, parseGoMod)
 	}
 }

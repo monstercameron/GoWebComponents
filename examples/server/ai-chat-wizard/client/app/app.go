@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v5/i18n"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
-	"github.com/monstercameron/GoWebComponents/v5/logging"
-	"github.com/monstercameron/GoWebComponents/v5/router"
-	"github.com/monstercameron/GoWebComponents/v5/state"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/utils"
+	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v6/i18n"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v6/logging"
+	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/utils"
 )
 
 // ParseApp renders the chat wizard application shell.
@@ -197,6 +197,15 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 		parseRedirectToAuthLanding(parseCurrentPath)
 		return nil
 	}, parseCurrentPath, parseCurrentState.AuthResolved, parseCurrentState.Authenticated)
+
+	ui.UseEffect(func() func() {
+		if !shouldRedirectUnauthorizedAdminRouteToChat(parseCurrentPath, parseCurrentState.AuthResolved, parseCurrentState.Authenticated, parseCurrentState.CanAccessAdmin) {
+			return nil
+		}
+		chatLog.Warn("admin route guard redirected unauthorized app route", logging.Fields{"path": parseCurrentPath})
+		parseNav.Replace(chatRouteRoot)
+		return nil
+	}, parseCurrentPath, parseCurrentState.AuthResolved, parseCurrentState.Authenticated, parseCurrentState.CanAccessAdmin)
 
 	parseChatStream := parseUseChatStream(parseIntl, parseApp, parseChatClientRef, parseScrollMemory, nil, func(parseNewConvID int64) {
 		parseConversationList.Refresh(true)

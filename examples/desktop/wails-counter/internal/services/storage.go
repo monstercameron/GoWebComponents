@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
 )
 
 const (

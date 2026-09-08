@@ -6,13 +6,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
-	"github.com/monstercameron/GoWebComponents/v5/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/state"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
-	"github.com/monstercameron/GoWebComponents/v5/utils"
+	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v6/utils"
 )
 
 const (

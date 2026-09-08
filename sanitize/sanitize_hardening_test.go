@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/sanitize"
+	"github.com/monstercameron/GoWebComponents/v6/sanitize"
 )
 
 // TestSanitizeDropsTemplateSubtree pins that <template> content is dropped

@@ -14,8 +14,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/diagnostics"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 const (

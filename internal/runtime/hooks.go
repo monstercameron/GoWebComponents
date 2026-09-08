@@ -201,7 +201,10 @@ func (parseSlot StateSlot[T]) applyStateUpdate(parseNewValueOrUpdater any, parse
 	// to publish its value before that pass starts. Avoid repeating the live-tree
 	// resolution walk and scheduler entry for the already-covered lane.
 	parseLane := laneForUpdateOrigin(parseUpdateOrigin)
-	if parseRt.updateScheduled && parseTargetFiber.dirty && parseTargetFiber.needsUpdate &&
+	// Once traversal starts, even an already-dirty owner may have been visited.
+	// Keep the scheduler's in-flight replay accounting on that path.
+	if parseRt.updateScheduled && parseRt.wipRoot != nil && parseRt.nextUnitOfWork == parseRt.wipRoot &&
+		parseTargetFiber.dirty && parseTargetFiber.needsUpdate &&
 		parseTargetFiber.updateLane == parseLane {
 		return
 	}

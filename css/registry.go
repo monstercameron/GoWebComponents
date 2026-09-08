@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v5/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
 )
 
 // Sink is the documented emission seam. New(...) calls Emit exactly once per

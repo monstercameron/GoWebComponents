@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 
 // DOM element refs (G2). UseDOMRef returns a stable handle to a rendered DOM
 // element. Spread it onto exactly one element with html.Ref / shorthand.Ref; the

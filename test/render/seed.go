@@ -2,6 +2,6 @@
 
 package render
 
-import base "github.com/monstercameron/GoWebComponents/v5/testkit/render"
+import base "github.com/monstercameron/GoWebComponents/v6/testkit/render"
 
 type SeededMarkup = base.SeededMarkup

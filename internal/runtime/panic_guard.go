@@ -5,7 +5,7 @@ package runtime
 // console report instead of exiting the Go program. In wasm a single escaped
 // panic kills the whole page; containment keeps the committed UI alive.
 
-import "github.com/monstercameron/GoWebComponents/v5/interop"
+import "github.com/monstercameron/GoWebComponents/v6/interop"
 
 // init wires interop host callbacks into the structured crash reporting; the
 // interop package cannot import this package directly (import cycle).

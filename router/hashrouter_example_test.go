@@ -1,7 +1,7 @@
 package router_test
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/router"
+	"github.com/monstercameron/GoWebComponents/v6/router"
 )
 
 // ExampleDefineRoute shows declaring a typed route contract, which validates the

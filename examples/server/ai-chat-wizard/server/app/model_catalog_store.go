@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/server/provider"
 )
 
 type modelCatalogRow struct {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v5/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
 )
 
 const RedactedValue = "[redacted]"

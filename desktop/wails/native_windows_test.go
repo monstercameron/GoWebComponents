@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
 )
 
 // TestNativeBackendMissingCallerNeverUsesFocusedWindow verifies every adapter operation requires its caller.

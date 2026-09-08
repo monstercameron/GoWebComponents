@@ -5,7 +5,7 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // skipHookCallOutsideComponentOnWasm skips tests that invoke Use* hooks at

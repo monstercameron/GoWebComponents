@@ -265,8 +265,8 @@ func captureExample100AuthEntryMatrixArtifact(parseT *testing.T, parsePage playw
 	if parseErr := parsePage.Click(`button:has-text("Send reset link")`); parseErr != nil {
 		parseT.Fatalf("click send reset link: %v", parseErr)
 	}
-	if _, parseErr := parsePage.WaitForSelector("#auth-password-input"); parseErr != nil {
-		parseT.Fatalf("wait for password input after reset handoff: %v", parseErr)
+	if _, parseErr := parsePage.WaitForFunction(`() => document.body && document.body.innerText.includes("Check your inbox")`, nil); parseErr != nil {
+		parseT.Fatalf("wait for reset confirmation after reset handoff: %v", parseErr)
 	}
 	parseArtifact.HasPasswordResetFlow = true
 

@@ -160,8 +160,8 @@ func (parseL launcher) desktopInit(parseConfig desktopConfig) (desktopSummary, e
 	if parseErr != nil {
 		return desktopSummary{}, parseErr
 	}
-	parseGoMod := strings.ReplaceAll(string(parseGoModBytes), "replace github.com/monstercameron/GoWebComponents/v5 => ../../..", "replace github.com/monstercameron/GoWebComponents/v5 => "+strconv.Quote(filepath.ToSlash(parseL.repoRoot)))
-	parseGoMod = strings.ReplaceAll(parseGoMod, "replace github.com/monstercameron/GoWebComponents/v5/desktop/wails => ../../../desktop/wails", "replace github.com/monstercameron/GoWebComponents/v5/desktop/wails => "+strconv.Quote(filepath.ToSlash(filepath.Join(parseL.repoRoot, "desktop", "wails"))))
+	parseGoMod := strings.ReplaceAll(string(parseGoModBytes), "replace github.com/monstercameron/GoWebComponents/v6 => ../../..", "replace github.com/monstercameron/GoWebComponents/v6 => "+strconv.Quote(filepath.ToSlash(parseL.repoRoot)))
+	parseGoMod = strings.ReplaceAll(parseGoMod, "replace github.com/monstercameron/GoWebComponents/v6/desktop/wails => ../../../desktop/wails", "replace github.com/monstercameron/GoWebComponents/v6/desktop/wails => "+strconv.Quote(filepath.ToSlash(filepath.Join(parseL.repoRoot, "desktop", "wails"))))
 	parseGoMod = strings.ReplaceAll(parseGoMod, "replace github.com/wailsapp/wails/v3 => ../../../third_party/wails/v3", "replace github.com/wailsapp/wails/v3 => "+strconv.Quote(filepath.ToSlash(filepath.Join(parseL.repoRoot, "third_party", "wails", "v3"))))
 	if parseErr := os.WriteFile(parseGoModPath, []byte(parseGoMod), 0o644); parseErr != nil {
 		return desktopSummary{}, parseErr

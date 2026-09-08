@@ -14,13 +14,13 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/css"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/atlas"
-	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v5/fetch"
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	"github.com/monstercameron/GoWebComponents/v5/router"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/atlas"
+	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 const (
@@ -1513,6 +1513,14 @@ func atlasRouteComponent(parseAttrs router.Attrs) *router.Element {
 	})
 }
 
+// atlasCatchAllComponent keeps an SSR recovery document interactive without
+// re-fetching the already-known 404 route during hydration. Refetching the
+// missing URL races the first navigation and leaves the router's transition
+// promise rejected before the recovery link can be followed.
+func atlasCatchAllComponent(parseAttrs router.Attrs) *router.Element {
+	return atlasRouteComponent(router.Attrs{"payload": initialPayload})
+}
+
 func atlasThresholdHistoryOverlayComponent(parseAttrs router.Attrs) *router.Element {
 	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
 	debugLog("route.render.overlay", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
@@ -1751,7 +1759,7 @@ func registerAtlasRoutes(parseR *router.Router) {
 		{Path: atlas.RouteSettingsAppearance, MetadataKey: atlas.RouteSettingsAppearance, UseLoader: true, Internal: true, Component: atlasSettingsNestedComponent},
 		{Path: atlas.RouteSettingsLocale, MetadataKey: atlas.RouteSettingsLocale, UseLoader: true, Internal: true, Component: atlasSettingsNestedComponent},
 		{Path: atlas.RouteSettingsWorkspaceDefaults, MetadataKey: atlas.RouteSettingsWorkspaceDefaults, UseLoader: true, Internal: true, Component: atlasSettingsNestedComponent},
-		{Path: atlas.RouteCatchAll, UseLoader: true},
+		{Path: atlas.RouteCatchAll, Component: atlasCatchAllComponent},
 	}
 	for _, parseDef := range parseDefinitions {
 		parseComponent := atlasRouteComponent
@@ -1818,10 +1826,27 @@ func registerAnchorNavigation(parseRouterInstance *router.Router) {
 			"hash":     parseHash,
 		})
 		parseEvent.Call("preventDefault")
-		parseRouterInstance.Navigate(parsePathname + parseSearch)
+		// Do not synchronously render from the delegated DOM click callback. Atlas
+		// links are emitted by the UI runtime, and starting a loader/render while
+		// that dispatch is still unwinding can leave the old route mounted even
+		// though pushState has already advanced the URL. Queue the router work for
+		// the next browser task so the event and any runtime bookkeeping complete
+		// first.
+		parseTargetPath := parsePathname + parseSearch
+		var parseNavigate js.Func
+		parseNavigate = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer parseNavigate.Release()
+			parseRouterInstance.Navigate(parseTargetPath)
+			return nil
+		})
+		parseWindow.Call("setTimeout", parseNavigate, 0)
 		return nil
 	})
-	parseDocument.Call("addEventListener", "click", anchorNavigationHandler)
+	// Capture before component-level click handlers can stop propagation. The
+	// delegated router owns ordinary same-origin anchors; waiting for bubbling
+	// made navigation silently depend on whatever component happened to wrap the
+	// link.
+	parseDocument.Call("addEventListener", "click", anchorNavigationHandler, true)
 	debugLog("navigation.anchor.registered", nil)
 }
 
@@ -2086,6 +2111,11 @@ func bootAtlasClient() {
 	updateDocumentMetadata(initialPayload)
 
 	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: atlas.RouteLanding})
+	// Atlas navigation can chain a server-backed loader immediately after a
+	// hydrated SSR route. Chromium rejects overlapping ViewTransition promises
+	// as "Transition was skipped"; route content remains correct, but the
+	// rejection becomes a page error and masks the successful navigation.
+	parseR.SetViewTransitions(false)
 	registerAtlasRoutes(parseR)
 
 	debugLog("hydrate.start", map[string]any{"selector": atlasMountSelector, "path": initialPayload.Route.Path})

@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v5/css"
+import "github.com/monstercameron/GoWebComponents/v6/css"
 
 // This file is the single source of truth for Atlas's visual constants. Two kinds
 // of constant live here and the difference matters:

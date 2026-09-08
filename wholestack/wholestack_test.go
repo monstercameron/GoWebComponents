@@ -9,8 +9,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/monstercameron/GoWebComponents/v5/serverfn"
-	"github.com/monstercameron/GoWebComponents/v5/wholestack"
+	"github.com/monstercameron/GoWebComponents/v6/serverfn"
+	"github.com/monstercameron/GoWebComponents/v6/wholestack"
 )
 
 type pingReq struct{}

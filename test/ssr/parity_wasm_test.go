@@ -5,10 +5,10 @@ package ssr_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/html"
-	ssr "github.com/monstercameron/GoWebComponents/v5/test/ssr"
-	base "github.com/monstercameron/GoWebComponents/v5/testkit/ssr"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/html"
+	ssr "github.com/monstercameron/GoWebComponents/v6/test/ssr"
+	base "github.com/monstercameron/GoWebComponents/v6/testkit/ssr"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 func TestPreferredHydrationWrappersMatchCompatibilityAliasBehavior(parseT *testing.T) {

@@ -2,7 +2,7 @@
 
 package main
 
-import wizardapp "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/client/app"
+import wizardapp "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/client/app"
 
 func main() {
 	wizardapp.ParseRun()

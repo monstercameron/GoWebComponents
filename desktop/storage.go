@@ -6,8 +6,8 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
-	"github.com/monstercameron/GoWebComponents/v5/kvstate"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v6/kvstate"
 )
 
 // StorageWireRecord is the JSON-safe storage record exchanged with a native host.

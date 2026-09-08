@@ -6,8 +6,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // WorkerTaskState describes the lifecycle of a worker-backed task together with

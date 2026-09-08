@@ -4,6 +4,7 @@ package interop
 
 import (
 	"context"
+	"strings"
 	"syscall/js"
 	"testing"
 )
@@ -32,6 +33,29 @@ func TestAwaitRejectionReturnsError(parseT *testing.T) {
 	var parseTyped *Error
 	if !asInteropError(parseErr, &parseTyped) || parseTyped.Code != CodePromiseRejected {
 		parseT.Fatalf("expected CodePromiseRejected, got %v", parseErr)
+	}
+	if !strings.Contains(parseErr.Error(), "boom") {
+		parseT.Fatalf("rejection lost its non-enumerable Error.message: %v", parseErr)
+	}
+}
+
+// TestAwaitRejectionDoesNotInvokeMessageGetter keeps diagnostic extraction free of accessor side effects.
+func TestAwaitRejectionDoesNotInvokeMessageGetter(parseT *testing.T) {
+	parseCalls := 0
+	parseGetter := js.FuncOf(func(js.Value, []js.Value) any {
+		parseCalls++
+		return "unexpected getter"
+	})
+	defer parseGetter.Release()
+	parseObject := js.Global().Get("Object").New()
+	parseObject.Set("reason", "denied")
+	parseDescriptor := js.Global().Get("Object").New()
+	parseDescriptor.Set("get", parseGetter)
+	js.Global().Get("Object").Call("defineProperty", parseObject, "message", parseDescriptor)
+	parsePromise := Value{raw: js.Global().Get("Promise").Call("reject", parseObject)}
+	_, parseErr := parsePromise.Await(context.Background())
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "denied") || parseCalls != 0 {
+		parseT.Fatalf("unexpected rejection summary: error=%v getter calls=%d", parseErr, parseCalls)
 	}
 }
 

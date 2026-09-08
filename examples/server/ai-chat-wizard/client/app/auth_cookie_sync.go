@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v6/fetch"
 )
 
 const authCookieSyncPath = "/api/public/auth/session/sync"

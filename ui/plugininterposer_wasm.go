@@ -3,14 +3,14 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/pluginruntime"
 )
 
 func init() {

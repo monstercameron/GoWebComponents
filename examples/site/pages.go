@@ -8,10 +8,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v5/fetch"
-	gwchtml "github.com/monstercameron/GoWebComponents/v5/html"
-	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	gwchtml "github.com/monstercameron/GoWebComponents/v6/html"
+	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 const repoBlobBase = "https://github.com/monstercameron/GoWebComponents/blob/master/"

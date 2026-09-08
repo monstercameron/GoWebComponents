@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
 // PluginPanicHandler is invoked when a plugin-supplied callback panics during

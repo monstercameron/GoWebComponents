@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v5/delta"
+	"github.com/monstercameron/GoWebComponents/v6/delta"
 )
 
 // Key identifies one row, re-exported from delta so a caller reading a

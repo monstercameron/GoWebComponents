@@ -10,7 +10,7 @@
 // incremental table entries.
 package u
 
-import "github.com/monstercameron/GoWebComponents/v5/css"
+import "github.com/monstercameron/GoWebComponents/v6/css"
 
 // --- display & layout (static utilities) --------------------------------------
 

@@ -1,6 +1,6 @@
 package shorthand
 
-import "github.com/monstercameron/GoWebComponents/v5/ui"
+import "github.com/monstercameron/GoWebComponents/v6/ui"
 
 // NamedSlot is a group of children tagged with a slot name, produced by Slot and collected
 // into a Slots set.

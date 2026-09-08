@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 
 	"example.com/gwc-wails-counter/contracts"
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 

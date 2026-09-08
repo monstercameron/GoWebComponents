@@ -26,8 +26,8 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v5/db/sqlite"
-	"github.com/monstercameron/GoWebComponents/v5/gcpacing"
+	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v6/gcpacing"
 )
 
 // workload tracks one background job's progress.

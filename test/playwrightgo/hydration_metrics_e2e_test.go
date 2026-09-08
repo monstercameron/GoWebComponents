@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/examples/shared/hydrationprobe"
-	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v6/examples/shared/hydrationprobe"
+	"github.com/monstercameron/GoWebComponents/v6/ui"
 	playwright "github.com/mxschmitt/playwright-go"
 )
 
@@ -36,7 +36,7 @@ func TestHydrationAdoptsServerDOME2E(parseT *testing.T) {
 	}
 
 	parseWasmPath := filepath.Join(parseDir, "app.wasm")
-	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v5/examples/public/hydration-metrics")
+	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v6/examples/public/hydration-metrics")
 	parseBuild.Dir = parseRoot
 	parseBuild.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOut, parseErr := parseBuild.CombinedOutput(); parseErr != nil {

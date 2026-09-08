@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // TestNativeClientRejectsInvalidInputBeforeEncoding prevents JSON from silently repairing invalid UTF-8.

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v5/desktop"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
 )
 
 func storageWire(parseKey, parseValue string, parseVersion int64) desktop.StorageWireRecord {
