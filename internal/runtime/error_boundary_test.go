@@ -8,9 +8,8 @@ import (
 )
 
 func flushScheduledWork(parseScheduler *testScheduler) {
-	for len(parseScheduler.timeouts) > 0 {
-		parseCallbacks := append([]func(){}, parseScheduler.timeouts...)
-		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+	for parseScheduler.getPendingTimeoutCount() > 0 {
+		parseCallbacks := parseScheduler.getPendingTimeouts()
 		for _, parseCallback := range parseCallbacks {
 			parseCallback()
 		}

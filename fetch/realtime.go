@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	gwcruntime "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
@@ -167,10 +169,13 @@ type realtimeConnectionController struct {
 	state            ui.State[RealtimeState]
 	openTransport    func(string, realtimeResolvedOptions, realtimeTransportCallbacks) (realtimeTransport, error)
 	transport        realtimeTransport
-	active           bool
-	manualClosed     bool
-	connectionID     int
-	connectionClosed bool
+	transportMu      sync.RWMutex
+	lifecycleMu      sync.Mutex
+	active           atomic.Bool
+	manualClosed     atomic.Bool
+	connectionID     atomic.Int64
+	connectionClosed atomic.Bool
+	timerMu          sync.Mutex
 	reconnectTimer   *time.Timer
 	heartbeatTimer   *time.Timer
 }
@@ -328,32 +333,56 @@ func (parseE EventSource) Close() {
 	}
 }
 
-// start opens the controller from an idle or manually closed state.
-func (parseC *realtimeConnectionController) start() {
+// getTransport reads the active transport without racing timer callbacks.
+func (parseC *realtimeConnectionController) getTransport() realtimeTransport {
 	if parseC == nil {
-		return
+		return nil
 	}
-	parseC.stopTimers()
-	parseC.active = true
-	parseC.manualClosed = false
-	parseC.connectionClosed = false
-	parseC.options.now = getRealtimeNow(parseC.options.now)
-	parseC.open()
+	parseC.transportMu.RLock()
+	defer parseC.transportMu.RUnlock()
+	return parseC.transport
 }
 
-// stop closes the active transport and records a terminal closed state.
-func (parseC *realtimeConnectionController) stop(isManual bool) {
+// setTransport updates the active transport without racing timer callbacks.
+func (parseC *realtimeConnectionController) setTransport(parseTransport realtimeTransport) {
 	if parseC == nil {
 		return
 	}
-	parseC.active = false
-	parseC.manualClosed = isManual
-	parseC.connectionID++
-	parseC.connectionClosed = true
+	parseC.transportMu.Lock()
+	parseC.transport = parseTransport
+	parseC.transportMu.Unlock()
+}
+
+// startLocked opens the controller from an idle or manually closed state.
+func (parseC *realtimeConnectionController) startLocked() {
+	if parseC == nil {
+		return
+	}
 	parseC.stopTimers()
-	if parseC.transport != nil {
-		_ = parseC.transport.close()
-		parseC.transport = nil
+	parseC.active.Store(true)
+	parseC.manualClosed.Store(false)
+	parseC.connectionClosed.Store(false)
+	parseC.options.now = getRealtimeNow(parseC.options.now)
+	parseC.openLocked()
+}
+
+// stopLocked closes the active transport and records a terminal closed state.
+func (parseC *realtimeConnectionController) stopLocked(isManual bool) {
+	if parseC == nil {
+		return
+	}
+	parseC.active.Store(false)
+	parseC.manualClosed.Store(isManual)
+	parseC.connectionID.Add(1)
+	parseID := int(parseC.connectionID.Load())
+	parseC.connectionClosed.Store(true)
+	parseC.stopTimers()
+	if parseTransport := parseC.getTransport(); parseTransport != nil {
+		parseC.setTransport(nil)
+		parseC.closeTransportLocked(parseTransport)
+		if parseID != int(parseC.connectionID.Load()) {
+			return
+		}
 	}
 	parseNow := parseC.options.now()
 	updateRealtimeState(parseC.state, func(parsePrev RealtimeState) RealtimeState {
@@ -367,25 +396,27 @@ func (parseC *realtimeConnectionController) stop(isManual bool) {
 	})
 }
 
-// open creates one browser transport and wires callbacks for the active connection.
-func (parseC *realtimeConnectionController) open() {
-	if parseC == nil || !parseC.active {
+// openLocked creates one browser transport and wires callbacks for the active connection.
+func (parseC *realtimeConnectionController) openLocked() {
+	if parseC == nil || !parseC.active.Load() {
 		return
 	}
 	parseURL := strings.TrimSpace(parseC.url)
 	if parseURL == "" {
 		parseErr := fmt.Errorf("%s URL is empty", parseC.api)
-		parseC.recordError(parseErr)
-		parseC.finishClosed(parseErr)
+		parseC.recordErrorLocked(parseErr)
+		parseC.finishClosedLocked(parseErr)
 		return
 	}
 
-	parseC.connectionID++
-	parseID := parseC.connectionID
-	parseC.connectionClosed = false
-	if parseC.transport != nil {
-		_ = parseC.transport.close()
-		parseC.transport = nil
+	parseID := int(parseC.connectionID.Add(1))
+	parseC.connectionClosed.Store(false)
+	if parseTransport := parseC.getTransport(); parseTransport != nil {
+		parseC.setTransport(nil)
+		parseC.closeTransportLocked(parseTransport)
+		if !parseC.isCurrentConnection(parseID) {
+			return
+		}
 	}
 	parseC.stopHeartbeat()
 
@@ -400,7 +431,8 @@ func (parseC *realtimeConnectionController) open() {
 		return parsePrev
 	})
 
-	parseTransport, parseErr := parseC.openTransport(parseURL, parseC.options, realtimeTransportCallbacks{
+	parseOptions := parseC.options
+	parseCallbacks := realtimeTransportCallbacks{
 		handleOpen: func() {
 			parseC.handleOpen(parseID)
 		},
@@ -413,11 +445,26 @@ func (parseC *realtimeConnectionController) open() {
 		handleClose: func() {
 			parseC.handleClose(parseID)
 		},
-	})
+	}
+	// Constructors may synchronously invoke callbacks. Never hold the lifecycle
+	// lock across external transport code; validate generation before publishing.
+	var parseTransport realtimeTransport
+	var parseErr error
+	func() {
+		parseC.lifecycleMu.Unlock()
+		defer parseC.lifecycleMu.Lock()
+		parseTransport, parseErr = parseC.openTransport(parseURL, parseOptions, parseCallbacks)
+	}()
+	if !parseC.isCurrentConnection(parseID) || parseC.connectionClosed.Load() {
+		if parseTransport != nil {
+			parseC.closeTransportLocked(parseTransport)
+		}
+		return
+	}
 	if parseErr != nil {
-		parseC.transport = nil
+		parseC.setTransport(nil)
 		if isRealtimeUnsupportedError(parseErr) {
-			parseC.active = false
+			parseC.active.Store(false)
 			updateRealtimeState(parseC.state, func(parsePrev RealtimeState) RealtimeState {
 				parsePrev.Status = RealtimeUnsupported
 				parsePrev.Supported = false
@@ -430,31 +477,36 @@ func (parseC *realtimeConnectionController) open() {
 			})
 			return
 		}
-		parseC.recordError(parseErr)
-		parseC.scheduleReconnect(parseErr)
+		parseC.recordErrorLocked(parseErr)
+		parseC.scheduleReconnectLocked(parseErr)
 		return
 	}
-	parseC.transport = parseTransport
+	parseC.setTransport(parseTransport)
+	if parseC.state.Get().Open {
+		parseC.startHeartbeatLocked()
+	}
 }
 
-// send sends one text message through the active transport.
-func (parseC *realtimeConnectionController) send(parseMessage string) error {
-	if parseC == nil || !parseC.active || parseC.transport == nil {
+// sendLocked sends one text message through the active transport.
+func (parseC *realtimeConnectionController) sendLocked(parseMessage string) error {
+	parseTransport := parseC.getTransport()
+	if parseC == nil || !parseC.active.Load() || parseTransport == nil {
 		return errors.New("WebSocket is not open")
 	}
-	parseErr := parseC.transport.send(parseMessage)
-	if parseErr != nil {
-		parseC.recordError(parseErr)
+	parseID := int(parseC.connectionID.Load())
+	parseErr := parseC.sendTransportLocked(parseTransport, parseMessage)
+	if parseErr != nil && parseC.isCurrentConnection(parseID) {
+		parseC.recordErrorLocked(parseErr)
 	}
 	return parseErr
 }
 
-// handleOpen records an opened transport and starts heartbeat tracking.
-func (parseC *realtimeConnectionController) handleOpen(parseID int) {
-	if !parseC.isCurrentConnection(parseID) {
+// handleOpenLocked records an opened transport and starts heartbeat tracking.
+func (parseC *realtimeConnectionController) handleOpenLocked(parseID int) {
+	if !parseC.isCurrentConnection(parseID) || parseC.connectionClosed.Load() {
 		return
 	}
-	parseC.connectionClosed = false
+	parseC.connectionClosed.Store(false)
 	parseC.options.now = getRealtimeNow(parseC.options.now)
 	parseC.options.maxErrors = getPositiveOrDefault(parseC.options.maxErrors, defaultRealtimeMaxErrors)
 	parseC.options.maxMessages = getPositiveOrDefault(parseC.options.maxMessages, defaultRealtimeMaxMessages)
@@ -471,12 +523,12 @@ func (parseC *realtimeConnectionController) handleOpen(parseID int) {
 		parsePrev.Error = nil
 		return parsePrev
 	})
-	parseC.startHeartbeat()
+	parseC.startHeartbeatLocked()
 }
 
-// handleMessage appends one bounded message to state.
-func (parseC *realtimeConnectionController) handleMessage(parseID int, parseMessage RealtimeMessage) {
-	if !parseC.isCurrentConnection(parseID) {
+// handleMessageLocked appends one bounded message to state.
+func (parseC *realtimeConnectionController) handleMessageLocked(parseID int, parseMessage RealtimeMessage) {
+	if !parseC.isCurrentConnection(parseID) || parseC.connectionClosed.Load() {
 		return
 	}
 	if parseMessage.ReceivedAt.IsZero() {
@@ -489,22 +541,21 @@ func (parseC *realtimeConnectionController) handleMessage(parseID int, parseMess
 	})
 }
 
-// handleError appends one bounded transport error to state.
-func (parseC *realtimeConnectionController) handleError(parseID int, parseErr error) {
-	if !parseC.isCurrentConnection(parseID) || parseErr == nil {
+// handleErrorLocked appends one bounded transport error to state.
+func (parseC *realtimeConnectionController) handleErrorLocked(parseID int, parseErr error) {
+	if !parseC.isCurrentConnection(parseID) || parseC.connectionClosed.Load() || parseErr == nil {
 		return
 	}
-	parseC.recordError(parseErr)
+	parseC.recordErrorLocked(parseErr)
 }
 
-// handleClose records a closed transport and schedules a bounded reconnect.
-func (parseC *realtimeConnectionController) handleClose(parseID int) {
-	if !parseC.isCurrentConnection(parseID) || parseC.connectionClosed {
+// handleCloseLocked records a closed transport and schedules a bounded reconnect.
+func (parseC *realtimeConnectionController) handleCloseLocked(parseID int) {
+	if !parseC.isCurrentConnection(parseID) || !parseC.connectionClosed.CompareAndSwap(false, true) {
 		return
 	}
-	parseC.connectionClosed = true
-	parseTransport := parseC.transport
-	parseC.transport = nil
+	parseTransport := parseC.getTransport()
+	parseC.setTransport(nil)
 	parseC.stopHeartbeat()
 	if parseTransport != nil {
 		time.AfterFunc(0, func() {
@@ -512,29 +563,29 @@ func (parseC *realtimeConnectionController) handleClose(parseID int) {
 			_ = parseTransport.close()
 		})
 	}
-	if parseC.manualClosed || !parseC.active {
-		parseC.finishClosed(nil)
+	if parseC.manualClosed.Load() || !parseC.active.Load() {
+		parseC.finishClosedLocked(nil)
 		return
 	}
-	parseC.scheduleReconnect(nil)
+	parseC.scheduleReconnectLocked(nil)
 }
 
 // isCurrentConnection reports whether a callback belongs to the active transport.
 func (parseC *realtimeConnectionController) isCurrentConnection(parseID int) bool {
-	return parseC != nil && parseC.active && parseID == parseC.connectionID
+	return parseC != nil && parseC.active.Load() && parseID == int(parseC.connectionID.Load())
 }
 
-// scheduleReconnect waits for the next bounded reconnect attempt or closes permanently.
-func (parseC *realtimeConnectionController) scheduleReconnect(parseErr error) {
-	if parseC == nil || !parseC.active || parseC.manualClosed || !parseC.options.reconnect {
-		parseC.finishClosed(parseErr)
+// scheduleReconnectLocked waits for the next bounded reconnect attempt or closes permanently.
+func (parseC *realtimeConnectionController) scheduleReconnectLocked(parseErr error) {
+	if parseC == nil || !parseC.active.Load() || parseC.manualClosed.Load() || !parseC.options.reconnect {
+		parseC.finishClosedLocked(parseErr)
 		return
 	}
 	if parseC.options.maxReconnects <= 0 {
 		parseC.options.maxReconnects = defaultRealtimeMaxReconnects
 	}
 	if parseC.options.maxReconnects > 0 && parseC.currentReconnectAttempts() >= parseC.options.maxReconnects {
-		parseC.finishClosed(parseErr)
+		parseC.finishClosedLocked(parseErr)
 		return
 	}
 
@@ -555,13 +606,14 @@ func (parseC *realtimeConnectionController) scheduleReconnect(parseErr error) {
 		return parsePrev
 	})
 	parseC.stopReconnectTimer()
-	parseC.reconnectTimer = time.AfterFunc(parseDelay, func() {
+	parseID := int(parseC.connectionID.Load())
+	parseTimer := time.AfterFunc(parseDelay, func() {
 		defer gwcruntime.RecoverContainedPanic("fetch", parseC.api+" reconnect")
-		if parseC == nil || !parseC.active || parseC.manualClosed {
-			return
-		}
-		parseC.open()
+		parseC.handleReconnectTimer(parseID)
 	})
+	parseC.timerMu.Lock()
+	parseC.reconnectTimer = parseTimer
+	parseC.timerMu.Unlock()
 }
 
 // currentReconnectAttempts reads the current consecutive reconnect count.
@@ -570,12 +622,12 @@ func (parseC *realtimeConnectionController) currentReconnectAttempts() int {
 	return parseState.ReconnectAttempts
 }
 
-// finishClosed records a non-reconnecting closed state.
-func (parseC *realtimeConnectionController) finishClosed(parseErr error) {
+// finishClosedLocked records a non-reconnecting closed state.
+func (parseC *realtimeConnectionController) finishClosedLocked(parseErr error) {
 	if parseC == nil {
 		return
 	}
-	parseC.active = false
+	parseC.active.Store(false)
 	parseC.stopTimers()
 	parseNow := parseC.options.now()
 	updateRealtimeState(parseC.state, func(parsePrev RealtimeState) RealtimeState {
@@ -592,8 +644,8 @@ func (parseC *realtimeConnectionController) finishClosed(parseErr error) {
 	})
 }
 
-// recordError appends one bounded error to state.
-func (parseC *realtimeConnectionController) recordError(parseErr error) {
+// recordErrorLocked appends one bounded error to state.
+func (parseC *realtimeConnectionController) recordErrorLocked(parseErr error) {
 	if parseC == nil || parseErr == nil {
 		return
 	}
@@ -605,31 +657,41 @@ func (parseC *realtimeConnectionController) recordError(parseErr error) {
 	})
 }
 
-// startHeartbeat starts optional heartbeat send and timeout tracking.
-func (parseC *realtimeConnectionController) startHeartbeat() {
-	if parseC == nil || parseC.options.heartbeatInterval <= 0 {
+// startHeartbeatLocked starts optional heartbeat send and timeout tracking.
+func (parseC *realtimeConnectionController) startHeartbeatLocked() {
+	if parseC == nil || !parseC.active.Load() || parseC.connectionClosed.Load() || parseC.options.heartbeatInterval <= 0 {
 		return
 	}
 	parseC.stopHeartbeat()
-	parseC.heartbeatTimer = time.AfterFunc(parseC.options.heartbeatInterval, func() {
+	parseID := int(parseC.connectionID.Load())
+	parseTimer := time.AfterFunc(parseC.options.heartbeatInterval, func() {
 		defer gwcruntime.RecoverContainedPanic("fetch", parseC.api+" heartbeat")
-		parseC.handleHeartbeat()
+		parseC.handleHeartbeatTimer(parseID)
 	})
+	parseC.timerMu.Lock()
+	parseC.heartbeatTimer = parseTimer
+	parseC.timerMu.Unlock()
 }
 
-// handleHeartbeat records heartbeat state and reconnects timed-out connections.
-func (parseC *realtimeConnectionController) handleHeartbeat() {
-	if parseC == nil || !parseC.active || parseC.transport == nil {
+// handleHeartbeatLocked records heartbeat state and reconnects timed-out connections.
+func (parseC *realtimeConnectionController) handleHeartbeatLocked() {
+	parseTransport := parseC.getTransport()
+	if parseC == nil || !parseC.active.Load() || parseTransport == nil {
 		return
 	}
 	parseNow := parseC.options.now()
+	parseID := int(parseC.connectionID.Load())
 	if parseC.options.shouldSendHeartbeat {
 		parseMessage := parseC.options.heartbeatMessage
 		if parseMessage == "" {
 			parseMessage = "ping"
 		}
-		if parseErr := parseC.transport.send(parseMessage); parseErr != nil {
-			parseC.recordError(parseErr)
+		parseErr := parseC.sendTransportLocked(parseTransport, parseMessage)
+		if !parseC.isCurrentConnection(parseID) || parseC.connectionClosed.Load() {
+			return
+		}
+		if parseErr != nil {
+			parseC.recordErrorLocked(parseErr)
 		}
 	}
 
@@ -653,14 +715,13 @@ func (parseC *realtimeConnectionController) handleHeartbeat() {
 
 	if isTimedOut {
 		parseErr := fmt.Errorf("%s heartbeat timed out after %s", parseC.api, parseC.options.heartbeatTimeout)
-		parseC.recordError(parseErr)
-		if parseC.transport != nil {
-			_ = parseC.transport.close()
-		}
-		parseC.handleClose(parseC.connectionID)
+		parseC.recordErrorLocked(parseErr)
+		// handleClose owns transport teardown; closing here would race its
+		// asynchronous cleanup and issue a duplicate close callback.
+		parseC.handleCloseLocked(parseID)
 		return
 	}
-	parseC.startHeartbeat()
+	parseC.startHeartbeatLocked()
 }
 
 // stopTimers stops all pending reconnect and heartbeat timers.
@@ -671,18 +732,192 @@ func (parseC *realtimeConnectionController) stopTimers() {
 
 // stopReconnectTimer stops a pending reconnect timer.
 func (parseC *realtimeConnectionController) stopReconnectTimer() {
-	if parseC != nil && parseC.reconnectTimer != nil {
-		parseC.reconnectTimer.Stop()
+	if parseC != nil {
+		parseC.timerMu.Lock()
+		parseTimer := parseC.reconnectTimer
 		parseC.reconnectTimer = nil
+		parseC.timerMu.Unlock()
+		if parseTimer != nil {
+			parseTimer.Stop()
+		}
 	}
 }
 
 // stopHeartbeat stops a pending heartbeat timer.
 func (parseC *realtimeConnectionController) stopHeartbeat() {
-	if parseC != nil && parseC.heartbeatTimer != nil {
-		parseC.heartbeatTimer.Stop()
+	if parseC != nil {
+		parseC.timerMu.Lock()
+		parseTimer := parseC.heartbeatTimer
 		parseC.heartbeatTimer = nil
+		parseC.timerMu.Unlock()
+		if parseTimer != nil {
+			parseTimer.Stop()
+		}
 	}
+}
+
+// handleReconnectTimer rejects a timer already dispatched by an old generation.
+func (parseC *realtimeConnectionController) handleReconnectTimer(parseID int) {
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	if !parseC.isCurrentConnection(parseID) || parseC.manualClosed.Load() {
+		return
+	}
+	parseC.openLocked()
+}
+
+// handleHeartbeatTimer rejects a timer already dispatched by an old generation.
+func (parseC *realtimeConnectionController) handleHeartbeatTimer(parseID int) {
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	if !parseC.isCurrentConnection(parseID) || parseC.connectionClosed.Load() {
+		return
+	}
+	parseC.handleHeartbeatLocked()
+}
+
+// closeTransportLocked permits synchronous close callbacks without deadlocking.
+func (parseC *realtimeConnectionController) closeTransportLocked(parseTransport realtimeTransport) {
+	parseC.lifecycleMu.Unlock()
+	defer parseC.lifecycleMu.Lock()
+	_ = parseTransport.close()
+}
+
+// sendTransportLocked permits synchronous send callbacks without deadlocking.
+func (parseC *realtimeConnectionController) sendTransportLocked(parseTransport realtimeTransport, parseMessage string) error {
+	parseC.lifecycleMu.Unlock()
+	defer parseC.lifecycleMu.Lock()
+	return parseTransport.send(parseMessage)
+}
+
+// start serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) start() {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.startLocked()
+}
+
+// stop serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) stop(isManual bool) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.stopLocked(isManual)
+}
+
+// open serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) open() {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.openLocked()
+}
+
+// send serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) send(parseMessage string) error {
+	if parseC == nil {
+		return errors.New("WebSocket is not open")
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	return parseC.sendLocked(parseMessage)
+}
+
+// handleOpen serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) handleOpen(parseID int) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.handleOpenLocked(parseID)
+}
+
+// handleMessage serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) handleMessage(parseID int, parseMessage RealtimeMessage) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.handleMessageLocked(parseID, parseMessage)
+}
+
+// handleError serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) handleError(parseID int, parseErr error) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.handleErrorLocked(parseID, parseErr)
+}
+
+// handleClose serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) handleClose(parseID int) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.handleCloseLocked(parseID)
+}
+
+// scheduleReconnect serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) scheduleReconnect(parseErr error) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.scheduleReconnectLocked(parseErr)
+}
+
+// finishClosed serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) finishClosed(parseErr error) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.finishClosedLocked(parseErr)
+}
+
+// recordError serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) recordError(parseErr error) {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.recordErrorLocked(parseErr)
+}
+
+// startHeartbeat serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) startHeartbeat() {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.startHeartbeatLocked()
+}
+
+// handleHeartbeat serializes lifecycle transitions with transport and timer callbacks.
+func (parseC *realtimeConnectionController) handleHeartbeat() {
+	if parseC == nil {
+		return
+	}
+	parseC.lifecycleMu.Lock()
+	defer parseC.lifecycleMu.Unlock()
+	parseC.handleHeartbeatLocked()
 }
 
 // resolveWebSocketOptions normalizes caller WebSocket options.

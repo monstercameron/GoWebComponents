@@ -1,0 +1,34 @@
+:root{--tester-bg:#f2f0e9;--tester-panel:#fffdf7;--tester-ink:#182a2c;--tester-muted:#566769;--tester-line:#cbd0c6;--tester-teal:#076c65;--tester-orange:#c4671f}
+body{margin:0;background:var(--tester-bg);color:var(--tester-ink);font-family:"Segoe UI",sans-serif}
+#app:has(.tester-shell){padding:0}
+.tester-shell{min-height:100vh;background:var(--tester-bg);font-size:14px}
+.tester-shell *{box-sizing:border-box}
+.tester-topbar{display:flex;justify-content:space-between;gap:18px;padding:18px 24px;border-top:5px solid var(--tester-teal);border-bottom:1px solid var(--tester-line);background:var(--tester-panel)}
+.tester-topbar h1{margin:4px 0;font-family:Bahnschrift,"Segoe UI",sans-serif;font-size:26px;font-weight:600;letter-spacing:-.025em}
+.tester-topbar p{margin:0;color:var(--tester-muted)}
+.tester-kicker{color:var(--tester-teal);font:700 11px Consolas,monospace;letter-spacing:.13em}
+.tester-links{display:flex;gap:16px;align-items:center}.tester-links a{color:var(--tester-teal);font-weight:600}
+.tester-layout{display:grid;grid-template-columns:190px minmax(0,1fr);max-width:1280px;margin:auto}
+.tester-sidebar{padding:20px 16px;border-right:1px solid var(--tester-line)}
+.tester-sidebar h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em}.tester-sidebar p{font-size:12px;color:var(--tester-muted);line-height:1.55}
+.tester-sidebar nav{display:grid;gap:5px;margin:18px 0}.tester-sidebar nav button{width:100%;text-align:left;border:0;border-left:2px solid var(--tester-line);background:transparent;color:var(--tester-teal);font-size:12px;padding:9px 7px}
+.tester-main{min-width:0;padding:20px 22px}
+.tester-context-target{--custom-contextmenu:api-tester;--custom-contextmenu-data:tester-surface;padding:14px;border:1px dashed var(--tester-teal);background:#e5eee8;color:var(--tester-teal);font:700 12px Consolas,monospace;line-height:1.5}
+.tester-context-target p{margin:5px 0 0;font-weight:400}
+.tester-editor{display:grid;gap:6px;margin:14px 0}
+.tester-shell input,.tester-shell select{width:100%;padding:8px 10px;border:1px solid #829592;border-radius:3px;background:#fff;color:var(--tester-ink);font:inherit}
+.tester-shell label{font-size:12px;font-weight:600}
+.tester-warning{padding:10px 12px;border-left:3px solid var(--tester-orange);background:#fff3dc;color:#67451d;font-size:12px;line-height:1.5}
+.tester-panel,.tester-report{scroll-margin-top:12px;margin:16px 0;padding:15px;border:1px solid var(--tester-line);background:var(--tester-panel)}
+.tester-panel h2,.tester-report h2{margin:0 0 12px;font:600 15px Bahnschrift,"Segoe UI",sans-serif}
+.tester-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.tester-case{padding:10px;border-top:2px solid #cadad4;background:#f4f7f1;min-width:0}
+.tester-shell button{margin:0;padding:8px 10px;border:1px solid var(--tester-teal);border-radius:3px;background:#e2efe7;color:#075c56;font:600 12px "Segoe UI",sans-serif;cursor:pointer}
+.tester-case>button:first-child{width:100%;text-align:left}.tester-shell button:hover:not(:disabled){background:#cfe3d7}
+.tester-shell button:disabled{opacity:.55;cursor:default}.tester-shell .tester-cancel{margin-top:5px;background:transparent;border-color:#829592;font-weight:400}
+.tester-shell :is(button,a,input,select,[tabindex]):focus-visible{outline:3px solid var(--tester-orange);outline-offset:2px}
+.tester-case__hint{margin:8px 0 0;font:11px/1.5 Consolas,monospace;color:var(--tester-muted);overflow-wrap:anywhere;white-space:pre-wrap}
+.tester-observation{display:grid;gap:7px}.tester-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.tester-report>p{font-size:12px;line-height:1.45;overflow-wrap:anywhere}.tester-report pre{max-height:260px;overflow:auto;padding:12px;background:#182a2c;color:#e0efe5;font:11px/1.5 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.tester-footer{padding:14px 24px;border-top:1px solid var(--tester-line);color:var(--tester-muted);font-size:11px}
+@media(max-width:760px){.tester-layout{grid-template-columns:minmax(0,1fr)}.tester-sidebar{padding:12px 16px;border-right:0;border-bottom:1px solid var(--tester-line)}.tester-sidebar nav{display:flex;flex-wrap:wrap;margin:8px 0}.tester-sidebar nav button{width:auto}.tester-sidebar p{margin:5px 0}.tester-main{padding:16px}.tester-topbar{padding:15px 16px}.tester-topbar h1{font-size:23px}}

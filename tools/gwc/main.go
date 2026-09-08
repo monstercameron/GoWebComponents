@@ -43,6 +43,7 @@ type buildConfig struct {
 	rootPath   string
 	outputPath string
 	profile    string
+	target     string
 	json       bool
 	resolution map[string]string
 }
@@ -65,6 +66,7 @@ type buildProfile struct {
 type buildSummary struct {
 	OK          bool              `json:"ok"`
 	Profile     buildProfile      `json:"profile"`
+	Target      string            `json:"target,omitempty"`
 	AppPath     string            `json:"appPath"`
 	ProjectRoot string            `json:"projectRoot"`
 	PackageDir  string            `json:"packageDir"`
@@ -249,6 +251,8 @@ type testConfig struct {
 	appPath    string
 	rootPath   string
 	lanes      []string
+	target     string
+	features   string
 	json       bool
 	resolution map[string]string
 }
@@ -501,6 +505,7 @@ func listLauncherCommandRegistry() []launcherCommandMetadata {
 		{Name: "dashboard", Summary: "Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard.", JSON: true},
 		{Name: "deadcode", Summary: "Report exported symbols with no static in-repo dependents.", JSON: true},
 		{Name: "deploy", Summary: "Package validated release artifacts through explicit deployment adapters.", JSON: true, Mutating: true},
+		{Name: "desktop", Summary: "Initialize, inspect, build, run, or package the opt-in contributor-linked Wails desktop target.", JSON: true, Mutating: true, LongRunning: true},
 		{Name: "dev", Summary: "Run the native gwc dev orchestration path with integrated livereload runtime.", JSON: true, Mutating: true, LongRunning: true},
 		{Name: "deps", Aliases: []string{"update"}, Summary: "Inspect Go module dependencies and apply guarded dependency updates.", JSON: true, Mutating: true},
 		{Name: "delete-atom", Summary: "Delete a live agent bridge atom when safe or explicitly forced.", JSON: true, Mutating: true},
@@ -1018,6 +1023,8 @@ func (parseL launcher) run(parseArgs []string) error {
 
 func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) error {
 	switch parseCommand {
+	case "desktop":
+		return parseL.runDesktopCommand(parseArgs)
 	case "test":
 		return runTestCommand(parseL, parseArgs)
 	case "examples":
@@ -1296,6 +1303,7 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
+	fmt.Println("  desktop    Initialize, inspect, build, run, or package the opt-in contributor-linked Wails desktop target")
 	fmt.Println("  check      Run agent-shaped diagnostics across tests, source conventions, and GWC hook-context safety (--fix applies gofmt first)")
 	fmt.Println("  supplychain Audit the supply-chain surface: prove zero-npm, count Go deps, verify checksums, enforce a dep budget")
 	fmt.Println("  llms       Generate llms.txt + llms-full.txt from the reference manual (AI-native docs); -check for a CI staleness gate")

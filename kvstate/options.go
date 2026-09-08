@@ -69,6 +69,9 @@ type Options struct {
 	// Backend overrides the persistence layer entirely. When nil, the shared
 	// SQLite engine is used.
 	Backend PersistenceBackend
+	// ExternalInvalidation disables BroadcastChannel for this binding. A host
+	// adapter must call Invalidate(Name) after durable commits instead.
+	ExternalInvalidation bool
 }
 
 func (parseO Options) withDefaults() Options {

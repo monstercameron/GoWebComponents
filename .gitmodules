@@ -1,3 +1,6 @@
 [submodule "third_party/GoGRPCBridge"]
 	path = third_party/GoGRPCBridge
 	url = https://github.com/monstercameron/GoGRPCBridge.git
+[submodule "third_party/wails"]
+	path = third_party/wails
+	url = https://github.com/wailsapp/wails.git

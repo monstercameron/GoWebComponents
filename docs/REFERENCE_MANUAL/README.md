@@ -56,6 +56,7 @@ Jump directly to the chapter that matches the feature:
 - browser APIs, workers, channels, interop: [10 Browser Interop And Workers](10-browser-interop-and-workers.md)
 - forms, accessibility, locale workflows: [11 Forms Accessibility And I18n](11-forms-accessibility-and-i18n.md)
 - dense package and symbol lookup: [16 API Browser](16-api-browser.md)
+- experimental Windows desktop apps: [Windows Desktop Integration](16-windows-desktop.md)
 
 ### Team Lead Or Architect
 

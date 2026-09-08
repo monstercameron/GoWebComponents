@@ -11,6 +11,18 @@ This directory contains the framework examples and shared static assets.
 
 ## Serve Examples
 
+### Experimental desktop example
+
+The [Wails counter](desktop/wails-counter/README.md) packages GWC's Go/Wasm UI
+in a native Windows WebView with Go services, progress events, and a file-picker
+control. It is an isolated Go module using the pinned `third_party/wails`
+submodule; follow its README for building and native smoke verification.
+It does not run through the web catalog server. See the
+[desktop integration plan](../docs/plans/v6-wails-desktop.md) for the remaining
+adapter, tooling, persistence, and platform milestones.
+
+### Web catalog
+
 From the repo root:
 
 ```powershell

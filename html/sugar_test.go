@@ -5,6 +5,7 @@ import (
 	"reflect"
 	goRuntime "runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -611,34 +612,34 @@ func TestTemporalWrappers(parseT *testing.T) {
 		parseT.Fatal("expected Throttle(<=0, ...) to return original callback")
 	}
 
-	parseDebouncedCount := 0
-	parseDebounced, parseOk := Debounce(20*time.Millisecond, func() { parseDebouncedCount++ }).(func(ui.Event))
+	var parseDebouncedCount atomic.Int32
+	parseDebounced, parseOk := Debounce(20*time.Millisecond, func() { parseDebouncedCount.Add(1) }).(func(ui.Event))
 	if !parseOk {
 		parseT.Fatal("expected Debounce to return a ui.Event wrapper")
 	}
 	parseDebounced(ui.Event{})
 	parseDebounced(ui.Event{})
 	parseDebounced(ui.Event{})
-	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseDebouncedCount == 1 })
-	if parseDebouncedCount != 1 {
-		parseT.Fatalf("expected debounced callback once, got %d", parseDebouncedCount)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseDebouncedCount.Load() == 1 })
+	if parseDebouncedCount.Load() != 1 {
+		parseT.Fatalf("expected debounced callback once, got %d", parseDebouncedCount.Load())
 	}
 
-	parseThrottledCount := 0
-	parseThrottled, parseOk := Throttle(25*time.Millisecond, func(parseEvent ui.KeyboardEvent) { parseThrottledCount += len(parseEvent.GetKey()) + 1 }).(func(ui.Event))
+	var parseThrottledCount atomic.Int32
+	parseThrottled, parseOk := Throttle(25*time.Millisecond, func(parseEvent ui.KeyboardEvent) { parseThrottledCount.Add(int32(len(parseEvent.GetKey()) + 1)) }).(func(ui.Event))
 	if !parseOk {
 		parseT.Fatal("expected Throttle to return a ui.Event wrapper")
 	}
 	parseThrottled(ui.Event{})
 	parseThrottled(ui.Event{})
-	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount >= 1 })
-	if parseThrottledCount != 1 {
-		parseT.Fatalf("expected immediate throttled callback, got %d", parseThrottledCount)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount.Load() >= 1 })
+	if parseThrottledCount.Load() != 1 {
+		parseT.Fatalf("expected immediate throttled callback, got %d", parseThrottledCount.Load())
 	}
 	parseThrottled(ui.Event{})
-	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount >= 2 })
-	if parseThrottledCount != 2 {
-		parseT.Fatalf("expected trailing throttled callback, got %d", parseThrottledCount)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount.Load() >= 2 })
+	if parseThrottledCount.Load() != 2 {
+		parseT.Fatalf("expected trailing throttled callback, got %d", parseThrottledCount.Load())
 	}
 }
 

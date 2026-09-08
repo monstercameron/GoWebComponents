@@ -531,6 +531,9 @@ func (parseHub *AgentHub) writeAPIJSON(parseW http.ResponseWriter, parseValue an
 // serveSession runs the read-loop for one accepted WebSocket connection.
 func (parseHub *AgentHub) serveSession(parseConn *websocket.Conn) {
 	defer parseConn.Close()
+	parsePongWait := agentPongWait
+	parsePingPeriod := agentPingPeriod
+	parseWriteWait := agentWriteWait
 
 	// Bound per-frame allocation: gorilla/websocket allows unlimited frame sizes
 	// when no read limit is set, so a compromised/buggy loopback peer holding the
@@ -549,11 +552,11 @@ func (parseHub *AgentHub) serveSession(parseConn *websocket.Conn) {
 	}
 	// Arm the keepalive read deadline for the rest of the session; each inbound
 	// frame and each pong pushes it forward (see runFrameLoop + the pong handler).
-	if parseSetErr := parseConn.SetReadDeadline(time.Now().Add(agentPongWait)); parseSetErr != nil {
+	if parseSetErr := parseConn.SetReadDeadline(time.Now().Add(parsePongWait)); parseSetErr != nil {
 		return
 	}
 	parseConn.SetPongHandler(func(string) error {
-		return parseConn.SetReadDeadline(time.Now().Add(agentPongWait))
+		return parseConn.SetReadDeadline(time.Now().Add(parsePongWait))
 	})
 
 	parseEnvelope, parseParseErr := agentbridge.ParseEnvelope(string(parseHelloRaw))
@@ -582,6 +585,9 @@ func (parseHub *AgentHub) serveSession(parseConn *websocket.Conn) {
 		recording:   newRecordingRing(recordingRingSize),
 		pendingAcks: make(map[uint64]chan agentbridge.Envelope),
 		outSeq:      &atomic.Uint64{},
+		pongWait:    parsePongWait,
+		pingPeriod:  parsePingPeriod,
+		writeWait:   parseWriteWait,
 	}
 
 	// Link to predecessor if one is in reloading/crashed state.
@@ -612,14 +618,14 @@ func (parseHub *AgentHub) runFrameLoop(parseSess *Session) {
 	parseDone := make(chan struct{})
 	defer close(parseDone)
 	go func() {
-		parseTicker := time.NewTicker(agentPingPeriod)
+		parseTicker := time.NewTicker(parseSess.pingPeriod)
 		defer parseTicker.Stop()
 		for {
 			select {
 			case <-parseDone:
 				return
 			case <-parseTicker.C:
-				if parseErr := parseSess.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(agentWriteWait)); parseErr != nil {
+				if parseErr := parseSess.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(parseSess.writeWait)); parseErr != nil {
 					return
 				}
 			}
@@ -646,7 +652,7 @@ func (parseHub *AgentHub) runFrameLoop(parseSess *Session) {
 		}
 
 		// A live frame arrived: push the keepalive deadline forward.
-		_ = parseSess.conn.SetReadDeadline(time.Now().Add(agentPongWait))
+		_ = parseSess.conn.SetReadDeadline(time.Now().Add(parseSess.pongWait))
 
 		parseEnv, parseParseErr := agentbridge.ParseEnvelope(string(parseRaw))
 		if parseParseErr != nil {

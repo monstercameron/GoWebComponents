@@ -41,12 +41,19 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 	parseErrState := ui.UseState[error](nil)
 	parseEngineRef := ui.UseRef[*engine](nil)
 	parseVersionRef := ui.UseRef[int64](0)
+	parseContextRef := ui.UseRef[context.Context](nil)
 
 	ui.UseEffect(func() func() {
-		var parseCancelWatch func()
+		parseLifetime := newBindingLifetime(context.Background())
+		parseContextRef.Set(parseLifetime.parseContext)
+		parseVersionRef.Set(0)
+		parseLoadingState.Set(true)
 		go func() {
-			parseCtx := context.Background()
+			parseCtx := parseLifetime.parseContext
 			parseEngine, parseErr := acquireEngine(parseCtx, parseOpts)
+			if parseCtx.Err() != nil {
+				return
+			}
 			if parseErr != nil {
 				parseErrState.Set(parseErr)
 				parseLoadingState.Set(false)
@@ -56,8 +63,14 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 
 			if parseOpts.Hydrate == HydrateEager {
 				if parseRec, parseFound, parseLoadErr := parseEngine.backend.Load(parseCtx, parseKey); parseLoadErr != nil {
+					if parseCtx.Err() != nil {
+						return
+					}
 					parseErrState.Set(parseLoadErr)
 				} else if parseFound {
+					if parseCtx.Err() != nil {
+						return
+					}
 					var parseValue T
 					if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
 						parseVersionRef.Set(parseRec.Version)
@@ -67,20 +80,36 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 						// silently keeping the initial value with Err()==nil.
 						parseErrState.Set(parseDecodeErr)
 					}
+				} else {
+					// A deleted desktop key still carries a version for safe recreation.
+					if parseCtx.Err() != nil {
+						return
+					}
+					parseVersionRef.Set(parseRec.Version)
 				}
+			}
+			if parseCtx.Err() != nil {
+				return
 			}
 			parseLoadingState.Set(false)
 
-			parseCancelWatch = subscribeCrossTab(parseOpts.Name, parseKey, func() {
-				parseWatchCtx := context.Background()
+			parseLifetime.setStop(subscribeBinding(parseOpts, parseKey, func() {
+				parseWatchCtx := parseCtx
 				parseRec, parseFound, parseLoadErr := parseEngine.backend.Load(parseWatchCtx, parseKey)
-				if parseLoadErr != nil || !parseFound {
+				if parseWatchCtx.Err() != nil {
 					return
 				}
-				parseLocal := Record{Key: parseKey, Version: parseVersionRef.Get()}
-				parseWinner := parseOpts.Conflict.Resolve(parseLocal, parseRec)
-				if parseWinner.Version < parseVersionRef.Get() {
-					return // local wins; ignore the incoming write
+				if parseLoadErr != nil {
+					parseErrState.Set(parseLoadErr)
+					return
+				}
+				if !shouldApplyBindingRecord(parseVersionRef.Get(), parseRec, parseOpts.Conflict) {
+					return
+				}
+				if !parseFound {
+					parseVersionRef.Set(parseRec.Version)
+					parseValState.Set(parseInitial)
+					return
 				}
 				var parseValue T
 				if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
@@ -89,12 +118,11 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 				} else {
 					parseErrState.Set(parseDecodeErr)
 				}
-			})
+			}))
 		}()
 		return func() {
-			if parseCancelWatch != nil {
-				parseCancelWatch()
-			}
+			parseLifetime.close()
+			parseEngineRef.Set(nil)
 			_ = parseOpts.Strategy.Close(context.Background())
 		}
 	}, parseKey)
@@ -105,15 +133,22 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 		if parseEngine == nil {
 			return // engine not ready yet; value lives in memory until it is
 		}
+		parseCtx := parseContextRef.Get()
+		if parseCtx == nil || parseCtx.Err() != nil {
+			return
+		}
+		// Claim versions in input order rather than racing async save goroutines.
+		parseNextVersion := parseVersionRef.Get() + 1
+		parseVersionRef.Set(parseNextVersion)
 		go func() {
-			parseCtx := context.Background()
 			parseData, parseEncErr := parseOpts.Codec.Encode(parseValue)
+			if parseCtx.Err() != nil {
+				return
+			}
 			if parseEncErr != nil {
 				parseErrState.Set(parseEncErr)
 				return
 			}
-			parseNextVersion := parseVersionRef.Get() + 1
-			parseVersionRef.Set(parseNextVersion)
 			parseRec := Record{
 				Key:       parseKey,
 				Value:     parseData,
@@ -121,11 +156,16 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 				UpdatedAt: time.Now().UnixMilli(),
 			}
 			if parseSaveErr := parseEngine.backend.Save(parseCtx, parseRec); parseSaveErr != nil {
+				if parseCtx.Err() != nil {
+					return
+				}
 				parseErrState.Set(parseSaveErr)
 				return
 			}
 			parseOpts.Strategy.OnWrite(parseCtx, parseKey, parseEngine.flush)
-			broadcastCrossTab(parseOpts.Name, parseKey, parseNextVersion)
+			if !parseOpts.ExternalInvalidation {
+				broadcastCrossTab(parseOpts.Name, parseKey, parseNextVersion)
+			}
 		}()
 	}
 

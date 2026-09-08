@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -359,6 +360,12 @@ func TestLogsRecordingAndCrashReportAPI(parseT *testing.T) {
 	defer parseServer.Close()
 
 	parseConn, parseSessID := dialAgentSession(parseT, parseServer, parseHub, "app-observe", "build-observe", []string{"bridge.snapshot", "bridge.query"})
+	var parseWriteMu sync.Mutex
+	parseWrite := func(parsePayload []byte) error {
+		parseWriteMu.Lock()
+		defer parseWriteMu.Unlock()
+		return parseConn.WriteMessage(websocket.TextMessage, parsePayload)
+	}
 
 	go func() {
 		for {
@@ -376,7 +383,7 @@ func TestLogsRecordingAndCrashReportAPI(parseT *testing.T) {
 			}
 			parseAck := agentbridge.BuildAckEnvelope(parseEnv.Seq+200, parseSessID, parseEnv.Seq, parseEnv.Seq, parsePayload)
 			parseAckJSON, _ := agentbridge.FormatEnvelopeJSON(parseAck)
-			_ = parseConn.WriteMessage(websocket.TextMessage, []byte(parseAckJSON))
+			_ = parseWrite([]byte(parseAckJSON))
 		}
 	}()
 
@@ -391,7 +398,7 @@ func TestLogsRecordingAndCrashReportAPI(parseT *testing.T) {
 
 	parseDiag := agentbridge.BuildEventEnvelope(99, parseSessID, "runtime.diagnostic", json.RawMessage(`{"message":"panic contained","token":"diag-secret","nested":{"authorization":"Bearer abc","safe":true}}`))
 	parseDiagJSON, _ := agentbridge.FormatEnvelopeJSON(parseDiag)
-	if parseErr := parseConn.WriteMessage(websocket.TextMessage, []byte(parseDiagJSON)); parseErr != nil {
+	if parseErr := parseWrite([]byte(parseDiagJSON)); parseErr != nil {
 		parseT.Fatalf("write diagnostic event: %v", parseErr)
 	}
 

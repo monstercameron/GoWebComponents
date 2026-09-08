@@ -119,6 +119,8 @@ func (parseL launcher) runBuild(parseArgs []string) error {
 	parseOut := parseFs.String("out", "", "WASM output path")
 	parseOutput := parseFs.String("output", "", "(deprecated) alias for -out; use -out")
 	parseProfile := parseFs.String("profile", "", "Build profile: development, debug, ci, benchmark, release, or tinygo")
+	parseTarget := parseFs.String("target", "web", "Build target: web or desktop")
+	parseFeatures := parseFs.String("features", "all", "Native feature ceiling for desktop target")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
 	parseNoDoctor := parseFs.Bool("no-doctor", false, "Do not auto-run gwc doctor diagnosis when the build fails")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
@@ -127,12 +129,62 @@ func (parseL launcher) runBuild(parseArgs []string) error {
 		}
 		return parseErr
 	}
+	parseTargetValue, parseTargetErr := normalizeBuildTarget(*parseTarget)
+	if parseTargetErr != nil {
+		return parseTargetErr
+	}
+	if parseTargetValue == "desktop" {
+		if firstNonEmpty(*parseApp, *parseMainPath, *parseOut, *parseOutput, *parseProfile) != "" {
+			return errors.New("desktop build uses the canonical isolated module; -app, -main, -out, -output and -profile are unsupported; use -root")
+		}
+		parseFeaturesValue, parseFeaturesErr := normalizeDesktopFeatures(*parseFeatures)
+		if parseFeaturesErr != nil {
+			return parseFeaturesErr
+		}
+		parseDesktopArgs := []string{"build"}
+		if strings.TrimSpace(*parseRoot) != "" {
+			parseDesktopArgs = append(parseDesktopArgs, "-root", *parseRoot)
+		}
+		parseDesktopArgs = append(parseDesktopArgs, "-features", parseFeaturesValue)
+		if *parseJsonOutput {
+			parseDesktopArgs = append(parseDesktopArgs, "-json")
+		}
+		return parseL.runDesktopCommand(parseDesktopArgs)
+	}
+	if strings.TrimSpace(strings.ToLower(*parseFeatures)) != "all" {
+		return errors.New("-features is only valid with -target desktop")
+	}
+	parseDesktopRootInput := strings.TrimSpace(*parseRoot)
+	if parseDesktopRootInput == "" {
+		parseDesktopRootInput, _ = os.Getwd()
+	}
+	if parseDesktopRootInput != "" {
+		parseDesktopRoot, parseRootErr := filepath.Abs(parseDesktopRootInput)
+		if parseRootErr != nil {
+			return parseRootErr
+		}
+		if parseMetadata, parseFound, parseMetadataErr := loadScaffoldMetadata(parseDesktopRoot); parseMetadataErr != nil {
+			return parseMetadataErr
+		} else if parseFound && parseMetadata.Desktop != nil {
+			if firstNonEmpty(*parseApp, *parseMainPath, *parseOut, *parseOutput, *parseProfile) != "" {
+				return errors.New("desktop web build uses the canonical frontend and assets/web bundle; -app, -main, -out, -output and -profile are unsupported; use -root")
+			}
+			parseSummary, parseWebErr := parseL.desktopWebBuild(desktopConfig{action: "build", root: parseDesktopRoot, features: "all"})
+			if *parseJsonOutput {
+				_ = json.NewEncoder(os.Stdout).Encode(parseSummary)
+			} else if parseWebErr == nil {
+				fmt.Printf("GWC desktop web build: %s\n", filepath.Join(parseDesktopRoot, parseSummary.Artifact))
+			}
+			return parseWebErr
+		}
+	}
 
 	parseConfig, parseErr2 := resolveBuildConfig(buildConfig{
 		appPath:    firstNonEmpty(*parseApp, *parseMainPath),
 		rootPath:   *parseRoot,
 		outputPath: firstNonEmpty(*parseOut, *parseOutput),
 		profile:    *parseProfile,
+		target:     *parseTarget,
 		json:       *parseJsonOutput,
 	})
 	if parseErr2 != nil {
@@ -141,7 +193,6 @@ func (parseL launcher) runBuild(parseArgs []string) error {
 		}
 		return parseErr2
 	}
-
 	parseSummary, parseErr2 := buildExecuteBuild(parseConfig)
 	if parseErr2 != nil {
 		if !*parseNoDoctor && !parseConfig.json {
@@ -482,6 +533,10 @@ func executeBuild(parseConfig buildConfig) (buildSummary, error) {
 	if parseErr != nil {
 		return buildSummary{}, parseErr
 	}
+	parseProfile, parseErr = applyBuildTarget(parseProfile, parseConfig.target)
+	if parseErr != nil {
+		return buildSummary{}, parseErr
+	}
 	parsePackageDir := parseConfig.appPath
 	if parseInfo, parseErr2 := os.Stat(parseConfig.appPath); parseErr2 == nil && !parseInfo.IsDir() {
 		parsePackageDir = filepath.Dir(parseConfig.appPath)
@@ -515,6 +570,7 @@ func executeBuild(parseConfig buildConfig) (buildSummary, error) {
 	return buildSummary{
 		OK:           true,
 		Profile:      parseProfile,
+		Target:       firstNonEmpty(parseConfig.target, "web"),
 		AppPath:      parseConfig.appPath,
 		ProjectRoot:  parseConfig.rootPath,
 		PackageDir:   parsePackageDir,
@@ -543,9 +599,9 @@ func buildCommandForProfile(parseProfile buildProfile, parseOutputPath string) (
 		if strings.TrimSpace(parseProfile.BuildVCS) != "" {
 			buildArgs = append(buildArgs, "-buildvcs="+parseProfile.BuildVCS)
 		}
-		if strings.TrimSpace(parseProfile.Tags) != "" {
-			buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
-		}
+		// An explicit empty value also overrides inherited or persisted GOFLAGS tags.
+		// Otherwise a nominal web profile could compile privileged desktop sources.
+		buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
 		buildArgs = append(buildArgs, ".")
 		return "go", buildArgs, buildWasmGoEnv(), nil
 	case "tinygo":
@@ -557,9 +613,7 @@ func buildCommandForProfile(parseProfile buildProfile, parseOutputPath string) (
 		if strings.TrimSpace(parseProfile.Opt) != "" {
 			buildArgs = append(buildArgs, "-opt="+strings.TrimSpace(parseProfile.Opt))
 		}
-		if strings.TrimSpace(parseProfile.Tags) != "" {
-			buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
-		}
+		buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
 		buildArgs = append(buildArgs, ".")
 		return "tinygo", buildArgs, os.Environ(), nil
 	default:

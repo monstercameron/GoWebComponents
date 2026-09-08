@@ -195,6 +195,9 @@ func AcquireRenderHostAttrs(parseCapacity int) []HostAttr {
 }
 
 func GetCurrentFiber() *Fiber {
+	if parseFiber := getSSRHookFiber(); parseFiber != nil {
+		return parseFiber
+	}
 	return currentFiber
 }
 
@@ -269,7 +272,7 @@ func setCurrentFiberOwned(parseFiber *Fiber, parseOwnerID uint64) {
 // registry and would otherwise all land in whichever runtime happened to be
 // global.
 func ResolveRuntime() *Runtime {
-	return runtimeForFiber(currentFiber)
+	return runtimeForFiber(GetCurrentFiber())
 }
 
 func runtimeForFiber(parseFiber *Fiber) *Runtime {
@@ -314,6 +317,9 @@ func requireCurrentHookFiber(parseName string) *Fiber {
 // owner); a goroutine spawned mid-render after verification is caught by the
 // periodic re-check instead of on its first call.
 func isCurrentHookGoroutineOwner() bool {
+	if getSSRHookFiber() != nil {
+		return true
+	}
 	if !hookThreadingGuardEnabled || currentFiberOwnerGoroutineID == 0 {
 		return true
 	}

@@ -497,7 +497,6 @@ func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any, 
 	return nil
 }
 
-// resolveComponentElement is a core package helper.
 // withSSRHookFiber runs render with a transient fiber installed as the current
 // hook fiber, so a component may call hooks during server rendering. The fiber
 // carries the inherited context values (for GoUseContextValue) and a fresh hooks
@@ -519,14 +518,12 @@ func withSSRHookFiber(parseType any, parseProps map[string]any, parseCtx map[int
 		contextValues: parseCtx,
 		ownerRuntime:  ssrAtomScopeFromContext(parseCtx),
 	}
-	parsePrev := GetCurrentFiber()
-	parsePrevOwner := currentFiberOwnerGoroutineID
 	parseOwner, _ := parseCtx[ssrHookOwnerContextKey].(uint64)
-	setCurrentFiberOwned(parseFiber, parseOwner)
-	defer setCurrentFiberOwned(parsePrev, parsePrevOwner)
+	defer setSSRHookFiber(parseFiber, parseOwner)()
 	return parseRender()
 }
 
+// resolveComponentElement evaluates a component with the inherited SSR hook context.
 func resolveComponentElement(parseElement *Element, parseCtx map[int64]any) (*Element, error) {
 	if parseComponent, parseOk := parseElement.Type.(*ComponentType); parseOk {
 		return withSSRHookFiber(parseElement.Type, parseElement.Props, parseCtx, func() *Element {

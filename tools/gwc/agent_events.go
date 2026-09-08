@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -464,7 +463,7 @@ func runDevAgent(parseL launcher, parseConfig devConfig, parseForwarded []string
 
 	parseCmd := exec.Command("go", parseForwarded...)
 	parseCmd.Dir = parseL.repoRoot
-	parseCmd.Env = os.Environ()
+	parseCmd.Env = buildDevChildEnv(parseConfig)
 	parseCmd.Stdin = os.Stdin
 	parseStdout, parseErr := parseCmd.StdoutPipe()
 	if parseErr != nil {
@@ -587,7 +586,7 @@ func streamAgentDevWebSocket(parseCtx context.Context, parseStream *agentEventSt
 			return
 		default:
 		}
-		parseConn, _, parseErr := websocket.DefaultDialer.Dial(parseWebSocketURL, nil)
+		parseConn, _, parseErr := websocket.DefaultDialer.DialContext(parseCtx, parseWebSocketURL, nil)
 		if parseErr != nil {
 			if !parseConnected {
 				_ = parseStream.emit(agentEvent{
@@ -613,20 +612,14 @@ func streamAgentDevWebSocket(parseCtx context.Context, parseStream *agentEventSt
 				"url": parseWebSocketURL,
 			},
 		})
+		// A Gorilla read timeout permanently poisons the connection. Close on cancellation
+		// instead, allowing idle development sessions to remain connected indefinitely.
+		parseStopClose := context.AfterFunc(parseCtx, func() { _ = parseConn.Close() })
 		for {
-			_ = parseConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 			var parseMessage agentLiveReloadMessage
 			parseReadErr := parseConn.ReadJSON(&parseMessage)
 			if parseReadErr != nil {
-				if parseNetErr, parseOk := parseReadErr.(net.Error); parseOk && parseNetErr.Timeout() {
-					select {
-					case <-parseCtx.Done():
-						_ = parseConn.Close()
-						return
-					default:
-						continue
-					}
-				}
+				parseStopClose()
 				_ = parseConn.Close()
 				break
 			}
@@ -645,6 +638,9 @@ func streamAgentDevWebSocket(parseCtx context.Context, parseStream *agentEventSt
 				})
 			}
 			parseHadFailure = parseFailed
+		}
+		if !sleepAgentContext(parseCtx, 300*time.Millisecond) {
+			return
 		}
 	}
 }

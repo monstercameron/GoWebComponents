@@ -2,7 +2,9 @@ package projection_test
 
 import (
 	"fmt"
+	"math"
 	"runtime"
+	"runtime/metrics"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v5/projection"
@@ -166,39 +168,107 @@ func TestM12GCPauseIsMeasuredButNativeOnly(parseT *testing.T) {
 	parseProjection := buildResidentProjection(parseT, projection.DefaultResident, m12PayloadBytes)
 
 	var parseBefore, parseAfter runtime.MemStats
+	parseSamples := []metrics.Sample{{Name: "/sched/pauses/total/gc:seconds"}}
+	metrics.Read(parseSamples)
+	if parseSamples[0].Value.Kind() != metrics.KindFloat64Histogram {
+		parseT.Fatal("runtime GC pause histogram is unavailable")
+	}
+	parseCountsBefore := append([]uint64(nil), parseSamples[0].Value.Float64Histogram().Counts...)
 	runtime.ReadMemStats(&parseBefore)
 	runtime.GC()
 	runtime.GC()
 	runtime.ReadMemStats(&parseAfter)
+	metrics.Read(parseSamples)
 	runtime.KeepAlive(parseProjection)
 
 	if parseAfter.NumGC <= parseBefore.NumGC {
 		parseT.Fatal("no collection ran; the pause reading would be meaningless")
 	}
 
-	// PauseNs is a 256-entry circular buffer indexed by (NumGC+255)%256.
+	// Each zero-based collection index maps directly to its circular-buffer slot.
+	// NumGC counts completed collections, so subtracting one again reads an old slot.
 	parseWorstPauseNs := uint64(0)
 	for parseCollection := parseBefore.NumGC; parseCollection < parseAfter.NumGC; parseCollection++ {
-		parsePause := parseAfter.PauseNs[(parseCollection+255)%256]
+		parsePause := parseAfter.PauseNs[parseCollection%256]
 		if parsePause > parseWorstPauseNs {
 			parseWorstPauseNs = parsePause
 		}
 	}
 	parsePauseMs := float64(parseWorstPauseNs) / 1e6
+	if parseWorstPauseNs == 0 {
+		// Some Windows clocks quantize MemStats pauses to zero. Histogram bucket
+		// upper bounds still bound the observed stop-the-world events. Sum all
+		// new bounds, conservatively exceeding any individual collection's pause.
+		parseBound, parseErr := measureGCPauseUpperBound(parseCountsBefore, parseSamples[0].Value.Float64Histogram())
+		if parseErr != nil {
+			parseT.Fatal(parseErr)
+		}
+		parsePauseMs = parseBound * 1000
+		parseT.Logf("zero-resolution MemStats: observed GC pause total upper bound %.9f ms", parsePauseMs)
+	}
 
-	parseT.Logf("M12 (native, ADVISORY): %d resident rows -> worst STW pause %.3f ms across %d collections",
+	parseT.Logf("M12 (native, ADVISORY): %d resident rows -> measured STW pause or conservative bound %.9f ms across %d collections",
 		projection.DefaultResident, parsePauseMs, parseAfter.NumGC-parseBefore.NumGC)
 	parseT.Log("M12 pause half remains OPEN: this is native Go with parallel marking, not js/wasm. " +
 		"The gating number must come from the P0.2 browser harness.")
 
-	if parseWorstPauseNs == 0 {
-		parseT.Skip("the runtime reported a zero pause; this platform cannot produce a usable reading")
-	}
 	// A native pause an order of magnitude past the frame budget would mean the
 	// projection is too large for any runtime, wasm or not.
 	if parsePauseMs > m12FrameBudgetMs*10 {
 		parseT.Errorf("native STW pause is %.3f ms at the default residency, %.0fx the frame budget — too large for any runtime",
 			parsePauseMs, parsePauseMs/m12FrameBudgetMs)
+	}
+}
+
+// measureGCPauseUpperBound conservatively sums upper bounds of newly observed pauses.
+func measureGCPauseUpperBound(parseBefore []uint64, parseAfter *metrics.Float64Histogram) (float64, error) {
+	if parseAfter == nil || len(parseBefore) != len(parseAfter.Counts) || len(parseAfter.Buckets) != len(parseAfter.Counts)+1 {
+		return 0, fmt.Errorf("GC histogram shape changed")
+	}
+	parseTotal := float64(0)
+	hasSamples := false
+	for parseIndex, parseCount := range parseAfter.Counts {
+		if parseCount < parseBefore[parseIndex] {
+			return 0, fmt.Errorf("GC histogram counter decreased")
+		}
+		if parseCount == parseBefore[parseIndex] {
+			continue
+		}
+		parseUpper := parseAfter.Buckets[parseIndex+1]
+		if math.IsNaN(parseUpper) || math.IsInf(parseUpper, 0) || parseUpper <= 0 {
+			return 0, fmt.Errorf("GC pause has no finite positive upper bound")
+		}
+		hasSamples = true
+		parseTotal += float64(parseCount-parseBefore[parseIndex]) * parseUpper
+	}
+	if !hasSamples {
+		return 0, fmt.Errorf("runtime recorded no new GC pause samples")
+	}
+	return parseTotal, nil
+}
+
+// TestMeasureGCPauseUpperBound verifies bucket deltas and rejects unusable readings.
+func TestMeasureGCPauseUpperBound(parseT *testing.T) {
+	parseHistogram := &metrics.Float64Histogram{Counts: []uint64{7, 4}, Buckets: []float64{0, 1, 3}}
+	parseBound, parseErr := measureGCPauseUpperBound([]uint64{5, 3}, parseHistogram)
+	if parseErr != nil || parseBound != 5 {
+		parseT.Fatalf("upper bound = %v, %v; want 2*1 + 1*3", parseBound, parseErr)
+	}
+	for _, parseCase := range []struct {
+		parseName   string
+		parseBefore []uint64
+		parseAfter  *metrics.Float64Histogram
+	}{
+		{"no samples", []uint64{7, 4}, parseHistogram},
+		{"decreased counter", []uint64{8, 4}, parseHistogram},
+		{"changed shape", []uint64{0}, parseHistogram},
+		{"unbounded", []uint64{0}, &metrics.Float64Histogram{Counts: []uint64{1}, Buckets: []float64{0, math.Inf(1)}}},
+	} {
+		parseT.Run(parseCase.parseName, func(parseT *testing.T) {
+			if _, parseErr := measureGCPauseUpperBound(parseCase.parseBefore, parseCase.parseAfter); parseErr == nil {
+				parseT.Fatal("unusable measurement accepted")
+			}
+		})
 	}
 }
 

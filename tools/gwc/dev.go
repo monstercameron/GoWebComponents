@@ -13,14 +13,17 @@ import (
 )
 
 type devConfig struct {
-	appPath    string
-	rootPath   string
-	htmlPath   string
-	wasmPath   string
-	host       string
-	port       string
-	hot        bool
-	resolution map[string]string
+	isDesktopWeb bool
+	appPath      string
+	rootPath     string
+	htmlPath     string
+	wasmPath     string
+	target       string
+	features     string
+	host         string
+	port         string
+	hot          bool
+	resolution   map[string]string
 }
 
 var devGetwd = os.Getwd
@@ -34,6 +37,8 @@ func (parseL launcher) runDev(parseArgs []string) error {
 	parseHtml := parseFs.String("html", "", "HTML file to serve, relative to the project root")
 	parseIndex := parseFs.String("index", "", "(deprecated) alias for -html; use -html")
 	parseWasm := parseFs.String("wasm", "", "WASM output path, relative to the build directory")
+	parseTarget := parseFs.String("target", "web", "Dev target: web or desktop")
+	parseFeatures := parseFs.String("features", "all", "Native feature ceiling for desktop target")
 	parseOutput := parseFs.String("output", "", "(deprecated) alias for -wasm; use -wasm")
 	parseHost := parseFs.String("host", "", "Host to bind")
 	parsePort := parseFs.String("port", "", "Port to bind")
@@ -56,15 +61,110 @@ func (parseL launcher) runDev(parseArgs []string) error {
 	if *parseAgent && *parseTui {
 		return errors.New("dev -agent cannot be combined with -tui")
 	}
+	parseTargetValue, parseTargetErr := normalizeBuildTarget(*parseTarget)
+	if parseTargetErr != nil {
+		return parseTargetErr
+	}
+	if parseTargetValue == "desktop" {
+		parseUnsupported := ""
+		parseFs.Visit(func(parseFlag *flag.Flag) {
+			switch parseFlag.Name {
+			case "target", "root", "features", "json", "dry-run", "no-doctor":
+			default:
+				parseUnsupported = parseFlag.Name
+			}
+		})
+		if parseUnsupported != "" {
+			return fmt.Errorf("desktop dev does not support -%s; use -root for its canonical isolated module", parseUnsupported)
+		}
+		parseFeatureValue, parseFeatureErr := normalizeDesktopFeatures(*parseFeatures)
+		if parseFeatureErr != nil {
+			return parseFeatureErr
+		}
+		if *parseDryRun || *parseJsonOutput {
+			parsePlanRoot := strings.TrimSpace(*parseRoot)
+			if parsePlanRoot == "" {
+				parsePlanRoot = "."
+			}
+			parsePlanRoot, parsePlanErr := filepath.Abs(parsePlanRoot)
+			if parsePlanErr != nil {
+				return parsePlanErr
+			}
+			parseMetadata, parsePlanErr := desktopLoadMetadata(parsePlanRoot)
+			if parsePlanErr != nil {
+				return parsePlanErr
+			}
+			if parsePlanErr = desktopValidateCanonicalTarget(parseMetadata.Desktop); parsePlanErr != nil {
+				return parsePlanErr
+			}
+			parsePlan := map[string]any{"ok": true, "target": "desktop", "root": parsePlanRoot, "features": parseFeatureValue, "artifact": parseMetadata.Desktop.OutputPath, "dryRun": true, "reload": "full native restart"}
+			return json.NewEncoder(os.Stdout).Encode(parsePlan)
+		}
+		parseDesktopArgs := []string{"dev"}
+		if strings.TrimSpace(*parseRoot) != "" {
+			parseDesktopArgs = append(parseDesktopArgs, "-root", *parseRoot)
+		}
+		parseDesktopArgs = append(parseDesktopArgs, "-features", parseFeatureValue)
+		if *parseJsonOutput {
+			parseDesktopArgs = append(parseDesktopArgs, "-json")
+		}
+		return parseL.runDesktopCommand(parseDesktopArgs)
+	}
+	if strings.TrimSpace(*parseFeatures) != "" && strings.TrimSpace(strings.ToLower(*parseFeatures)) != "all" {
+		return errors.New("-features is only valid with -target desktop")
+	}
+	parseDesktopWebDev := false
+	parseDesktopRootInput := strings.TrimSpace(*parseRoot)
+	if parseDesktopRootInput == "" {
+		parseDesktopRootInput, _ = os.Getwd()
+	}
+	if parseDesktopRootInput != "" {
+		parseDesktopRoot, parseRootErr := filepath.Abs(parseDesktopRootInput)
+		if parseRootErr != nil {
+			return parseRootErr
+		}
+		if parseMetadata, parseFound, parseMetadataErr := loadScaffoldMetadata(parseDesktopRoot); parseMetadataErr != nil {
+			return parseMetadataErr
+		} else if parseFound && parseMetadata.Desktop != nil {
+			if parseErr := desktopValidateCanonicalTarget(parseMetadata.Desktop); parseErr != nil {
+				return parseErr
+			}
+			if firstNonEmpty(*parseApp, *parseMainPath, *parseHtml, *parseIndex, *parseWasm, *parseOutput) != "" {
+				return errors.New("desktop web dev uses the canonical frontend and assets/web bundle; -app, -main, -html, -index, -wasm and -output are unsupported; use -root")
+			}
+			if *parseDryRun {
+				parsePayload := map[string]any{"target": "web", "root": parseDesktopRoot, "app": filepath.Join(parseDesktopRoot, "frontend", "main.go"), "html": filepath.Join(parseDesktopRoot, "assets", "web", "index.html"), "wasm": filepath.Join(parseDesktopRoot, "assets", "web", "app.wasm"), "dryRun": true}
+				if *parseJsonOutput {
+					return json.NewEncoder(os.Stdout).Encode(parsePayload)
+				}
+				fmt.Printf("GWC desktop web dev plan: %s\n", parseDesktopRoot)
+				return nil
+			}
+			if _, parseBuildErr := parseL.desktopWebBuild(desktopConfig{action: "build", root: parseDesktopRoot, features: "all"}); parseBuildErr != nil {
+				return parseBuildErr
+			}
+			parseDesktopWebDev = true
+			*parseRoot = filepath.Join(parseDesktopRoot, "assets", "web")
+			*parseApp = filepath.Join(parseDesktopRoot, "frontend", "main.go")
+			*parseHtml = filepath.Join(*parseRoot, "index.html")
+			*parseWasm = filepath.Join(*parseRoot, "app.wasm")
+		}
+	}
+	if strings.TrimSpace(strings.ToLower(*parseFeatures)) != "all" {
+		return errors.New("-features is only valid with -target desktop")
+	}
 
 	parseConfig, parseErr2 := parseL.resolveDevConfig(devConfig{
-		appPath:  firstNonEmpty(*parseApp, *parseMainPath),
-		rootPath: *parseRoot,
-		htmlPath: firstNonEmpty(*parseHtml, *parseIndex),
-		wasmPath: firstNonEmpty(*parseWasm, *parseOutput),
-		host:     *parseHost,
-		port:     *parsePort,
-		hot:      *parseHot,
+		isDesktopWeb: parseDesktopWebDev,
+		appPath:      firstNonEmpty(*parseApp, *parseMainPath),
+		rootPath:     *parseRoot,
+		htmlPath:     firstNonEmpty(*parseHtml, *parseIndex),
+		wasmPath:     firstNonEmpty(*parseWasm, *parseOutput),
+		target:       parseTargetValue,
+		features:     strings.TrimSpace(*parseFeatures),
+		host:         *parseHost,
+		port:         *parsePort,
+		hot:          *parseHot,
 	})
 	if parseErr2 != nil {
 		return parseErr2
@@ -122,7 +222,7 @@ func (parseL launcher) runDev(parseArgs []string) error {
 
 	parseCmd := exec.Command("go", parseForwarded...)
 	parseCmd.Dir = parseL.repoRoot
-	parseCmd.Env = os.Environ()
+	parseCmd.Env = buildDevChildEnv(parseConfig)
 	if *parseTui {
 		if parsePlan.ServerMode != "livereload-wasm" || strings.TrimSpace(parsePlan.StatusURL) == "" {
 			return errors.New("dev -tui is only supported for livereload-backed js/wasm app runs")
@@ -198,6 +298,27 @@ func buildLivereloadRunArgs() ([]string, error) {
 		"tools/livereload/livereload_paths.go",
 		"tools/livereload/livereload_support.go",
 	}, nil
+}
+
+// desktopWebDevEnv removes inherited desktop build tags from a web dev child.
+func desktopWebDevEnv(parseBase []string) []string {
+	parseEnv := make([]string, 0, len(parseBase)+1)
+	for _, parseValue := range parseBase {
+		parseKey, _, _ := strings.Cut(parseValue, "=")
+		if strings.EqualFold(parseKey, "GOFLAGS") {
+			continue
+		}
+		parseEnv = append(parseEnv, parseValue)
+	}
+	return append(parseEnv, "GOFLAGS=-mod=mod")
+}
+
+// buildDevChildEnv applies the same target isolation to ordinary, TUI and agent launch paths.
+func buildDevChildEnv(parseConfig devConfig) []string {
+	if parseConfig.isDesktopWeb {
+		return desktopWebDevEnv(os.Environ())
+	}
+	return os.Environ()
 }
 
 func (parseL launcher) resolveDevConfig(parseConfig devConfig) (devConfig, error) {
@@ -414,6 +535,9 @@ func normalizeScaffoldMetadata(parseMetadata *scaffoldMetadata) error {
 	}
 	switch parseMetadata.SchemaVersion {
 	case 0:
+		if parseErr := validateScaffoldDesktopMetadata(parseMetadata.Desktop); parseErr != nil {
+			return parseErr
+		}
 		parseMetadata.SchemaVersion = currentScaffoldMetadataSchemaVersion
 		if strings.TrimSpace(parseMetadata.Ownership.ProjectOwnership) == "" {
 			parseMetadata.Ownership.ProjectOwnership = "standalone"
@@ -423,6 +547,9 @@ func normalizeScaffoldMetadata(parseMetadata *scaffoldMetadata) error {
 		}
 		return nil
 	case currentScaffoldMetadataSchemaVersion:
+		if parseErr := validateScaffoldDesktopMetadata(parseMetadata.Desktop); parseErr != nil {
+			return parseErr
+		}
 		if strings.TrimSpace(parseMetadata.Ownership.ProjectOwnership) == "" {
 			parseMetadata.Ownership.ProjectOwnership = "standalone"
 		}
@@ -478,6 +605,8 @@ func printDevPlan(parseConfig devConfig) {
 	parsePlan := describeDevPlan(parseConfig)
 	fmt.Println("GWC dev plan")
 	fmt.Printf("  project root:  %s\n", parsePlan.ProjectRoot)
+	fmt.Printf("  target:        %s\n", firstNonEmpty(parseConfig.target, "web"))
+	fmt.Printf("  features:      %s\n", firstNonEmpty(parseConfig.features, "all"))
 	fmt.Printf("  app mode:      %s\n", parsePlan.AppMode)
 	fmt.Printf("  server mode:   %s\n", parsePlan.ServerMode)
 	fmt.Printf("  app:           %s\n", parseConfig.appPath)
@@ -507,6 +636,8 @@ func printDevPlanJSON(parseConfig devConfig) error {
 	parsePayload := map[string]any{
 		"app":          parseConfig.appPath,
 		"root":         parseConfig.rootPath,
+		"target":       firstNonEmpty(parseConfig.target, "web"),
+		"features":     firstNonEmpty(parseConfig.features, "all"),
 		"projectRoot":  parsePlan.ProjectRoot,
 		"appMode":      parsePlan.AppMode,
 		"serverMode":   parsePlan.ServerMode,

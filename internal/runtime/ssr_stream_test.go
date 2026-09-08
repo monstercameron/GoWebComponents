@@ -107,10 +107,17 @@ func TestRenderToStreamBoundaryScriptThreadsNonce(parseT *testing.T) {
 
 	var parseBuffer bytes.Buffer
 	parseErrs := make(chan error, 1)
+	parseChunks := make(chan SSRStreamChunk, 4)
 	go func() {
-		parseErrs <- RenderToStream(context.Background(), &parseBuffer, parseRoot, SSRStreamOptions{ScriptNonce: `nonce"42`})
+		parseErrs <- RenderToStream(context.Background(), &parseBuffer, parseRoot, SSRStreamOptions{
+			ScriptNonce: `nonce"42`,
+			OnChunk:     func(parseChunk SSRStreamChunk) { parseChunks <- parseChunk },
+		})
 	}()
-	waitForStreamContains(parseT, &parseBuffer, "<em>loading</em>")
+	parseShell := receiveSSRStreamTestChunk(parseT, parseChunks)
+	if parseShell.Kind != SSRStreamChunkShell || !strings.Contains(parseShell.HTML, "<em>loading</em>") {
+		parseT.Fatalf("expected loading shell, got %+v", parseShell)
+	}
 	close(parseDone)
 	if parseErr := <-parseErrs; parseErr != nil {
 		parseT.Fatalf("RenderToStream returned error: %v", parseErr)
@@ -119,18 +126,6 @@ func TestRenderToStreamBoundaryScriptThreadsNonce(parseT *testing.T) {
 	if !strings.Contains(parseHTML, `nonce="nonce&#34;42"`) {
 		parseT.Fatalf("expected nonce on streamed boundary script, got %q", parseHTML)
 	}
-}
-
-func waitForStreamContains(parseT *testing.T, parseBuffer *bytes.Buffer, parseNeedle string) {
-	parseT.Helper()
-	parseDeadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(parseDeadline) {
-		if strings.Contains(parseBuffer.String(), parseNeedle) {
-			return
-		}
-		time.Sleep(time.Millisecond)
-	}
-	parseT.Fatalf("timed out waiting for stream to contain %q; got %q", parseNeedle, parseBuffer.String())
 }
 
 func TestRenderToStreamFlushesBoundariesOutOfOrder(parseT *testing.T) {

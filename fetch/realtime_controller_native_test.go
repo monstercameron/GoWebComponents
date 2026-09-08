@@ -56,9 +56,29 @@ type realtimeTestOpenCall struct {
 	parseTransport *realtimeTestTransport
 }
 
-func newRealtimeTestController(parseAPI string, parseOptions realtimeResolvedOptions) (*realtimeConnectionController, ui.State[RealtimeState], *[]realtimeTestOpenCall) {
+type realtimeTestCalls struct {
+	parseMu sync.RWMutex
+	values  []realtimeTestOpenCall
+}
+
+// count returns the number of recorded transport opens.
+func (parseC *realtimeTestCalls) count() int {
+	parseC.parseMu.RLock()
+	defer parseC.parseMu.RUnlock()
+	return len(parseC.values)
+}
+
+// get returns one recorded transport open safely.
+func (parseC *realtimeTestCalls) get(parseIndex int) realtimeTestOpenCall {
+	parseC.parseMu.RLock()
+	defer parseC.parseMu.RUnlock()
+	return parseC.values[parseIndex]
+}
+
+// newRealtimeTestController creates a controller with a synchronized test transport log.
+func newRealtimeTestController(parseAPI string, parseOptions realtimeResolvedOptions) (*realtimeConnectionController, ui.State[RealtimeState], *realtimeTestCalls) {
 	parseState := ui.UseState(RealtimeState{Status: RealtimeIdle, Supported: true})
-	parseCalls := []realtimeTestOpenCall{}
+	parseCalls := &realtimeTestCalls{}
 	parseController := &realtimeConnectionController{
 		api:     parseAPI,
 		url:     "wss://example.test/live",
@@ -66,16 +86,18 @@ func newRealtimeTestController(parseAPI string, parseOptions realtimeResolvedOpt
 		state:   parseState,
 		openTransport: func(parseURL string, parseOptions realtimeResolvedOptions, parseCallbacks realtimeTransportCallbacks) (realtimeTransport, error) {
 			parseTransport := &realtimeTestTransport{}
-			parseCalls = append(parseCalls, realtimeTestOpenCall{
+			parseCalls.parseMu.Lock()
+			parseCalls.values = append(parseCalls.values, realtimeTestOpenCall{
 				parseURL:       parseURL,
 				parseOptions:   parseOptions,
 				parseCallbacks: parseCallbacks,
 				parseTransport: parseTransport,
 			})
+			parseCalls.parseMu.Unlock()
 			return parseTransport, nil
 		},
 	}
-	return parseController, parseState, &parseCalls
+	return parseController, parseState, parseCalls
 }
 
 func TestRealtimeControllerStateMachineCallbacksAndStaleEvents(parseT *testing.T) {
@@ -92,14 +114,14 @@ func TestRealtimeControllerStateMachineCallbacksAndStaleEvents(parseT *testing.T
 	})
 
 	parseController.start()
-	if len(*parseCalls) != 1 {
-		parseT.Fatalf("expected one transport open, got %d", len(*parseCalls))
+	if parseCalls.count() != 1 {
+		parseT.Fatalf("expected one transport open, got %d", parseCalls.count())
 	}
 	if parseState.Get().Status != RealtimeConnecting || !parseState.Get().Connecting || parseState.Get().ConnectAttempts != 1 {
 		parseT.Fatalf("expected connecting state after start, got %+v", parseState.Get())
 	}
 
-	parseCallbacks := (*parseCalls)[0].parseCallbacks
+	parseCallbacks := parseCalls.get(0).parseCallbacks
 	parseCallbacks.handleOpen()
 	if parseGot := parseState.Get(); parseGot.Status != RealtimeOpen || !parseGot.Open || parseGot.LastOpenAt != parseNow {
 		parseT.Fatalf("expected open state, got %+v", parseGot)
@@ -123,15 +145,15 @@ func TestRealtimeControllerStateMachineCallbacksAndStaleEvents(parseT *testing.T
 	}
 
 	parseController.start()
-	if len(*parseCalls) != 2 {
-		parseT.Fatalf("expected restart to open a second transport, got %d", len(*parseCalls))
+	if parseCalls.count() != 2 {
+		parseT.Fatalf("expected restart to open a second transport, got %d", parseCalls.count())
 	}
 	parseCallbacks.handleMessage(RealtimeMessage{Data: "stale"})
 	if parseGot := parseState.Get(); parseGot.LastMessage.Data != "three" {
 		parseT.Fatalf("expected stale callback to be ignored, got %+v", parseGot.LastMessage)
 	}
-	if (*parseCalls)[0].parseTransport.closeCount() != 1 {
-		parseT.Fatalf("expected restart to close stale transport once, got %d", (*parseCalls)[0].parseTransport.closeCount())
+	if parseCalls.get(0).parseTransport.closeCount() != 1 {
+		parseT.Fatalf("expected restart to close stale transport once, got %d", parseCalls.get(0).parseTransport.closeCount())
 	}
 }
 
@@ -150,34 +172,34 @@ func TestRealtimeControllerReconnectBackoffAndMaxAttempts(parseT *testing.T) {
 	parseT.Cleanup(func() { parseController.stop(true) })
 
 	parseController.start()
-	(*parseCalls)[0].parseCallbacks.handleOpen()
-	(*parseCalls)[0].parseCallbacks.handleClose()
+	parseCalls.get(0).parseCallbacks.handleOpen()
+	parseCalls.get(0).parseCallbacks.handleClose()
 	parseGot := parseState.Get()
 	if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 1 || parseGot.Reconnects != 1 || parseGot.NextReconnectAt != parseNow.Add(5*time.Millisecond) {
 		parseT.Fatalf("expected first reconnect with initial backoff, got %+v", parseGot)
 	}
 
 	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return len(*parseCalls) == 2
+		return parseCalls.count() == 2
 	})
-	(*parseCalls)[1].parseCallbacks.handleOpen()
-	(*parseCalls)[1].parseCallbacks.handleClose()
+	parseCalls.get(1).parseCallbacks.handleOpen()
+	parseCalls.get(1).parseCallbacks.handleClose()
 	parseGot = parseState.Get()
 	if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 1 || parseGot.Reconnects != 2 || parseGot.NextReconnectAt != parseNow.Add(5*time.Millisecond) {
 		parseT.Fatalf("expected reconnect attempts to reset after open, got %+v", parseGot)
 	}
 
 	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return len(*parseCalls) == 3
+		return parseCalls.count() == 3
 	})
-	(*parseCalls)[2].parseCallbacks.handleClose()
+	parseCalls.get(2).parseCallbacks.handleClose()
 	parseGot = parseState.Get()
 	if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 2 || parseGot.NextReconnectAt != parseNow.Add(10*time.Millisecond) {
 		parseT.Fatalf("expected second consecutive reconnect to use exponential backoff, got %+v", parseGot)
 	}
 
 	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return len(*parseCalls) == 4
+		return parseCalls.count() == 4
 	})
 	parseErr := errors.New("open failed")
 	parseController.scheduleReconnect(parseErr)
@@ -200,10 +222,10 @@ func TestRealtimeControllerStopAndCloseCallbacksAreIdempotent(parseT *testing.T)
 	})
 
 	parseController.start()
-	(*parseCalls)[0].parseCallbacks.handleOpen()
+	parseCalls.get(0).parseCallbacks.handleOpen()
 	parseController.stop(true)
 	parseController.stop(true)
-	if parseClosed := (*parseCalls)[0].parseTransport.closeCount(); parseClosed != 1 {
+	if parseClosed := parseCalls.get(0).parseTransport.closeCount(); parseClosed != 1 {
 		parseT.Fatalf("expected manual stop to close transport once, got %d", parseClosed)
 	}
 	if parseGot := parseState.Get(); parseGot.Status != RealtimeClosed || !parseGot.Closed || !parseGot.NextReconnectAt.IsZero() {
@@ -211,14 +233,14 @@ func TestRealtimeControllerStopAndCloseCallbacksAreIdempotent(parseT *testing.T)
 	}
 
 	parseController.start()
-	if len(*parseCalls) != 2 {
-		parseT.Fatalf("expected reopen after manual stop, got %d opens", len(*parseCalls))
+	if parseCalls.count() != 2 {
+		parseT.Fatalf("expected reopen after manual stop, got %d opens", parseCalls.count())
 	}
-	(*parseCalls)[1].parseCallbacks.handleOpen()
-	(*parseCalls)[1].parseCallbacks.handleClose()
-	(*parseCalls)[1].parseCallbacks.handleClose()
+	parseCalls.get(1).parseCallbacks.handleOpen()
+	parseCalls.get(1).parseCallbacks.handleClose()
+	parseCalls.get(1).parseCallbacks.handleClose()
 	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return (*parseCalls)[1].parseTransport.closeCount() == 1
+		return parseCalls.get(1).parseTransport.closeCount() == 1
 	})
 	if parseGot := parseState.Get(); parseGot.Reconnects != 1 {
 		parseT.Fatalf("expected duplicate close callback to schedule one reconnect, got %+v", parseGot)
@@ -248,15 +270,17 @@ func TestRealtimeControllerSendAndHeartbeatErrorPaths(parseT *testing.T) {
 	}
 
 	parseController.start()
-	(*parseCalls)[0].parseCallbacks.handleOpen()
+	parseCalls.get(0).parseCallbacks.handleOpen()
 	if parseErr := parseController.send("hello"); parseErr != nil {
 		parseT.Fatalf("expected send through open transport to succeed, got %v", parseErr)
 	}
-	if parseSent := (*parseCalls)[0].parseTransport.sent(); !reflect.DeepEqual(parseSent, []string{"hello"}) {
+	if parseSent := parseCalls.get(0).parseTransport.sent(); !reflect.DeepEqual(parseSent, []string{"hello"}) {
 		parseT.Fatalf("expected sent message, got %v", parseSent)
 	}
 
-	(*parseCalls)[0].parseTransport.parseSendErr = parseSendErr
+	parseCalls.get(0).parseTransport.parseMu.Lock()
+	parseCalls.get(0).parseTransport.parseSendErr = parseSendErr
+	parseCalls.get(0).parseTransport.parseMu.Unlock()
 	if parseErr := parseController.send("boom"); parseErr != parseSendErr {
 		parseT.Fatalf("expected send error to be returned, got %v", parseErr)
 	}
@@ -288,7 +312,7 @@ func TestRealtimeControllerHeartbeatTimeoutClosesAndReconnects(parseT *testing.T
 	})
 
 	parseController.start()
-	(*parseCalls)[0].parseCallbacks.handleOpen()
+	parseCalls.get(0).parseCallbacks.handleOpen()
 	parseNow = parseNow.Add(2 * time.Millisecond)
 	parseController.handleHeartbeat()
 	parseGot := parseState.Get()
@@ -296,7 +320,7 @@ func TestRealtimeControllerHeartbeatTimeoutClosesAndReconnects(parseT *testing.T
 		parseT.Fatalf("expected heartbeat timeout to schedule reconnect and record miss, got %+v", parseGot)
 	}
 	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return (*parseCalls)[0].parseTransport.closeCount() == 1
+		return parseCalls.get(0).parseTransport.closeCount() == 1
 	})
 	parseController.stop(true)
 }

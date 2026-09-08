@@ -58,6 +58,9 @@ type Session struct {
 	lease        WriteLease
 	pendingAcks  map[uint64]chan agentbridge.Envelope
 	outSeq       *atomic.Uint64
+	pongWait     time.Duration
+	pingPeriod   time.Duration
+	writeWait    time.Duration
 }
 
 // SessionInfo is a read-only snapshot of session metadata for ListSessions.

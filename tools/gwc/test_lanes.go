@@ -25,19 +25,40 @@ func (parseL launcher) runTest(parseArgs []string) error {
 	parseWatch := parseFs.Bool("watch", false, "Re-run selected test lanes when Go files change")
 	parseWatchOnce := parseFs.Bool("once", false, "With -watch, run one watched test pass and exit")
 	parseWatchDebounce := parseFs.Duration("debounce", 500*time.Millisecond, "With -watch, polling debounce interval")
+	parseTarget := parseFs.String("target", "web", "Test target: web or desktop")
+	parseFeatures := parseFs.String("features", "all", "Native feature ceiling for desktop target")
 	var parseLaneFlags stringListFlag
-	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, race, wasm, hydration, browser, perf, i18n, agent, agent-browser, release, all")
+	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, race, wasm, hydration, browser, perf, i18n, agent, agent-browser, release, desktop, all")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
 		return parseErr
 	}
+	parseTargetValue, parseTargetErr := normalizeBuildTarget(*parseTarget)
+	if parseTargetErr != nil {
+		return parseTargetErr
+	}
+	parseLanes := parseLaneFlags.Values()
+	if parseTargetValue == "desktop" {
+		parseHasDesktop := false
+		for _, parseLane := range parseLanes {
+			if strings.EqualFold(strings.TrimSpace(parseLane), "desktop") {
+				parseHasDesktop = true
+				break
+			}
+		}
+		if !parseHasDesktop {
+			parseLanes = append(parseLanes, "desktop")
+		}
+	}
 
 	parseConfig, parseErr2 := resolveTestConfig(testConfig{
 		appPath:  firstNonEmpty(*parseApp, *parseMainPath),
 		rootPath: *parseRoot,
-		lanes:    parseLaneFlags.Values(),
+		lanes:    parseLanes,
+		target:   parseTargetValue,
+		features: strings.TrimSpace(*parseFeatures),
 		json:     *parseJsonOutput,
 	})
 	if parseErr2 != nil {
@@ -51,6 +72,9 @@ func (parseL launcher) runTest(parseArgs []string) error {
 	}
 	if *parseWatch {
 		parseWatchArgs := []string{"-root", parseConfig.rootPath, "-debounce", parseWatchDebounce.String()}
+		if parseConfig.target == "desktop" {
+			parseWatchArgs = append(parseWatchArgs, "-target", "desktop")
+		}
 		if parseConfig.appPath != "" {
 			parseWatchArgs = append(parseWatchArgs, "-app", parseConfig.appPath)
 		}
@@ -59,6 +83,9 @@ func (parseL launcher) runTest(parseArgs []string) error {
 		}
 		if parseConfig.json {
 			parseWatchArgs = append(parseWatchArgs, "-json")
+		}
+		if parseConfig.features != "" && parseConfig.features != "all" {
+			parseWatchArgs = append(parseWatchArgs, "-features", parseConfig.features)
 		}
 		if *parseWatchOnce {
 			parseWatchArgs = append(parseWatchArgs, "-once")
@@ -103,9 +130,22 @@ func resolveTestConfig(parseConfig testConfig) (testConfig, error) {
 			return testConfig{}, fmt.Errorf("resolve app path: %w", parseErr)
 		}
 	}
+	// Resolve the target centrally so direct watch and test dispatch cannot diverge.
+	if parseResolved.target == "desktop" {
+		parseResolved.lanes = append(append([]string(nil), parseResolved.lanes...), "desktop")
+	}
 	parseResolved.lanes, parseErr = normalizeTestLanes(parseResolved.lanes)
 	if parseErr != nil {
 		return testConfig{}, parseErr
+	}
+	if parseResolved.target == "web" && strings.TrimSpace(strings.ToLower(parseResolved.features)) != "all" {
+		return testConfig{}, errors.New("-features is only valid with -target desktop")
+	}
+	if parseResolved.target == "desktop" {
+		parseResolved.features, parseErr = normalizeDesktopFeatures(parseResolved.features)
+		if parseErr != nil {
+			return testConfig{}, parseErr
+		}
 	}
 	return parseResolved, nil
 }
@@ -154,9 +194,43 @@ func (parseL launcher) executeTestLane(parseConfig testConfig, parseLane string)
 		return parseL.runAgentBridgeHeadlessTestLane(parseConfig.rootPath)
 	case "release":
 		return parseL.runReleaseTestLane(parseConfig)
+	case "desktop":
+		return parseL.runDesktopTestLane(parseConfig.rootPath, parseConfig.features)
 	default:
 		return testLaneSummary{}, fmt.Errorf("unknown test lane %q", parseLane)
 	}
+}
+
+// runDesktopTestLane validates the isolated Windows desktop example as an explicit opt-in lane.
+func (parseL launcher) runDesktopTestLane(parseRootPath string, parseFeatures string) (testLaneSummary, error) {
+	if runtime.GOOS != "windows" {
+		return testLaneSummary{}, errors.New("desktop test lane requires Windows WebView2; refusing to report a skipped pass")
+	}
+	parseWorkspace := parseRootPath
+	if parseRootPath == parseL.repoRoot {
+		parseWorkspace = filepath.Join(parseL.repoRoot, "examples", "desktop", "wails-counter")
+	}
+	if _, parseErr := os.Stat(filepath.Join(parseWorkspace, "go.mod")); parseErr != nil {
+		return testLaneSummary{}, fmt.Errorf("desktop workspace: %w", parseErr)
+	}
+	parseBuild, parseErr := parseL.desktopBuild(desktopConfig{action: "build", root: parseWorkspace, features: parseFeatures})
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	parseOutput, parseErr := desktopExecute(desktopConfig{root: parseWorkspace}, "go", []string{"test", "./..."}, parseWorkspace, desktopNativeEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, fmt.Errorf("desktop nested tests: %w (%s)", parseErr, parseOutput)
+	}
+	parseArtifact := filepath.Join(parseWorkspace, filepath.FromSlash(parseBuild.Artifact))
+	if parseErr = parseL.desktopSmoke(parseWorkspace, parseArtifact); parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	for _, parseFault := range []string{"missing-binding", "missing-wasm", "streaming"} {
+		if parseErr := desktopSmokeProbe(desktopConfig{root: parseWorkspace}, parseArtifact, parseFault); parseErr != nil {
+			return testLaneSummary{}, parseErr
+		}
+	}
+	return testLaneSummary{Name: "desktop", OK: true, Command: "go test ./...; gwc desktop build; native smoke", PackagePattern: "./...", Workspace: parseWorkspace, Summary: "Windows native desktop tests, build, WebView smoke, and fault probes passed.", Output: parseOutput}, nil
 }
 
 var testRaceDetectorSupported = func() bool {
@@ -548,6 +622,8 @@ func normalizeTestLanes(parseRequested []string) ([]string, error) {
 			parseAppendLane("agent-browser")
 		case "release":
 			parseAppendLane("release")
+		case "desktop":
+			parseAppendLane("desktop")
 		default:
 			return nil, fmt.Errorf("unknown test lane %q", parseLane)
 		}

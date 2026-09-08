@@ -1,0 +1,5 @@
+assets/dist/*
+!assets/dist/.gitkeep
+assets/web/*
+!assets/web/.gitkeep
+bin/*

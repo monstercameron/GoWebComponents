@@ -338,13 +338,15 @@ type watchSummary struct {
 }
 
 func (parseL launcher) runWatch(parseArgs []string) error {
-	parseArgs = reorderAgenticKnownFlags(parseArgs, []string{"root", "app", "main", "debounce", "lane"}, []string{"json", "once"})
+	parseArgs = reorderAgenticKnownFlags(parseArgs, []string{"root", "app", "main", "debounce", "lane", "target", "features"}, []string{"json", "once"})
 	parseFlags := flag.NewFlagSet("watch", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseRoot := parseFlags.String("root", "", "Project root to watch")
 	parseApp := parseFlags.String("app", "", "Path to the app main.go file or app directory")
 	parseMain := parseFlags.String("main", "", "Deprecated alias for -app")
 	parseDebounce := parseFlags.Duration("debounce", 500*time.Millisecond, "Polling debounce interval")
+	parseTarget := parseFlags.String("target", "web", "Test target: web or desktop")
+	parseFeatures := parseFlags.String("features", "all", "Native feature ceiling for desktop target")
 	parseOnce := parseFlags.Bool("once", false, "Run one watched test pass and exit")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON envelope")
 	var parseLanes stringListFlag
@@ -355,11 +357,25 @@ func (parseL launcher) runWatch(parseArgs []string) error {
 		}
 		return parseErr
 	}
+	parseTargetValue, parseTargetErr := normalizeBuildTarget(*parseTarget)
+	if parseTargetErr != nil {
+		return parseTargetErr
+	}
+	if parseTargetValue == "web" && strings.TrimSpace(strings.ToLower(*parseFeatures)) != "all" {
+		return errors.New("-features is only valid with -target desktop")
+	}
+	parseFeaturesValue := strings.TrimSpace(*parseFeatures)
+	if parseTargetValue == "desktop" {
+		parseFeaturesValue, parseTargetErr = normalizeDesktopFeatures(parseFeaturesValue)
+		if parseTargetErr != nil {
+			return parseTargetErr
+		}
+	}
 	parseRootPath, parseErr := resolveAgenticToolRoot(*parseRoot)
 	if parseErr != nil {
 		return parseErr
 	}
-	parseConfig, parseErr := resolveTestConfig(testConfig{rootPath: parseRootPath, appPath: firstNonEmpty(*parseApp, *parseMain), lanes: parseLanes.Values(), json: false})
+	parseConfig, parseErr := resolveTestConfig(testConfig{rootPath: parseRootPath, appPath: firstNonEmpty(*parseApp, *parseMain), lanes: parseLanes.Values(), target: parseTargetValue, features: parseFeaturesValue, json: false})
 	if parseErr != nil {
 		return parseErr
 	}

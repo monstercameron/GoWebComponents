@@ -1409,14 +1409,10 @@ func TestValidateGeneratedTargetDirRejectsFilesystemRoot(parseT *testing.T) {
 }
 
 func TestEnsureEmptyDirRejectsNonEmptyDirectory(parseT *testing.T) {
-	parseTargetDir := filepath.Join(defaultGeneratedScaffoldRoot(), "test-non-empty-dir")
-	_ = os.RemoveAll(parseTargetDir)
+	parseTargetDir := filepath.Join(parseT.TempDir(), "test-non-empty-dir")
 	if parseErr := os.MkdirAll(parseTargetDir, 0755); parseErr != nil {
 		parseT.Fatalf("create target dir: %v", parseErr)
 	}
-	parseT.Cleanup(func() {
-		_ = os.RemoveAll(parseTargetDir)
-	})
 	if parseErr2 := os.WriteFile(filepath.Join(parseTargetDir, "existing.txt"), []byte("occupied"), 0644); parseErr2 != nil {
 		parseT.Fatalf("seed target dir: %v", parseErr2)
 	}
@@ -1427,14 +1423,10 @@ func TestEnsureEmptyDirRejectsNonEmptyDirectory(parseT *testing.T) {
 }
 
 func TestEnsureEmptyDirRejectsExistingFile(parseT *testing.T) {
-	parseTargetPath := filepath.Join(defaultGeneratedScaffoldRoot(), "test-existing-file")
-	_ = os.Remove(parseTargetPath)
+	parseTargetPath := filepath.Join(parseT.TempDir(), "test-existing-file")
 	if parseErr := os.MkdirAll(filepath.Dir(parseTargetPath), 0755); parseErr != nil {
 		parseT.Fatalf("create parent dir: %v", parseErr)
 	}
-	parseT.Cleanup(func() {
-		_ = os.Remove(parseTargetPath)
-	})
 	if parseErr2 := os.WriteFile(parseTargetPath, []byte("file"), 0644); parseErr2 != nil {
 		parseT.Fatalf("seed target path: %v", parseErr2)
 	}
@@ -1991,11 +1983,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
 	parseLauncher := launcher{repoRoot: parseRepoRoot}
-	parseTargetDir := filepath.Join(defaultGeneratedScaffoldRoot(), "test-generate-start-scaffold")
-	_ = os.RemoveAll(parseTargetDir)
-	parseT.Cleanup(func() {
-		_ = os.RemoveAll(parseTargetDir)
-	})
+	parseTargetDir := filepath.Join(parseT.TempDir(), "test-generate-start-scaffold")
 
 	parseSelection := startSelection{
 		Preset: startPreset{
@@ -2161,7 +2149,8 @@ func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
 
 	parseTestCmd := exec.Command("go", "test", "./...")
 	parseTestCmd.Dir = parseTargetDir
-	parseTestCmd.Env = os.Environ()
+	// Baseline scaffold tests run on the host, independently of an outer cross-target lane.
+	parseTestCmd.Env = buildNativeGoEnv()
 	parseTestOutput, parseErr := parseTestCmd.CombinedOutput()
 	if parseErr != nil {
 		parseT.Fatalf("expected generated scaffold baseline tests to pass, got error: %v\n%s", parseErr, string(parseTestOutput))
@@ -2350,7 +2339,7 @@ func TestDefaultStarterTemplatesScaffoldTidyTestAndBuild(parseT *testing.T) {
 
 			parseTestCmd := exec.Command("go", "test", "./...")
 			parseTestCmd.Dir = parseTargetDir
-			parseTestCmd.Env = os.Environ()
+			parseTestCmd.Env = buildNativeGoEnv()
 			parseTestOutput, parseErr2 := parseTestCmd.CombinedOutput()
 			if parseErr2 != nil {
 				parseT2.Fatalf("generated starter tests failed: %v\n%s", parseErr2, string(parseTestOutput))
@@ -2429,11 +2418,7 @@ func TestRunDevDryRunJSONResolvesGeneratedScaffoldPlan(parseT *testing.T) {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
 	parseLauncher := launcher{repoRoot: parseRepoRoot}
-	parseTargetDir := filepath.Join(defaultGeneratedScaffoldRoot(), "test-run-dev-dry-run-json")
-	_ = os.RemoveAll(parseTargetDir)
-	parseT.Cleanup(func() {
-		_ = os.RemoveAll(parseTargetDir)
-	})
+	parseTargetDir := filepath.Join(parseT.TempDir(), "test-run-dev-dry-run-json")
 
 	parseSelection := startSelection{
 		Preset: startPreset{
@@ -3146,11 +3131,8 @@ func TestGeneratedScaffoldServesOverDevServer(parseT *testing.T) {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
 	parseLauncher := launcher{repoRoot: parseRepoRoot}
-	parseTargetDir := filepath.Join(defaultGeneratedScaffoldRoot(), "test-dev-server-smoke")
-	_ = os.RemoveAll(parseTargetDir)
-	parseT.Cleanup(func() {
-		_ = os.RemoveAll(parseTargetDir)
-	})
+	// Each test process owns its scaffold so another lane cannot remove its live assets.
+	parseTargetDir := filepath.Join(parseT.TempDir(), "test-dev-server-smoke")
 
 	parseSelection := startSelection{
 		Preset: startPreset{
@@ -3181,7 +3163,7 @@ func TestGeneratedScaffoldServesOverDevServer(parseT *testing.T) {
 	}
 
 	parseCtx, parseCancel := context.WithCancel(context.Background())
-	defer parseCancel()
+	parseT.Cleanup(parseCancel)
 	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"run", "./tools/gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
 	parseCmd.Dir = parseRepoRoot
 	var parseOutput bytes.Buffer
@@ -3197,8 +3179,10 @@ func TestGeneratedScaffoldServesOverDevServer(parseT *testing.T) {
 		close(parseProcessExited)
 	}()
 	parseT.Cleanup(func() {
-		parseCancel()
 		terminateProcessTree(parseCmd)
+		// Reap the owned listener before cancellation can sever the go-run chain.
+		killListenersOnPort(parsePort)
+		parseCancel()
 		select {
 		case <-parseProcessExited:
 			if parseProcessErr != nil && !strings.Contains(parseProcessErr.Error(), "signal: killed") && !strings.Contains(parseProcessErr.Error(), "exit status 1") {

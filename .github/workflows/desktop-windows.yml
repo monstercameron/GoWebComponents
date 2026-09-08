@@ -1,0 +1,114 @@
+name: Experimental Windows desktop
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'kvstate/**'
+      - 'examples/desktop/**'
+      - 'tools/gwc/**'
+      - 'third_party/wails'
+      - '.github/workflows/desktop-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-race:
+    # Portable contract testing is not a claim that the native host supports Linux.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.3'
+      - name: Portable adapter and persistence race checks
+        run: go test -race ./desktop ./kvstate
+  windows-webview:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GOOS: windows
+      GOARCH: amd64
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v6
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.longpaths
+          GIT_CONFIG_VALUE_0: 'true'
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Portable contracts and JS lifecycle tests
+        run: |
+          go test ./desktop ./kvstate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test desktop/desktop.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Wasm transport contracts
+        run: |
+          $env:GOOS = 'js'
+          $env:GOARCH = 'wasm'
+          go test -exec "$PWD/tools/go_js_wasm_exec.bat" ./desktop
+          exit $LASTEXITCODE
+      - name: Desktop prerequisites (missing runtime is a failure, not a pass)
+        run: go run ./tools/gwc desktop doctor -root ./examples/desktop/wails-counter -json
+      - name: Native example tests and embedded build
+        working-directory: examples/desktop/wails-counter
+        run: |
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go run ./tools/build
+          exit $LASTEXITCODE
+      - name: Isolated Windows backend adapter contracts
+        working-directory: desktop/wails
+        run: |
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go vet ./...
+          exit $LASTEXITCODE
+      - name: Portable SDK must not depend on Wails
+        run: |
+          $env:GOOS = 'js'
+          $env:GOARCH = 'wasm'
+          $parseDependencies = go list -deps ./desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($parseDependencies -match 'github.com/wailsapp/') { throw 'Wails leaked into portable SDK' }
+      - name: Real Chromium web artifact regression
+        run: go test -tags playwrightgo ./test/playwrightgo -run '^TestDesktopLabWebE2E$' -count=1
+      - name: Actual WebView smoke and startup failures
+        working-directory: examples/desktop/wails-counter
+        run: |
+          & ./bin/wails-counter.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./bin/wails-counter.exe --smoke-test --smoke-fault streaming
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./bin/wails-counter.exe --smoke-test --features none --file-dialogs=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($parseFault in @('missing-binding', 'missing-wasm')) {
+            & ./bin/wails-counter.exe --smoke-test --smoke-fault $parseFault
+            if ($LASTEXITCODE -ne 1) { throw "Expected startup failure for $parseFault" }
+          }
+      - name: Fresh CLI scaffold and unsigned package
+        run: |
+          go run ./tools/gwc desktop init -root ./bin/desktop-ci -json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go run ./tools/gwc desktop doctor -root ./bin/desktop-ci -json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go run ./tools/gwc desktop package -root ./bin/desktop-ci -json
+          exit $LASTEXITCODE
+      # macOS/Linux native hosts are deliberately not claimed by this Windows template.
+      # Add native-engine jobs only alongside working platform build/packaging targets.

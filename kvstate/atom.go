@@ -45,9 +45,13 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 	}
 
 	parseShared := &boundAtomState{loading: true}
+	parseInitial := parseAtom.Get()
 
 	go func() {
 		parseEngine, parseErr := acquireEngine(parseCtx, parseOpts)
+		if parseCtx.Err() != nil {
+			return
+		}
 		if parseErr != nil {
 			parseShared.setError(parseErr)
 			parseShared.setLoading(false)
@@ -56,8 +60,14 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 		parseShared.setEngine(parseEngine)
 
 		if parseRec, parseFound, parseLoadErr := parseEngine.backend.Load(parseCtx, parseKey); parseLoadErr != nil {
+			if parseCtx.Err() != nil {
+				return
+			}
 			parseShared.setError(parseLoadErr)
 		} else if parseFound {
+			if parseCtx.Err() != nil {
+				return
+			}
 			var parseValue T
 			if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
 				parseShared.setVersion(parseRec.Version)
@@ -67,16 +77,32 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 				// initial value with Err()==nil hid the failure entirely.
 				parseShared.setError(parseDecodeErr)
 			}
+		} else {
+			if parseCtx.Err() != nil {
+				return
+			}
+			parseShared.setVersion(parseRec.Version)
+		}
+		if parseCtx.Err() != nil {
+			return
 		}
 		parseShared.setLoading(false)
 
-		parseUnsub := subscribeCrossTab(parseOpts.Name, parseKey, func() {
+		parseUnsub := subscribeBinding(parseOpts, parseKey, func() {
 			parseRec, parseFound, parseLoadErr := parseEngine.backend.Load(parseCtx, parseKey)
-			if parseLoadErr != nil || !parseFound {
+			if parseCtx.Err() != nil {
 				return
 			}
-			parseLocal := Record{Key: parseKey, Version: parseShared.getVersion()}
-			if parseOpts.Conflict.Resolve(parseLocal, parseRec).Version < parseShared.getVersion() {
+			if parseLoadErr != nil {
+				parseShared.setError(parseLoadErr)
+				return
+			}
+			if !shouldApplyBindingRecord(parseShared.getVersion(), parseRec, parseOpts.Conflict) {
+				return
+			}
+			if !parseFound {
+				parseShared.setVersion(parseRec.Version)
+				parseAtom.Set(parseInitial)
 				return
 			}
 			var parseValue T
@@ -104,6 +130,9 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 	}()
 
 	parseSet := func(parseValue T) {
+		if parseCtx.Err() != nil {
+			return
+		}
 		parseAtom.Set(parseValue)
 		parseEngine := parseShared.getEngine()
 		if parseEngine == nil {
@@ -115,6 +144,9 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 		parseNextVersion := parseShared.nextVersion()
 		go func() {
 			parseData, parseEncErr := parseOpts.Codec.Encode(parseValue)
+			if parseCtx.Err() != nil {
+				return
+			}
 			if parseEncErr != nil {
 				parseShared.setError(parseEncErr)
 				return
@@ -126,11 +158,19 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 				UpdatedAt: time.Now().UnixMilli(),
 			}
 			if parseSaveErr := parseEngine.backend.Save(parseCtx, parseRec); parseSaveErr != nil {
+				if parseCtx.Err() != nil {
+					return
+				}
 				parseShared.setError(parseSaveErr)
 				return
 			}
+			if parseCtx.Err() != nil {
+				return
+			}
 			parseOpts.Strategy.OnWrite(parseCtx, parseKey, parseEngine.flush)
-			broadcastCrossTab(parseOpts.Name, parseKey, parseNextVersion)
+			if !parseOpts.ExternalInvalidation {
+				broadcastCrossTab(parseOpts.Name, parseKey, parseNextVersion)
+			}
 		}()
 	}
 

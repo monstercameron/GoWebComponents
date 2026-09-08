@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "projectName": "gwc-wails-counter",
+  "modulePath": "example.com/gwc-wails-counter",
+  "description": "Experimental contributor-linked Windows Wails desktop example",
+  "ownership": {
+    "projectOwnership": "standalone",
+    "frameworkSourceMode": "local-replace"
+  },
+  "tooling": {
+    "appPath": "frontend/main.go",
+    "htmlPath": "assets/src/index.html",
+    "wasmPath": "assets/dist/app.wasm"
+  },
+  "desktop": {
+    "version": 1,
+    "nativeEntry": "cmd/desktop/main.go",
+    "frontendEntry": "frontend/main.go",
+    "assetsDir": "assets",
+    "outputPath": "bin/wails-counter.exe",
+    "wailsVersion": "v3.0.0-beta.17"
+  }
+}

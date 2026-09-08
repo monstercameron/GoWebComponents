@@ -48,6 +48,7 @@ Current command surface:
 - `examples`: serve the examples catalog or manage profile/path-backed example servers with `start`, `status`, `stop`, and `restart`
   `build-public-site` builds the public docs shell plus the first staged embedded example wasm binary for local example browsing
 - `dev`: run the rebuild-and-serve inner loop for one app
+- `desktop`: opt-in Windows `init`, `doctor`, `dev`, `build`, and unsigned `package` workflow; see [Windows desktop reference](../docs/REFERENCE_MANUAL/16-windows-desktop.md)
 - `serve`: serve a static root, `wasm_exec.js`, one wasm artifact, and optional JSON fixtures
 - `build`: build one `js/wasm` target with an explicit profile (`development`, `debug`, `ci`, `benchmark`, `release`, or `tinygo`)
 - `tailwind`: rebuild shared Tailwind CSS assets via the standalone CLI cached under `third_party/tailwindcss/bin`

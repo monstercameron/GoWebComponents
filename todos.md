@@ -3,6 +3,388 @@
 Gap analysis against React/Next/Solid ecosystems (2026-06-11). Ordered by
 impact; exactly three active items carry the next-work marker.
 
+## V6 Wails desktop integration
+
+### Full regression repair — 2026-09-08
+
+Priority correction: framework verification comes first. Example-app repairs are
+paused with their changes preserved. The immediate gate includes all root
+framework, internal, docs, test/testkit and developer-tool packages, native and
+Wasm modes, framework/CLI browser tests, race tests and the isolated desktop
+adapter. Application packages under examples/ and research/ are reported
+separately, never used to label the framework suite failing or passing.
+
+Framework checkpoint (2026-09-08): native state updates, realtime lifecycle,
+SSR request isolation, docs invocation scanning and Wasm API/CSS checks have
+focused regressions passing. The complete native framework matrix passed.
+Both Windows symlink safety tests executed elevated and passed without skips;
+no Windows security settings were changed. GC pause measurement now handles
+zero-resolution clocks using a conservative runtime-histogram upper bound;
+three focused runs passed, including both measurement paths. Scaffold server
+cleanup now terminates its owned listener before cancelling the launcher;
+two focused smoke runs passed. Final race/runner and consolidated matrix
+verification remain open. Example work remains paused.
+
+- [x] Repair native/Wasm/JavaScript contract and lifecycle failures, with focused regressions.
+- [x] Complete the framework/system native, Wasm, browser, race, nested-module and conditional-test acceptance matrix before resuming example repairs.
+- [ ] Repair Atlas and Example 100 browser failures against freshly built fixtures.
+- [ ] Repair relocated example and benchmark harness failures; execute previously unfinished browser cases.
+- [ ] Run uncached root, nested modules, Wasm, JavaScript, browser and available race suites; Astra review final evidence.
+
+Checkpoint: failure inventory is in `docs/plans/v6-regression-suite-20260908.md`.
+The current request authorizes repairing these failures, not weakening checks or
+claiming unexecuted tests passed. Existing dirty files and the Atlas database are preserved.
+
+Framework acceptance checkpoint: `docs/plans/v6-framework-system-tests-20260908.md`
+records the final passing per-package matrix and exact conditional-test
+counterparts. Native and race each cover 93 tested packages plus one no-test
+documentation package; Wasm covers 28 and browser covers two. Nested tools,
+adapter and JavaScript checks pass. Failed historical attempts remain recorded;
+the two race packages affected by Windows child-executable cleanup have explicit
+passing instrumented reruns. No framework test remains unverified solely because
+of a prerequisite skip. Example repairs and manual release acceptance remain
+separate, unchanged work items.
+
+Design and inspected integration points: [V6 Wails desktop plan](docs/plans/v6-wails-desktop.md).
+This section is the authoritative completion tracker for the integration.
+Execution started on 2026-09-08. The user authorized several Luna subagents for
+bounded work and an Astra verification pass. Independent technical tasks may be
+checked after verification; milestone/release gates remain open until their
+  manual acceptance tasks pass. Existing next-work markers elsewhere are unchanged. Current milestone:
+**Windows integration implemented and reviewed; release acceptance remains open**.
+The user's continuation request authorizes code integration while manual checks
+are pending; this does not waive those acceptance gates or imply platform support.
+The initial release is **Windows first**, explicitly selected by the user on
+2026-09-08. macOS/Linux work in the original plan is deferred, not a hidden skip.
+After each item, append a checkpoint with changed files, validation command/result,
+evidence location, residual risk, and next item. Do not mark skipped validation as passing.
+Task descriptions retain their original acceptance criteria; current API and
+command behavior is documented in `desktop/README.md` and the Windows reference.
+
+### D0 — Version, environment, and baseline
+
+- [x] **WAILS-001 — Verify and pin the Wails integration contract.** Depends on: none.
+  Inspect the plan's candidate `v3.0.0-beta.17` source/templates; record the CLI,
+  module/runtime versions, generated JS exports, cancellation API, asset routes,
+  and supported binding-generation order. Acceptance: reproducible version/API
+  notes explain a clean build with no pre-existing embedded assets and whether
+  direct ES modules work without npm/Vite. Reassess the pin if evidence requires it.
+- [x] **WAILS-002 — Validate Windows prerequisites and module isolation.** Depends on: WAILS-001.
+  Check Go, WebView2, and native build requirements; verify dependency resolution
+  for the proposed isolated `examples/desktop/wails-counter/` module, including
+  any needed local replacements. Acceptance: documented commands resolve the
+  actual dependencies without adding Wails to the root module or changing global
+  Go environment settings; imports match the currently declared GWC module version.
+- [x] **WAILS-003 — Record the browser counter baseline.** Depends on: WAILS-002.
+  Build/run the existing browser counter and record tool versions, artifact size,
+  startup measurement method/results, and interaction behavior. Acceptance:
+  repeatable baseline evidence exists for comparing the desktop prototype.
+
+### D1 — One working Windows application
+
+- [x] **WAILS-004 — Create the isolated Wails counter shell.** Depends on: WAILS-003.
+  Add separate native/frontend entrypoints, shared DTOs, embedded local assets,
+  and a reproducible task file in `examples/desktop/wails-counter/`. Reuse the
+  Wasm renderer, typed CSS, and hash router. Acceptance: a clean build launches
+  one native Windows window and the counter responds; native code never calls ui.Render.
+- [ ] **WAILS-005 — Prove native services, dialogs, and progress events.** Depends on: WAILS-004.
+  Add a typed Go service round trip, an open-file dialog, and native progress
+  events with cleanup. Acceptance: actual-WebView evidence covers successful
+  calls, service errors, dialog cancellation, and event delivery without blocking input.
+  Progress: service/error/event native smoke passes; OS picker selection/cancellation remains manual.
+- [x] **WAILS-006 — Integrate generated modules and ordered startup.** Depends on: WAILS-005.
+  Use interop.ImportModule/Module.Call for the generated service bindings and an
+  external __gwcImportModule helper. Acceptance: bootstrap verifies runtime/adapter
+  readiness before native controls activate; missing bindings surface visibly;
+  selected CSP works without the Function-constructor import fallback.
+  Technical acceptance verified by Astra. The wider D1 gate remains open for WAILS-005's manual picker check.
+- [ ] **WAILS-007 — Validate packaged startup and shutdown.** Depends on: WAILS-006.
+  Test local-only cold startup, matching wasm_exec.js, Wasm MIME/non-streaming
+  fallback, routing, resize, keyboard input, boot failures, and window close.
+  Acceptance: executable runs without the dev server/network, closes cleanly,
+  and the existing browser counter still passes its baseline interactions.
+  Progress: automated native startup/fallback/failure/routing and browser regression pass;
+  visible keyboard/resize/title-bar close and disconnected launch remain manual.
+
+### D2 — Frontend adapter and lifecycle contracts
+
+- [x] **WAILS-008 — Extract the optional desktop frontend package.** Depends on: WAILS-007.
+  Add the smallest `desktop/` adapter with js/wasm implementation, native
+  unavailable stubs, and an injectable transport. Acceptance: browser/SSR use
+  reports unavailable predictably; frontend dependencies exclude native Wails;
+  focused native and Wasm contract tests pass.
+  Verified: `desktop/` adapter and native stubs adopted by the example; injected,
+  actual JS/Wasm and native-WebView contracts pass. D1 manual prerequisite remains open.
+- [x] **WAILS-009 — Implement typed calls, errors, capabilities, and cancellation.** Depends on: WAILS-008.
+  Define DTO/wire handling for nil, bytes, time, and wide IDs; distinguish remote,
+  encode/decode, missing-binding, cancellation, timeout, and closed-window errors.
+  Add a version/capability handshake and forward cancellation through the verified
+  Wails request API. Acceptance: typed round trips pass and a cooperative native
+  task demonstrably stops; cancellation of completed writes is not promised.
+  Verified: native smoke observes backend cancellation after UI Cancel and route
+  unmount; errors/wire contracts pass. Native protocol/platform/version/method-map
+  handshake now runs before Wasm startup. It is compatibility detection, not authorization.
+- [x] **WAILS-010 — Prove bounded request cleanup.** Depends on: WAILS-009.
+  Cover cancellation before/during a call, deadlines, rejection, late completion,
+  unmount/remount, window close, and never-settling promises. Reuse UseTask/UseTaskCtx.
+  Acceptance: callback/request resources are bounded, stale UI results are ignored,
+  and no late callback invokes a released JS function; backend and UI cancellation
+  evidence is recorded separately.
+  Verified: bounded adapter-owned JS registries and synchronous polling avoid Go
+  callbacks retained by native promises. Cancel-during-poll, late/never settlement,
+  reentrant close and deadline tests pass. Arbitrary host-retained JS heap is not bounded.
+- [x] **WAILS-011 — Harden desktop event subscriptions.** Depends on: WAILS-010.
+  Add typed event mapping, explicit namespaces, idempotent unsubscribe, and bounded
+  burst/coalescing behavior. Acceptance: lifecycle/burst tests leave no subscriptions
+  after unmount/reload/close; local events.Subscribe/Publish remain local unless
+  explicitly bridged. Use a cancellation function or adapter-owned subscription type.
+
+### D3 — Scaffolding and CLI workflow
+
+- [x] **WAILS-012 — Add desktop target metadata.** Depends on: WAILS-011.
+  Extend scaffold metadata in tools/gwc/start.go and its loading/normalization in
+  dev.go; define native/frontend/assets/output fields and precedence. Acceptance:
+  malformed targets fail clearly, schema migration/additive-field policy is explicit,
+  and existing schema-v1 web fixtures retain their defaults. Keep app metadata out
+  of machine-level runner path overrides.
+- [x] **WAILS-013 — Add a reproducible desktop template.** Depends on: WAILS-012.
+  Generate portable DTOs, separate entrypoints, pinned dependencies, local assets,
+  and the proven clean binding/build order. Acceptance: an app generated into a
+  fresh directory resolves, builds, and launches without stale dist assets;
+  web templates still work. Leave unrelated tools/uicodegen work untouched.
+  Verified contributor-linked fresh scaffold and native package; independent
+  published templates and arbitrary layouts are explicitly not supported yet.
+- [x] **WAILS-014 — Add desktop init, doctor, and build commands.** Depends on: WAILS-013.
+  Reuse the existing Wasm build stage and invoke native compilation with separately
+  scoped environments. Update dispatch, help, registry metadata, JSON envelopes,
+  and applicable MCP schema/allowlists. Acceptance: success/failure outputs agree
+  across interfaces, desktop checks are opt-in, mutation flags are accurate, and
+  web build/release semantics and relevant tests remain intact.
+- [ ] **WAILS-015 — Add supervised desktop development.** Depends on: WAILS-014.
+  Give one supervisor ownership of frontend rebuild/reload, native restart, and
+  DTO-triggered binding regeneration. Exclude generated outputs, verify runtime
+  routes/readiness, and define port-conflict/process ownership behavior. Acceptance:
+  each edit class triggers the correct work, rebuilds do not loop, and exit/failure
+  leaves no orphan host/server. Document state behavior on native restart.
+  Progress: supervisor rebuilds/restarts the full app; owned-process cleanup,
+  rebuild failure and cancellation have focused tests. Frontend-only reload is
+  deferred, and a complete interactive edit-class acceptance pass remains open.
+
+### D4 — Durable storage and multiple windows
+
+- [x] **WAILS-016 — Add native application-data persistence.** Depends on: WAILS-015.
+  Replace the desktop use of db/sqlite's temp-directory approximation with an
+  explicit app-owned data path, injectable in tests, and host-owned database lifecycle.
+  Acceptance: data survives restart at the documented path; tests remain isolated;
+  path/open/close failures surface as actionable errors.
+- [x] **WAILS-017 — Implement a service-backed kvstate backend.** Depends on: WAILS-016.
+  Implement kvstate.PersistenceBackend through typed native services, with bounded
+  payloads and defined version/conflict behavior. Acceptance: Load/Save/Delete/Keys,
+  missing keys, service failures, concurrent writes, and restart durability pass
+  focused tests; browser storage remains selectable.
+- [ ] **WAILS-018 — Connect native commits to state invalidation.** Depends on: WAILS-017.
+  Add a configurable invalidation source or narrow equivalent around kvstate/watch.go
+  to consume Wails commit events. Acceptance: other windows reload committed changes,
+  duplicate/self events do not loop, cleanup is verified, and browser BroadcastChannel
+  behavior remains covered.
+  Progress: actual two-window native invalidation passes. Shared hub/version
+  regression tests do not certify real browser BroadcastChannel persistence.
+- [ ] **WAILS-019 — Validate independent windows with shared durable state.** Depends on: WAILS-018.
+  Exercise two windows, conflicting edits, reload/reopen, and close during in-flight
+  work. Acceptance: UI-only state remains per-window, backend state resynchronizes,
+  conflicts follow the documented rule, and subscriptions/database resources close cleanly.
+  Progress: native two-window/local-state smoke and storage conflict/reopen tests
+  pass separately; the complete interactive conflict/reopen/close matrix is open.
+
+### D5 — Compatibility, packaging, and release evidence
+
+- [ ] **WAILS-020 — Add the desktop test lane and CI workflow.** Depends on: WAILS-019.
+  Extend test dispatch/normalization and add explicit nested-module tests plus actual
+  Windows/macOS/Linux WebView smoke jobs. Acceptance: desktop failures are reported
+  distinctly, missing native environments are explicit skips/limitations, and root
+  tests are not used as a substitute for testing the nested example module.
+  Scope update: Windows native CI only for the user-selected initial release;
+  macOS/Linux native jobs are deferred. Portable Linux race testing is separate.
+  Progress: local desktop lane passes normal 17-check smoke, buffered fallback
+  and both expected startup failures. Workflow added; hosted CI has not run.
+- [ ] **WAILS-021 — Record desktop feature compatibility.** Depends on: WAILS-020.
+  Verify focus, IME, accessibility, native dialogs, fonts, DPI, CSS, routing,
+  clipboard, and external links on each claimed platform; probe workers/storage
+  separately. Acceptance: a versioned matrix links evidence and documents limitations;
+  PWA installation and service workers are not mandatory for desktop startup.
+  Progress: [Windows compatibility matrix](docs/plans/v6-wails-windows-compatibility.md)
+  records verified capabilities and manual gaps; untested features remain unclaimed.
+- [ ] **WAILS-022 — Validate the privileged WebView boundary.** Depends on: WAILS-021.
+  Test trusted local assets, actual Wasm/script CSP needs, external navigation,
+  explicit service registration/input validation, and production removal of dev/agent
+  endpoints. Acceptance: untrusted navigation cannot inherit native privileges,
+  valid service calls still work, and each supported engine passes its content policy.
+  Progress: strict local host/origin/referrer middleware, input bounds and CSP
+  tests pass. Full hostile-navigation acceptance remains open.
+- [ ] **WAILS-023 — Add desktop packaging and signing configuration.** Depends on: WAILS-022.
+  Implement the proposed desktop package command, artifact manifest/hashes/tool
+  versions, installer/runtime prerequisites, and configurable signing/notarization.
+  Acceptance: packaged artifacts pass native smoke tests; missing signing credentials
+  produce an explicit unsigned/blocked result, never a signed-release claim.
+  Automatic updates, mobile, and deep links remain outside this initial release.
+  Progress: fresh generated project packages successfully; ZIP/executable hashes
+  match its explicitly unsigned manifest. Signing/installer configuration remains open.
+- [ ] **WAILS-024 — Measure release performance and publish support documentation.** Depends on: WAILS-023.
+  Compare cold start and interaction with WAILS-003; measure package size, memory
+  per window, and bridge latency with representative payloads. Acceptance: measured
+  budgets and repeatable commands are recorded, the desktop workflow/reference docs
+  are updated, and every claimed platform has packaged-app evidence and known limits.
+
+### Wails execution checkpoints
+
+- **2026-09-08 / final integration drive:** Extended typed clipboard/message/window/
+  screen SDKs with versioned envelopes and isolated Windows adapter; completed
+  feature policies and dual-target tooling. Three Luna workers implemented scoped
+  work and Astra independently reviewed/tested and fixed boundary/CLI regressions.
+  Unit, real Wasm, real Chromium, native all/none/selected and compiled-ceiling
+  checks pass. Latest unsigned artifact is `bin/v6-release-20260908`; exact hashes,
+  commands, failures and reruns are in `docs/plans/v6-completion-verification.md`
+  and `docs/plans/v6-astra-final-verification.md`. Visual Windows acceptance is
+  genuinely blocked by black screenshots and failed activation, not waived.
+  Signing/publishing, hosted CI and unperformed manual certification remain
+  explicitly unclaimed; no release tag, commit or push was made.
+
+- [x] **DESKTOP-SDK-001 — Prove the portable API/replaceable adapter boundary.**
+  Implemented Wails-free file-dialog contracts, four typed workflows, Supports/
+  Require, immutable host opt-in, separate desktop/wails module and shared legacy/
+  lab picker routing. Native/Wasm/fake-backend and actual WebView enabled/disabled
+  tests pass; fresh scaffold builds. See docs/plans/v6-desktop-public-api.md.
+  Scope is file dialogs, not a complete Wails facade or published adapter release.
+- [ ] **DESKTOP-SDK-002 — Extend only proven common desktop workflows.**
+  Apply the tested boundary to clipboard read/write, narrow window operations and
+  lifecycle as concrete contracts; preserve native escape hatches. Add per-feature
+  host checks and adapter upgrade tests, then establish separate adapter releases.
+
+- [x] **DESKTOP-GATE-001 — Typed capabilities and host-enforced policy.**
+  Implement the reviewed proposal in `docs/plans/v6-desktop-build-gates.md`:
+  minimal Client.Supports/Require, explicit optional feature groups, fail-closed
+  host checks covering API actions, legacy picker, menus and report export.
+  UI flags may restrict UX but never grant native authority.
+  Verified native all/none/selected feature matrices and direct-call guards.
+  Policy now covers every listed group, with backend intersection and compiled
+  ceiling; disabled persistence is not opened. See v6-completion-verification.md.
+- [x] **DESKTOP-GATE-002 — Seamless web/desktop build selection.**
+  After GATE-001, add gwc_desktop source selection, standalone web bootstrap,
+  distinct outputs, target/features metadata and build/dev/package command
+  plumbing. Preserve web defaults and existing desktop aliases.
+  Implemented typed mode query, stock Go tag selection, isolated assets/web output,
+  canonical feature flags/manifest metadata and build/dev/test/watch/package paths.
+  Fresh scaffold builds and real Chromium/native WebView checks pass; inherited
+  GOFLAGS cannot smuggle desktop-tagged files into an explicit web build.
+  Final fresh-scaffold testing reproduced and fixed missing metadata-aware web
+  build/dev dispatch. First-class CLI Chromium E2E passes (15.193s); actual dev
+  HTTP serving and Go-source watcher rebuild pass (8.657s), including inherited
+  desktop-tag rejection. Canonical overrides fail explicitly; native assets stay
+  separate. Final focused CLI safety tests pass (2.602s).
+- [ ] **DESKTOP-GATE-003 — Gate matrix and developer documentation.**
+  After GATE-002, test web/SSR, desktop-none/selected/full, missing host, rejected
+  features and direct binding bypass attempts; verify fresh scaffold/dev restarts
+  and document tagged-file versus runtime-requirement examples.
+
+- [x] **WINAPI-001 — Build and exercise the Windows API Lab (2026-09-08).**
+  User requested comprehensive native testing, including context menus and pickers.
+  Add real native menu/dialog/window/clipboard/screen controls, bounded exportable
+  evidence and explicit visual verdicts. Preserve the counter regression route.
+  Validate unit contracts, actual WebView smoke and real Windows inputs against
+  synthetic fixtures. Record cancelled versus completed versus observed-pass
+  separately; do not claim full Windows API coverage from a finite tester.
+  Checkpoint: native API service, menu definitions, Wasm tester UI, CLI template,
+  20-check native smoke and 21-check fallback pass; fresh scaffold builds and runs.
+  Real manual context menus, pickers, messages, window states, shortcuts and export
+  exercised. See `docs/plans/v6-wails-windows-api-manual.md` for build identities,
+  fixes, partial coverage and explicit remaining risks.
+
+- [ ] **WINAPI-002 — Isolate bulk-entry/paste duplication and finish manual gaps.**
+  Bulk computer-use text entry doubled in WebView inputs; single keypresses did
+  not. Investigate pinned accelerator handled-state reset versus native Edit paste
+  before choosing a minimal fix. Direct clipboard tests need explicit operator
+  opt-in. Continue IME/screen-reader/tab-order, all picker Cancel variants,
+  physical multi-DPI, resize and export-overwrite checks; never infer these from
+  unit-test or smoke success.
+
+- **2026-09-08 / WAILS-001:** Added `.gitmodules` entry and exact gitlink for
+  `third_party/wails` at `5bce785eb1efbd121ef2e1cb2588eb50b9c59068` (beta.17).
+  Luna inspected generated ES-module/runtime, service lifecycle, cancellation,
+  and embedding contracts. Validation: submodule HEAD matches release commit;
+  upstream checkout clean. Evidence: [contract](docs/plans/v6-wails-contract.md)
+  and [submodule setup](docs/plans/v6-wails-submodule.md). Risk: beta APIs need
+  actual native smoke coverage. Next: WAILS-002.
+- **2026-09-08 / WAILS-002:** Isolated example module resolves local GWC and
+  Wails source; root go.mod remains unchanged. Validation: `go list -m all`,
+  isolated `go test ./...`, and native host build passed. Installed Go and
+  WebView2 versions recorded in [environment evidence](docs/plans/v6-wails-environment.md).
+  Risk: only this Windows environment is verified. Next: WAILS-003.
+- **2026-09-08 / WAILS-003:** Built the existing browser counter (6,647,102 bytes)
+  and recorded hash/toolchain/timing. Counter render/increment passed in Chromium,
+  Firefox, and WebKit; standard browser lane passed. Full cross-browser matrix
+  had an unrelated WebKit storage-server failure and Windows temp-unlink failure,
+  retained in [baseline evidence](docs/plans/v6-wails-environment.md). Risk:
+  browser startup timing is not native WebView startup. Next: WAILS-004.
+
+- **2026-09-08 / WAILS-004 through WAILS-007:** Three Luna agents implemented
+  the isolated host/frontend, build/bootstrap, source contract and service tests;
+  Astra reviewed, corrected and verified the actual packaged Windows application.
+  Changed files: `examples/desktop/wails-counter/`, example index and evidence docs.
+  Validation: clean-assets `go run ./tools/build`, native tests/vet, scoped gwc
+  verify, native and js/wasm lint/vet passed. Hidden WebView2 smoke covers rendered
+  local/native increments, typed errors, progress, three route cycles, MIME/CSP and
+  forced buffered loading; missing bindings/Wasm correctly exit 1 with visible errors.
+  Fresh counter tests passed Chromium, Firefox and WebKit; browser artifact hash
+  is unchanged. Full commands/results: [Astra verification](docs/plans/v6-wails-verification.md).
+  Windows recursive-checkout workflows now set core.longpaths only for checkout;
+  all three modified YAML files parse, but hosted CI has not run.
+  Residuals: native shutdown logs WebView2 warning 1412; physical OS interactions
+  and disconnected launch are not certified. WAILS-004 is complete; WAILS-006's
+  technical checks pass but its prerequisite remains open. Next: finish WAILS-005
+  and WAILS-007 manual gates before D2 adapter extraction. D2–D5 remain pending.
+
+- **2026-09-08 / WAILS-008 through WAILS-011:** The subsequent continuation
+  authorizes D2 onward while retaining D1 manual gates. Added optional `desktop/`
+  adapter, typed wire contracts, cancellable polling transport, bounded event
+  queues, native unavailable stubs and the example capability handshake. Astra
+  fixed cancellation-during-poll, unsafe wire integers, hostile error getters and
+  reentrant close handling. Validation: native, real JS/Wasm and Node contract
+  tests plus actual WebView cancellation/unmount smoke pass; see
+  [D2 evidence](docs/plans/v6-wails-adapter-verification.md). Root additionally
+  verified the native handshake and local-origin guard in the 17-check smoke.
+  Residuals: adapter-owned registries are bounded, not arbitrary host JS memory;
+  latest-value topics are not an audit log. Next: complete fresh CLI/storage
+  verification and retain the manual Windows release gates.
+
+- **2026-09-08 / WAILS-012 through WAILS-014:** Added optional schema-v1 desktop
+  metadata and `gwc desktop init/doctor/build` dispatch, help and registry entries.
+  Fresh source-only scaffolds build and package with exact Wails pin checks;
+  malformed paths, unsupported layouts and unsafe overwrite targets are rejected.
+  Validation: targeted CLI tests and fresh generated-project doctor/build/package
+  passed. Root independently compared both executable and ZIP SHA256 values with
+  `bin/desktop-final-verify-20260908/bin/wails-counter.manifest.json`; both match
+  and `signed` is false. A later fresh attempt exposed a smoke timer-boundary
+  failure under background throttling; Astra corrected predicate/deadline order,
+  added deterministic tests, and a new fresh package passed all 17 native checks.
+  Residuals: template is contributor-linked, not a published standalone starter;
+  unsigned packaging is not production release acceptance. Evidence:
+  [final integration verification](docs/plans/v6-wails-integration-verification.md).
+  Next: retain the documented manual, browser-persistence and release gates.
+
+- **2026-09-08 / WAILS-016 and WAILS-017:** Added the example native storage
+  service and `desktop.NewStorageBackend`, with explicit app-owned data, bounded
+  file/record sizes, atomic replacement, kernel lock ownership and typed errors.
+  Astra fixed encoded quota/reopen mismatch, bounded reads/base64 allocation,
+  cancelled queued commits and stale/tombstone binding reconciliation. Validation:
+  native and real Wasm desktop/kvstate tests and vet pass; nested service tests,
+  vet and lint pass; subprocess crash/reopen proves persistence and lock release.
+  Actual two-window smoke additionally demonstrates shared saved state while
+  local counters stay independent. Evidence:
+  [final integration verification](docs/plans/v6-wails-integration-verification.md).
+  Residuals: default browser BroadcastChannel end-to-end coverage, complete native
+  conflicting-edit/reopen scenarios and Windows manual acceptance remain open.
+  Next: WAILS-018 acceptance and the outstanding Windows release gates.
+
 ## Research items
 
 - [ ] **devx-maxxing** (2026-06-27) — detailed, framework-agnostic developer-

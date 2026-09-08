@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"sync"
 	"testing"
 )
 
@@ -20,6 +21,7 @@ func (parseD *testDeadline) DidTimeout() bool {
 
 // Mock scheduler for testing
 type testScheduler struct {
+	mutex     sync.Mutex
 	callbacks []func(Deadline)
 	timeouts  []func()
 }
@@ -32,11 +34,31 @@ func newTestScheduler() *testScheduler {
 }
 
 func (parseS *testScheduler) RequestIdleCallback(parseCallback func(deadline Deadline)) {
+	parseS.mutex.Lock()
+	defer parseS.mutex.Unlock()
 	parseS.callbacks = append(parseS.callbacks, parseCallback)
 }
 
 func (parseS *testScheduler) SetTimeout(parseCallback func(), parseDelay int) {
+	parseS.mutex.Lock()
+	defer parseS.mutex.Unlock()
 	parseS.timeouts = append(parseS.timeouts, parseCallback)
+}
+
+// getPendingTimeoutCount reads the queue while async boundary retries enqueue.
+func (parseS *testScheduler) getPendingTimeoutCount() int {
+	parseS.mutex.Lock()
+	defer parseS.mutex.Unlock()
+	return len(parseS.timeouts)
+}
+
+// getPendingTimeouts takes ownership of queued work before running callbacks.
+func (parseS *testScheduler) getPendingTimeouts() []func() {
+	parseS.mutex.Lock()
+	defer parseS.mutex.Unlock()
+	parseCallbacks := parseS.timeouts
+	parseS.timeouts = nil
+	return parseCallbacks
 }
 
 func TestScheduleUpdate_CreatesWipRoot(parseT *testing.T) {

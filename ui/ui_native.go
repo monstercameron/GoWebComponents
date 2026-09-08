@@ -411,15 +411,31 @@ func (parseT Transition) Start(parseFn func()) {
 // UseState creates local component state on non-browser targets.
 func UseState[T any](parseInitialValue T) State[T] {
 	parseCurrent := parseInitialValue
+	var parseValueMu sync.RWMutex
+	var parseUpdateMu sync.Mutex
 	return State[T]{
-		get: func() T { return parseCurrent },
+		get: func() T {
+			parseValueMu.RLock()
+			defer parseValueMu.RUnlock()
+			return parseCurrent
+		},
 		set: func(parseNext any) {
+			parseUpdateMu.Lock()
+			defer parseUpdateMu.Unlock()
 			if parseValue, parseOk := parseNext.(T); parseOk {
+				parseValueMu.Lock()
 				parseCurrent = parseValue
+				parseValueMu.Unlock()
 				return
 			}
 			if parseUpdater, parseOk2 := parseNext.(func(T) T); parseOk2 {
-				parseCurrent = parseUpdater(parseCurrent)
+				parseValueMu.RLock()
+				parsePrevious := parseCurrent
+				parseValueMu.RUnlock()
+				parseNextValue := parseUpdater(parsePrevious)
+				parseValueMu.Lock()
+				parseCurrent = parseNextValue
+				parseValueMu.Unlock()
 			}
 		},
 	}
@@ -442,6 +458,8 @@ func (parseS State[T]) Set(parseValue T) {
 }
 
 // Update replaces the state value using the previous value.
+// Native updates are serialized. The updater may call Get, but must not call
+// Set or Update on this same state, which would recursively acquire its update lock.
 func (parseS State[T]) Update(parseFn func(T) T) {
 	if parseS.set != nil && parseFn != nil {
 		parseS.set(parseFn)

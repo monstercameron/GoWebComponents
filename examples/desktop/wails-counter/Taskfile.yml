@@ -1,0 +1,21 @@
+version: '3'
+tasks:
+  build:
+    cmds:
+      - go run ./tools/build
+  build:desktop:
+    vars:
+      FEATURES: '{{default "all" .FEATURES}}'
+    cmds:
+      - go run ./tools/build -target desktop -features {{.FEATURES}}
+  build:web:
+    cmds:
+      - go run ./tools/build -target web
+  test:
+    cmds:
+      - go test ./contracts ./internal/services
+  test:desktop:
+    deps: [build:desktop]
+    cmds:
+      - go test ./...
+      - ./bin/wails-counter.exe --smoke-test

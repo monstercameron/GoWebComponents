@@ -51,6 +51,16 @@ type scaffoldOwnershipMetadata struct {
 	FrameworkSourceMode string `json:"frameworkSourceMode,omitempty"`
 }
 
+// scaffoldDesktopMetadata describes an opt-in isolated native desktop target.
+type scaffoldDesktopMetadata struct {
+	Version       int    `json:"version"`
+	NativeEntry   string `json:"nativeEntry"`
+	FrontendEntry string `json:"frontendEntry"`
+	AssetsDir     string `json:"assetsDir"`
+	OutputPath    string `json:"outputPath"`
+	WailsVersion  string `json:"wailsVersion"`
+}
+
 type scaffoldMetadata struct {
 	SchemaVersion int                        `json:"schemaVersion,omitempty"`
 	ProjectName   string                     `json:"projectName,omitempty"`
@@ -63,6 +73,7 @@ type scaffoldMetadata struct {
 	Enterprise    scaffoldEnterpriseMetadata `json:"enterprise"`
 	Ownership     scaffoldOwnershipMetadata  `json:"ownership"`
 	Tooling       scaffoldToolingMetadata    `json:"tooling"`
+	Desktop       *scaffoldDesktopMetadata   `json:"desktop,omitempty"`
 }
 
 const currentScaffoldMetadataSchemaVersion = 1

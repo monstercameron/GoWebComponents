@@ -7,11 +7,7 @@ import (
 )
 
 func runScheduledTimeouts(parseScheduler *testScheduler) {
-	for len(parseScheduler.timeouts) > 0 {
-		parseCallback := parseScheduler.timeouts[0]
-		parseScheduler.timeouts = parseScheduler.timeouts[1:]
-		parseCallback()
-	}
+	flushScheduledWork(parseScheduler)
 }
 
 func TestScheduleGranularUpdateForFiber_DoesNotDirtyAncestors(parseT *testing.T) {

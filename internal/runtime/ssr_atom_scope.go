@@ -138,9 +138,8 @@ func ssrAtomScopeFromContext(parseCtx map[int64]any) *Runtime {
 // ssrRequestAtomScope returns the SSR atom scope owning the render in progress,
 // or nil when the caller is not inside a server render.
 //
-// It reads the ambient currentFiber rather than a goroutine-local: a streaming
-// boundary resolves on a different goroutine than the shell, and it must still
-// find its own request's scope. withSSRHookFiber stamps the scope onto every
+// It reads the calling render's fiber: each streaming boundary installs its
+// inherited request scope on its own goroutine. withSSRHookFiber stamps it onto every
 // transient SSR fiber, so the lookup is a field read in the common case; the
 // parent walk is defensive against future SSR fibers that get linked to a parent.
 //
@@ -149,7 +148,7 @@ func ssrAtomScopeFromContext(parseCtx map[int64]any) *Runtime {
 // using the process-global registry. Returning nil there is what keeps this fix
 // scoped to SSR.
 func ssrRequestAtomScope() *Runtime {
-	for parseCursor := currentFiber; parseCursor != nil; parseCursor = parseCursor.parent {
+	for parseCursor := GetCurrentFiber(); parseCursor != nil; parseCursor = parseCursor.parent {
 		if parseCursor.ownerRuntime == nil {
 			continue
 		}

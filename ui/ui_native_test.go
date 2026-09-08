@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,51 @@ import (
 	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
+
+// TestNativeStateUpdaterCanReadState verifies updater callbacks may inspect current state.
+func TestNativeStateUpdaterCanReadState(parseT *testing.T) {
+	parseState := ui.UseState(4)
+	parseState.Update(func(parsePrevious int) int { return parsePrevious + parseState.Get() })
+	if parseGot := parseState.Get(); parseGot != 8 {
+		parseT.Fatalf("state updater Get() = %d, want 8", parseGot)
+	}
+}
+
+// TestNativeStateConcurrentUpdatesAreSerialized verifies concurrent updater increments are lossless.
+func TestNativeStateConcurrentUpdatesAreSerialized(parseT *testing.T) {
+	parseState := ui.UseState(0)
+	var parseWait sync.WaitGroup
+	for parseIndex := 0; parseIndex < 32; parseIndex++ {
+		parseWait.Add(1)
+		go func() {
+			defer parseWait.Done()
+			for parseStep := 0; parseStep < 32; parseStep++ {
+				parseState.Update(func(parsePrevious int) int { return parsePrevious + 1 })
+			}
+		}()
+	}
+	parseWait.Wait()
+	if parseGot := parseState.Get(); parseGot != 1024 {
+		parseT.Fatalf("concurrent state updates = %d, want 1024", parseGot)
+	}
+}
+
+// TestNativeStateUpdaterPanicReleasesLock verifies a failed updater does not strand later updates.
+func TestNativeStateUpdaterPanicReleasesLock(parseT *testing.T) {
+	parseState := ui.UseState(1)
+	func() {
+		defer func() {
+			if recover() == nil {
+				parseT.Fatal("expected updater panic")
+			}
+		}()
+		parseState.Update(func(int) int { panic("state updater") })
+	}()
+	parseState.Update(func(parsePrevious int) int { return parsePrevious + 1 })
+	if parseGot := parseState.Get(); parseGot != 2 {
+		parseT.Fatalf("state after panic = %d, want 2", parseGot)
+	}
+}
 
 type greetingProps struct {
 	Name string

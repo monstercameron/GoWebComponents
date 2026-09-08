@@ -3,6 +3,7 @@ package shorthand
 import (
 	goruntime "runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -481,28 +482,28 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 }
 
 func TestTemporalWrappersExecuteThroughDelegation(parseT *testing.T) {
-	parseDebouncedCount := 0
-	parseDebounced, parseOk := Debounce(15*time.Millisecond, func() { parseDebouncedCount++ }).(func(ui.Event))
+	var parseDebouncedCount atomic.Int32
+	parseDebounced, parseOk := Debounce(15*time.Millisecond, func() { parseDebouncedCount.Add(1) }).(func(ui.Event))
 	if !parseOk {
 		parseT.Fatal("expected debounced wrapper")
 	}
 	parseDebounced(ui.Event{})
 	parseDebounced(ui.Event{})
-	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseDebouncedCount == 1 })
-	if parseDebouncedCount != 1 {
-		parseT.Fatalf("expected one debounced callback, got %d", parseDebouncedCount)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseDebouncedCount.Load() == 1 })
+	if parseDebouncedCount.Load() != 1 {
+		parseT.Fatalf("expected one debounced callback, got %d", parseDebouncedCount.Load())
 	}
 
-	parseThrottledCount := 0
-	parseThrottled, parseOk := Throttle(20*time.Millisecond, func() { parseThrottledCount++ }).(func(ui.Event))
+	var parseThrottledCount atomic.Int32
+	parseThrottled, parseOk := Throttle(20*time.Millisecond, func() { parseThrottledCount.Add(1) }).(func(ui.Event))
 	if !parseOk {
 		parseT.Fatal("expected throttled wrapper")
 	}
 	parseThrottled(ui.Event{})
 	parseThrottled(ui.Event{})
-	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount >= 2 })
-	if parseThrottledCount != 2 {
-		parseT.Fatalf("expected immediate plus trailing throttled callbacks, got %d", parseThrottledCount)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount.Load() >= 2 })
+	if parseThrottledCount.Load() != 2 {
+		parseT.Fatalf("expected immediate plus trailing throttled callbacks, got %d", parseThrottledCount.Load())
 	}
 }
 

@@ -55,6 +55,45 @@ func Extract(parseDir string) ([]string, error) {
 	return parseLines, nil
 }
 
+// ExtractSources parses an explicit source snapshot, avoiding filesystem directory handles.
+func ExtractSources(parseSources map[string][]byte) ([]string, error) {
+	parseFset := token.NewFileSet()
+	parseSeen := map[string]struct{}{}
+	for parseName, parseData := range parseSources {
+		if strings.HasSuffix(parseName, "_test.go") || !strings.HasSuffix(parseName, ".go") {
+			continue
+		}
+		parseFile, parseErr := parser.ParseFile(parseFset, parseName, parseData, 0)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parse %s: %w", parseName, parseErr)
+		}
+		for _, parseDecl := range parseFile.Decls {
+			for _, parseLine := range renderDecl(parseFset, parseDecl) {
+				parseSeen[parseLine] = struct{}{}
+			}
+		}
+	}
+	parseLines := make([]string, 0, len(parseSeen))
+	for parseLine := range parseSeen {
+		parseLines = append(parseLines, parseLine)
+	}
+	sort.Strings(parseLines)
+	return parseLines, nil
+}
+
+// CheckSources compares an embedded source snapshot with an embedded baseline.
+func CheckSources(parseT testing.TB, parseSources map[string][]byte, parseGolden []byte) {
+	parseT.Helper()
+	parseLines, parseErr := ExtractSources(parseSources)
+	if parseErr != nil {
+		parseT.Fatalf("extract embedded API: %v", parseErr)
+	}
+	parseWant := strings.Split(strings.TrimSpace(strings.ReplaceAll(string(parseGolden), "\r\n", "\n")), "\n")
+	if strings.Join(parseLines, "\n") != strings.Join(parseWant, "\n") {
+		parseT.Fatalf("API baseline mismatch\nwant:\n%s\ngot:\n%s", strings.Join(parseWant, "\n"), strings.Join(parseLines, "\n"))
+	}
+}
+
 // renderDecl renders the exported API line(s) for one top-level declaration.
 func renderDecl(parseFset *token.FileSet, parseDecl ast.Decl) []string {
 	switch parseTyped := parseDecl.(type) {

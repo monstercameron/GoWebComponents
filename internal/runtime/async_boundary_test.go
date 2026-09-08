@@ -178,7 +178,7 @@ func waitForAsyncBoundaryRetry(parseT *testing.T, parseScheduler *testScheduler)
 	parseT.Helper()
 	parseDeadline := time.Now().Add(500 * time.Millisecond)
 	for time.Now().Before(parseDeadline) {
-		if len(parseScheduler.timeouts) > 0 {
+		if parseScheduler.getPendingTimeoutCount() > 0 {
 			return
 		}
 		time.Sleep(time.Millisecond)

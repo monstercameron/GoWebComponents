@@ -20,9 +20,40 @@ type crossTabHub struct {
 }
 
 var (
-	hubsMu sync.Mutex
-	hubs   = map[string]*crossTabHub{}
+	hubsMu       sync.Mutex
+	hubs         = map[string]*crossTabHub{}
+	externalHubs = map[string]*crossTabHub{}
 )
+
+// subscribeExternalHub owns a local-only hub until its last binding unsubscribes.
+func subscribeExternalHub(parseName, parseKey string, parseOnChange func()) func() {
+	hubsMu.Lock()
+	parseHub := externalHubs[parseName]
+	if parseHub == nil {
+		parseHub = &crossTabHub{subs: map[string]map[int]func(){}}
+		externalHubs[parseName] = parseHub
+	}
+	parseStop := subscribeHub(parseHub, parseKey, parseOnChange)
+	hubsMu.Unlock()
+	return func() {
+		hubsMu.Lock()
+		defer hubsMu.Unlock()
+		parseStop()
+		parseHub.mu.Lock()
+		defer parseHub.mu.Unlock()
+		if len(parseHub.subs) == 0 && externalHubs[parseName] == parseHub {
+			delete(externalHubs, parseName)
+		}
+	}
+}
+
+// subscribeBinding selects external invalidation only when explicitly configured.
+func subscribeBinding(parseOptions Options, parseKey string, parseOnChange func()) func() {
+	if parseOptions.ExternalInvalidation {
+		return subscribeExternalHub(parseOptions.Name, parseKey, parseOnChange)
+	}
+	return subscribeCrossTab(parseOptions.Name, parseKey, parseOnChange)
+}
 
 func getHub(parseName string) *crossTabHub {
 	hubsMu.Lock()
@@ -70,6 +101,11 @@ func (parseH *crossTabHub) fire(parseKey string) {
 // function unsubscribes.
 func subscribeCrossTab(parseName, parseKey string, parseOnChange func()) func() {
 	parseHub := getHub(parseName)
+	return subscribeHub(parseHub, parseKey, parseOnChange)
+}
+
+// subscribeHub registers local reload callbacks with either transport policy.
+func subscribeHub(parseHub *crossTabHub, parseKey string, parseOnChange func()) func() {
 	parseHub.mu.Lock()
 	parseID := parseHub.nextID
 	parseHub.nextID++

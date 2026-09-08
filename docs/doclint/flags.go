@@ -128,10 +128,11 @@ func scanFileFlags(parseContent string, parseDocRel string, parseKnown map[strin
 		}
 		// Only inspect lines that actually invoke the gwc launcher, so flags for
 		// go/node/other tools on neighboring lines are not misread as gwc flags.
-		if !strings.Contains(parseLine, "gwc ") && !strings.Contains(parseLine, "tools/gwc") {
+		parseArgs, isLauncher := parseDocGwcFlagArgs(parseLine)
+		if !isLauncher {
 			continue
 		}
-		for _, parseMatch := range docFlagPattern.FindAllStringSubmatch(parseLine, -1) {
+		for _, parseMatch := range docFlagPattern.FindAllStringSubmatch(strings.Join(parseArgs, " "), -1) {
 			parseFlag := parseMatch[2]
 			if !parseKnown[parseFlag] {
 				parseRefs = append(parseRefs, FlagRef{DocPath: parseDocRel, Line: parseIndex + 1, Flag: parseFlag})
@@ -139,4 +140,37 @@ func scanFileFlags(parseContent string, parseDocRel string, parseKnown map[strin
 		}
 	}
 	return parseRefs
+}
+
+// parseDocGwcFlagArgs recognizes launcher executables and go-run packages without treating build flags or similarly named tools as launcher arguments.
+func parseDocGwcFlagArgs(parseLine string) ([]string, bool) {
+	parseFields, parseErr := splitShellFields(stripShellPrompt(parseLine))
+	if parseErr != nil || len(parseFields) == 0 {
+		return nil, false
+	}
+	parseExecutable := strings.ReplaceAll(parseFields[0], `\`, "/")
+	parseExecutable = strings.ToLower(filepath.Base(parseExecutable))
+	if parseExecutable == "gwc" || parseExecutable == "gwc.exe" {
+		return parseFields[1:], true
+	}
+	if parseExecutable != "go" || len(parseFields) < 3 || parseFields[1] != "run" {
+		return nil, false
+	}
+	for parseIndex := 2; parseIndex < len(parseFields); parseIndex++ {
+		parseToken := parseFields[parseIndex]
+		if strings.HasPrefix(parseToken, "-") {
+			// Go's value-bearing build flags precede the package, and belong to Go.
+			switch parseToken {
+			case "-tags", "-ldflags", "-gcflags", "-asmflags", "-mod", "-modfile", "-overlay", "-p", "-exec", "-C", "-compiler", "-buildmode", "-toolexec", "-pkgdir", "-installsuffix", "-coverpkg":
+				parseIndex++
+			}
+			continue
+		}
+		parsePackage := strings.TrimPrefix(strings.ReplaceAll(parseToken, `\`, "/"), "./")
+		if parsePackage != "tools/gwc" {
+			return nil, false
+		}
+		return parseFields[parseIndex+1:], true
+	}
+	return nil, false
 }
