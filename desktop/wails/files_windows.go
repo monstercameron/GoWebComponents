@@ -37,6 +37,11 @@ func (fileDialogs) SelectPaths(parseContext context.Context, parseRequest deskto
 		return parseUnavailable("Wails application unavailable")
 	}
 	parseOptions := parseRequest.Options
+	// The Wails Windows common-file-dialog adapter does not expose these controls;
+	// reject them instead of silently dropping caller intent.
+	if parseOptions.ShowHiddenFiles || parseOptions.ButtonText != "" {
+		return desktop.FileSelection{}, &interop.Error{Op: "desktop", Target: desktop.FileDialogMethod, Code: interop.CodeInvalid, Err: errors.New("Windows file dialogs do not support hidden-file visibility or custom button text")}
+	}
 	var parsePaths []string
 	var parseErr error
 	if parseRequest.Kind == "save-file" {

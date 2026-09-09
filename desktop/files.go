@@ -27,10 +27,12 @@ type FileFilter struct {
 
 // FileDialogOptions configures a caller-owned native picker.
 type FileDialogOptions struct {
-	Title     string       `json:"title"`
-	Directory string       `json:"directory"`
-	Filename  string       `json:"filename"` // SaveFile only.
-	Filters   []FileFilter `json:"filters"`  // File pickers only, not OpenDirectory.
+	Title           string       `json:"title"`
+	Directory       string       `json:"directory"`
+	Filename        string       `json:"filename"` // SaveFile only.
+	ButtonText      string       `json:"buttonText,omitempty"`
+	ShowHiddenFiles bool         `json:"showHiddenFiles,omitempty"`
+	Filters         []FileFilter `json:"filters"` // File pickers only, not OpenDirectory.
 }
 
 // FileSelection distinguishes operator cancellation from successful path selection.
@@ -138,16 +140,16 @@ func (parseClient Client) Require(parseFeatures ...Feature) error {
 		return parseErr
 	}
 	for _, parseFeature := range parseFeatures {
-		if parseFeature == NativeMenus {
+		if parseFeature == NativeMenus || parseFeature == WindowEvents {
 			hasMenus := false
 			for _, parseAvailable := range parseCaps.Features {
-				if parseAvailable == NativeMenus {
+				if parseAvailable == parseFeature {
 					hasMenus = true
 					break
 				}
 			}
 			if !hasMenus {
-				return getError(string(parseFeature), interop.CodeUnavailable, errors.New("native menus are disabled or unavailable"))
+				return getError(string(parseFeature), interop.CodeUnavailable, errors.New("desktop feature is disabled or unavailable"))
 			}
 			continue
 		}
@@ -180,12 +182,34 @@ func featureMethods(parseFeature Feature) []string {
 		return []string{MessageMethod}
 	case WindowControls:
 		return []string{WindowMethod}
+	case ChildWindows:
+		return []string{ChildWindowCreateMethod, ChildWindowListMethod, ChildWindowInspectMethod, ChildWindowControlMethod}
+	case WindowPrinting:
+		return []string{WindowPrintMethod}
+	case WindowEvents:
+		return []string{}
 	case Screens:
 		return []string{ScreensMethod}
+	case ScreenGeometry:
+		return []string{ScreenGeometryMethod}
+	case RuntimeMenus:
+		return []string{MenuReplaceMethod, ContextMenuInstallMethod, ContextMenuShowMethod, ContextMenuRemoveMethod}
+	case SystemTray:
+		return []string{TrayConfigureMethod}
+	case GlobalShortcuts:
+		return []string{ShortcutConfigureMethod}
 	case PersistentStorage:
 		return []string{StorageLoadMethod, StorageSaveMethod, StorageDeleteMethod, StorageKeysMethod}
 	case ReportExport:
 		return []string{ReportExportMethod}
+	case SystemEnvironment:
+		return []string{SystemEnvironmentMethod}
+	case ExternalURLs:
+		return []string{ExternalURLOpenMethod}
+	case Autostart:
+		return []string{AutostartStatusMethod, AutostartEnableMethod, AutostartDisableMethod}
+	case FileManager:
+		return []string{FileManagerRevealMethod}
 	default:
 		return nil
 	}
@@ -289,7 +313,7 @@ func validateFileDialogRequest(parseRequest FileDialogRequest) error {
 	if len(parseOptions.Filters) > 16 {
 		return errors.New("too many file filters")
 	}
-	parseStrings := []string{parseOptions.Title, parseOptions.Directory, parseOptions.Filename}
+	parseStrings := []string{parseOptions.Title, parseOptions.Directory, parseOptions.Filename, parseOptions.ButtonText}
 	for _, parseFilter := range parseOptions.Filters {
 		if parseFilter.Name == "" || parseFilter.Pattern == "" {
 			return errors.New("file filter name and pattern required")

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"example.com/gwc-wails-counter/contracts"
+	"github.com/monstercameron/GoWebComponents/v6/desktop"
 )
 
 // TestAPIServiceFixtureAndActionValidation verifies fixture files and action bounds.
@@ -145,6 +146,20 @@ func closeAPITestService(parseTest *testing.T, parseService *APIService) {
 func TestAPIServiceSelectionOutcome(parseTest *testing.T) {
 	if selectionOutcome(nil) != "cancelled" || selectionOutcome([]string{}) != "cancelled" || selectionOutcome([]string{"x"}) != "completed" {
 		parseTest.Fatal("selection outcome mismatch")
+	}
+}
+
+// TestAPISavePickerCancellationNeverClaimsSelection keeps manual cancellation evidence truthful.
+func TestAPISavePickerCancellationNeverClaimsSelection(parseTest *testing.T) {
+	parseResult := contracts.APIResult{Detail: "path selected; no file written", Paths: []string{"stale.json"}}
+	if parseOutcome := applyPickerSelection(&parseResult, "save-path", desktop.FileSelection{Cancelled: true}); parseOutcome != "cancelled" {
+		parseTest.Fatalf("outcome=%q", parseOutcome)
+	}
+	if parseResult.Detail != "" || len(parseResult.Paths) != 0 {
+		parseTest.Fatalf("cancelled result retained selection evidence: %#v", parseResult)
+	}
+	if parseOutcome := applyPickerSelection(&parseResult, "save-path", desktop.FileSelection{Paths: []string{"report.json"}}); parseOutcome != "completed" || parseResult.Detail != "path selected; no file written" {
+		parseTest.Fatalf("completed result=%#v outcome=%q", parseResult, parseOutcome)
 	}
 }
 

@@ -15,12 +15,14 @@ import (
 
 // CounterService owns the native counter state and OS integrations.
 type CounterService struct {
-	Files      *desktop.FileDialogHost
-	Native     *desktop.NativeHost
-	Policy     desktop.FeaturePolicy
-	parseMutex sync.Mutex
-	parseValue int
-	parseWork  contracts.WorkState
+	Files                 *desktop.FileDialogHost
+	Native                *desktop.NativeHost
+	Policy                desktop.FeaturePolicy
+	WindowEventsInstalled bool
+	WindowFileDropEnabled bool
+	parseMutex            sync.Mutex
+	parseValue            int
+	parseWork             contracts.WorkState
 }
 
 // GetCapabilities returns a native protocol handshake before the frontend starts.
@@ -52,7 +54,11 @@ func (parseService *CounterService) GetCapabilities() desktop.Capabilities {
 	}
 	if parseService != nil && parseService.Native != nil {
 		parseMethods = append(parseMethods, parseService.Native.GetMethods()...)
-		parseFeatures = append(parseFeatures, parseService.Native.GetFeatures()...)
+		for _, parseFeature := range parseService.Native.GetFeatures() {
+			if parseFeature != desktop.WindowEvents || parseService.WindowEventsInstalled {
+				parseFeatures = append(parseFeatures, parseFeature)
+			}
+		}
 	}
 	if parseService == nil || parseService.Policy.Allows(desktop.NativeMenus) {
 		parseFeatures = append(parseFeatures, desktop.NativeMenus)
@@ -63,11 +69,28 @@ func (parseService *CounterService) GetCapabilities() desktop.Capabilities {
 	if parseService == nil || (parseService.Policy.Allows(desktop.ReportExport) && parseService.Files != nil && len(parseService.Files.GetMethods()) > 0) {
 		parseFeatures = append(parseFeatures, desktop.ReportExport)
 	}
+	parseTopics := []string{"counter.progress", "storage.changed"}
+	if parseService != nil && parseService.WindowEventsInstalled {
+		parseTopics = append(parseTopics, desktop.WindowEventTopic)
+		if parseService.WindowFileDropEnabled {
+			parseTopics = append(parseTopics, desktop.WindowDropTopic)
+		}
+	}
+	for _, parseMethod := range parseMethods {
+		switch parseMethod {
+		case desktop.MenuReplaceMethod:
+			parseTopics = append(parseTopics, desktop.MenuSelectedTopic)
+		case desktop.TrayConfigureMethod:
+			parseTopics = append(parseTopics, desktop.TrayEventTopic)
+		case desktop.ShortcutConfigureMethod:
+			parseTopics = append(parseTopics, desktop.ShortcutEventTopic)
+		}
+	}
 	return desktop.Capabilities{
 		Protocol: desktop.ProtocolVersion, Platform: runtime.GOOS, HostVersion: parseVersion,
-		Methods: parseMethods,
+		Methods:  parseMethods,
 		Features: parseFeatures,
-		Topics:  []string{"counter.progress", "storage.changed"},
+		Topics:   parseTopics,
 	}
 }
 

@@ -117,16 +117,14 @@ func (parseService *APIService) Run(parseContext context.Context, parseAction st
 			parseKind = "save-file"
 			parseOptions.Filename = "api-report.json"
 			parseOptions.Filters = []desktop.FileFilter{{Name: "JSON files", Pattern: "*.json"}}
-			parseResult.Detail = "path selected; no file written"
 		}
 		parseSelection, parseDialogErr := selectFileDialog(parseContext, parseService.Files, parseKind, parseOptions)
 		if parseDialogErr != nil {
 			return parseService.finishPickerError(parseResult, parseDialogErr)
 		}
-		if parseSelection.Cancelled {
+		if applyPickerSelection(&parseResult, parseAction, parseSelection) == "cancelled" {
 			return parseService.finishResult(parseResult, "cancelled", nil)
 		}
-		parseResult.Paths = boundPaths(parseSelection.Paths)
 	case "message-info":
 		parseReply, parseNativeErr := parseService.Native.ShowMessage(parseContext, desktop.MessageRequest{Kind: "info", Title: "API Lab — Information", Message: "Native information dialog"})
 		if parseNativeErr != nil {
@@ -204,6 +202,20 @@ func (parseService *APIService) Run(parseContext context.Context, parseAction st
 		return parseService.finishResult(parseResult, "cancelled", parseErr)
 	}
 	return parseService.finishResult(parseResult, "completed", nil)
+}
+
+// applyPickerSelection adds selection-only detail after distinguishing cancellation.
+func applyPickerSelection(parseResult *contracts.APIResult, parseAction string, parseSelection desktop.FileSelection) string {
+	if parseSelection.Cancelled {
+		parseResult.Detail = ""
+		parseResult.Paths = nil
+		return "cancelled"
+	}
+	parseResult.Paths = boundPaths(parseSelection.Paths)
+	if parseAction == "save-path" {
+		parseResult.Detail = "path selected; no file written"
+	}
+	return "completed"
 }
 
 func apiActionFeature(parseAction string) desktop.Feature {

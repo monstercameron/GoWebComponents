@@ -127,3 +127,14 @@ func TestFileContractBounds(parseT *testing.T) {
 		parseT.Fatal("zero client available")
 	}
 }
+
+// TestFileDialogOptionBounds verifies newly exposed option text is validated before transport.
+func TestFileDialogOptionBounds(parseT *testing.T) {
+	parseRequest := FileDialogRequest{Version: 1, Kind: "open-file", Options: FileDialogOptions{ButtonText: string([]byte{0xff})}}
+	if parseErr := validateFileDialogRequest(parseRequest); parseErr == nil {
+		parseT.Fatal("invalid button text accepted")
+	}
+	if parseErr := validateFileDialogRequest(FileDialogRequest{Version: 1, Kind: "open-directory", Options: FileDialogOptions{ButtonText: "Choose"}}); parseErr != nil {
+		parseT.Fatalf("valid file-dialog option rejected: %v", parseErr)
+	}
+}

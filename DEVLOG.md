@@ -1,5 +1,47 @@
 # Development log
 
+## 2026-09-08 — v6.1 Windows API expansion (unreleased; paused for today)
+
+- Expanded the Wails-free desktop contracts and separately gated Windows adapter:
+  window controls/printing, screen geometry, runtime/context menus, tray, global
+  shortcuts, template-owned child windows, events/drop opt-in, environment,
+  external URLs, file-manager reveal, and autostart. Host-only configuration and
+  unsafe execution/navigation remain outside the portable frontend contract.
+- Sol/Luna handled bounded implementation and test work; Astra reviewed ownership,
+  lifecycle, threading and native semantics. Resolved menu handle/bitmap/callback
+  leaks, accelerator collisions, radio reselection, popup command dispatch,
+  child-close races and tray callback publication. Unsupported Windows request
+  values now fail explicitly rather than silently succeeding.
+- With explicit authorization, created and pushed the Wails fork patch
+  `0965e9db574e7b14a447b0ae2bf7ed36a5406462` to `monstercameron/wails`.
+  Updated the local submodule URL/revision and build-tool pin. Astra cleared
+  the patch for build/pinning; this is not release acceptance.
+- Go 1.26.6 verification: root native 151 passing packages / 6,497 passing test
+  events / four actual skips; CI-style framework Wasm 28 packages / 2,211 events /
+  seven expected runtime skips. Native skips were two optional Atlas performance
+  checks and two symlink-permission checks. Wasm excludes examples, third-party
+  modules and native API-baseline tests. Counts are not coverage percentages.
+- Focused desktop/build-tool, adapter, frontend Wasm, service and JavaScript
+  tests passed; adapter vet passed. Fork application/Win32 tests and repeated
+  ownership regressions passed. The clean pinned EXE built and passed all 26
+  actual WebView2 smoke checks.
+- Native UI checks verified runtime title/menu replacement, menu/context events,
+  radio reselection, single/multiple-file and directory selections, save cancel,
+  and an information dialog. Autostart was verified against the Run key and
+  restored to no registration; the test global shortcut fired and was removed.
+- Manual testing caught save-cancel wording, a child template mismatch and
+  misleading success prefixes on errors. Fixes and regression tests pass; the
+  running EXE predates those last tester fixes and needs rebuilding/rechecking.
+- Windows Security's `gwc.test.exe` firewall prompt interrupted UI testing;
+  no security setting was changed. Tray interaction remains unverified and its
+  fixture remains in the running lab. Further UI checks and final release
+  verification remain open. Stopped at the maintainer's request for today.
+- GWC changes remain uncommitted; no v6.1 tag or production deployment was made.
+  Unrelated Atlas working data and `tools/uicodegen/` remain untouched.
+
+See [acceptance tracker](docs/plans/v6.1-windows-api-parity.md) and
+[manual evidence](docs/plans/v6.1-windows-manual-verification.md).
+
 ## 2026-09-08 — v6.0.0 release preparation
 
 - At the maintainer's direction, paused further example migration and prepared

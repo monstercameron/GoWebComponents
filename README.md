@@ -21,11 +21,15 @@ pipeline. See [Performance and Trade-offs](#performance-and-trade-offs) for
 the costs of the Wasm runtime and a batteries-included module.
 
 Desktop support is **Windows-first**, using WebView2. Native file pickers,
-clipboard access, message dialogs, window controls and screen information are
+clipboard access, message dialogs, runtime titles and menus, window controls,
+child windows, tray icons, shortcuts and screen information are
 available through typed GWC APIs. Wails stays in the native host module—not in
 your web build. Build-mode gates and capability checks let shared UI handle
 desktop-only features explicitly. macOS and Linux native hosts are not yet
 certified.
+
+See the [Windows API coverage matrix](docs/windows-api-coverage.md) for exact
+operations, capability gates, native-host-only boundaries and verification scope.
 
 Version 6 uses the `/v6` module path. See [migration and known limitations](CHANGELOG.md#v600---2026-09-08)
 before upgrading. The example modernization and full browser acceptance sweep

@@ -5,6 +5,28 @@ impact; exactly three active items carry the next-work marker.
 
 ## V6 Wails desktop integration
 
+### v6.1 Windows API expansion — end-of-day checkpoint
+
+Paused at the maintainer's request on 2026-09-08. Detailed acceptance and
+evidence: [v6.1 tracker](docs/plans/v6.1-windows-api-parity.md) and
+[manual verification](docs/plans/v6.1-windows-manual-verification.md).
+
+- [x] Implement typed, gated in-scope Windows API families and GWC tester controls.
+- [x] Resolve Astra's adapter/fork ownership, lifecycle and threading findings.
+- [x] Create/push the patched Wails fork and update the local exact revision pin.
+- [x] Run native/Wasm contracts, adapter tests and the 26-check rebuilt EXE smoke.
+- [x] Verify native title/menu/context/radio and basic picker interactions.
+- [x] Test autostart/global shortcut registration and restore prior state.
+- [x] Fix save-cancel wording, child-template mismatch and misleading error outcomes with regression tests.
+- [x] Update development log, unreleased changelog and completed todos.
+- [ ] Rebuild/recheck final tester fixes and finish outstanding native manual acceptance.
+- [ ] Complete final release regression verification, commit GWC, tag v6.1.0 and verify production publication.
+
+The test tray remains in the running lab awaiting manual interaction; a Windows
+Security prompt interrupted UI automation. No v6.1 release is claimed. Older
+multi-platform/signing and incomplete manual todos below remain open because
+their full acceptance criteria have not been met.
+
 ### Full regression repair — 2026-09-08
 
 Priority correction: framework verification comes first. Example-app repairs are

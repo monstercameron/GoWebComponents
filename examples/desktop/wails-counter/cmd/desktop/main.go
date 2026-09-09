@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"time"
 
 	"example.com/gwc-wails-counter/assets"
@@ -25,17 +27,18 @@ func main() {
 	parseFault := flag.String("smoke-fault", "", "smoke only: missing-binding, missing-wasm, or streaming")
 	parseTwoWindows := flag.Bool("two-windows", false, "open two independent windows sharing durable state")
 	parseFileDialogs := flag.Bool("file-dialogs", true, "Enable path-selection APIs in this lab; does not control report export")
+	parseFileDrop := flag.Bool("file-drop", false, "Explicitly enable bounded caller-window file-drop events")
 	parseFeatures := flag.String("features", "all", "Runtime feature allowlist (all, none, or comma-separated desktop feature names)")
 	flag.Parse()
 	if *parseFault != "" && (!*parseSmoke || (*parseFault != "missing-binding" && *parseFault != "missing-wasm" && *parseFault != "streaming")) {
 		fmt.Fprintln(os.Stderr, "invalid smoke-fault (requires --smoke-test)")
 		os.Exit(2)
 	}
-	os.Exit(runDesktop(*parseSmoke, *parseFault, *parseTwoWindows, *parseFileDialogs, *parseFeatures))
+	os.Exit(runDesktop(*parseSmoke, *parseFault, *parseTwoWindows, *parseFileDialogs, *parseFileDrop, *parseFeatures))
 }
 
 // runDesktop owns the host lifecycle and fails smoke runs without frontend evidence.
-func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialogsEnabled bool, parseFeatureValue string) (parseExitCode int) {
+func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialogsEnabled bool, isFileDropEnabled bool, parseFeatureValue string) (parseExitCode int) {
 	parseFeaturePolicy, parseFeatureErr := desktop.ParseFeaturePolicy(parseFeatureValue)
 	if parseFeatureErr != nil {
 		fmt.Fprintln(os.Stderr, parseFeatureErr)
@@ -86,7 +89,17 @@ func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialog
 		return 1
 	}
 	parseAPI.Policy = parseFeaturePolicy
-	parseNative := desktop.NewNativeHost(wailsadapter.NewNativeBackend(), parseFeaturePolicy)
+	parseNativeBackend := wailsadapter.NewNativeBackend()
+	if runtime.GOOS == "windows" {
+		parseNativeBackend, parseErr = wailsadapter.NewNativeBackendWithWindowTemplates(map[string]wailsadapter.WindowTemplate{
+			"counter": {Route: "/#/counter", Title: "Counter", Width: 720, Height: 560},
+		})
+		if parseErr != nil {
+			fmt.Fprintln(os.Stderr, "native window templates:", parseErr)
+			return 1
+		}
+	}
+	parseNative := desktop.NewNativeHost(parseNativeBackend, parseFeaturePolicy)
 	parseAPI.Native = parseNative
 	defer func() {
 		if parseErr := parseAPI.ServiceShutdown(); parseErr != nil {
@@ -113,6 +126,32 @@ func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialog
 		Assets:   application.AssetOptions{Handler: application.BundledAssetFileServer(assets.Files), Middleware: guardDesktopAssets},
 		Mac:      application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 	})
+	parseWindowEventsEnabled := parseFeaturePolicy.Allows(desktop.WindowEvents)
+	parseWindowFileDropEnabled := parseWindowEventsEnabled && isFileDropEnabled
+	parseCounter.WindowEventsInstalled = parseWindowEventsEnabled
+	parseCounter.WindowFileDropEnabled = parseWindowFileDropEnabled
+	var parseWindowCleanupMutex sync.Mutex
+	parseWindowCleanups := []func(){}
+	if parseWindowEventsEnabled {
+		parseApp.Window.OnCreate(func(parseWindow application.Window) {
+			parseCleanup, parseAttachErr := wailsadapter.AttachWindowEvents(parseWindow, wailsadapter.WindowEventOptions{EnableFileDrop: parseWindowFileDropEnabled})
+			if parseAttachErr != nil {
+				parseCounter.WindowEventsInstalled = false
+				parseCounter.WindowFileDropEnabled = false
+				return
+			}
+			parseWindowCleanupMutex.Lock()
+			parseWindowCleanups = append(parseWindowCleanups, parseCleanup)
+			parseWindowCleanupMutex.Unlock()
+		})
+		defer func() {
+			parseWindowCleanupMutex.Lock()
+			defer parseWindowCleanupMutex.Unlock()
+			for parseIndex := len(parseWindowCleanups) - 1; parseIndex >= 0; parseIndex-- {
+				parseWindowCleanups[parseIndex]()
+			}
+		}()
+	}
 	var parseMenu *application.Menu
 	parseBindings := services.APIKeyBindings(parseAPI)
 	if parseFeaturePolicy.Allows(desktop.NativeMenus) {
@@ -120,7 +159,7 @@ func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialog
 	}
 	parseApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name: "counter", Title: "Windows API Lab", Width: 1024, Height: 820,
-		URL: parseURL, Hidden: isSmoke,
+		URL: parseURL, Hidden: isSmoke, EnableFileDrop: parseWindowFileDropEnabled,
 		Windows: application.WindowsWindow{Menu: parseMenu}, KeyBindings: parseBindings,
 	})
 	if isTwoWindows || (isSmoke && (parseFault == "" || parseFault == "streaming")) {
@@ -130,7 +169,7 @@ func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialog
 		}
 		parseApp.Window.NewWithOptions(application.WebviewWindowOptions{
 			Name: "observer", Title: "Windows API Lab — second window", Width: 1024, Height: 820,
-			URL: parseObserverURL, Hidden: isSmoke,
+			URL: parseObserverURL, Hidden: isSmoke, EnableFileDrop: parseWindowFileDropEnabled,
 			Windows: application.WindowsWindow{Menu: parseMenu}, KeyBindings: parseBindings,
 		})
 	}

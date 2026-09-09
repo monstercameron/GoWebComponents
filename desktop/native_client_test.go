@@ -56,11 +56,12 @@ func (*parseNativeTransport) Unlisten(string) error { return nil }
 // TestNativeClientEnvelopeWorkflows verifies typed wrappers decode host envelopes and preserve codes.
 func TestNativeClientEnvelopeWorkflows(parseTest *testing.T) {
 	parseJSON := func(parseValue any) json.RawMessage { parseData, _ := json.Marshal(parseValue); return parseData }
-	parseTransport := &parseNativeTransport{parseMethods: []string{ClipboardWriteMethod, ClipboardReadMethod, MessageMethod, WindowMethod, ScreensMethod}, parseReplies: map[string]Reply{
+	parseTransport := &parseNativeTransport{parseMethods: []string{ClipboardWriteMethod, ClipboardReadMethod, MessageMethod, WindowMethod, WindowPrintMethod, ScreensMethod}, parseReplies: map[string]Reply{
 		ClipboardWriteMethod: {Done: true, Data: parseJSON(NativeReply{Version: NativeContractVersion})},
 		ClipboardReadMethod:  {Done: true, Data: parseJSON(NativeReply{Version: NativeContractVersion, Data: parseJSON("fixture")})},
 		MessageMethod:        {Done: true, Data: parseJSON(NativeReply{Version: NativeContractVersion, Data: parseJSON(MessageReply{Button: "Yes"})})},
 		WindowMethod:         {Done: true, Data: parseJSON(NativeReply{Version: NativeContractVersion, Data: parseJSON(WindowInfo{ID: "id", Width: 10, Height: 10})})},
+		WindowPrintMethod:    {Done: true, Data: parseJSON(NativeReply{Version: NativeContractVersion, Data: parseJSON(struct{}{})})},
 		ScreensMethod:        {Done: true, Data: parseJSON(NativeReply{Version: NativeContractVersion, Data: parseJSON([]ScreenInfo{{ID: "screen"}})})},
 	}}
 	parseClient := NewClient(parseTransport)
@@ -75,6 +76,9 @@ func TestNativeClientEnvelopeWorkflows(parseTest *testing.T) {
 	}
 	if parseValue, parseErr := parseClient.ControlWindow(context.Background(), WindowRequest{Action: "info"}); parseErr != nil || parseValue.ID != "id" {
 		parseTest.Fatalf("window=%+v err=%v", parseValue, parseErr)
+	}
+	if parseErr := parseClient.PrintWindow(context.Background()); parseErr != nil {
+		parseTest.Fatalf("window print wire call failed: %v", parseErr)
 	}
 	if parseValue, parseErr := parseClient.ListScreens(context.Background()); parseErr != nil || len(parseValue) != 1 {
 		parseTest.Fatalf("screens=%+v err=%v", parseValue, parseErr)

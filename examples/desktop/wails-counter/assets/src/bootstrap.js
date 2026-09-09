@@ -14,6 +14,18 @@ let isFallback = false;
 let getWasmMIME = "";
 let getStorageEvents = 0;
 
+// getNativeMethods routes only host-advertised desktop envelopes to the gated dispatcher.
+const getNativeMethods = (parseMethods, parseExecute) => {
+  const parseResult = {};
+  for (const parseMethod of parseMethods) {
+    if (parseMethod.startsWith("desktop.") && parseMethod !== "desktop.files.select") {
+      if (typeof parseExecute !== "function") throw new Error("Missing NativeHost.Execute binding");
+      parseResult[parseMethod] = parseExecute;
+    }
+  }
+  return parseResult;
+};
+
 // setBootStatus lives outside the GWC mount so rendering cannot erase failures.
 const setBootStatus = (parseMessage, isError = false) => {
   const parseElement = document.getElementById("boot-status");
@@ -57,11 +69,7 @@ globalThis.__gwcWailsReady = (async () => {
       ...(getCapabilities.methods.includes("storage.delete") ? { "storage.delete": getBindings.StorageService.Delete } : {}),
       ...(getCapabilities.methods.includes("storage.keys") ? { "storage.keys": getBindings.StorageService.Keys } : {}),
       ...(getCapabilities.methods.includes("api.export") ? { "api.export": getBindings.APIService.ExportReport } : {}),
-      ...(getCapabilities.methods.includes("desktop.clipboard.write") ? { "desktop.clipboard.write": getDesktopBindings.NativeHost.Execute } : {}),
-      ...(getCapabilities.methods.includes("desktop.clipboard.read") ? { "desktop.clipboard.read": getDesktopBindings.NativeHost.Execute } : {}),
-      ...(getCapabilities.methods.includes("desktop.message.show") ? { "desktop.message.show": getDesktopBindings.NativeHost.Execute } : {}),
-      ...(getCapabilities.methods.includes("desktop.window.control") ? { "desktop.window.control": getDesktopBindings.NativeHost.Execute } : {}),
-      ...(getCapabilities.methods.includes("desktop.screens.list") ? { "desktop.screens.list": getDesktopBindings.NativeHost.Execute } : {}),
+      ...getNativeMethods(getCapabilities.methods, getDesktopBindings.NativeHost?.Execute),
     };
   globalThis.__gwcDesktop = createDesktopTransport({ methods: parseMethods,
     topics: getCapabilities.topics, features: getCapabilities.features || [], events: getRuntime.Events,
@@ -234,8 +242,9 @@ const runSmoke = async () => {
       const parseAPIDeadline = Date.now() + 10000;
       while (true) {
         const parseAPIReport = await getBindings.APIService.GetReport();
-        const parseInfo = parseAPIReport.results?.find((parseResult) => parseResult.id === "window-info" && parseResult.outcome === "completed");
-        if (parseInfo?.windowID && parseInfo.detail && parseAPIReport.fixtureDir && parseAPIReport.platform === "windows") break;
+        // The button invokes the portable SDK once, not the legacy report-writing service.
+        const parseInfo = getText("api-window-info-result");
+        if (parseInfo.includes("completed") && parseInfo.includes("window ") && parseInfo.includes("size=") && parseAPIReport.fixtureDir && parseAPIReport.platform === "windows") break;
         if (Date.now() >= parseAPIDeadline) throw new Error("API UI/native window report missing");
         await new Promise((parseResolve) => setTimeout(parseResolve, 25));
       }
@@ -285,6 +294,63 @@ const runSmoke = async () => {
       if (parseReply.code !== parseExpected) throw new Error(`Native SDK guard failed for ${parseMethod}: ${JSON.stringify(parseReply)}`);
     }
     parseChecks.push("native-sdk-contract");
+    if (getCapabilities.methods.includes("desktop.window.control")) {
+      const parseControl = async (parseArgs) => {
+        const parseReply = await getDesktopBindings.NativeHost.Execute({ version: 1, method: "desktop.window.control", args: parseArgs });
+        if (parseReply.code || !parseReply.data?.id) throw new Error(`Window control failed: ${JSON.stringify(parseReply)}`);
+        return parseReply.data;
+      };
+      const parseOriginal = await parseControl({ action: "info" });
+      try {
+        const parseSized = await parseControl({ action: "resize", width: 720, height: 520 });
+        if (parseSized.width !== 720 || parseSized.height !== 520) throw new Error("Native size did not change");
+        const parseMoved = await parseControl({ action: "set-position", x: 100, y: 100 });
+        if (parseMoved.x !== 100 || parseMoved.y !== 100) throw new Error("Native position did not change");
+        const parseZoomed = await parseControl({ action: "set-zoom", zoom: 1.25 });
+        if (Math.abs(parseZoomed.zoom - 1.25) > 0.01) throw new Error("Native zoom did not change");
+        const parseLowZoom = await getDesktopBindings.NativeHost.Execute({ version: 1, method: "desktop.window.control", args: { action: "set-zoom", zoom: 0.5 } });
+        if (parseLowZoom.code !== "invalid") throw new Error("Windows low zoom was not explicitly rejected");
+        const parseAfterLowZoom = await parseControl({ action: "info" });
+        if (Math.abs(parseAfterLowZoom.zoom - 1.25) > 0.01) throw new Error("Rejected low zoom changed native state");
+        await parseControl({ action: "zoom-reset" });
+        const parseFixed = await parseControl({ action: "set-resizable", enabled: false });
+        if (parseFixed.resizable !== false) throw new Error("Native resize policy did not change");
+      } finally {
+        // Attempt every restoration even when one native setter fails.
+        const parseRestoreErrors = [];
+        for (const parseRequest of [
+          { action: "set-zoom", zoom: parseOriginal.zoom },
+          { action: "set-resizable", enabled: parseOriginal.resizable },
+          { action: "resize", width: parseOriginal.width, height: parseOriginal.height },
+          { action: "set-position", x: parseOriginal.x, y: parseOriginal.y },
+        ]) {
+          try { await parseControl(parseRequest); }
+          catch (parseError) { parseRestoreErrors.push(String(parseError)); }
+        }
+        if (parseRestoreErrors.length) throw new Error(`Window restoration failed: ${parseRestoreErrors.join("; ")}`);
+      }
+      parseChecks.push("native-window-roundtrip");
+    }
+    // Read-only platform probes use the real generated bindings and WebView2 caller.
+    if (getCapabilities.methods.includes("desktop.system.environment")) {
+      const parseEnvironment = await getDesktopBindings.NativeHost.Execute({ version: 1, method: "desktop.system.environment", args: {} });
+      if (parseEnvironment.code || parseEnvironment.data?.os !== "windows" || !["light", "dark"].includes(parseEnvironment.data?.theme)) {
+        throw new Error(`Windows environment probe failed: ${JSON.stringify(parseEnvironment)}`);
+      }
+      parseChecks.push("windows-environment");
+    }
+    if (getCapabilities.methods.includes("desktop.screens.geometry")) {
+      const parseGeometry = await getDesktopBindings.NativeHost.Execute({ version: 1, method: "desktop.screens.geometry", args: { operation: "nearest-dip-point", point: { x: 0, y: 0 } } });
+      if (parseGeometry.code || !parseGeometry.data?.screenId) {
+        throw new Error(`Windows screen geometry probe failed: ${JSON.stringify(parseGeometry)}`);
+      }
+      parseChecks.push("windows-screen-geometry");
+    }
+    if (getCapabilities.methods.includes("desktop.url.open")) {
+      const parseURLReply = await getDesktopBindings.NativeHost.Execute({ version: 1, method: "desktop.url.open", args: { url: "javascript:alert(1)" } });
+      if (parseURLReply.code !== "invalid") throw new Error("Unsafe external URL was not rejected");
+      parseChecks.push("external-url-denial");
+    }
     // Native dialogs, clipboard and interactive menu selection are intentionally
     // excluded: unattended smoke cannot certify an operator's visual results.
     if (!getWasmMIME.startsWith("application/wasm")) throw new Error(`Unexpected Wasm MIME: ${getWasmMIME}`);

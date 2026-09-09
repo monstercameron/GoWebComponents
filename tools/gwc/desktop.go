@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const desktopWailsRevision = "5bce785eb1efbd121ef2e1cb2588eb50b9c59068"
+const desktopWailsRevision = "0965e9db574e7b14a447b0ae2bf7ed36a5406462"
 const desktopWailsVersion = "v3.0.0-beta.17"
 
 type desktopConfig struct {

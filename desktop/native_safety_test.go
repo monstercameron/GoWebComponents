@@ -64,6 +64,27 @@ func TestNativeMessageReplyMatchesKind(parseTest *testing.T) {
 	}
 }
 
+// TestNativeMessageKindsAndButtonSemantics verifies the bounded portable dialog contract.
+func TestNativeMessageKindsAndButtonSemantics(parseTest *testing.T) {
+	for _, parseKind := range []string{"warning", "error"} {
+		if parseErr := validateMessageRequest(MessageRequest{Kind: parseKind, DefaultButton: "Ok", CancelButton: "Ok"}); parseErr != nil {
+			parseTest.Errorf("%s rejected its only button as default/cancel: %v", parseKind, parseErr)
+		}
+		if parseErr := validateMessageRequest(MessageRequest{Kind: parseKind, Buttons: []string{"Continue"}}); parseErr == nil {
+			parseTest.Errorf("%s accepted unsupported custom button", parseKind)
+		}
+	}
+	if parseErr := validateMessageRequest(MessageRequest{Kind: "question", DefaultButton: "No", CancelButton: "No"}); parseErr != nil {
+		parseTest.Fatalf("question default rejected: %v", parseErr)
+	}
+	if parseErr := validateMessageRequest(MessageRequest{Kind: "question", CancelButton: "Yes"}); parseErr == nil {
+		parseTest.Fatal("question accepted Yes as cancel")
+	}
+	if parseErr := validateMessageReply(MessageRequest{Kind: "error"}, MessageReply{Button: "Yes"}); parseErr == nil {
+		parseTest.Fatal("error dialog accepted a question button")
+	}
+}
+
 // TestNativeMalformedRequestIsInvalid preserves caller-error classification without backend effects.
 func TestNativeMalformedRequestIsInvalid(parseTest *testing.T) {
 	parsePolicy, _ := ParseFeaturePolicy("all")

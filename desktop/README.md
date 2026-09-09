@@ -39,6 +39,29 @@ Parse immutable host policy with `ParseFeaturePolicy("all")`, `"none"`, or a
 comma-separated allowlist. The effective host set is the intersection of that
 policy and adapter capabilities.
 
+Additional optional capabilities cover runtime application/context menus,
+caller-owned child windows from host-approved templates, system tray icons,
+global shortcuts, window events, screen-coordinate transforms, system inspection,
+external HTTP(S) URLs, local file-manager reveal, explicit autostart and printing.
+Each has its own policy gate; `NativeBackend` remains source-compatible through
+optional extension interfaces. Menu/shortcut callbacks carry typed data, not
+frontend-supplied native code. See the [Windows coverage matrix](../docs/windows-api-coverage.md).
+
+For example, shared application code changes its own native title at runtime:
+
+```go
+parseClient, parseErr := desktop.Connect()
+if parseErr == nil && parseClient.Supports(desktop.WindowControls) {
+    _, parseErr = parseClient.ControlWindow(parseContext, desktop.WindowRequest{
+        Action: "set-title", Title: "My document — saved",
+    })
+}
+```
+
+Printing, opening external applications and modifying autostart are explicit
+operator actions; they are never performed during component render or startup.
+Web mode remains available without any Wails dependency.
+
 ```go
 parsePolicy, _ := desktop.ParseFeaturePolicy("clipboard,message-dialogs")
 parseHost := desktop.NewNativeHost(parseBackend, parsePolicy)

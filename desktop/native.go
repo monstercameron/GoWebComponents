@@ -22,6 +22,9 @@ const MessageDialogs Feature = "message-dialogs"
 // WindowControls identifies caller-owned window inspection and controls.
 const WindowControls Feature = "window-controls"
 
+// WindowPrinting identifies explicit caller-window print requests.
+const WindowPrinting Feature = "window-printing"
+
 // Screens identifies display enumeration.
 const Screens Feature = "screens"
 
@@ -39,6 +42,7 @@ const (
 	ClipboardReadMethod   = "desktop.clipboard.read"
 	MessageMethod         = "desktop.message.show"
 	WindowMethod          = "desktop.window.control"
+	WindowPrintMethod     = "desktop.window.print"
 	ScreensMethod         = "desktop.screens.list"
 	NativeContractVersion = 1
 	ReportExportMethod    = "desktop.report.export"
@@ -120,7 +124,7 @@ func (parsePolicy FeaturePolicy) FeatureNames() []Feature {
 	return parseNames
 }
 
-var nativeFeatures = []Feature{FileDialogs, Clipboard, MessageDialogs, WindowControls, Screens, NativeMenus, PersistentStorage, ReportExport}
+var nativeFeatures = []Feature{FileDialogs, Clipboard, MessageDialogs, WindowControls, WindowEvents, ChildWindows, WindowPrinting, Screens, ScreenGeometry, NativeMenus, RuntimeMenus, SystemTray, GlobalShortcuts, PersistentStorage, ReportExport, SystemEnvironment, ExternalURLs, Autostart, FileManager}
 
 // isNativeFeature reports whether a feature is known to this contract.
 func isNativeFeature(parseFeature Feature) bool {
@@ -139,9 +143,12 @@ type ClipboardWriteRequest struct {
 
 // MessageRequest describes a bounded native dialog.
 type MessageRequest struct {
-	Kind    string `json:"kind"`
-	Title   string `json:"title"`
-	Message string `json:"message"`
+	Kind          string   `json:"kind"`
+	Title         string   `json:"title"`
+	Message       string   `json:"message"`
+	Buttons       []string `json:"buttons,omitempty"`
+	DefaultButton string   `json:"defaultButton,omitempty"`
+	CancelButton  string   `json:"cancelButton,omitempty"`
 }
 
 // MessageReply identifies the button selected by the operator.
@@ -149,33 +156,131 @@ type MessageReply struct {
 	Button string `json:"button"`
 }
 
+// validateMessageRequest bounds portable message-dialog controls to native Windows capabilities.
+func validateMessageRequest(parseRequest MessageRequest) error {
+	if len(parseRequest.Buttons) > 3 {
+		return errors.New("too many message buttons")
+	}
+	for _, parseButton := range parseRequest.Buttons {
+		if len(parseButton) > 64 || !utf8.ValidString(parseButton) || strings.ContainsRune(parseButton, 0) {
+			return errors.New("invalid message button text")
+		}
+	}
+	switch parseRequest.Kind {
+	case "info", "warning", "error":
+		if len(parseRequest.Buttons) == 0 {
+			parseRequest.Buttons = []string{"Ok"}
+		}
+		if len(parseRequest.Buttons) != 1 || parseRequest.Buttons[0] != "Ok" {
+			return errors.New("information, warning, and error dialogs support only the Ok button")
+		}
+	case "question":
+		if len(parseRequest.Buttons) == 0 {
+			parseRequest.Buttons = []string{"Yes", "No"}
+		}
+		if len(parseRequest.Buttons) != 2 || parseRequest.Buttons[0] != "Yes" || parseRequest.Buttons[1] != "No" {
+			return errors.New("question dialogs support only Yes and No buttons")
+		}
+	default:
+		return errors.New("unknown message kind")
+	}
+	if parseRequest.DefaultButton != "" && !messageHasButton(parseRequest.Buttons, parseRequest.DefaultButton) {
+		return errors.New("default message button is not present")
+	}
+	if parseRequest.CancelButton != "" && !messageHasButton(parseRequest.Buttons, parseRequest.CancelButton) {
+		return errors.New("cancel message button is not present")
+	}
+	if parseRequest.Kind == "question" && parseRequest.CancelButton != "" && parseRequest.CancelButton != "No" {
+		return errors.New("question dialogs support only No as the cancel button")
+	}
+	return nil
+}
+
+// messageHasButton reports whether a bounded dialog button is present.
+func messageHasButton(parseButtons []string, parseButton string) bool {
+	for _, parseValue := range parseButtons {
+		if parseValue == parseButton {
+			return true
+		}
+	}
+	return false
+}
+
+// validateMessageReply checks that a native result belongs to its requested button family.
+func validateMessageReply(parseRequest MessageRequest, parseReply MessageReply) error {
+	parseButtons := parseRequest.Buttons
+	if len(parseButtons) == 0 {
+		if parseRequest.Kind == "question" {
+			parseButtons = []string{"Yes", "No"}
+		} else {
+			parseButtons = []string{"Ok"}
+		}
+	}
+	if !messageHasButton(parseButtons, parseReply.Button) {
+		return errors.New("invalid message button")
+	}
+	return nil
+}
+
 // WindowRequest describes one caller-owned window operation.
 type WindowRequest struct {
-	Action string `json:"action"`
-	Width  int    `json:"width,omitempty"`
-	Height int    `json:"height,omitempty"`
+	Action   string  `json:"action"`
+	Title    string  `json:"title,omitempty"`
+	ScreenID string  `json:"screenId,omitempty"`
+	X        int     `json:"x,omitempty"`
+	Y        int     `json:"y,omitempty"`
+	Width    int     `json:"width,omitempty"`
+	Height   int     `json:"height,omitempty"`
+	Enabled  bool    `json:"enabled,omitempty"`
+	Zoom     float64 `json:"zoom,omitempty"`
+	Red      int     `json:"red,omitempty"`
+	Green    int     `json:"green,omitempty"`
+	Blue     int     `json:"blue,omitempty"`
+	Alpha    int     `json:"alpha,omitempty"`
+	State    string  `json:"state,omitempty"`
 }
 
 // WindowInfo reports stable caller-window metadata.
 type WindowInfo struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Width      int    `json:"width"`
-	Height     int    `json:"height"`
-	Maximised  bool   `json:"maximised"`
-	Fullscreen bool   `json:"fullscreen"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	X          int     `json:"x"`
+	Y          int     `json:"y"`
+	RelativeX  int     `json:"relativeX"`
+	RelativeY  int     `json:"relativeY"`
+	Width      int     `json:"width"`
+	Height     int     `json:"height"`
+	Focused    bool    `json:"focused"`
+	Minimised  bool    `json:"minimised"`
+	Maximised  bool    `json:"maximised"`
+	Fullscreen bool    `json:"fullscreen"`
+	Visible    bool    `json:"visible"`
+	Resizable  bool    `json:"resizable"`
+	Zoom       float64 `json:"zoom"`
 }
 
 // ScreenInfo reports a display without exposing backend-specific screen objects.
 type ScreenInfo struct {
-	ID      string  `json:"id"`
-	Name    string  `json:"name"`
-	Primary bool    `json:"primary"`
-	Scale   float32 `json:"scale"`
-	X       int     `json:"x"`
-	Y       int     `json:"y"`
-	Width   int     `json:"width"`
-	Height  int     `json:"height"`
+	ID               string       `json:"id"`
+	Name             string       `json:"name"`
+	Primary          bool         `json:"primary"`
+	Scale            float32      `json:"scale"`
+	X                int          `json:"x"`
+	Y                int          `json:"y"`
+	Width            int          `json:"width"`
+	Height           int          `json:"height"`
+	WorkArea         ScreenBounds `json:"workArea"`
+	PhysicalBounds   ScreenBounds `json:"physicalBounds"`
+	PhysicalWorkArea ScreenBounds `json:"physicalWorkArea"`
+	Rotation         float32      `json:"rotation"`
+}
+
+// ScreenBounds describes monitor geometry in the units named by its enclosing field.
+type ScreenBounds struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 // NativeBackend is implemented by a host adapter and must resolve caller windows from context.
@@ -186,6 +291,11 @@ type NativeBackend interface {
 	ShowMessage(context.Context, MessageRequest) (MessageReply, error)
 	Window(context.Context, WindowRequest) (WindowInfo, error)
 	Screens(context.Context) ([]ScreenInfo, error)
+}
+
+// WindowPrintBackend is implemented only by hosts supporting explicit native printing.
+type WindowPrintBackend interface {
+	PrintWindow(context.Context) error
 }
 
 // NativeHost enforces policy and backend intersection before native work.
@@ -227,8 +337,41 @@ func (parseHost *NativeHost) GetMethods() []string {
 	if parseHost.parsePolicy.Allows(WindowControls) {
 		parseMethods = append(parseMethods, WindowMethod)
 	}
+	if _, parseOK := parseHost.parseBackend.(ChildWindowBackend); parseOK && parseHost.parsePolicy.Allows(ChildWindows) {
+		parseMethods = append(parseMethods, ChildWindowCreateMethod, ChildWindowListMethod, ChildWindowInspectMethod, ChildWindowControlMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(WindowPrintBackend); parseOK && parseHost.parsePolicy.Allows(WindowPrinting) {
+		parseMethods = append(parseMethods, WindowPrintMethod)
+	}
 	if parseHost.parsePolicy.Allows(Screens) {
 		parseMethods = append(parseMethods, ScreensMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(ScreenGeometryBackend); parseOK && parseHost.parsePolicy.Allows(ScreenGeometry) {
+		parseMethods = append(parseMethods, ScreenGeometryMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(RuntimeMenuBackend); parseOK && parseHost.parsePolicy.Allows(RuntimeMenus) {
+		parseMethods = append(parseMethods, MenuReplaceMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(ContextMenuBackend); parseOK && parseHost.parsePolicy.Allows(RuntimeMenus) {
+		parseMethods = append(parseMethods, ContextMenuInstallMethod, ContextMenuShowMethod, ContextMenuRemoveMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(TrayBackend); parseOK && parseHost.parsePolicy.Allows(SystemTray) {
+		parseMethods = append(parseMethods, TrayConfigureMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(ShortcutBackend); parseOK && parseHost.parsePolicy.Allows(GlobalShortcuts) {
+		parseMethods = append(parseMethods, ShortcutConfigureMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(SystemEnvironmentBackend); parseOK && parseHost.parsePolicy.Allows(SystemEnvironment) {
+		parseMethods = append(parseMethods, SystemEnvironmentMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(ExternalURLBackend); parseOK && parseHost.parsePolicy.Allows(ExternalURLs) {
+		parseMethods = append(parseMethods, ExternalURLOpenMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(AutostartBackend); parseOK && parseHost.parsePolicy.Allows(Autostart) {
+		parseMethods = append(parseMethods, AutostartStatusMethod, AutostartEnableMethod, AutostartDisableMethod)
+	}
+	if _, parseOK := parseHost.parseBackend.(FileManagerBackend); parseOK && parseHost.parsePolicy.Allows(FileManager) {
+		parseMethods = append(parseMethods, FileManagerRevealMethod)
 	}
 	return parseMethods
 }
@@ -282,10 +425,121 @@ func (parseHost *NativeHost) Execute(parseContext context.Context, parseRequest 
 			parseValue, parseErr = parseHost.WindowControl(parseContext, parseArgs)
 		}
 		parseResult = parseValue
+	case ChildWindowCreateMethod:
+		var parseArgs ChildWindowCreateRequest
+		parseErr = decodeChildWindowRequest(parseRequest.Args, &parseArgs)
+		var parseValue ChildWindowInfo
+		if parseErr == nil {
+			parseValue, parseErr = parseHost.CreateChildWindow(parseContext, parseArgs)
+		}
+		parseResult = parseValue
+	case ChildWindowListMethod:
+		var parseValue []ChildWindowInfo
+		parseValue, parseErr = parseHost.ListChildWindows(parseContext)
+		parseResult = parseValue
+	case ChildWindowInspectMethod:
+		var parseArgs ChildWindowRequest
+		parseErr = decodeChildWindowRequest(parseRequest.Args, &parseArgs)
+		var parseValue ChildWindowInfo
+		if parseErr == nil {
+			parseValue, parseErr = parseHost.InspectChildWindow(parseContext, parseArgs)
+		}
+		parseResult = parseValue
+	case ChildWindowControlMethod:
+		var parseArgs ChildWindowControlRequest
+		parseErr = decodeChildWindowRequest(parseRequest.Args, &parseArgs)
+		var parseValue ChildWindowInfo
+		if parseErr == nil {
+			parseValue, parseErr = parseHost.ControlChildWindow(parseContext, parseArgs)
+		}
+		parseResult = parseValue
+	case WindowPrintMethod:
+		parseErr = parseHost.PrintWindow(parseContext)
+		parseResult = struct{}{}
 	case ScreensMethod:
 		var parseValue []ScreenInfo
 		parseValue, parseErr = parseHost.ListScreens(parseContext)
 		parseResult = parseValue
+	case ScreenGeometryMethod:
+		var parseArgs ScreenGeometryRequest
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		var parseValue ScreenGeometryReply
+		if parseErr == nil {
+			parseValue, parseErr = parseHost.ScreenGeometry(parseContext, parseArgs)
+		}
+		parseResult = parseValue
+	case TrayConfigureMethod:
+		var parseArgs TrayRequest
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.ConfigureTray(parseContext, parseArgs)
+		}
+		parseResult = struct{}{}
+	case ShortcutConfigureMethod:
+		var parseArgs ShortcutRequest
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.ConfigureShortcut(parseContext, parseArgs)
+		}
+		parseResult = struct{}{}
+	case SystemEnvironmentMethod:
+		var parseValue SystemEnvironmentInfo
+		parseValue, parseErr = parseHost.InspectSystemEnvironment(parseContext)
+		parseResult = parseValue
+	case ExternalURLOpenMethod:
+		var parseArgs ExternalURLOpenRequest
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.OpenExternalURL(parseContext, parseArgs)
+		}
+		parseResult = struct{}{}
+	case AutostartStatusMethod:
+		var parseValue AutostartStatus
+		parseValue, parseErr = parseHost.GetAutostartStatus(parseContext)
+		parseResult = parseValue
+	case AutostartEnableMethod:
+		parseErr = parseHost.EnableAutostart(parseContext)
+		parseResult = struct{}{}
+	case AutostartDisableMethod:
+		parseErr = parseHost.DisableAutostart(parseContext)
+		parseResult = struct{}{}
+	case FileManagerRevealMethod:
+		var parseArgs FileManagerRevealRequest
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.RevealPath(parseContext, parseArgs)
+		}
+		parseResult = struct{}{}
+	case MenuReplaceMethod:
+		var parseArgs Menu
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.ReplaceMenu(parseContext, parseArgs)
+		}
+		parseResult = struct{}{}
+	case ContextMenuInstallMethod:
+		var parseArgs ContextMenuRequest
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.InstallContextMenu(parseContext, parseArgs)
+		}
+		parseResult = struct{}{}
+	case ContextMenuShowMethod:
+		var parseArgs ContextMenuShowRequest
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.ShowContextMenu(parseContext, parseArgs)
+		}
+		parseResult = struct{}{}
+	case ContextMenuRemoveMethod:
+		var parseArgs struct {
+			ID string `json:"id"`
+		}
+		parseErr = json.Unmarshal(parseRequest.Args, &parseArgs)
+		if parseErr == nil {
+			parseErr = parseHost.RemoveContextMenu(parseContext, parseArgs.ID)
+		}
+		parseResult = struct{}{}
 	default:
 		return nativeFailure(interop.CodeMissingExport, "native method not registered")
 	}
@@ -372,8 +626,8 @@ func (parseHost *NativeHost) ShowMessage(parseContext context.Context, parseRequ
 	if parseContext == nil {
 		return MessageReply{}, getError(MessageMethod, interop.CodeInvalid, errors.New("calling context required"))
 	}
-	if parseRequest.Kind != "info" && parseRequest.Kind != "question" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeInvalid, errors.New("unknown message kind"))
+	if parseErr := validateMessageRequest(parseRequest); parseErr != nil {
+		return MessageReply{}, getError(MessageMethod, interop.CodeInvalid, parseErr)
 	}
 	if parseErr := parseContext.Err(); parseErr != nil {
 		return MessageReply{}, getContextError(MessageMethod, parseErr)
@@ -391,14 +645,8 @@ func (parseHost *NativeHost) ShowMessage(parseContext context.Context, parseRequ
 	if parseErr != nil {
 		return MessageReply{}, parseErr
 	}
-	if parseReply.Button != "Ok" && parseReply.Button != "Yes" && parseReply.Button != "No" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, errors.New("invalid message button"))
-	}
-	if parseRequest.Kind == "info" && parseReply.Button != "Ok" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, errors.New("invalid information button"))
-	}
-	if parseRequest.Kind == "question" && parseReply.Button == "Ok" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, errors.New("invalid question button"))
+	if parseErr = validateMessageReply(parseRequest, parseReply); parseErr != nil {
+		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, parseErr)
 	}
 	return parseReply, nil
 }
@@ -428,6 +676,28 @@ func (parseHost *NativeHost) WindowControl(parseContext context.Context, parseRe
 		return WindowInfo{}, getError(WindowMethod, interop.CodeDecode, parseErr)
 	}
 	return parseInfo, nil
+}
+
+// PrintWindow opens the native print workflow for the explicit caller window.
+func (parseHost *NativeHost) PrintWindow(parseContext context.Context) error {
+	if parseErr := parseHost.Require(WindowPrinting); parseErr != nil {
+		return parseErr
+	}
+	if parseContext == nil {
+		return getError(WindowPrintMethod, interop.CodeInvalid, errors.New("calling context required"))
+	}
+	if parseErr := parseContext.Err(); parseErr != nil {
+		return getContextError(WindowPrintMethod, parseErr)
+	}
+	parseBackend, parseOK := parseHost.parseBackend.(WindowPrintBackend)
+	if !parseOK {
+		return getError(WindowPrintMethod, interop.CodeUnavailable, errors.New("window printing unavailable"))
+	}
+	parseErr := parseBackend.PrintWindow(parseContext)
+	if parseContext.Err() != nil {
+		return getContextError(WindowPrintMethod, parseContext.Err())
+	}
+	return parseErr
 }
 
 // ListScreens returns typed display information.
@@ -487,8 +757,8 @@ func (parseClient Client) ReadClipboard(parseContext context.Context) (string, e
 
 // ShowMessage invokes the typed message client method.
 func (parseClient Client) ShowMessage(parseContext context.Context, parseRequest MessageRequest) (MessageReply, error) {
-	if parseRequest.Kind != "info" && parseRequest.Kind != "question" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeInvalid, errors.New("unknown message kind"))
+	if parseErr := validateMessageRequest(parseRequest); parseErr != nil {
+		return MessageReply{}, getError(MessageMethod, interop.CodeInvalid, parseErr)
 	}
 	if parseErr := validateNativeText(parseRequest.Title, "message title"); parseErr != nil {
 		return MessageReply{}, getError(MessageMethod, interop.CodeInvalid, parseErr)
@@ -507,14 +777,8 @@ func (parseClient Client) ShowMessage(parseContext context.Context, parseRequest
 	if parseErr = json.Unmarshal(parseReply.Data, &parseValue); parseErr != nil {
 		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, parseErr)
 	}
-	if parseValue.Button != "Ok" && parseValue.Button != "Yes" && parseValue.Button != "No" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, errors.New("invalid message button"))
-	}
-	if parseRequest.Kind == "info" && parseValue.Button != "Ok" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, errors.New("invalid information button"))
-	}
-	if parseRequest.Kind == "question" && parseValue.Button == "Ok" {
-		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, errors.New("invalid question button"))
+	if parseErr = validateMessageReply(parseRequest, parseValue); parseErr != nil {
+		return MessageReply{}, getError(MessageMethod, interop.CodeDecode, parseErr)
 	}
 	return parseValue, nil
 }
@@ -539,6 +803,15 @@ func (parseClient Client) ControlWindow(parseContext context.Context, parseReque
 		return WindowInfo{}, getError(WindowMethod, interop.CodeDecode, parseErr)
 	}
 	return parseValue, nil
+}
+
+// PrintWindow invokes the separately gated native caller-window print workflow.
+func (parseClient Client) PrintWindow(parseContext context.Context) error {
+	if parseErr := parseClient.Require(WindowPrinting); parseErr != nil {
+		return parseErr
+	}
+	_, parseErr := parseClient.getNativeReplyTimeout(parseContext, 5*time.Minute, WindowPrintMethod)
+	return parseErr
 }
 
 // ListScreens invokes the typed screen client method.
@@ -598,14 +871,57 @@ func validateNativeText(parseValue, parseLabel string) error {
 
 // validateWindowRequest bounds the explicit window operation allowlist.
 func validateWindowRequest(parseRequest WindowRequest) error {
+	if (parseRequest.Zoom != 0 || parseRequest.Red != 0 || parseRequest.Green != 0 || parseRequest.Blue != 0 || parseRequest.Alpha != 0 || parseRequest.State != "") && parseRequest.Action != "set-zoom" && parseRequest.Action != "set-background-color" && !isWindowButtonStateAction(parseRequest.Action) {
+		return errors.New("window style arguments do not apply to action")
+	}
 	switch parseRequest.Action {
-	case "info", "maximize", "restore", "fullscreen", "unfullscreen":
-		if parseRequest.Width != 0 || parseRequest.Height != 0 {
-			return errors.New("dimensions apply only to resize")
+	case "info", "center", "enable-size-constraints", "disable-size-constraints", "minimize", "unminimize", "maximize", "unmaximize", "toggle-maximize", "restore", "fullscreen", "unfullscreen", "toggle-fullscreen", "focus", "show-menu-bar", "hide-menu-bar", "toggle-menu-bar", "toggle-frameless", "zoom-in", "zoom-out", "zoom-reset":
+		if parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+			return errors.New("window action does not accept arguments")
 		}
-	case "resize":
+	case "set-title":
+		if parseErr := validateNativeText(parseRequest.Title, "window title"); parseErr != nil {
+			return parseErr
+		}
+		if parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+			return errors.New("set-title accepts only title")
+		}
+	case "set-screen":
+		if parseRequest.ScreenID == "" {
+			return errors.New("screen id required")
+		}
+		if parseErr := validateNativeText(parseRequest.ScreenID, "screen id"); parseErr != nil {
+			return parseErr
+		}
+		if parseRequest.Title != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+			return errors.New("set-screen accepts only screen id")
+		}
+	case "set-position", "set-relative-position":
+		if parseRequest.X < -100000 || parseRequest.X > 100000 || parseRequest.Y < -100000 || parseRequest.Y > 100000 || parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+			return errors.New("window position out of bounds")
+		}
+	case "resize", "set-min-size", "set-max-size", "set-bounds":
 		if parseRequest.Width < 1 || parseRequest.Width > 8192 || parseRequest.Height < 1 || parseRequest.Height > 8192 {
 			return errors.New("window dimensions out of bounds")
+		}
+		if parseRequest.X < -100000 || parseRequest.X > 100000 || parseRequest.Y < -100000 || parseRequest.Y > 100000 || parseRequest.Title != "" || parseRequest.ScreenID != "" || (parseRequest.Action != "set-bounds" && (parseRequest.X != 0 || parseRequest.Y != 0)) || parseRequest.Enabled {
+			return errors.New("size action accepts only dimensions")
+		}
+	case "set-always-on-top", "set-resizable", "set-frameless", "flash", "set-content-protection":
+		if parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 {
+			return errors.New("boolean window action accepts only enabled")
+		}
+	case "set-background-color":
+		if parseRequest.Red < 0 || parseRequest.Red > 255 || parseRequest.Green < 0 || parseRequest.Green > 255 || parseRequest.Blue < 0 || parseRequest.Blue > 255 || parseRequest.Alpha < 0 || parseRequest.Alpha > 255 || parseRequest.Zoom != 0 || parseRequest.State != "" || hasWindowBaseArguments(parseRequest) {
+			return errors.New("window color out of bounds")
+		}
+	case "set-zoom":
+		if parseRequest.Zoom < 0.25 || parseRequest.Zoom > 5 || math.IsNaN(parseRequest.Zoom) || math.IsInf(parseRequest.Zoom, 0) || parseRequest.Red != 0 || parseRequest.Green != 0 || parseRequest.Blue != 0 || parseRequest.Alpha != 0 || parseRequest.State != "" || hasWindowBaseArguments(parseRequest) {
+			return errors.New("window zoom out of bounds")
+		}
+	case "set-minimize-button-state", "set-maximize-button-state", "set-close-button-state", "set-fullscreen-button-state":
+		if (parseRequest.State != "enabled" && parseRequest.State != "disabled" && parseRequest.State != "hidden") || parseRequest.Zoom != 0 || parseRequest.Red != 0 || parseRequest.Green != 0 || parseRequest.Blue != 0 || parseRequest.Alpha != 0 || hasWindowBaseArguments(parseRequest) {
+			return errors.New("invalid window button state")
 		}
 	default:
 		return errors.New("unknown window action")
@@ -613,9 +929,19 @@ func validateWindowRequest(parseRequest WindowRequest) error {
 	return nil
 }
 
+// isWindowButtonStateAction reports whether an action consumes the state field.
+func isWindowButtonStateAction(parseAction string) bool {
+	return parseAction == "set-minimize-button-state" || parseAction == "set-maximize-button-state" || parseAction == "set-close-button-state" || parseAction == "set-fullscreen-button-state"
+}
+
+// hasWindowBaseArguments reports arguments not used by color, zoom, or button-state actions.
+func hasWindowBaseArguments(parseRequest WindowRequest) bool {
+	return parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled
+}
+
 // validateWindowInfo rejects malformed backend window metadata.
 func validateWindowInfo(parseInfo WindowInfo) error {
-	if parseInfo.ID == "" || len(parseInfo.ID) > 256 || !utf8.ValidString(parseInfo.ID) || strings.ContainsRune(parseInfo.ID, 0) || len(parseInfo.Name) > 4096 || !utf8.ValidString(parseInfo.Name) || strings.ContainsRune(parseInfo.Name, 0) || parseInfo.Width < 0 || parseInfo.Width > 32768 || parseInfo.Height < 0 || parseInfo.Height > 32768 {
+	if parseInfo.ID == "" || len(parseInfo.ID) > 256 || !utf8.ValidString(parseInfo.ID) || strings.ContainsRune(parseInfo.ID, 0) || len(parseInfo.Name) > 4096 || !utf8.ValidString(parseInfo.Name) || strings.ContainsRune(parseInfo.Name, 0) || parseInfo.X < -100000 || parseInfo.X > 100000 || parseInfo.Y < -100000 || parseInfo.Y > 100000 || parseInfo.RelativeX < -100000 || parseInfo.RelativeX > 100000 || parseInfo.RelativeY < -100000 || parseInfo.RelativeY > 100000 || parseInfo.Width < 0 || parseInfo.Width > 32768 || parseInfo.Height < 0 || parseInfo.Height > 32768 || math.IsNaN(parseInfo.Zoom) || math.IsInf(parseInfo.Zoom, 0) || parseInfo.Zoom < 0 || parseInfo.Zoom > 100 {
 		return errors.New("invalid window information")
 	}
 	return nil
@@ -627,6 +953,14 @@ func validateScreens(parseScreens []ScreenInfo) error {
 		return errors.New("too many screens")
 	}
 	for _, parseScreen := range parseScreens {
+		for _, parseBounds := range []ScreenBounds{parseScreen.WorkArea, parseScreen.PhysicalBounds, parseScreen.PhysicalWorkArea} {
+			if parseBounds.X < -100000 || parseBounds.X > 100000 || parseBounds.Y < -100000 || parseBounds.Y > 100000 || parseBounds.Width < 0 || parseBounds.Width > 100000 || parseBounds.Height < 0 || parseBounds.Height > 100000 {
+				return errors.New("invalid screen bounds")
+			}
+		}
+		if math.IsNaN(float64(parseScreen.Rotation)) || math.IsInf(float64(parseScreen.Rotation), 0) || parseScreen.Rotation < 0 || parseScreen.Rotation >= 360 {
+			return errors.New("invalid screen rotation")
+		}
 		if parseScreen.ID == "" || len(parseScreen.ID) > 256 || !utf8.ValidString(parseScreen.ID) || strings.ContainsRune(parseScreen.ID, 0) || len(parseScreen.Name) > 4096 || !utf8.ValidString(parseScreen.Name) || strings.ContainsRune(parseScreen.Name, 0) || parseScreen.Width < 0 || parseScreen.Width > 100000 || parseScreen.Height < 0 || parseScreen.Height > 100000 || math.IsNaN(float64(parseScreen.Scale)) || math.IsInf(float64(parseScreen.Scale), 0) || parseScreen.Scale < 0 || parseScreen.Scale > 100 {
 			return errors.New("invalid screen information")
 		}
