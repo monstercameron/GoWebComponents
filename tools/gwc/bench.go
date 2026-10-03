@@ -43,6 +43,10 @@ type benchmarkConfig struct {
 	include       []string
 	// targetTimeout kills a package's go test process tree after this long; 0 disables it.
 	targetTimeout time.Duration
+	// targetTimeoutFor overrides targetTimeout for single packages (keys like "./internal/runtime").
+	targetTimeoutFor map[string]time.Duration
+	// goarch is passed explicitly as GOARCH to native-lane children; empty keeps the child default.
+	goarch string
 	// isQuiet suppresses console progress lines; the log file is still written.
 	isQuiet bool
 	// progress is the shared run logger; nil disables progress lines.
@@ -120,6 +124,9 @@ type benchmarkPackageReport struct {
 	Error          string                  `json:"error,omitempty"`
 	Output         string                  `json:"output,omitempty"`
 	Warnings       []string                `json:"warnings,omitempty"`
+	// GoOS and GoArch are the goos and goarch header lines the benchmarks printed.
+	GoOS   string `json:"goos,omitempty"`
+	GoArch string `json:"goarch,omitempty"`
 }
 
 type benchmarkResultReport struct {
@@ -813,7 +820,7 @@ func (parseL launcher) runBenchmarkPackage(parseConfig benchmarkConfig, parseLan
 	if parseConfig.benchtime != "" {
 		parseArgs = append(parseArgs[:len(parseArgs)-1], "-benchtime", parseConfig.benchtime, ".")
 	}
-	parseEnv := buildNativeGoEnv()
+	parseEnv := buildBenchmarkNativeEnv(parseConfig.goarch)
 	if parseLane == "wasm" {
 		parseWasmExec, parseErr := benchmarkResolveWasmExec(parseL.repoRoot)
 		if parseErr != nil {
@@ -834,8 +841,8 @@ func (parseL launcher) runBenchmarkPackage(parseConfig benchmarkConfig, parseLan
 	}
 	var parseOutput string
 	var parseErr2 error
-	if parseConfig.targetTimeout > 0 {
-		parseOutput, parseErr2 = benchmarkRunCommandTimeout("go", parseArgs, parseWorkspace, parseEnv, parseConfig.targetTimeout)
+	if parseTimeout := getBenchmarkTargetTimeout(parseConfig, parsePackagePath); parseTimeout > 0 {
+		parseOutput, parseErr2 = benchmarkRunCommandTimeout("go", parseArgs, parseWorkspace, parseEnv, parseTimeout)
 	} else {
 		parseOutput, parseErr2 = launcherRunCommand("go", parseArgs, parseWorkspace, parseEnv)
 	}
@@ -848,7 +855,7 @@ func (parseL launcher) runBenchmarkPackage(parseConfig benchmarkConfig, parseLan
 		}
 	}
 	if parseErr2 != nil {
-		return benchmarkPackageReport{
+		parseFailed := benchmarkPackageReport{
 			Lane:      parseLane,
 			Package:   parsePackagePath,
 			Workspace: benchmarkDisplayPath(parseConfig.rootPath, parseWorkspace),
@@ -857,12 +864,25 @@ func (parseL launcher) runBenchmarkPackage(parseConfig benchmarkConfig, parseLan
 			Error:     parseErr2.Error(),
 			Output:    parseOutput,
 		}
+		// A killed run still printed complete benchmark lines; keep them so the work is not lost.
+		if isBenchSuiteTimeoutError(parseErr2.Error()) {
+			parseFailed.Benchmarks = parseBenchmarkOutput(trimBenchmarkIncompleteLine(parseOutput))
+			parseFailed.BenchmarkCount = len(parseFailed.Benchmarks)
+			for parseIndex := range parseFailed.Benchmarks {
+				parseFailed.Benchmarks[parseIndex].Bucket = benchmarkBucketID(parsePackagePath, parseFailed.Benchmarks[parseIndex].Name)
+			}
+			parseFailed.GoOS, parseFailed.GoArch = parseBenchmarkPlatformHeader(parseOutput)
+		}
+		return parseFailed
 	}
 	parseBenchmarks := parseBenchmarkOutput(parseOutput)
 	for parseIndex := range parseBenchmarks {
 		parseBenchmarks[parseIndex].Bucket = benchmarkBucketID(parsePackagePath, parseBenchmarks[parseIndex].Name)
 	}
+	parseGoOS, parseGoArch := parseBenchmarkPlatformHeader(parseOutput)
 	return benchmarkPackageReport{
+		GoOS:           parseGoOS,
+		GoArch:         parseGoArch,
 		Lane:           parseLane,
 		Package:        parsePackagePath,
 		Workspace:      benchmarkDisplayPath(parseConfig.rootPath, parseWorkspace),

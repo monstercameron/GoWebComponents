@@ -174,7 +174,7 @@ func makeBenchSuiteTargetsFixture(parseT *testing.T) benchSuiteConfig {
 		_ = os.MkdirAll(filepath.Join(parseRoot, parseName), 0o755)
 		_ = os.WriteFile(filepath.Join(parseRoot, parseName, "x_test.go"), []byte("package "+parseName+"\nfunc BenchmarkX() {}\n"), 0o644)
 	}
-	parseConfig, parseErr := resolveBenchSuiteConfig(benchSuiteConfig{rootPath: parseRoot, count: 2, warmup: 1, lanes: []string{"native"}, seed: 9, targetTimeout: time.Minute})
+	parseConfig, parseErr := resolveBenchSuiteConfig(benchSuiteConfig{rootPath: parseRoot, outPath: filepath.Join(parseRoot, "bin", "bench-suite.json"), count: 2, warmup: 1, lanes: []string{"native"}, seed: 9, targetTimeout: time.Minute})
 	if parseErr != nil {
 		parseT.Fatal(parseErr)
 	}

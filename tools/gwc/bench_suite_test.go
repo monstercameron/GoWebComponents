@@ -158,7 +158,7 @@ func TestBenchSuiteNotRunLanesAlwaysPresent(parseT *testing.T) {
 		return benchmarkPackageReport{Lane: parseLane, Package: parsePackagePath, OK: true, Benchmarks: parseBenchmarkOutput(
 			"BenchmarkX-8 10 100 ns/op 8 B/op 1 allocs/op\nBenchmarkX-8 10 110 ns/op 8 B/op 1 allocs/op\nBenchmarkX-8 10 90 ns/op 8 B/op 1 allocs/op\n")}
 	}
-	parseConfig, parseErr := resolveBenchSuiteConfig(benchSuiteConfig{rootPath: parseRoot, count: 3, warmup: 1, lanes: []string{"native"}, seed: 9})
+	parseConfig, parseErr := resolveBenchSuiteConfig(benchSuiteConfig{rootPath: parseRoot, outPath: filepath.Join(parseRoot, "bin", "bench-suite.json"), count: 3, warmup: 1, lanes: []string{"native"}, seed: 9})
 	if parseErr != nil {
 		parseT.Fatal(parseErr)
 	}

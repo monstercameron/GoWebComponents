@@ -29,6 +29,9 @@ type benchSuiteTarget struct {
 	DurationMs int64             `json:"durationMs"`
 	Warnings   []string          `json:"warnings,omitempty"`
 	Entries    []benchSuiteEntry `json:"entries,omitempty"`
+	// GoOS and GoArch are the benchmark header values the target's go test printed.
+	GoOS   string `json:"goos,omitempty"`
+	GoArch string `json:"goarch,omitempty"`
 }
 
 // benchSuitePartial is the incrementally rewritten checkpoint of an unfinished suite run.
@@ -67,8 +70,9 @@ func hashBenchSuiteConfig(parseConfig benchSuiteConfig) string {
 		Include      []string `json:"include"`
 		SizePackage  string   `json:"sizePackage"`
 		BuildPattern string   `json:"buildPattern"`
+		Goarch       string   `json:"goarch,omitempty"`
 	}{parseConfig.suiteName, parseConfig.lanes, parseConfig.count, parseConfig.warmup, parseConfig.hasWarmup, parseConfig.benchtime,
-		parseConfig.bench, parseConfig.seed, parseConfig.isShuffle, parseConfig.include, parseConfig.sizePackage, parseConfig.buildPattern}
+		parseConfig.bench, parseConfig.seed, parseConfig.isShuffle, parseConfig.include, parseConfig.sizePackage, parseConfig.buildPattern, parseConfig.goarch}
 	parsePayload, _ := json.Marshal(parseFields)
 	parseSum := sha256.Sum256(parsePayload)
 	return hex.EncodeToString(parseSum[:8])
