@@ -257,8 +257,7 @@ func BenchmarkParseFilterAdminUserRowsBySearch(parseB *testing.B) {
 			TotalCostUSD: float64(parseIndex) / 10,
 		})
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseFilterAdminUserRowsBySearch(parseRows, "user19")
 	}
 }

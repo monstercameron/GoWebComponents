@@ -726,7 +726,7 @@ func TestAdminMutationDiagnosticsLogs(parseT *testing.T) {
 // BenchmarkParseBuildAdminMutationScopeLabel reports micro-benchmark throughput for mutation scope-label diagnostics.
 func BenchmarkParseBuildAdminMutationScopeLabel(parseB *testing.B) {
 	parseScope := parseAdminAccessScope{isPlatformScope: true}
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseBuildAdminMutationScopeLabel(parseScope)
 	}
 }

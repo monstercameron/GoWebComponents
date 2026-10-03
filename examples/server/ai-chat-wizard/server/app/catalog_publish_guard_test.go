@@ -135,7 +135,7 @@ func TestCatalogOverrideWriteScopeBoundaries(parseT *testing.T) {
 func BenchmarkExtractCatalogMessageTemplateSet(parseB *testing.B) {
 	parseTemplate := "Date {{date}} Time {{time}} Memories {{memories}} User {{user.name}}"
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseTemplateSet, parseErr := parseExtractCatalogMessageTemplateSet(parseTemplate)
 		if parseErr != nil {
 			parseB.Fatalf("parseExtractCatalogMessageTemplateSet: %v", parseErr)

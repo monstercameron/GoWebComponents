@@ -127,7 +127,7 @@ func BenchmarkAtlasPerfRouteRender(parseB *testing.B) {
 			parseSub.ReportMetric(float64(len(parseMarkup)), "markup_bytes")
 			parseSub.ResetTimer()
 			parseSub.ReportAllocs()
-			for parseIndex := 0; parseIndex < parseSub.N; parseIndex++ {
+			for parseSub.Loop() {
 				if _, parseRenderErr := renderAtlasPerfPayload(parsePayload); parseRenderErr != nil {
 					parseSub.Fatalf("render: %v", parseRenderErr)
 				}
@@ -151,10 +151,12 @@ func BenchmarkAtlasPerfAllRoutes(parseB *testing.B) {
 	}
 	parseB.ResetTimer()
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	parseIndex := 0
+	for parseB.Loop() {
 		if _, parseErr := renderAtlasPerfPayload(parsePayloads[parseIndex%len(parsePayloads)]); parseErr != nil {
 			parseB.Fatalf("render: %v", parseErr)
 		}
+		parseIndex++
 	}
 }
 
@@ -173,7 +175,7 @@ func BenchmarkAtlasPerfPayloadDecode(parseB *testing.B) {
 			parseSub.ReportMetric(float64(len(parseFixture.BootstrapJSON)), "bootstrap_bytes")
 			parseSub.ResetTimer()
 			parseSub.ReportAllocs()
-			for parseIndex := 0; parseIndex < parseSub.N; parseIndex++ {
+			for parseSub.Loop() {
 				_ = atlasPerfPayload(parseSub, parseFixture)
 			}
 		})
@@ -202,7 +204,7 @@ func BenchmarkAtlasPerfDesignClassWarm(parseB *testing.B) {
 			}
 			parseSub.ResetTimer()
 			parseSub.ReportAllocs()
-			for parseIndex := 0; parseIndex < parseSub.N; parseIndex++ {
+			for parseSub.Loop() {
 				if design.Class(parseCase.Bundles...) == "" {
 					parseSub.Fatal("empty class")
 				}
@@ -225,7 +227,7 @@ func BenchmarkAtlasPerfDesignClassCold(parseB *testing.B) {
 			atlasPerfRenderMu.Lock()
 			defer atlasPerfRenderMu.Unlock()
 			parseSub.ReportAllocs()
-			for parseIndex := 0; parseIndex < parseSub.N; parseIndex++ {
+			for parseSub.Loop() {
 				parseSub.StopTimer()
 				css.Reset()
 				parseSub.StartTimer()

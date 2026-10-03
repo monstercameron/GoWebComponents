@@ -226,7 +226,7 @@ func TestAdminControlOpsWorkspaceScope(parseT *testing.T) {
 
 // BenchmarkParseHasAdminIncidentResolvedStatus reports micro-benchmark throughput for incident-status resolution checks.
 func BenchmarkParseHasAdminIncidentResolvedStatus(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseHasAdminIncidentResolvedStatus("resolved")
 	}
 }

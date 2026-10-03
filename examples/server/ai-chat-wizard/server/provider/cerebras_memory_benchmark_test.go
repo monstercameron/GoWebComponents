@@ -17,8 +17,7 @@ func BenchmarkResolveCerebrasMemoryCandidates(parseB *testing.B) {
 			},
 		},
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseCandidates, parseErr := parseResolveCerebrasMemoryCandidates(parseResponse)
 		if parseErr != nil {
 			parseB.Fatalf("parseResolveCerebrasMemoryCandidates: %v", parseErr)

@@ -12,8 +12,7 @@ func BenchmarkParseDeriveErrorBoundaryFromRecord(parseB *testing.B) {
 	parseRecord.AddAttrs(slog.String("log.scope", "chat-wizard"))
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseDeriveErrorBoundaryFromRecord(parseRecord)
 	}
 }
@@ -27,8 +26,7 @@ func BenchmarkParseRecordHasAttrKey(parseB *testing.B) {
 	)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseRecordHasAttrKey(parseRecord, "error.boundary")
 	}
 }

@@ -116,7 +116,7 @@ func TestGetAdminReadOnlyReportScopeAndGuards(parseT *testing.T) {
 
 // BenchmarkParseNormalizeAdminReadOnlyReportKey reports micro-benchmark throughput for read-only report-key normalization.
 func BenchmarkParseNormalizeAdminReadOnlyReportKey(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseNormalizeAdminReadOnlyReportKey("recent_usage_events")
 	}
 }

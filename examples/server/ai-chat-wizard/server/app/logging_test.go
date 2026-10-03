@@ -234,8 +234,7 @@ func TestScrubSecretStringRedactsCommonSecrets(parseT *testing.T) {
 // BenchmarkScrubSecretString measures the shared secret-scrubbing helper overhead.
 func BenchmarkScrubSecretString(parseB *testing.B) {
 	parseInput := `open C:\secrets\config.json with OPENAI_API_KEY=sk-live-123; Authorization: Bearer abc.def.ghi; cookie=session=abc`
-	parseB.ResetTimer()
-	for parseN := 0; parseN < parseB.N; parseN++ {
+	for parseB.Loop() {
 		_ = parseScrubSecretString(parseInput)
 	}
 }

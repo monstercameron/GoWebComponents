@@ -596,8 +596,7 @@ func BenchmarkAuthorizeRunServerToolStartAllowed(parseB *testing.B) {
 		Cwd:            ".",
 		TimeoutSeconds: 30,
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		if parseErr := parseAuthorizeRunServerToolStart(parsePolicy, parseStart); parseErr != nil {
 			parseB.Fatalf("parseAuthorizeRunServerToolStart: %v", parseErr)
 		}
@@ -620,8 +619,7 @@ func BenchmarkAuthorizeRunServerToolStartDenied(parseB *testing.B) {
 		Cwd:            ".",
 		TimeoutSeconds: 30,
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		if parseErr := parseAuthorizeRunServerToolStart(parsePolicy, parseStart); status.Code(parseErr) != codes.PermissionDenied {
 			parseB.Fatalf("parseAuthorizeRunServerToolStart code=%v", status.Code(parseErr))
 		}

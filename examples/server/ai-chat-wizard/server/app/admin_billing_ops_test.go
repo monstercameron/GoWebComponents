@@ -780,7 +780,7 @@ func TestSortAdminBillingDunningEntryRows(parseT *testing.T) {
 
 // BenchmarkParseNormalizeAdminBillingQuotaOverrideKey reports micro-benchmark throughput for quota-key normalization.
 func BenchmarkParseNormalizeAdminBillingQuotaOverrideKey(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseNormalizeAdminBillingQuotaOverrideKey("requests.daily")
 	}
 }
@@ -811,7 +811,7 @@ func BenchmarkParseFilterAdminBillingEventRows(parseB *testing.B) {
 			CreatedAt:      "2026-03-28T00:01:00Z",
 		},
 	}
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseFilterAdminBillingEventRows(parseRows, "billing.access_override.updated", "alpha")
 	}
 }

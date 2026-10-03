@@ -522,7 +522,7 @@ func BenchmarkParseBuildAdminSupportTicketEntry(parseB *testing.B) {
 		CreatedAt:      "2026-01-01T00:00:00Z",
 		UpdatedAt:      "2026-01-01T00:00:00Z",
 	}
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseBuildAdminSupportTicketEntry(parseRow)
 	}
 }

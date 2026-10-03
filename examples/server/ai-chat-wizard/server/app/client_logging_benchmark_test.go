@@ -28,8 +28,7 @@ func BenchmarkParseAppendStructuredClientLogFields(parseB *testing.B) {
 		parseB.Fatalf("structpb.NewStruct: %v", parseErr)
 	}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseAppendStructuredClientLogFields(nil, parseFields)
 	}
 }
@@ -41,8 +40,7 @@ func BenchmarkParseExtractTraceContextFromContext(parseB *testing.B) {
 		traceStateMetadataKey, "vendor=relay",
 	))
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_, _, _ = parseExtractTraceContextFromContext(parseCtx)
 	}
 }
@@ -51,9 +49,10 @@ func BenchmarkParseExtractTraceContextFromContext(parseB *testing.B) {
 func BenchmarkParseResolveClientLogLevel(parseB *testing.B) {
 	parseLevels := []string{"debug", "info", "warn", "error", "warning", "unknown"}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		_ = parseResolveClientLogLevel(parseLevels[parseI%len(parseLevels)])
+		parseI++
 	}
 }
 
@@ -85,8 +84,7 @@ func BenchmarkReportClientLog(parseB *testing.B) {
 	))
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if _, parseErr2 := parseServer.ReportClientLog(parseCtx, parseReq); parseErr2 != nil {
 			parseB.Fatalf("ReportClientLog: %v", parseErr2)
 		}

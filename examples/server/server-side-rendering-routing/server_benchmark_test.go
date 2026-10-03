@@ -12,8 +12,7 @@ import (
 func BenchmarkServerSSRResolveRouteDocs(parseB *testing.B) {
 	parseQuery := url.Values{"tab": {serverTabLoader}, "refresh": {"2"}}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseResolved := resolveRoute("/docs/"+serverGuideSectionSSR, parseQuery)
 		if parseResolved.Status != 200 || parseResolved.View.SectionID == "" {
 			parseB.Fatal("expected docs route to resolve")
@@ -25,8 +24,7 @@ func BenchmarkServerSSRRenderDocumentBody(parseB *testing.B) {
 	parseResolved := resolveRoute("/docs/"+serverGuideSectionSSR, url.Values{"tab": {serverTabLoader}})
 	parseNode := renderDemoShell(parseResolved.View)
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseMarkup, parseErr := ui.RenderToString(parseNode)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)

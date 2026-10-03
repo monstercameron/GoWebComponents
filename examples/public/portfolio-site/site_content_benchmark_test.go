@@ -8,8 +8,7 @@ import (
 
 func BenchmarkPortfolioProjectLookup(parseB *testing.B) {
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseProject, parseOk := findPortfolioProject("GoWebComponents")
 		if !parseOk || parseProject.Title == "" {
 			parseB.Fatal("expected GoWebComponents project lookup")
@@ -20,8 +19,7 @@ func BenchmarkPortfolioProjectLookup(parseB *testing.B) {
 func BenchmarkPortfolioTechnologyCounting(parseB *testing.B) {
 	parseProjects := portfolioProjects()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if parseTotal := totalPortfolioTechnologies(parseProjects); parseTotal != 10 {
 			parseB.Fatalf("expected 10 technology tags, got %d", parseTotal)
 		}
@@ -30,8 +28,7 @@ func BenchmarkPortfolioTechnologyCounting(parseB *testing.B) {
 
 func BenchmarkFeaturedPortfolioProjects(parseB *testing.B) {
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseFeatured := featuredPortfolioProjects()
 		if len(parseFeatured) != 2 {
 			parseB.Fatalf("expected 2 featured projects, got %d", len(parseFeatured))
@@ -42,8 +39,7 @@ func BenchmarkFeaturedPortfolioProjects(parseB *testing.B) {
 func BenchmarkPortfolioSnapshotRenderToString(parseB *testing.B) {
 	parseNode := renderPortfolioSnapshot()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseMarkup, parseErr := ui.RenderToString(parseNode)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -57,8 +53,7 @@ func BenchmarkPortfolioSnapshotRenderToString(parseB *testing.B) {
 func BenchmarkPortfolioProjectsGridRenderToString(parseB *testing.B) {
 	parseNode := renderPortfolioProjectsGridSnapshot()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseMarkup, parseErr := ui.RenderToString(parseNode)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)

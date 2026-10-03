@@ -140,8 +140,7 @@ func BenchmarkBuildLogFieldAttrs(parseB *testing.B) {
 		ParseTargetUserID:      43,
 		ParseTargetWorkspaceID: 44,
 	}
-	parseB.ResetTimer()
-	for parseN := 0; parseN < parseB.N; parseN++ {
+	for parseB.Loop() {
 		_ = parseBuildLogFieldAttrs(parseCtx, parseSpec)
 	}
 }

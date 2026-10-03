@@ -75,8 +75,7 @@ func BenchmarkAuthorizePrivilegedMutationSession(parseB *testing.B) {
 		ParseRoleKey:    parsePrivilegedRoleSuperuser,
 		ParseAuthMethod: parseWorkspaceAuthMethodPassword,
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseDecision, parseErr := parseAuthorizePrivilegedMutationSession(parsePolicy, parseAttempt, true)
 		if parseErr != nil {
 			parseB.Fatalf("parseAuthorizePrivilegedMutationSession: %v", parseErr)

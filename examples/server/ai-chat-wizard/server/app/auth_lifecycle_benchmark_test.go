@@ -6,8 +6,7 @@ import "testing"
 func BenchmarkAuthFlowTokenHash(parseB *testing.B) {
 	parseRawToken := parseBuildOpaqueAuthFlowToken()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseBuildAuthFlowTokenHash(parseRawToken)
 	}
 }

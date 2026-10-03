@@ -211,8 +211,7 @@ func BenchmarkAuthorizeWorkspaceLoginMethod(parseB *testing.B) {
 	}
 	parseAttempt := parseWorkspaceAuthAttempt{ParseLoginMethod: parseWorkspaceAuthMethodGoogleOIDC}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseDecision, parseErr := parseAuthorizeWorkspaceLoginMethod(parsePolicy, parseAttempt)
 		if parseErr != nil {
 			parseB.Fatalf("parseAuthorizeWorkspaceLoginMethod: %v", parseErr)

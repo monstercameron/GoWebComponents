@@ -550,7 +550,7 @@ func parseHasSuperuserAuditEvent(parseRows []parseAuditLogRow, parseEventType st
 
 // BenchmarkParseNormalizeSuperuserBillingEnforcementMode reports micro-benchmark throughput for superuser enforcement-mode normalization.
 func BenchmarkParseNormalizeSuperuserBillingEnforcementMode(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseNormalizeSuperuserBillingEnforcementMode("warn")
 	}
 }

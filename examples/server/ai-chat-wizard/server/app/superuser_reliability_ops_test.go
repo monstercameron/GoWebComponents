@@ -519,7 +519,7 @@ func TestSuperuserReliabilityControlRPCs(parseT *testing.T) {
 
 // BenchmarkParseNormalizeSuperuserIncidentStatus reports micro-benchmark throughput for superuser incident-status normalization.
 func BenchmarkParseNormalizeSuperuserIncidentStatus(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseNormalizeSuperuserIncidentStatus("resolved")
 	}
 }

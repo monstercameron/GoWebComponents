@@ -300,7 +300,7 @@ func TestHandleOIDCProviderCallbackEnforcesWorkspaceLinkPolicy(parseT *testing.T
 
 // BenchmarkParseResolveExternalDisplayName measures display-name fallback normalization for external-auth user creation.
 func BenchmarkParseResolveExternalDisplayName(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseResolveExternalDisplayName("", "benchmark-user@example.com")
 	}
 }

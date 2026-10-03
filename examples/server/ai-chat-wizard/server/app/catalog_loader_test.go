@@ -145,7 +145,7 @@ func BenchmarkCatalogLaunchTruthFilterWithConfig(parseB *testing.B) {
 	}
 	parseConfig := parseBuildCatalogLaunchTruthConfig()
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseFiltered := parseApplyCatalogLaunchTruthFilterWithConfig(parseMessages, "en", parseConfig)
 		if len(parseFiltered) == 0 {
 			parseB.Fatalf("unexpected empty launch-truth filter result")
