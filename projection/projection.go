@@ -171,6 +171,14 @@ func (parseProjection *Projection[T]) Apply(parseOps []Op) error {
 }
 
 func (parseProjection *Projection[T]) applyInsert(parseOp Op) error {
+	// A resident key cannot be inserted again: the second row would shadow the
+	// first in the index while both stayed in the ordered slice, so Update would
+	// reach only one of them and Remove would leave the other behind. A published
+	// stream that re-delivers an insert is a protocol error, reported like an
+	// update for an unknown key.
+	if _, parseIsResident := parseProjection.lookup(parseOp.Key); parseIsResident {
+		return fmt.Errorf("projection: insert for key %q, which is already resident", parseOp.Key)
+	}
 	if parseProjection.resident >= 0 && len(parseProjection.entries) >= parseProjection.resident {
 		// Refused rather than evicting something else: the projection is an
 		// ordered prefix, and dropping an arbitrary row to make room would make

@@ -21,6 +21,10 @@ type Options struct {
 	// always plain strings.
 	Headers map[string]any
 	Body    any
+	// TracePropagationOrigins lists extra origins (scheme://host[:port]) that receive a generated
+	// W3C traceparent header. The zero value propagates to the page origin only; a caller-set
+	// traceparent header is never overwritten.
+	TracePropagationOrigins []string
 }
 
 // MultipartFile describes one browser file to append to a multipart form-data body.

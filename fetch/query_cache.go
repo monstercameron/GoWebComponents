@@ -2,11 +2,12 @@ package fetch
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 // QueryOptions configures the ergonomic query wrapper around UseCachedResource.
@@ -74,6 +75,7 @@ type OptimisticUpdate[T any] struct {
 	key      string
 	previous cachedResourceSnapshot
 	active   bool
+	record   *optimisticRecord
 }
 
 type queryTagEntry struct {
@@ -158,7 +160,7 @@ func UseInfiniteQuery[T any, C any](parseKey string, parseLoader func(context.Co
 	parseResource := UseCachedResource(parseKey, func(parseCtx context.Context) (InfiniteQueryData[T, C], error) {
 		if parseLoader == nil {
 			var parseZero InfiniteQueryData[T, C]
-			return parseZero, fmt.Errorf("fetch: infinite query loader cannot be nil")
+			return parseZero, errcode.New(errcode.FetchLoaderNil, "fetch: infinite query loader cannot be nil (pass the function that fetches one page)")
 		}
 		parsePage, parseErr := parseLoader(parseCtx, QueryPageRequest[C]{Cursor: parseResolved.InitialCursor, PageIndex: 0})
 		if parseErr != nil {
@@ -213,11 +215,10 @@ func (parseQ InfiniteQuery[T, C]) LoadNext() {
 	// first-page load's own requestSeq guard.
 	parseLoadGen := cachedResourceRequestSeq(parseQ.key)
 	updateCachedSnapshot(parseQ.key, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+		// Stale stays untouched: marking the entry stale would re-fire the mounted
+		// hook's load effect, which would reload page one and discard this page.
 		parsePrev.Loading = true
 		parsePrev.Error = nil
-		if parsePrev.Ready {
-			parsePrev.Stale = true
-		}
 		return parsePrev
 	})
 
@@ -329,6 +330,17 @@ func ApplyOptimisticUpdate[T any](parseKey string, parseFn func(T) T) Optimistic
 	cancelCachedLoad(parseKey)
 	parsePrevious := currentCachedSnapshot(parseKey)
 	parseCurrent, _ := castCachedValue[T](parsePrevious.Value)
+	parseRecord := &optimisticRecord{apply: func(parseValue any) any {
+		parseTyped, _ := castCachedValue[T](parseValue)
+		return parseFn(parseTyped)
+	}}
+	parseEntry := getCachedResourceEntry(parseKey)
+	parseEntry.mu.Lock()
+	if len(parseEntry.optimistic) == 0 {
+		parseEntry.optimisticBase = parsePrevious
+	}
+	parseEntry.optimistic = append(parseEntry.optimistic, parseRecord)
+	parseEntry.mu.Unlock()
 	updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 		parsePrev.Value = parseFn(parseCurrent)
 		parsePrev.Loading = false
@@ -345,6 +357,7 @@ func ApplyOptimisticUpdate[T any](parseKey string, parseFn func(T) T) Optimistic
 		key:      parseKey,
 		previous: parsePrevious,
 		active:   true,
+		record:   parseRecord,
 	}
 }
 
@@ -356,6 +369,21 @@ func (parseU OptimisticUpdate[T]) Active() bool {
 // Commit makes the optimistic update final and disables rollback.
 func (parseU *OptimisticUpdate[T]) Commit() {
 	if parseU != nil {
+		if parseU.active && parseU.record != nil {
+			parseEntry := getCachedResourceEntry(parseU.key)
+			parseEntry.mu.Lock()
+			parseU.record.isCommitted = true
+			// Once every tracked update is final nothing can be rolled back, so the
+			// replay state is released.
+			isAllCommitted := true
+			for _, parseRecord := range parseEntry.optimistic {
+				isAllCommitted = isAllCommitted && parseRecord.isCommitted
+			}
+			if isAllCommitted {
+				parseEntry.optimistic = nil
+			}
+			parseEntry.mu.Unlock()
+		}
 		parseU.active = false
 	}
 }
@@ -365,12 +393,54 @@ func (parseU *OptimisticUpdate[T]) Rollback() {
 	if parseU == nil || !parseU.active || parseU.key == "" {
 		return
 	}
+	parseTarget := parseU.previous
+	if parseU.record != nil {
+		parseTarget = replayOptimisticRollback(parseU.key, parseU.record, parseU.previous)
+	}
 	updateCachedSnapshot(parseU.key, func(cachedResourceSnapshot) cachedResourceSnapshot {
-		return parseU.previous
+		return parseTarget
 	})
-	restoreCachedEntryAfterOptimisticRollback(parseU.key, parseU.previous)
+	restoreCachedEntryAfterOptimisticRollback(parseU.key, parseTarget)
 	persistCachedSnapshot(parseU.key)
 	parseU.active = false
+}
+
+// replayOptimisticRollback drops parseRecord from its entry and returns the
+// snapshot the cache should show afterwards: the confirmed base with every other
+// tracked update replayed over it, or the base alone when none remain. A record
+// the entry no longer tracks falls back to the snapshot captured before it.
+func replayOptimisticRollback(parseKey string, parseRecord *optimisticRecord, parseFallback cachedResourceSnapshot) cachedResourceSnapshot {
+	parseEntry := getCachedResourceEntry(parseKey)
+	parseEntry.mu.Lock()
+	defer parseEntry.mu.Unlock()
+
+	parseIndex := -1
+	for parseSearch, parseCandidate := range parseEntry.optimistic {
+		if parseCandidate == parseRecord {
+			parseIndex = parseSearch
+			break
+		}
+	}
+	if parseIndex < 0 {
+		return parseFallback
+	}
+	parseEntry.optimistic = append(parseEntry.optimistic[:parseIndex:parseIndex], parseEntry.optimistic[parseIndex+1:]...)
+	parseTarget := parseEntry.optimisticBase
+	if len(parseEntry.optimistic) == 0 {
+		parseEntry.optimistic = nil
+		return parseTarget
+	}
+	parseValue := parseTarget.Value
+	for _, parseOther := range parseEntry.optimistic {
+		parseValue = parseOther.apply(parseValue)
+	}
+	parseTarget.Value = parseValue
+	parseTarget.Loading = false
+	parseTarget.Error = nil
+	parseTarget.Ready = true
+	parseTarget.Stale = false
+	parseTarget.UpdatedAt = time.Now()
+	return parseTarget
 }
 
 // InvalidateQueryTag marks all live queries with tag stale.

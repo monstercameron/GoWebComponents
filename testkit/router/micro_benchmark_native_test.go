@@ -8,7 +8,7 @@ func BenchmarkFixtureStubMethodsMicro(parseB *testing.B) {
 	var parseFixture Fixture
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseFixture.Path()
 		_ = parseFixture.Inspect()
 		_ = parseFixture.Query()

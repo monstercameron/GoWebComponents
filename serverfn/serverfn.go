@@ -28,6 +28,9 @@ import (
 	"sync"
 )
 
+// maxErrorBodyBytes caps how much of a failed server-function response Call reads.
+const maxErrorBodyBytes = 1 << 20
+
 // RoutePrefix is the URL path prefix every server function is served under.
 const RoutePrefix = "/_gwc/fn/"
 
@@ -233,16 +236,20 @@ func UnprocessableEntity(parseMessage string) *StatusError {
 // filesystem path, so its text must never reach the caller — the real error is
 // surfaced to operators via the ErrorLogger sink instead.
 func statusForError(parseErr error) (int, string) {
-	var parseStatusErr *StatusError
-	if errors.As(parseErr, &parseStatusErr) {
+	parseStatusErr, parseOk := errors.AsType[*StatusError](parseErr)
+	if parseOk {
 		// errors.As reports true even for a nil *StatusError wrapped in the error interface; treat
 		// that (and a zero status) as a plain 500 rather than dereferencing nil or emitting status 0.
 		if parseStatusErr == nil {
 			return http.StatusInternalServerError, "internal server error"
 		}
 		parseStatus := parseStatusErr.Status
-		if parseStatus == 0 {
-			parseStatus = http.StatusInternalServerError
+		// Only 4xx/5xx are failures. Call treats 200 as success and net/http
+		// panics on codes outside 100-999, so any other status would either turn
+		// a failure into a zero-value success or be mangled; treat it as a
+		// server fault and withhold the message.
+		if parseStatus < http.StatusBadRequest || parseStatus > 599 {
+			return http.StatusInternalServerError, "internal server error"
 		}
 		return parseStatus, parseStatusErr.Message
 	}
@@ -255,6 +262,10 @@ func statusForError(parseErr error) (int, string) {
 // is rejected with 405 and a malformed body with 400.
 func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn func(context.Context, Req) (Resp, error)) {
 	parseMux.HandleFunc(Endpoint(parseName), func(parseW http.ResponseWriter, parseR *http.Request) {
+		// Registered before the recover defer so it runs after it and sees the
+		// 500 a recovered panic writes. A no-op unless a span hook is installed.
+		parseSpan := beginServerSpan(&parseW, &parseR, parseName)
+		defer parseSpan.end()
 		// A server function is arbitrary user code invoked with attacker-shaped
 		// input; a nil-deref/index panic inside it (e.g. an omitted optional
 		// field left as a nil slice) would otherwise reset the connection with no
@@ -290,8 +301,7 @@ func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn fu
 		parseR.Body = http.MaxBytesReader(parseW, parseR.Body, currentMaxRequestBytes())
 		parseBody, parseErr := io.ReadAll(parseR.Body)
 		if parseErr != nil {
-			var parseMaxErr *http.MaxBytesError
-			if errors.As(parseErr, &parseMaxErr) {
+			if _, parseOk := errors.AsType[*http.MaxBytesError](parseErr); parseOk {
 				writeError(parseW, http.StatusRequestEntityTooLarge, "request body too large")
 				return
 			}
@@ -309,6 +319,7 @@ func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn fu
 		}
 		parseResp, parseErr := parseFn(parseR.Context(), parseReq)
 		if parseErr != nil {
+			parseSpan.noteError(parseErr)
 			parseStatus, parseMessage := statusForError(parseErr)
 			// A 5xx means either a plain (message-suppressed) error or an explicit
 			// server-fault StatusError: log the real error so it is not lost.
@@ -347,6 +358,7 @@ func Call[Req, Resp any](parseCtx context.Context, parseName string, parseReq Re
 		return parseResp, fmt.Errorf("build request: %w", parseErr)
 	}
 	parseHTTPReq.Header.Set("Content-Type", "application/json")
+	injectTraceHeaders(parseCtx, parseHTTPReq.Header)
 
 	parseHTTPResp, parseErr := parseClient.Do(parseHTTPReq)
 	if parseErr != nil {
@@ -388,7 +400,10 @@ func writeError(parseW http.ResponseWriter, parseStatus int, parseMessage string
 // decodeServerError reads a non-200 response into a *ServerError, falling back to the raw
 // body when it is not a JSON error envelope.
 func decodeServerError(parseResp *http.Response) error {
-	parseBody, _ := io.ReadAll(parseResp.Body)
+	// Bounded: the error body comes from the remote end and is only ever a short
+	// message, so an unbounded read would let a hostile or broken origin exhaust
+	// the caller's memory.
+	parseBody, _ := io.ReadAll(io.LimitReader(parseResp.Body, maxErrorBodyBytes))
 	var parseEnvelope errorEnvelope
 	if parseErr := json.Unmarshal(parseBody, &parseEnvelope); parseErr == nil && parseEnvelope.Error != "" {
 		return &ServerError{Status: parseResp.StatusCode, Message: parseEnvelope.Error}

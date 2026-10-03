@@ -4,7 +4,7 @@ import "testing"
 
 func BenchmarkEnableDisableCycleMicro(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		Enable()
 		Disable()
 		_ = IsEnabled()

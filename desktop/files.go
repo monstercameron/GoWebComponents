@@ -121,8 +121,8 @@ func getFileDialogFailure(parseErr error) FileDialogReply {
 		parseErr = getContextError(FileDialogMethod, parseErr)
 	}
 	parseCode := interop.CodeRemote
-	var parseTyped *interop.Error
-	if errors.As(parseErr, &parseTyped) {
+	parseTyped, parseOk := errors.AsType[*interop.Error](parseErr)
+	if parseOk {
 		parseCode = parseTyped.Code
 	}
 	return FileDialogReply{Code: parseCode, Message: parseErr.Error()}

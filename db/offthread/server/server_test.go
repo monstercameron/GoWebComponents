@@ -139,8 +139,8 @@ func TestQueryErrorsSurfaceAsRemoteErrors(parseT *testing.T) {
 	parseHandle, _ := buildTestHandle(parseT)
 
 	_, parseErr := parseHandle.Query(context.Background(), "SELECT nope FROM items")
-	var parseRemoteErr *offthread.RemoteError
-	if !errors.As(parseErr, &parseRemoteErr) {
+	_, parseOk := errors.AsType[*offthread.RemoteError](parseErr)
+	if !parseOk {
 		parseT.Fatalf("err = %v, want a *RemoteError from the database thread", parseErr)
 	}
 }

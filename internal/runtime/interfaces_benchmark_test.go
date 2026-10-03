@@ -6,7 +6,7 @@ func BenchmarkDOMNodeInterfaceEquals(parseB *testing.B) {
 	var parseNode DOMNode = &testDOMNode{tag: "div"}
 	parseOther := parseNode
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseNode.Equals(parseOther)
 	}
 }
@@ -14,7 +14,7 @@ func BenchmarkDOMNodeInterfaceEquals(parseB *testing.B) {
 func BenchmarkDOMAdapterInterfaceCreateElement(parseB *testing.B) {
 	var parseAdapter DOMAdapter = newTestDOMAdapter()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseAdapter.CreateElement("div")
 	}
 }
@@ -22,7 +22,7 @@ func BenchmarkDOMAdapterInterfaceCreateElement(parseB *testing.B) {
 func BenchmarkSchedulerInterfaceSetTimeout(parseB *testing.B) {
 	var parseScheduler Scheduler = newTestScheduler()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseScheduler.SetTimeout(func() {}, 0)
 	}
 }

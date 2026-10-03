@@ -1,0 +1,485 @@
+const AnnouncementAssertive AnnouncementMode
+const AnnouncementPolite AnnouncementMode
+const ColorSchemeDark ColorScheme
+const ColorSchemeLight ColorScheme
+const CurrentSSRBootstrapVersion
+const CurrentSSRStateUpdateVersion
+const DefaultBootstrapReferenceScriptID
+const DefaultBootstrapScriptID
+const DefaultCSRFFormFieldName
+const DefaultCSRFHeaderName
+const DefaultRouteBootstrapPayloadKey
+const DeferError
+const DeferLoading
+const DeferPlaceholder DeferStatus
+const DeferReady
+const HydrateImmediately HydrationStrategy
+const HydrateOnIdle HydrationStrategy
+const HydrateOnInteraction HydrationStrategy
+const HydrateOnVisible HydrationStrategy
+const OverlayKindCustom OverlayKind
+const OverlayKindDialog OverlayKind
+const OverlayKindMenu OverlayKind
+const OverlayKindPopover OverlayKind
+const OverlayKindSheet OverlayKind
+const OverlayKindTooltip OverlayKind
+const PersistLocal PersistStorageArea
+const PersistSession PersistStorageArea
+const SSRBootstrapFormatCBOR
+const SSRBootstrapFormatJSON
+const SSRPayloadEncodingBinary SSRPayloadEncoding
+const SSRPayloadEncodingCBOR SSRPayloadEncoding
+const SSRPayloadEncodingJSON SSRPayloadEncoding
+const SSRPayloadEncodingText SSRPayloadEncoding
+const SSRPayloadEncodingTimeRFC3339 SSRPayloadEncoding
+const SSRPayloadEncodingTimeUnixNano SSRPayloadEncoding
+const SSRPayloadKindCacheSeed SSRPayloadKind
+const SSRPayloadKindData SSRPayloadKind
+const SSRPayloadKindFormDefaults SSRPayloadKind
+const SSRPayloadKindRouteData SSRPayloadKind
+const SSRPayloadKindSessionHint SSRPayloadKind
+const SSRPayloadReuseClientOwned SSRPayloadReusePolicy
+const SSRPayloadReuseRevalidateAfterResume SSRPayloadReusePolicy
+const SSRPayloadReuseTrustOnFirstResume SSRPayloadReusePolicy
+const SSRPayloadScopeApp SSRPayloadScope
+const SSRPayloadScopeRoute SSRPayloadScope
+const SSRPayloadScopeSubtree SSRPayloadScope
+const SSRStreamChunkBoundary
+const SSRStreamChunkShell
+const ServerActionOutcomeAuthError ServerActionOutcome
+const ServerActionOutcomeRedirect ServerActionOutcome
+const ServerActionOutcomeRetryableError ServerActionOutcome
+const ServerActionOutcomeSuccess ServerActionOutcome
+const ServerActionOutcomeValidationError ServerActionOutcome
+func (Announcer) Announce(parseMode AnnouncementMode, parseMessage string)
+func (Announcer) Assertive(parseMessage string)
+func (Announcer) AssertiveID() string
+func (Announcer) Clear()
+func (Announcer) Polite(parseMessage string)
+func (Announcer) PoliteID() string
+func (Announcer) Region() Node
+func (CSRFToken) FormField() (string, string)
+func (CSRFToken) Header() (string, string)
+func (Channel[T]) Closed() bool
+func (Channel[T]) Get() T
+func (Channel[T]) Ok() bool
+func (CompositeNavigation) ActiveDescendant() string
+func (CompositeNavigation) ActiveID() string
+func (CompositeNavigation) ActiveIndex() int
+func (CompositeNavigation) IsActive(parseIndex int) bool
+func (CompositeNavigation) MoveEnd()
+func (CompositeNavigation) MoveHome()
+func (CompositeNavigation) MoveNext()
+func (CompositeNavigation) MovePrevious()
+func (CompositeNavigation) OnKeyDown(parseEvent KeyboardEvent)
+func (CompositeNavigation) OnKeyDown(parseEvent any)
+func (CompositeNavigation) SetActive(parseIndex int)
+func (CompositeNavigation) TabIndex(parseIndex int) int
+func (DOMRef) Blur()
+func (DOMRef) Click()
+func (DOMRef) Focus()
+func (DOMRef) Mounted() bool
+func (DOMRef) Node() runtime.DOMNode
+func (DOMRef) ScrollIntoView(parseBehavior string)
+func (DOMRef) Sink() runtime.DOMRefSink
+func (DOMRef) Value() js.Value
+func (Debounced[T]) Get() T
+func (Debounced[T]) Pending() bool
+func (Event) GetKey() string
+func (Event) GetKeyCode() int
+func (Event) GetValue() string
+func (Event) IsChecked() bool
+func (Event) PreventDefault()
+func (Event) StopPropagation()
+func (File) JSValue() js.Value
+func (File) LastModified() int64
+func (File) Name() string
+func (File) Size() int64
+func (File) Type() string
+func (FocusManager) FocusByID(parseId string, parseOptions ...FocusOptions) bool
+func (FocusManager) FocusFirst(parseContainerSelector string, parseOptions ...FocusOptions) bool
+func (FocusManager) FocusFirstError(parseErrors FieldErrors, parseFieldIDs map[string]string, parseOrder ...string) bool
+func (FocusManager) FocusSelector(parseSelector string, parseOptions ...FocusOptions) bool
+func (FocusManager) RememberActive() bool
+func (FocusManager) Restore(parseOptions ...FocusOptions) bool
+func (Form[T]) ApplyServerActionResult(parseResult ServerActionResult) bool
+func (Form[T]) ApplyServerErrors(parseResponse ServerFormErrors) bool
+func (Form[T]) Dirty(parseName string) bool
+func (Form[T]) DirtyAny() bool
+func (Form[T]) Error(parseName string) string
+func (Form[T]) Errors() FieldErrors
+func (Form[T]) FieldMessage(parseName string) string
+func (Form[T]) FieldStatus(parseName string) FieldStatus
+func (Form[T]) FormError() string
+func (Form[T]) Get() T
+func (Form[T]) HasErrors() bool
+func (Form[T]) HasField(parseName string) bool
+func (Form[T]) HasFieldError(parseName string) bool
+func (Form[T]) IntentPending(parseIntent string) bool
+func (Form[T]) MustSetField(parseName string, parseValue any)
+func (Form[T]) MustSetField(parseName string, parseValue interface{})
+func (Form[T]) Reset(parseNext ...T)
+func (Form[T]) Set(parseValue T)
+func (Form[T]) SetErrors(parseErrors FieldErrors)
+func (Form[T]) SetField(parseName string, parseValue any) bool
+func (Form[T]) SetField(parseName string, parseValue interface{}) bool
+func (Form[T]) SetFormError(parseMessage string)
+func (Form[T]) SetSubmitIntent(parseIntent string)
+func (Form[T]) Submit(parseRun func(T) error)
+func (Form[T]) SubmitError() error
+func (Form[T]) SubmitIntent() string
+func (Form[T]) SubmitWithIntent(parseIntent string, parseRun func(T, string) error)
+func (Form[T]) Submitted() bool
+func (Form[T]) Submitting() bool
+func (Form[T]) Touch(parseName string)
+func (Form[T]) Touched(parseName string) bool
+func (Form[T]) TouchedAny() bool
+func (Form[T]) Update(parseFn func(T) T)
+func (Form[T]) Validate(parseValidate func(T) FieldErrors) bool
+func (Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string), parseOnComplete func(bool))
+func (Form[T]) ValidateIntent(parseIntent string, parseValidate func(T, string) FieldErrors) bool
+func (Form[T]) ValidateStruct() bool
+func (Form[T]) Validated() bool
+func (Form[T]) Validating() bool
+func (Handler) Value() any
+func (Handler) Value() interface{}
+func (HydrationIslandBudgetReport) OK() bool
+func (LazyNode) Cancel()
+func (LazyNode) Get() LazyNodeState
+func (LazyNode) Reload()
+func (MatchBuilder) Default(parseBranchRender NodeFactory) Node
+func (MatchBuilder) When(isCondition bool, parseBranchRender NodeFactory) MatchBuilder
+func (PersistedState[T]) Err() error
+func (PersistedState[T]) Get() T
+func (PersistedState[T]) Set(parseVal T)
+func (Previous[T]) Get() T
+func (Previous[T]) Ok() bool
+func (Reducer[S, A]) Dispatch(parseAction A)
+func (Reducer[S, A]) Get() S
+func (Ref[T]) Get() T
+func (Ref[T]) Set(parseValue T)
+func (SSRObserverSubscription) Cancel()
+func (ServerActionResult) FormErrors() ServerFormErrors
+func (ServerActionResult) HasRedirect() bool
+func (ServerActionResult) HasRefresh() bool
+func (ServerActionResult) RedirectLocation() string
+func (ServerFormErrors) FormMessage() string
+func (State[T]) Get() T
+func (State[T]) Set(parseValue T)
+func (State[T]) Update(parseFn func(T) T)
+func (Task[T]) Cancel()
+func (Task[T]) Get() TaskState[T]
+func (Task[T]) Start()
+func (Throttled[T]) Get() T
+func (Throttled[T]) Pending() bool
+func (Transition) Pending() bool
+func (Transition) Start(parseFn func())
+func (W3CTraceContext) IsValid() bool
+func (W3CTraceContext) Traceparent() string
+func (WorkerTask[Request, Progress, Result]) Cancel()
+func (WorkerTask[Request, Progress, Result]) Get() WorkerTaskState[Progress, Result]
+func (WorkerTask[Request, Progress, Result]) Start(parsePayload Request)
+func AccessibleOverlay(parseProps AccessibleOverlayProps) Node
+func ApplySSRStateUpdate(parseBootstrap *SSRBootstrap, parseUpdate SSRStateUpdate) error
+func AsyncBoundary(parseProps AsyncBoundaryProps) Node
+func AsyncIngressEnabled() bool
+func Await[T any](parseValue SuspenseValue[T]) T
+func CSSEscape(parseValue string) string
+func Component(parseComponentType any, parseComponentProps ...any) Node
+func ConfigureBootstrapCorrelation(parseCtx context.Context, parseBootstrap *SSRBootstrap)
+func ConfigureHydrationIslandBudget(parseBudget HydrationIslandBudget)
+func ConfigureScheduling(parseOptions SchedulingOptions)
+func CorrelationIDFromContext(parseCtx context.Context) string
+func CreateContext[T any](parseDefaultValue T) *Context[T]
+func CreateElement(parseComponent any, parseProps ...any) Node
+func CreateElement(parseComponent interface{}, parseProps ...interface{}) Node
+func CurrentTheme() string
+func Download(parseData []byte, parseName, parseMime string)
+func Fragment(parseChildren ...Node) Node
+func GetFiles(parseEvent Event) []File
+func GetFiles(parseFileEvent Event) []File
+func GetSSRObservationAttributes(parseObservation SSRObservation) map[string]string
+func GetTracePropagator() TracePropagator
+func HotReloadBoundary(parseBoundaryProps HotReloadBoundaryProps) Node
+func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOptions) (SSRBootstrap, error)
+func HydrateInto(parseRoot Node, parseTarget any, parseOptions ...HydrationOptions) (SSRBootstrap, error)
+func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...HydrationOptions) (SSRBootstrap, error)
+func HydrateIsland(parseRoot Node, parseOptions HydrationIslandOptions) (func(), error)
+func HydrationIsland(parseOptions HydrationIslandOptions, parseContent Node) Node
+func If(isCondition bool, parseBranchTrue NodeFactory, parseBranchFalse ...NodeFactory) Node
+func InjectTraceContext(parseCtx context.Context, parseHeader http.Header)
+func InspectBootstrapPayloads(parseBootstrap SSRBootstrap, filter SSRPayloadFilter) ([]SSRPayloadMetadata, error)
+func InspectHydrationIslandBudget(parsePlan HydrationIslandPlan) HydrationIslandBudgetReport
+func InspectSSRBootstrapSize(parsePayload SSRBootstrap, parseBudget SSRBootstrapBudget) (SSRBootstrapSizeReport, error)
+func IsTracePropagatorInstalled() bool
+func Lazy(parseProps LazyProps) Node
+func MarshalSSRBootstrap(parsePayload SSRBootstrap) ([]byte, error)
+func MarshalSSRBootstrapBinary(parsePayload SSRBootstrap) ([]byte, error)
+func MarshalSSRBootstrapBinaryObserved(parsePayload SSRBootstrap, parseOptions SSRObservabilityOptions) ([]byte, error)
+func MarshalSSRBootstrapObserved(parsePayload SSRBootstrap, parseOptions SSRObservabilityOptions) ([]byte, error)
+func MarshalSSRStateUpdateBinary(parseUpdate SSRStateUpdate) ([]byte, error)
+func MarshalSSRStateUpdateText(parseUpdate SSRStateUpdate) ([]byte, error)
+func Match() MatchBuilder
+func NewCSRFToken(parseValue string) CSRFToken
+func NewErrorBoundary(parseProps ErrorBoundaryProps) Node
+func NewSSRBootstrapBudget() SSRBootstrapBudget
+func NormalizeHydrationIslandOptions(parseOptions HydrationIslandOptions) (HydrationIslandOptions, error)
+func OnReady(parseFn func())
+func Overlay(parseOverlayProps OverlayProps) Node
+func Overlay(parseProps OverlayProps) Node
+func PickFile(parseAccept string, parseOnPick func(PickedFile))
+func Portal(parseProps PortalProps) Node
+func PostAsync(parseFn func())
+func ReactiveRegion(render func() Node, parseSources ...ReactiveSource) Node
+func ReadBootstrapPayload[T any](parseBootstrap SSRBootstrap, parseKey string) (SSRPayloadValue[T], bool, error)
+func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error)
+func ReadBootstrapReferenceScript(parseScriptID string) (SSRBootstrapReference, error)
+func ReadBootstrapScript(parseScriptID string) (SSRBootstrap, error)
+func ReadCacheBootstrapSeed[T any](parseBootstrap SSRBootstrap, cacheKey string) (SSRPayloadValue[T], bool, error)
+func ReadFormBootstrapDefaults[T any](parseBootstrap SSRBootstrap, parseFormID string) (SSRPayloadValue[T], bool, error)
+func ReadRouteBootstrapData[T any](parseBootstrap SSRBootstrap, parseKey string, parseRoutePath string) (SSRPayloadValue[T], bool, error)
+func ReadSessionBootstrapHint[T any](parseBootstrap SSRBootstrap, parseHintKey string) (SSRPayloadValue[T], bool, error)
+func RegisterBootstrapPayload[T any](parseBootstrap *SSRBootstrap, parseKey string, parseValue T, parseOptions ...SSRPayloadOptions) error
+func RegisterCacheBootstrapSeed[T any](parseBootstrap *SSRBootstrap, cacheKey string, parseValue T, parseOptions ...SSRPayloadOptions) error
+func RegisterFormBootstrapDefaults[T any](parseBootstrap *SSRBootstrap, parseFormID string, parseValue T, parseOptions ...SSRPayloadOptions) error
+func RegisterRouteBootstrapData[T any](parseBootstrap *SSRBootstrap, parseKey string, parseRoutePath string, parseValue T, parseOptions ...SSRPayloadOptions) error
+func RegisterSSRObserver(parseNotify func(SSRObservation)) SSRObserverSubscription
+func RegisterSessionBootstrapHint[T any](parseBootstrap *SSRBootstrap, parseHintKey string, parseValue T, parseOptions ...SSRPayloadOptions) error
+func RegisterStateUpdatePayload[T any](parseUpdate *SSRStateUpdate, parseKey string, parseValue T, parseOptions ...SSRPayloadOptions) error
+func Render(parseRoot Node, parseSelector string)
+func RenderBootstrapReferenceScript(parseRef SSRBootstrapReference, parseScriptID string) (string, error)
+func RenderBootstrapReferenceScriptWithOptions(parseRef SSRBootstrapReference, parseScriptID string, parseScriptOptions SSRScriptOptions) (string, error)
+func RenderBootstrapScript(parsePayload SSRBootstrap, parseScriptID string) (string, error)
+func RenderBootstrapScriptObserved(parsePayload SSRBootstrap, parseScriptID string, parseOptions SSRObservabilityOptions) (string, error)
+func RenderBootstrapScriptWithOptions(parsePayload SSRBootstrap, parseScriptID string, parseScriptOptions SSRScriptOptions) (string, error)
+func RenderDefer[T any](parseState DeferState[T], parseBlocks DeferBlocks[T]) Node
+func RenderInto(parseRoot Node, parseTarget any) error
+func RenderInto(parseRoot Node, parseTarget interface{}) error
+func RenderToStream(parseCtx context.Context, parseWriter io.Writer, parseRoot Node, parseOptions ...SSRStreamOptions) error
+func RenderToStreamObserved(parseCtx context.Context, parseWriter io.Writer, parseRoot Node, parseObservability SSRObservabilityOptions, parseOptions ...SSRStreamOptions) error
+func RenderToString(parseRoot Node) (string, error)
+func RenderToStringObserved(parseRoot Node, parseOptions SSRObservabilityOptions) (string, error)
+func RenderToStringWithAtoms(parseRoot Node, parseInitialAtoms map[string]any) (string, error)
+func ResetWASMStackFrameMapper()
+func Run(parseSelector string, parseComponent any, parseProps ...any)
+func Run(parseSelector string, parseComponent interface{}, parseProps ...interface{})
+func SSRObservabilityOptionsFromContext(parseCtx context.Context) SSRObservabilityOptions
+func SafeGo(parseSubject string, parseFn func())
+func SelectorID(parseID string) string
+func SetInspectSink(parseSink func(string)) func()
+func SetTheme(parseName string)
+func SetTracePropagator(parsePropagator TracePropagator)
+func SetWASMStackFrameMapper(parseMapper func(WASMStackFrame) (WASMStackFrame, bool))
+func StartTransition(parseFn func())
+func SuspendUntil(parseDone <-chan struct{}, parseReason ...string)
+func Text(parseContent string) Node
+func TraceContextFromContext(parseCtx context.Context) (W3CTraceContext, bool)
+func Typed[P any](parseComponent func(P) Node) func(P) Node
+func UnmarshalSSRBootstrap(parseData []byte) (SSRBootstrap, error)
+func UnmarshalSSRBootstrapBinary(parseData []byte) (SSRBootstrap, error)
+func UnmarshalSSRBootstrapReference(parseData []byte) (SSRBootstrapReference, error)
+func UnmarshalSSRStateUpdateBinary(parseData []byte) (SSRStateUpdate, error)
+func UnmarshalSSRStateUpdateText(parseData []byte) (SSRStateUpdate, error)
+func UnsupportedOnServer(parseName string) error
+func UseAction[T any](parseCache *query.Cache, parseKey string) (query.Result[T], func(parseOptimistic T, parseFn func() (T, error)))
+func UseAnimationRestart(parseRef DOMRef, parseClassName string, parseDeps ...any)
+func UseAnnouncer() Announcer
+func UseAsyncDefer[T any](parseTriggered bool, parseLoad func() (T, error)) DeferState[T]
+func UseAsyncMutation[T any](parseCache *query.Cache, parseKey string) func(parseOptimistic T, parseFn func() (T, error))
+func UseAutoFocus(parseRef DOMRef, parseDeps ...any)
+func UseCallback[T any](parseFn T, parseDeps ...any) T
+func UseCallback[T any](parseFn T, parseDeps ...interface{}) T
+func UseChannel[T any](parseCh <-chan T) Channel[T]
+func UseCompositeNavigation(parseItems []CompositeItem, parseOptions ...CompositeNavigationOptions) CompositeNavigation
+func UseContext[T any](parseContext *Context[T]) T
+func UseDOMRef() DOMRef
+func UseDebounced[T any](parseValue T, parseDelay time.Duration) Debounced[T]
+func UseDefer(parseTriggered bool) bool
+func UseDeferredValue[T any](parseValue T) T
+func UseDocumentEvent(eventType string, handler func(Event), deps ...any)
+func UseEffect(parseEffect func() func(), parseDeps ...any)
+func UseEffect(parseEffect func() func(), parseDeps ...interface{})
+func UseEffectOf[D comparable](parseEffect func() func(), parseDep D)
+func UseElementGeometry(parseRef DOMRef) interop.Rect
+func UseEvent(parseFn any) Handler
+func UseEvent(parseFn interface{}) Handler
+func UseFocusManager() FocusManager
+func UseFocusTrap(parseOptions FocusTrapOptions)
+func UseForceUpdate() func()
+func UseForm[T any](parseInitial T) Form[T]
+func UseGlobalKey(handler func(KeyboardEvent), deps ...any)
+func UseId() string
+func UseIdle() bool
+func UseInspect[T any](parseLabel string, parseValue T)
+func UseInteraction(parseRef DOMRef) bool
+func UseIntersection(parseRef DOMRef, parseOptions ...interop.IntersectionObserverOptions) bool
+func UseInterval(parseFn func(), parseInterval time.Duration, parseDeps ...any)
+func UseLayoutEffect(parseEffect func() func(), parseDeps ...any)
+func UseLayoutEffect(parseEffect func() func(), parseDeps ...interface{})
+func UseLazyNode(parseLoader func(context.Context) (Node, error), parseDeps ...any) LazyNode
+func UseLazyNode(parseLoader func(context.Context) (Node, error), parseDeps ...interface{}) LazyNode
+func UseMediaQuery(parseQuery string) bool
+func UseMemoOf[T any, D comparable](parseCompute func(D) T, parseDep D) T
+func UseMemo[T any](parseCompute func() T, parseDeps ...any) T
+func UseMemo[T any](parseCompute func() T, parseDeps ...interface{}) T
+func UseMount(parseFn func() func())
+func UseMutation[T any](parseCache *query.Cache, parseKey string) func(parseOptimistic T, parseFn func() (T, error)) query.Result[T]
+func UseNetworkStatus() bool
+func UseOptimistic[T any](parseCache *query.Cache, parseKey string) (query.Result[T], func(T))
+func UseOverlayStack(parseOptions OverlayStackOptions) OverlayStack
+func UseOverlayStack(parseOverlayOptions OverlayStackOptions) OverlayStack
+func UsePersistedState[T any](parseKey string, parseInitial T, parseArea PersistStorageArea) PersistedState[T]
+func UsePointerEvents(parseRef DOMRef, parseHandlers PointerHandlers)
+func UsePrefersColorScheme() ColorScheme
+func UsePrefersReducedMotion() bool
+func UsePrevious[T any](parseValue T) Previous[T]
+func UseQuery[T any](parseCache *query.Cache, parseKey string, parseFetcher func() (T, error), parseDeps ...any) query.Result[T]
+func UseReducer[S any, A any](parseReducer func(S, A) S, parseInitialState S) Reducer[S, A]
+func UseRef[T any](parseInitialValue T) Ref[T]
+func UseRevalidateOnFocus(parseCache *query.Cache)
+func UseSpring(parseTarget float64, parseConfig anim.SpringConfig) float64
+func UseState[T any](parseInitialValue T) State[T]
+func UseSuspenseQuery[T any](parseCache *query.Cache, parseKey string, parseFetcher func() (T, error), parseDeps ...any) T
+func UseTaskCtx[T any](parseParent context.Context, parseRun func(context.Context) (T, error)) Task[T]
+func UseTask[T any](parseRun func(context.Context) (T, error)) Task[T]
+func UseTheme(parseDefault string) (string, func(string))
+func UseThrottled[T any](parseValue T, parseInterval time.Duration) Throttled[T]
+func UseTimeout(parseFn func(), parseDelay time.Duration, parseDeps ...any)
+func UseTimerTrigger(parseDelay time.Duration) bool
+func UseTransition() Transition
+func UseWheel(parseRef DOMRef, parseHandler func(Event))
+func UseWindowEvent(eventType string, handler func(Event), deps ...any)
+func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.WorkerOptions, parseName string) WorkerTask[Request, Progress, Result]
+func ViewTransition(parseApply func())
+func WithCorrelationID(parseCtx context.Context, parseId string) context.Context
+func WithW3CTraceContext(parseCtx context.Context, parseTc W3CTraceContext) context.Context
+func WrapHandler(parseValue any) Handler
+func WrapHandler(parseValue interface{}) Handler
+func WrapJSFile(parseValue js.Value) File
+func WrapSSRCorrelation(parseNext http.Handler) http.Handler
+type = ChangeEvent Event
+type = ChangeEvent runtime.GoEvent
+type = Element runtime.Element
+type = Event runtime.GoEvent
+type = FocusEvent Event
+type = FocusEvent runtime.GoEvent
+type = FormEvent Event
+type = FormEvent runtime.GoEvent
+type = InputEvent Event
+type = InputEvent runtime.GoEvent
+type = KeyboardEvent Event
+type = KeyboardEvent runtime.GoEvent
+type = MouseEvent Event
+type = MouseEvent runtime.GoEvent
+type = Node *runtime.Element
+type = SSRStreamChunk runtime.SSRStreamChunk
+type = SSRStreamOptions runtime.SSRStreamOptions
+type = WASMStackFrame runtime.WASMStackFrame
+type AccessibleOverlayProps struct { Open bool Target PortalTarget AppRootSelector string SurfaceID string Kind OverlayKind LabelledBy string DescribedBy string Role string Modal bool InitialFocusSelector string FallbackFocusSelector string RestoreFocus bool TrapFocus bool CloseOnEscape bool CloseOnOutsideClick bool LockScroll bool BackgroundInert bool Backdrop bool BaseZIndex int AnchorSelector string Positioning string BackdropClass string SurfaceClass string BackdropStyle map[string]string SurfaceStyle map[string]string Child Node Children []Node OnDismiss func() }
+type AnnouncementMode string
+type Announcer struct { polite State[announcementState] assertive State[announcementState] politeID string assertiveID string }
+type Announcer struct{}
+type AsyncBoundaryProps struct { Pending bool Error error Fallback Node TimeoutFallback Node ErrorFallback func(error) Node Content Node Delay time.Duration Timeout time.Duration }
+type CSRFToken struct { Value string HeaderName string FormFieldName string }
+type Channel struct { getValue func() T hasValue func() bool isClosed func() bool }
+type ColorScheme string
+type CompositeItem struct { ID string Text string Disabled bool }
+type CompositeNavigation struct { items []CompositeItem options CompositeNavigationOptions active State[int] typeahead Ref[compositeTypeaheadState] }
+type CompositeNavigation struct{}
+type CompositeNavigationOptions struct { Orientation string Loop bool InitialIndex int }
+type Context struct { descriptor *runtime.ContextDescriptor Provider *ContextProvider[T] }
+type ContextProvider struct { providerType *runtime.ContextProviderType }
+type ContextProviderProps struct { Value T Child Node Children []Node }
+type DOMRef struct { box *domRefBox }
+type Debounced struct { get func() T pending func() bool }
+type DeferBlocks struct { Placeholder func() Node Loading func() Node Content func(T) Node Error func(error) Node }
+type DeferState struct { Status DeferStatus Data T Err error }
+type DeferStatus int
+type ErrorBoundaryProps struct { Fallback Node ErrorFallback func(error, func()) Node OnError func(error) Child Node Children []Node ResetKeys []any }
+type ErrorBoundaryProps struct { Fallback Node ErrorFallback func(error, func()) Node OnError func(error) Child Node Children []Node ResetKeys []interface{} }
+type Event struct{}
+type FieldErrors map[string]string
+type FieldStatus struct { Name string Touched bool Dirty bool Pending bool Error string }
+type File struct { value js.Value }
+type File struct{}
+type FocusManager struct { remembered Ref[interface{}] }
+type FocusManager struct{}
+type FocusOptions struct { PreventScroll bool }
+type FocusTrapOptions struct { ContainerSelector string InitialFocusSelector string FallbackFocusSelector string Active bool RestoreFocus bool }
+type Form struct { mu *sync.RWMutex state *formState[T] }
+type Form struct { state State[formState[T]] }
+type Handler struct { value any }
+type Handler struct { value interface{} }
+type HotReloadBoundaryProps struct { Child Node Children []Node ResetKeys []any }
+type HydrationIslandBudget struct { MaxInitial int MaxConcurrent int }
+type HydrationIslandBudgetReport struct { Initial int Deferred int Violations []string }
+type HydrationIslandOptions struct { ID string Selector string Strategy HydrationStrategy Events []string RootMargin string Timeout time.Duration Hydration HydrationOptions }
+type HydrationIslandPlan struct { Islands []HydrationIslandOptions Budget HydrationIslandBudget }
+type HydrationOptions struct { ScriptID string ReferenceScriptID string Bootstrap SSRBootstrap BootstrapRef SSRBootstrapReference Strict bool Observability SSRObservabilityOptions }
+type HydrationStrategy string
+type LazyNode struct { get func() LazyNodeState reload func() cancel func() }
+type LazyNodeState struct { Node Node Loading bool Error error Ready bool }
+type LazyProps struct { Loader func(context.Context) (Node, error) Dependencies []any Fallback Node TimeoutFallback Node ErrorFallback func(error) Node Delay time.Duration Timeout time.Duration }
+type LazyProps struct { Loader func(context.Context) (Node, error) Dependencies []interface{} Fallback Node TimeoutFallback Node ErrorFallback func(error) Node Delay time.Duration Timeout time.Duration }
+type MatchBuilder struct { matched bool node Node }
+type NodeFactory func() Node
+type OverlayKind string
+type OverlayProps struct { Open bool Target PortalTarget AppRootSelector string SurfaceID string Kind OverlayKind Role string LabelledBy string DescribedBy string InitialFocusSelector string FallbackFocusSelector string Modal bool Backdrop bool TrapFocus bool RestoreFocus bool CloseOnEscape bool CloseOnOutsideClick bool LockScroll bool BackgroundInert bool BaseZIndex int AnchorSelector string Positioning string BackdropClass string SurfaceClass string BackdropStyle map[string]string SurfaceStyle map[string]string Child Node Children []Node OnDismiss func() }
+type OverlayStack struct { ID string Kind OverlayKind Depth int LayerCount int IsTop bool HandlesEscape bool HandlesOutsideClick bool TrapFocusActive bool BackdropZIndex int SurfaceZIndex int }
+type OverlayStackOptions struct { ID string Open bool Kind OverlayKind BaseZIndex int TrapFocus bool CloseOnEscape bool CloseOnOutsideClick bool }
+type PersistStorageArea string
+type PersistedState struct { parseState State[T] parseErr State[error] }
+type PickedFile struct { Name string Data []byte }
+type PointerHandlers struct { OnPointerDown func(Event) OnPointerMove func(Event) OnPointerUp func(Event) OnPointerCancel func(Event) }
+type PortalProps struct { Target PortalTarget Child Node Children []Node }
+type PortalTarget struct { Selector string Node any }
+type PortalTarget struct { Selector string Node interface{} }
+type Previous struct { value func() T ok func() bool }
+type ReactiveSource interface { ReactiveRegionSourceIDs() []string }
+type Reducer struct { get func() S dispatch func(A) }
+type Ref struct { current *T }
+type Ref struct { raw *runtime.RefValue }
+type SSRBootstrap struct { Version int `json:"version,omitempty"` CorrelationID string `json:"correlationId,omitempty"` Route SSRRouteBootstrap `json:"route"` Atoms map[string]any `json:"atoms,omitempty"` Data map[string]any `json:"data,omitempty"` I18n SSRI18nBootstrap `json:"i18n"` IDSeed int `json:"idSeed,omitempty"` }
+type SSRBootstrapBudget struct { InlineWarnBytes int InlineErrorBytes int SidecarWarnBytes int SidecarErrorBytes int BinaryWarnBytes int BinaryErrorBytes int }
+type SSRBootstrapMetrics struct { Format string PayloadBytes int ScriptBytes int }
+type SSRBootstrapReference struct { Version int `json:"version,omitempty"` URL string `json:"url,omitempty"` Format string `json:"format,omitempty"` }
+type SSRBootstrapSizeReport struct { Version int JSONPayloadBytes int InlineScriptBytes int BinaryPayloadBytes int Recommendation string Warnings []string Errors []string Payloads []SSRPayloadMetadata }
+type SSRHydrationMetrics struct { StartedAt time.Time FinishedAt time.Time Duration time.Duration DurationNs int64 ExistingDOMNodeCount int FallbackCount int MismatchCount int DiscardedNodeCount int Strict bool Failed bool Failure string }
+type SSRI18nBootstrap struct { Locale string `json:"locale,omitempty"` FallbackLocale string `json:"fallbackLocale,omitempty"` Direction string `json:"direction,omitempty"` Messages map[string]map[string]SSRI18nMessage `json:"messages,omitempty"` }
+type SSRI18nMessage struct { Text string `json:"text,omitempty"` PluralArg string `json:"pluralArg,omitempty"` Plural map[string]string `json:"plural,omitempty"` SelectArg string `json:"selectArg,omitempty"` Select map[string]string `json:"select,omitempty"` Default string `json:"default,omitempty"` }
+type SSRObservabilityOptions struct { CorrelationID string OnEvent func(SSRObservation) }
+type SSRObservation struct { Name string Domain string Phase string Timestamp time.Time CorrelationID string Render *SSRRenderMetrics Bootstrap *SSRBootstrapMetrics Hydration *SSRHydrationMetrics }
+type SSRObserverSubscription struct { cancel func() }
+type SSRPayloadEncoding string
+type SSRPayloadEnvelope struct { Version int `json:"version,omitempty"` Kind SSRPayloadKind `json:"kind,omitempty"` Scope SSRPayloadScope `json:"scope,omitempty"` Target string `json:"target,omitempty"` ReusePolicy SSRPayloadReusePolicy `json:"reusePolicy,omitempty"` Revision string `json:"revision,omitempty"` Encoding SSRPayloadEncoding `json:"encoding,omitempty"` JSON json.RawMessage `json:"json,omitempty"` Text string `json:"text,omitempty"` Binary []byte `json:"binary,omitempty"` }
+type SSRPayloadFilter struct { Kind SSRPayloadKind Scope SSRPayloadScope Target string }
+type SSRPayloadKind string
+type SSRPayloadMetadata struct { Key string Version int Kind SSRPayloadKind Scope SSRPayloadScope Target string ReusePolicy SSRPayloadReusePolicy Revision string Encoding SSRPayloadEncoding Legacy bool }
+type SSRPayloadOptions struct { Kind SSRPayloadKind Scope SSRPayloadScope Target string ReusePolicy SSRPayloadReusePolicy Revision string Encoding SSRPayloadEncoding }
+type SSRPayloadReusePolicy string
+type SSRPayloadScope string
+type SSRPayloadValue struct { Key string Kind SSRPayloadKind Scope SSRPayloadScope Target string ReusePolicy SSRPayloadReusePolicy Revision string Encoding SSRPayloadEncoding Value T }
+type SSRRenderMetrics struct { Duration time.Duration DurationNs int64 }
+type SSRRouteBootstrap struct { Path string `json:"path,omitempty"` Query map[string][]string `json:"query,omitempty"` Params map[string]string `json:"params,omitempty"` }
+type SSRScriptOptions struct { Nonce string }
+type SSRStateUpdate struct { Version int `json:"version,omitempty"` CorrelationID string `json:"correlationId,omitempty"` Scope SSRPayloadScope `json:"scope,omitempty"` Target string `json:"target,omitempty"` Upserts map[string]SSRPayloadEnvelope `json:"upserts,omitempty"` Deletes []string `json:"deletes,omitempty"` }
+type SchedulingOptions struct { PassiveEffectsAfterPaint bool FrameBudgetMs float64 LaneQueues bool DisableLaneQueues bool AsyncIngress bool }
+type ServerActionFlash struct { Kind string `json:"kind,omitempty"` Title string `json:"title,omitempty"` Message string `json:"message,omitempty"` }
+type ServerActionOutcome string
+type ServerActionRedirect struct { Location string `json:"location,omitempty"` Replace bool `json:"replace,omitempty"` }
+type ServerActionRefresh struct { Revalidate bool `json:"revalidate,omitempty"` CacheKeys []string `json:"cacheKeys,omitempty"` }
+type ServerActionResult struct { Outcome ServerActionOutcome `json:"outcome,omitempty"` Error string `json:"error,omitempty"` Message string `json:"message,omitempty"` Fields FieldErrors `json:"fields,omitempty"` Redirect *ServerActionRedirect `json:"redirect,omitempty"` Flash *ServerActionFlash `json:"flash,omitempty"` Refresh *ServerActionRefresh `json:"refresh,omitempty"` }
+type ServerFormErrors struct { Error string `json:"error,omitempty"` Message string `json:"message,omitempty"` Fields FieldErrors `json:"fields,omitempty"` }
+type State struct { get func() T set func(any) slot runtime.StateSlot[T] }
+type State struct { get func() T set func(interface{}) slot runtime.StateSlot[T] }
+type SuspenseValue struct { Value T Ready bool Error error Done <-chan struct{} Reason string }
+type Task struct { get func() TaskState[T] start func() cancel func() }
+type TaskState struct { Value T Running bool Ready bool Cancelled bool Started bool Error error }
+type Throttled struct { get func() T pending func() bool }
+type TracePropagator interface { Extract(parseCtx context.Context, parseHeader http.Header) context.Context Inject(parseCtx context.Context, parseHeader http.Header) }
+type Transition struct { pending func() bool start func(func()) }
+type W3CTraceContext struct { TraceID string ParentSpanID string SpanID string Flags string TraceState string }
+type WorkerTask struct { get func() WorkerTaskState[Progress, Result] start func(Request) cancel func() }
+type WorkerTaskState struct { Value Result Progress Progress ProgressReady bool Running bool Ready bool Cancelled bool Started bool Error error }
+var Always
+var ErrorBoundary

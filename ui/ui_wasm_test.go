@@ -1221,6 +1221,18 @@ func TestUseTaskCtxNilParentDefaultsToBackground(parseT *testing.T) {
 	}
 }
 
+// removeMockWorkerListener drops one callback from a mock Worker listener array,
+// as a browser does for removeEventListener. A removed listener the code under
+// test already released must never be emitted to again, or the JS bridge logs
+// "call to released function".
+func removeMockWorkerListener(parseListeners js.Value, parseCallback js.Value) {
+	for parseI := parseListeners.Length() - 1; parseI >= 0; parseI-- {
+		if parseListeners.Index(parseI).Equal(parseCallback) {
+			parseListeners.Call("splice", parseI, 1)
+		}
+	}
+}
+
 func installMockWorkerConstructor(parseT *testing.T, parseOnPost func(js.Value, js.Value)) func() {
 	parseT.Helper()
 	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
@@ -1261,6 +1273,9 @@ func installMockWorkerConstructor(parseT *testing.T, parseOnPost func(js.Value, 
 			return nil
 		})
 		parseRemoveEventListener := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			if len(parseArgs4) >= 2 && parseArgs4[0].String() == "message" {
+				removeMockWorkerListener(parseMessageListeners, parseArgs4[1])
+			}
 			return nil
 		})
 		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
@@ -1422,6 +1437,9 @@ func TestUseWorkerTaskSerializesWorkerStartup(parseT *testing.T) {
 			return nil
 		})
 		parseRemoveEventListener := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			if len(parseArgs4) >= 2 && parseArgs4[0].String() == "message" {
+				removeMockWorkerListener(parseMessageListeners, parseArgs4[1])
+			}
 			return nil
 		})
 		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {

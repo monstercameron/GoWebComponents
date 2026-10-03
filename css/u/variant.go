@@ -59,6 +59,8 @@ func ForcedColors(rules ...css.Rule) []css.Rule { return css.Media(css.ForcedCol
 func Print(rules ...css.Rule) []css.Rule { return css.Media(css.Print, rules...) }
 
 // Responsive variants resolve their breakpoint min-width from the active theme.
+// When the active theme defines no such breakpoint the variant is a no-op that
+// returns no rules, so a missing breakpoint never makes the rules always-on.
 func Sm(rules ...css.Rule) []css.Rule  { return breakpoint("sm", rules) }
 func Md(rules ...css.Rule) []css.Rule  { return breakpoint("md", rules) }
 func Lg(rules ...css.Rule) []css.Rule  { return breakpoint("lg", rules) }
@@ -68,7 +70,7 @@ func Xl2(rules ...css.Rule) []css.Rule { return breakpoint("2xl", rules) }
 func breakpoint(name string, rules []css.Rule) []css.Rule {
 	width, ok := css.BreakpointValue(name)
 	if !ok {
-		return rules
+		return nil
 	}
 	return css.Media(css.RawMedia("(min-width:"+normalizePx(width)+")"), rules...)
 }

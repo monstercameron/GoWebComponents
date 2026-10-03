@@ -1,0 +1,168 @@
+const CacheBootstrapDataKey
+const CacheResumeAlwaysRefetch CacheResumePolicy
+const CacheResumeStaleWhileRevalidate CacheResumePolicy
+const CacheResumeTrustOnce CacheResumePolicy
+const MutationDead MutationState
+const MutationQueued MutationState
+const MutationResolutionDead MutationResolutionAction
+const MutationResolutionRemove MutationResolutionAction
+const MutationResolutionReplace MutationResolutionAction
+const MutationResolutionRetry MutationResolutionAction
+const MutationRetrying MutationState
+const RealtimeClosed RealtimeStatus
+const RealtimeConnecting RealtimeStatus
+const RealtimeIdle RealtimeStatus
+const RealtimeOpen RealtimeStatus
+const RealtimeReconnecting RealtimeStatus
+const RealtimeUnsupported RealtimeStatus
+const StateClosed BreakerState
+const StateHalfOpen
+const StateOpen
+func (*CircuitBreaker) State() BreakerState
+func (*MutationConflictError) Error() string
+func (*MutationConflictError) Unwrap() error
+func (*OptimisticUpdate[T]) Commit()
+func (*OptimisticUpdate[T]) Rollback()
+func (AsyncResource[T]) Cancel()
+func (AsyncResource[T]) Get() ResourceState[T]
+func (AsyncResource[T]) Reload()
+func (BreakerState) String() string
+func (CachedResource[T]) Cancel()
+func (CachedResource[T]) Dispose()
+func (CachedResource[T]) Get() CachedResourceState[T]
+func (CachedResource[T]) Invalidate()
+func (CachedResource[T]) OptimisticUpdate(parseFn func(T) T) OptimisticUpdate[T]
+func (CachedResource[T]) Reload()
+func (CachedResource[T]) Set(parseValue T)
+func (CachedResource[T]) Update(parseFn func(T) T)
+func (EventSource) Close()
+func (EventSource) Get() RealtimeState
+func (EventSource) Open()
+func (HTTPError) Error() string
+func (InfiniteQuery[T, C]) CacheKey() string
+func (InfiniteQuery[T, C]) Cancel()
+func (InfiniteQuery[T, C]) Dispose()
+func (InfiniteQuery[T, C]) Get() InfiniteQueryState[T, C]
+func (InfiniteQuery[T, C]) Invalidate()
+func (InfiniteQuery[T, C]) LoadNext()
+func (InfiniteQuery[T, C]) OptimisticUpdate(parseFn func(InfiniteQueryData[T, C]) InfiniteQueryData[T, C]) OptimisticUpdate[InfiniteQueryData[T, C]]
+func (InfiniteQuery[T, C]) Reload()
+func (InfiniteQuery[T, C]) Set(parseValue InfiniteQueryData[T, C])
+func (InfiniteQuery[T, C]) Tags() []string
+func (InfiniteQuery[T, C]) Update(parseFn func(InfiniteQueryData[T, C]) InfiniteQueryData[T, C])
+func (MutationQueue) Clear() error
+func (MutationQueue) Enqueue(parseDraft MutationDraft) (QueuedMutation, error)
+func (MutationQueue) List() ([]QueuedMutation, error)
+func (MutationQueue) Remove(parseId string) error
+func (MutationQueue) Replay(parseCtx context.Context, parseExecutor MutationExecutor) (MutationReplayReport, error)
+func (MutationQueue) ReplayWithOptions(parseCtx context.Context, parseExecutor MutationExecutor, parseOptions ...MutationReplayOptions) (MutationReplayReport, error)
+func (OptimisticUpdate[T]) Active() bool
+func (Query[T]) CacheKey() string
+func (Query[T]) Cancel()
+func (Query[T]) Dispose()
+func (Query[T]) Get() CachedResourceState[T]
+func (Query[T]) Invalidate()
+func (Query[T]) OptimisticUpdate(parseFn func(T) T) OptimisticUpdate[T]
+func (Query[T]) Reload()
+func (Query[T]) Set(parseValue T)
+func (Query[T]) Tags() []string
+func (Query[T]) Update(parseFn func(T) T)
+func (Resource) Get() State
+func (Resource) Refetch()
+func (Result) DecodeJSON(parseTarget any) error
+func (Result) Text() string
+func (WebSocket) Close()
+func (WebSocket) Get() RealtimeState
+func (WebSocket) Open()
+func (WebSocket) Send(parseMessage string) error
+func ApplyOptimisticUpdate[T any](parseKey string, parseFn func(T) T) OptimisticUpdate[T]
+func AsMutationConflictError(parseErr error) (*MutationConflictError, bool)
+func BuildFetchService() pluginruntime.FetchService
+func ConfigurePersistentCache(parseOptions PersistentCacheOptions)
+func DefaultRetryPolicy() RetryPolicy
+func DisposeQueryTag(parseTag string) int
+func DisposeResource(parseKey string)
+func ExecuteWithPolicy[T any](parseCtx context.Context, parsePolicy ResiliencePolicy, parseOp func(context.Context) (T, error)) (T, error)
+func Fetch(parseUrl string, parseOptions Options) <-chan Result
+func GetMutationConflict(parseErr error) (MutationConflict, bool)
+func InspectCachedResources() []CachedResourceInspection
+func InvalidateQueryTag(parseTag string) int
+func InvalidateQueryTags(parseTags ...string) int
+func InvalidateResource(parseKey string)
+func IsMutationConflict(parseErr error) bool
+func LoadCached[T any](parseCtx context.Context, parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...CacheOptions) (T, error)
+func LoadQuery[T any](parseCtx context.Context, parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...QueryOptions) (T, error)
+func NewCircuitBreaker(parseConfig BreakerConfig) *CircuitBreaker
+func NewMutationConflict(parseErr error, parseConflict MutationConflict) error
+func NewResiliencePolicy(parseRetry RetryPolicy, parseBreaker *CircuitBreaker) ResiliencePolicy
+func OpenMutationQueue(parseOptions ...MutationQueueOptions) (MutationQueue, error)
+func QueryKeysForTag(parseTag string) []string
+func QueryTagsForKey(parseKey string) []string
+func RestoreCacheBootstrap(parsePayload ui.SSRBootstrap) error
+func ReturnChannel(parseCh <-chan Result)
+func ScopeCacheKey(parseSegments ...string) string
+func SweepCachedResources() int
+func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-chan UploadUpdate
+func UseCachedResource[T any](parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...CacheOptions) CachedResource[T]
+func UseDurableMutation[T any](parseCache *query.Cache, parseKey string, parseQueue MutationQueue) DurableMutationRunner[T]
+func UseEventSource(parseURL string, parseOptions ...EventSourceOptions) EventSource
+func UseFetch(parseUrl string, parseOptions ...Options) Resource
+func UseInfiniteQuery[T any, C any](parseKey string, parseLoader func(context.Context, QueryPageRequest[C]) (QueryPage[T, C], error), parseOptions ...InfiniteQueryOptions[C]) InfiniteQuery[T, C]
+func UseQuery[T any](parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...QueryOptions) Query[T]
+func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...any) AsyncResource[T]
+func UseWebSocket(parseURL string, parseOptions ...WebSocketOptions) WebSocket
+type = State runtime.FetchState
+type AsyncResource struct { get func() ResourceState[T] reload func() cancel func() }
+type BreakerConfig struct { FailureThreshold int OpenDuration time.Duration HalfOpenMaxCalls int }
+type BreakerState int
+type CacheBootstrap struct { Entries []CacheBootstrapEntry `json:"entries,omitempty"` }
+type CacheBootstrapEntry struct { Key string `json:"key,omitempty"` Value any `json:"value,omitempty"` UpdatedAt time.Time `json:"updatedAt"` ResumePolicy CacheResumePolicy `json:"resumePolicy,omitempty"` StaleAfter time.Duration `json:"staleAfter,omitempty"` }
+type CacheOptions struct { StaleAfter time.Duration MaxAge time.Duration DisposeAfter time.Duration Persist bool }
+type CacheResumePolicy string
+type CachedResource struct { key string get func() CachedResourceState[T] reload func() cancel func() invalidate func() dispose func() set func(T) update func(func(T) T) }
+type CachedResourceInspection struct { Key string Tags []string Loading bool Ready bool Stale bool LastError string UpdatedAt time.Time LastLoaded time.Time SubscriberCount int OwnerPaths []string ResumePolicy CacheResumePolicy }
+type CachedResourceState struct { Value T Loading bool Error error Ready bool Stale bool UpdatedAt time.Time }
+type CircuitBreaker struct { mu sync.Mutex state BreakerState failures int openedAt time.Time halfOpenCalls int config BreakerConfig now func() time.Time }
+type DurableMutationRunner func(parseOptimistic T, parseDraft MutationDraft, parseCommit func(context.Context, QueuedMutation) (T, error)) (QueuedMutation, error)
+type EventSource struct { get func() RealtimeState open func() close func() }
+type EventSourceOptions struct { WithCredentials bool Manual bool DisableReconnect bool MaxReconnects int InitialBackoff time.Duration MaxBackoff time.Duration BackoffFactor float64 MinStableDuration time.Duration HeartbeatInterval time.Duration HeartbeatTimeout time.Duration MaxMessages int MaxErrors int Now func() time.Time }
+type HTTPError struct { Status int StatusText string Body string Headers map[string]string }
+type InfiniteQuery struct { resource CachedResource[InfiniteQueryData[T, C]] key string tags []string initialCursor C loader func(context.Context, QueryPageRequest[C]) (QueryPage[T, C], error) }
+type InfiniteQueryData struct { Pages []QueryPage[T, C] Items []T NextCursor C HasNext bool }
+type InfiniteQueryOptions struct { Cache CacheOptions Tags []string InitialCursor C }
+type InfiniteQueryState struct { InfiniteQueryData[T, C] Loading bool Error error Ready bool Stale bool UpdatedAt time.Time }
+type MultipartBody struct { Fields map[string]string Files []MultipartFile }
+type MultipartFile struct { FieldName string File ui.File Filename string }
+type MutationConflict struct { Code string `json:"code,omitempty"` Message string `json:"message,omitempty"` LocalVersion string `json:"localVersion,omitempty"` RemoteVersion string `json:"remoteVersion,omitempty"` Fields map[string]string `json:"fields,omitempty"` }
+type MutationConflictError struct { Conflict MutationConflict Err error }
+type MutationConflictHandler func(context.Context, QueuedMutation, MutationConflict) (MutationConflictResolution, error)
+type MutationConflictResolution struct { Action MutationResolutionAction Draft MutationDraft Message string }
+type MutationDraft struct { ID string `json:"id,omitempty"` Kind string `json:"kind,omitempty"` DedupKey string `json:"dedupKey,omitempty"` Method string `json:"method,omitempty"` URL string `json:"url,omitempty"` Headers map[string]string `json:"headers,omitempty"` Body any `json:"body,omitempty"` Metadata map[string]string `json:"metadata,omitempty"` }
+type MutationExecutor func(context.Context, QueuedMutation) error
+type MutationQueue struct { storageKey string store interop.PersistentStore maxAttempts int baseDelay time.Duration maxDelay time.Duration now func() time.Time }
+type MutationQueueOptions struct { StorageKey string MaxAttempts int BaseDelay time.Duration MaxDelay time.Duration DeleteOnCorruption bool StoreResolver func(context.Context) (interop.PersistentStore, error) StorageResolver func() (interop.Storage, error) Now func() time.Time }
+type MutationReplayOptions struct { ConflictHandler MutationConflictHandler }
+type MutationReplayReport struct { Succeeded int Deferred int Retried int DeadLetters int Conflicts int Resolved int Remaining int }
+type MutationResolutionAction string
+type MutationState string
+type OptimisticUpdate struct { key string previous cachedResourceSnapshot active bool record *optimisticRecord }
+type Options struct { Method string Headers map[string]any Body any TracePropagationOrigins []string }
+type PersistentCacheOptions struct { DatabaseName string StoreName string FallbackResolver func() (interop.Storage, error) FallbackBackend string StoreResolver func(context.Context) (interop.PersistentStore, error) }
+type Query struct { resource CachedResource[T] key string tags []string }
+type QueryOptions struct { Cache CacheOptions Tags []string }
+type QueryPage struct { Items []T NextCursor C HasNext bool }
+type QueryPageRequest struct { Cursor C PageIndex int }
+type QueuedMutation struct { ID string `json:"id,omitempty"` Kind string `json:"kind,omitempty"` DedupKey string `json:"dedupKey,omitempty"` Method string `json:"method,omitempty"` URL string `json:"url,omitempty"` Headers map[string]string `json:"headers,omitempty"` Body any `json:"body,omitempty"` Metadata map[string]string `json:"metadata,omitempty"` State MutationState `json:"state,omitempty"` Attempts int `json:"attempts,omitempty"` MaxAttempts int `json:"maxAttempts,omitempty"` CreatedAt time.Time `json:"createdAt"` UpdatedAt time.Time `json:"updatedAt"` NextAttemptAt time.Time `json:"nextAttemptAt"` LastError string `json:"lastError,omitempty"` }
+type RealtimeError struct { Message string At time.Time }
+type RealtimeMessage struct { Data string Type string LastEventID string ReceivedAt time.Time }
+type RealtimeState struct { Status RealtimeStatus Supported bool Connecting bool Open bool Closed bool Messages []RealtimeMessage LastMessage RealtimeMessage Errors []RealtimeError Error error ConnectAttempts int ReconnectAttempts int Reconnects int NextReconnectAt time.Time LastOpenAt time.Time LastCloseAt time.Time LastHeartbeatAt time.Time HeartbeatMisses int }
+type RealtimeStatus string
+type ResiliencePolicy struct { Retry RetryPolicy Breaker *CircuitBreaker sleep func(context.Context, time.Duration) error randFloat func() float64 }
+type Resource struct { get func() State refetch func() }
+type ResourceState struct { Value T Loading bool Error error Ready bool }
+type Result struct { Data any Status int Headers map[string]string Err error }
+type RetryPolicy struct { MaxAttempts int BaseDelay time.Duration MaxDelay time.Duration Multiplier float64 Jitter float64 RetryIf func(error) bool }
+type UploadUpdate struct { Loaded int64 Total int64 LengthComputable bool Done bool Result Result }
+type WebSocket struct { get func() RealtimeState open func() close func() send func(string) error }
+type WebSocketOptions struct { Protocols []string Manual bool DisableReconnect bool MaxReconnects int InitialBackoff time.Duration MaxBackoff time.Duration BackoffFactor float64 MinStableDuration time.Duration HeartbeatInterval time.Duration HeartbeatTimeout time.Duration HeartbeatMessage string MaxMessages int MaxErrors int Now func() time.Time }
+var ErrCircuitOpen error

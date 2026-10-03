@@ -13,7 +13,7 @@ func BenchmarkRenderToStringMicro(parseB *testing.B) {
 	)
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseMarkup, parseErr := RenderToString(parseRoot)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -49,7 +49,7 @@ func BenchmarkMarshalUnmarshalSSRBootstrapMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseEncoded, parseErr := MarshalSSRBootstrap(parsePayload)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)

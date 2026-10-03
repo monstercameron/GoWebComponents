@@ -94,7 +94,13 @@ func (parseClient *WorkerClient) Send(parseCtx context.Context, parseName string
 
 	if parsePostErr := parseClient.poster.Post(parseRequestID, parseName, parseRequest); parsePostErr != nil {
 		parseClient.release(parseRequestID)
-		return nil, WorkerDeath(fmt.Sprintf("posting %q: %v", parseName, parsePostErr))
+		// A Post that fails never handed the message to the worker (postMessage
+		// threw: the payload could not be cloned, or the port is closed), so the
+		// command cannot have applied. That is FailureTransport, not
+		// FailureWorkerDied: classifying it as death marked it MayHaveApplied, and
+		// Optimistic then kept local state for a command the domain never saw.
+		// Real worker death is reported through WorkerDied, not through Post.
+		return nil, fmt.Errorf("posting %q: %w", parseName, parsePostErr)
 	}
 
 	select {

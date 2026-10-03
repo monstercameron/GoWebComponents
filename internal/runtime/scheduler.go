@@ -399,6 +399,9 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 		parseContinueWork func()
 		parseScheduler    Scheduler
 	)
+	// The previous commit's deferred passive effects are queued in
+	// pendingEffectFibers, which this call truncates below; settle them first.
+	parseRt.flushPendingPassiveEffectsBeforeSchedule()
 	schedulerMu.Lock()
 	if parseRt.currentRoot == nil {
 		parseRt.beginStartupProfilingLocked("render")
@@ -475,6 +478,8 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 		parseContinueWork func()
 		parseScheduler    Scheduler
 	)
+	// See Render: pending passive effects would be truncated away below.
+	parseRt.flushPendingPassiveEffectsBeforeSchedule()
 	schedulerMu.Lock()
 	if parseRt.currentRoot == nil {
 		parseRt.beginStartupProfilingLocked("hydrate")

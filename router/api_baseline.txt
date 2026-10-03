@@ -1,0 +1,143 @@
+const ReturnToParam
+func (*Router) Current() *Element
+func (*Router) GetCurrentPath() string
+func (*Router) GetCurrentRouterPath() string
+func (*Router) GoGetRoute() *Element
+func (*Router) GoRegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...RouteOption)
+func (*Router) HydrateMount(parseSelector string)
+func (*Router) HydrateMountElement(parseElem js.Value)
+func (*Router) IsLoading() bool
+func (*Router) Mount(parseSelector string)
+func (*Router) MountElement(parseElem js.Value)
+func (*Router) Navigate(parsePath string)
+func (*Router) NavigateReplace(parsePath string)
+func (*Router) Register(parsePath string, parseComponent interface{}, parseOptions ...RouteOption)
+func (*Router) RegisterLazy(parsePath string, parseComponent interface{}, parseChunk RouteChunk, parseOptions ...RouteOption)
+func (*Router) RegisteredRoutes() []string
+func (*Router) RetryLoader(parseKey string) error
+func (*Router) Revalidate()
+func (*Router) SetFocusManagement(parseEnabled bool)
+func (*Router) SetViewTransitions(parseEnabled bool)
+func (Location) Param(parseKey string) string
+func (Navigator) Navigate(parsePath string)
+func (Navigator) Replace(parsePath string)
+func (Params) As[V ParamValue](parseName string) (V, error)
+func (Params) Bool(parseKey string) (bool, bool)
+func (Params) Get(parseKey string) string
+func (Params) Has(parseKey string) bool
+func (Params) Int(parseKey string) (int, bool)
+func (Params) Values() map[string]string
+func (Query) Bool(parseKey string) (bool, bool)
+func (Query) Decode[T any]() (T, error)
+func (Query) Encode() string
+func (Query) Get(parseKey string) string
+func (Query) Has(parseKey string) bool
+func (Query) Int(parseKey string) (int, bool)
+func (Query) Values() url.Values
+func (Revalidator) Loading() bool
+func (Revalidator) Revalidate()
+func (RouteContract) Href(parseParams map[string]string, parseQuery url.Values) (string, error)
+func (RouteContract) HrefFor(parseParams RouteParamsProvider, parseQuery RouteQueryProvider) (string, error)
+func (RouteContract) MustHref(parseParams map[string]string, parseQuery url.Values) string
+func (RouteContract) MustHrefFor(parseParams RouteParamsProvider, parseQuery RouteQueryProvider) string
+func (RouteContract) MustPath(parseParams map[string]string) string
+func (RouteContract) MustPathFor(parseParams RouteParamsProvider) string
+func (RouteContract) ParamNames() []string
+func (RouteContract) Path(parseParams map[string]string) (string, error)
+func (RouteContract) PathFor(parseParams RouteParamsProvider) (string, error)
+func (RouteContract) Pattern() string
+func (SearchParams) Bool(parseKey string) (bool, bool)
+func (SearchParams) Delete(parseKey string)
+func (SearchParams) Encode() string
+func (SearchParams) Get(parseKey string) string
+func (SearchParams) Has(parseKey string) bool
+func (SearchParams) Int(parseKey string) (int, bool)
+func (SearchParams) Navigate(parseValues url.Values)
+func (SearchParams) Replace(parseKey, parseValue string)
+func (SearchParams) ReplaceAll(parseValues url.Values)
+func (SearchParams) Set(parseKey, parseValue string)
+func (SearchParams) Values() url.Values
+func AllowNavigation() GuardResult
+func BlockNavigation(parseReason string) GuardResult
+func BuildMetadataNode(parseRouterMetadata Metadata) *runtime.Element
+func BuildRouteService() pluginruntime.RouteService
+func DecodeQuery[T any](parseValues url.Values) (T, error)
+func DefineRoute(parsePattern string) (RouteContract, error)
+func EncodeQuery(parseValue any) url.Values
+func FragmentHref(parseFragment string) string
+func GetCurrentPath() string
+func GetOutlet() *Element
+func GetRoute() *Element
+func GetRouter() *Router
+func Href(parsePath string) string
+func InspectCurrentRoute() RouteInspection
+func MustDefineRoute(parsePattern string) RouteContract
+func Navigate(parsePath string)
+func NavigateReplace(parsePath string)
+func NewHashRouter(parseOptions ...RouterOption) *Router
+func NewHistoryRouter(parseOptions ...RouterOption) *Router
+func OnNavigate(parseFn func(Location)) func()
+func PreserveReturnTo(parsePath string, parseQuery url.Values) string
+func ReadReturnTo(parseQuery url.Values, parseFallback string) string
+func RedirectNavigation(parsePath string) GuardResult
+func RegisterElementRoute(parsePath string, parseElemRef js.Value)
+func RegisterLazyRoute(parsePath string, parseComponent interface{}, parseChunk RouteChunk, parseOptions ...RouteOption)
+func RegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...RouteOption)
+func RegisteredRoutes() []string
+func RetryLoader(parseKey string) error
+func Revalidate()
+func SPAFallbackHandler(parseIndexHTML, parseStaticDir, parseBasePath string) http.Handler
+func UseLocation() Location
+func UseNavigate() Navigator
+func UseOutlet() *Element
+func UseParams() Params
+func UseQuery() Query
+func UseRevalidator() Revalidator
+func UseRoute() Location
+func UseRouteData() Attrs
+func UseSearchParams() SearchParams
+func WithBasePath(parseBase string) RouterOption
+func WithBeforeEnter(parseGuard GuardFunc) RouteOption
+func WithBeforeLeave(parseGuard LeaveGuardFunc) RouteOption
+func WithCanonicalURL(parseURL string) RouteOption
+func WithDefaultRoute(parsePath string) RouterOption
+func WithDescription(parseDescription string) RouteOption
+func WithError(parseComponent interface{}) RouteOption
+func WithLayout() RouteOption
+func WithLoader(parseLoader LoaderFunc) RouteOption
+func WithLoading(parseComponent interface{}) RouteOption
+func WithRedirect(parsePath string) RouteOption
+func WithTitle(parseTitle string) RouteOption
+type = Attrs map[string]interface{}
+type = Component func(Attrs) *Element
+type = Element runtime.Element
+type AsyncGuardFunc func(context.Context, RouteContext) GuardDecision
+type AsyncLeaveGuardFunc func(context.Context, RouteContext, RouteContext) GuardDecision
+type GuardDecision struct { Redirect string Blocked bool Reason string Retryable bool Denied bool }
+type GuardFunc func(RouteContext) GuardResult
+type GuardResult struct { Redirect string Blocked bool Reason string }
+type LeaveGuardFunc func(current RouteContext, next RouteContext) GuardResult
+type LoaderFunc func(context.Context, RouteContext) (Attrs, error)
+type Location struct { Path string Query string Params map[string]string revision int }
+type Metadata struct { Title string Description string CanonicalURL string }
+type Navigator struct { navigate func(string) replace func(string) }
+type Options struct { Title string Redirect string Description string CanonicalURL string Layout bool Chunk RouteChunk BeforeEnter GuardFunc BeforeLeave LeaveGuardFunc BeforeEnterAsync AsyncGuardFunc BeforeLeaveAsync AsyncLeaveGuardFunc GuardPending interface{} Unauthorized interface{} Authorizing interface{} Loader LoaderFunc Loading interface{} Error interface{} }
+type ParamValue interface { ~string | ~bool | ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64 }
+type Params struct { values map[string]string }
+type Query struct { values url.Values }
+type Revalidator struct { revalidate func() loading func() bool }
+type RouteChunk struct { ID string Scripts []string Loader RouteChunkLoader Loading interface{} Error interface{} }
+type RouteChunkLoader func(context.Context, RouteContext) error
+type RouteContext struct { Path string Params Params Query Query }
+type RouteContract struct { pattern string segments []routeContractSegment paramNames []string }
+type RouteInspection struct { Path string Query url.Values Params map[string]string Loading bool Stack []RouteStackInspection Loaders []RouteLoaderInspection LastRedirect RouteRedirectInspection Metadata Metadata }
+type RouteLoaderInspection struct { Key string Path string Pending bool HasData bool Error string }
+type RouteOption interface { applyRouteOption(*Options) }
+type RouteParamsProvider interface { RouteParams() map[string]string }
+type RouteQueryProvider interface { RouteQuery() url.Values }
+type RouteRedirectInspection struct { Cause string From string To string }
+type RouteStackInspection struct { ID string Path string Params map[string]string HasLoader bool HasBeforeEnter bool HasBeforeLeave bool Metadata Metadata }
+type Router struct { routes map[string]routeFactory routeOptions map[string]Options patterns []routePattern defaultRoute string basePath string notFound routeFactory notFoundOption Options targetSelector string targetElement js.Value listening bool disposed bool routerType string loaderState loaderState chunkState routeChunkState metadataState routeMetadataState guardState navigationGuardState debugState routeDebugState renderCurrentComponent func() *Element isRenderApplyGuards bool renderVersion int viewTransitions bool focusManagement bool historyListenerWindow js.Value popstateHandler js.Func hashchangeHandler js.Func historyListenersAttached bool hashListenerWindow js.Value hashListener js.Func hashListenerAttached bool lastCommittedPath string lastListenerRenderSig string }
+type RouterOption interface { applyRouterOption(*RouterOptions) }
+type RouterOptions struct { DefaultRoute string BasePath string }
+type SearchParams struct { values url.Values navigate func(url.Values) replace func(url.Values) }

@@ -302,8 +302,8 @@ func TestRetryStopsAtMaxAttemptsAndReportsTheCount(parseT *testing.T) {
 		parseT.Errorf("calls = %d, want exactly the 3 allowed attempts", parseClient.calls)
 	}
 
-	var parseCommandErr *projection.CommandError
-	if !errors.As(parseErr, &parseCommandErr) {
+	parseCommandErr, parseOk := errors.AsType[*projection.CommandError](parseErr)
+	if !parseOk {
 		parseT.Fatalf("err = %v, want a *CommandError", parseErr)
 	}
 	// The attempt count lets a UI distinguish "the network blipped" from "this

@@ -171,8 +171,7 @@ func BenchmarkSanitizeLargeDocument(b *testing.B) {
 		parseBuf.WriteString(parseSnippet)
 	}
 	parseDoc := parseBuf.String()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		sanitize.Sanitize(parseDoc)
 	}
 }

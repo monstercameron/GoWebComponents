@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 // isValidSSRAttrName reports whether a name conforms to the HTML attribute
@@ -174,6 +176,11 @@ func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 		if parseRecovered == nil {
 			parseBuilder.WriteString(parseChildBuilder.String())
 			return
+		}
+		// A suspension is not a failure: it must reach the nearest async boundary,
+		// exactly as the client reconciler routes it past error boundaries.
+		if _, isSuspension := AsSuspension(parseRecovered); isSuspension {
+			panic(parseRecovered)
 		}
 
 		parseBoundaryErr := normalizeBoundaryError(parseRecovered)
@@ -536,15 +543,15 @@ func resolveComponentElement(parseElement *Element, parseCtx map[int64]any) (*El
 
 	parseValue := reflect.ValueOf(parseElement.Type)
 	if !parseValue.IsValid() || parseValue.Kind() != reflect.Func {
-		return nil, fmt.Errorf("ssr: unsupported element type %T", parseElement.Type)
+		return nil, errcode.New(errcode.RuntimeSSRUnsupportedComponent, fmt.Sprintf("ssr: unsupported element type %T (use an element tag or a component function)", parseElement.Type))
 	}
 
 	parseTyp := parseValue.Type()
 	if parseTyp.NumOut() != 1 {
-		return nil, fmt.Errorf("ssr: component %T must return exactly one value", parseElement.Type)
+		return nil, errcode.New(errcode.RuntimeSSRUnsupportedComponent, fmt.Sprintf("ssr: component %T must return exactly one value", parseElement.Type))
 	}
 	if parseTyp.Out(0) != reflect.TypeFor[*Element]() {
-		return nil, fmt.Errorf("ssr: component %T must return *runtime.Element", parseElement.Type)
+		return nil, errcode.New(errcode.RuntimeSSRUnsupportedComponent, fmt.Sprintf("ssr: component %T must return *runtime.Element", parseElement.Type))
 	}
 
 	var parseArgs []reflect.Value
@@ -558,7 +565,7 @@ func resolveComponentElement(parseElement *Element, parseCtx map[int64]any) (*El
 		}
 		parseArgs = []reflect.Value{parseArg}
 	default:
-		return nil, fmt.Errorf("ssr: component %T has unsupported arity %d", parseElement.Type, parseTyp.NumIn())
+		return nil, errcode.New(errcode.RuntimeSSRUnsupportedComponent, fmt.Sprintf("ssr: component %T has unsupported arity %d (take no arguments or one props argument)", parseElement.Type, parseTyp.NumIn()))
 	}
 
 	parseResolved := withSSRHookFiber(parseElement.Type, parseElement.Props, parseCtx, func() *Element {
@@ -588,7 +595,7 @@ func buildComponentArg(parseTarget reflect.Type, parseProps map[string]any) (ref
 	if parseProvided.Type().ConvertibleTo(parseTarget) {
 		return parseProvided.Convert(parseTarget), nil
 	}
-	return reflect.Zero(parseTarget), fmt.Errorf("ssr: unsupported component prop type %s", parseTarget)
+	return reflect.Zero(parseTarget), errcode.New(errcode.RuntimeSSRUnsupportedComponent, fmt.Sprintf("ssr: unsupported component prop type %s", parseTarget))
 }
 
 // serializeProps is a core package helper.
@@ -850,7 +857,10 @@ func serializeSSRAttr(parseName string, parseValue any) (string, bool) {
 	}
 }
 
-// serializeStyleMap is a core package helper.
+// serializeStyleMap renders a style map as a CSS declaration list. Keys are
+// converted from DOM camelCase to CSS kebab-case (custom properties are left
+// alone) and any declaration whose key or value could break out of its
+// declaration is dropped so SSR output cannot be used for CSS injection.
 func serializeStyleMap(parseStyles map[string]string) string {
 	if len(parseStyles) == 0 {
 		return ""
@@ -864,11 +874,85 @@ func serializeStyleMap(parseStyles map[string]string) string {
 
 	parseParts := make([]string, 0, len(parseKeys))
 	for _, parseKey2 := range parseKeys {
-		parseParts = append(parseParts, parseKey2+":"+parseStyles[parseKey2])
+		parseName, parseOK := formatSSRStyleName(parseKey2)
+		if !parseOK || !isSafeSSRStyleValue(parseStyles[parseKey2]) {
+			continue
+		}
+		parseParts = append(parseParts, parseName+":"+parseStyles[parseKey2])
 	}
 	return strings.Join(parseParts, ";")
 }
 
+// formatSSRStyleName converts a style key to its CSS property name and reports
+// whether the key is a well-formed property name.
+func formatSSRStyleName(parseKey string) (string, bool) {
+	if parseKey == "" {
+		return "", false
+	}
+	for parseIdx := 0; parseIdx < len(parseKey); parseIdx++ {
+		parseC := parseKey[parseIdx]
+		if !(parseC >= 'a' && parseC <= 'z') && !(parseC >= 'A' && parseC <= 'Z') && !(parseC >= '0' && parseC <= '9') && parseC != '-' && parseC != '_' {
+			return "", false
+		}
+	}
+	if strings.HasPrefix(parseKey, "--") {
+		return parseKey, true
+	}
+	var parseBuilder strings.Builder
+	// msTransform is the lowercase DOM spelling of the -ms- vendor prefix.
+	if len(parseKey) > 2 && strings.HasPrefix(parseKey, "ms") && parseKey[2] >= 'A' && parseKey[2] <= 'Z' {
+		parseBuilder.WriteByte('-')
+	}
+	for parseIdx := 0; parseIdx < len(parseKey); parseIdx++ {
+		parseC := parseKey[parseIdx]
+		if parseC >= 'A' && parseC <= 'Z' {
+			parseBuilder.WriteByte('-')
+			parseC += 'a' - 'A'
+		}
+		parseBuilder.WriteByte(parseC)
+	}
+	return parseBuilder.String(), true
+}
+
+// isSafeSSRStyleValue reports whether a style value stays inside a single
+// declaration: no top-level ';', braces, comments or style-element terminator,
+// and balanced quotes and parentheses (so url("data:...;base64") still works).
+func isSafeSSRStyleValue(parseValue string) bool {
+	if strings.Contains(strings.ToLower(parseValue), "</style") || strings.Contains(parseValue, "/*") {
+		return false
+	}
+	var parseQuote byte
+	parseDepth := 0
+	for parseIdx := 0; parseIdx < len(parseValue); parseIdx++ {
+		parseC := parseValue[parseIdx]
+		if parseQuote != 0 {
+			if parseC == '\\' {
+				parseIdx++
+			} else if parseC == parseQuote {
+				parseQuote = 0
+			}
+			continue
+		}
+		switch parseC {
+		case '"', '\'':
+			parseQuote = parseC
+		case '(':
+			parseDepth++
+		case ')':
+			parseDepth--
+			if parseDepth < 0 {
+				return false
+			}
+		case '{', '}':
+			return false
+		case ';':
+			if parseDepth == 0 {
+				return false
+			}
+		}
+	}
+	return parseQuote == 0 && parseDepth == 0
+}
 // isVoidElement is a core package helper.
 func isVoidElement(parseTag string) bool {
 	switch strings.ToLower(parseTag) {

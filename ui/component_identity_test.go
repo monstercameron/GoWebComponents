@@ -241,6 +241,14 @@ func TestComponentIdentitySameFunctionValueReusesOneCachedHandle(parseT *testing
 	}
 }
 
+// identitySwapTarget is a package-level component reserved for the implementation
+// swap test. SetImplementationRenderer mutates the process-wide cached handle,
+// so sharing identityTopLevel would leave that handle holding a foreign body and
+// break the cached-handle test on every repeat run (-count=2).
+func identitySwapTarget(parseAttrs runtime.Attrs) ui.Node {
+	return html.Span(html.Props{Text: "swap-target"})
+}
+
 // TestComponentIdentityDeliberateImplementationSwapStillApplies keeps hot
 // reload working. The bug was that SetImplementationRenderer fired
 // ACCIDENTALLY, between unrelated siblings; swapping an implementation on
@@ -248,7 +256,7 @@ func TestComponentIdentitySameFunctionValueReusesOneCachedHandle(parseT *testing
 // still take effect on elements already built from that handle.
 func TestComponentIdentityDeliberateImplementationSwapStillApplies(parseT *testing.T) {
 	parseH := newIdentityHarness()
-	parseElement := ui.CreateElement(identityTopLevel)
+	parseElement := ui.CreateElement(identitySwapTarget)
 	parseHandle, parseOk := parseElement.Type.(*runtime.ComponentType)
 	if !parseOk {
 		parseT.Fatalf("expected a component handle, got %T", parseElement.Type)

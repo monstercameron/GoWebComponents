@@ -14,7 +14,7 @@ import (
 	"time"
 
 	gwccapabilities "github.com/monstercameron/GoWebComponents/v6/docs/capabilities"
-	gwcerrorcodes "github.com/monstercameron/GoWebComponents/v6/docs/errorcodes"
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 	playwright "github.com/mxschmitt/playwright-go"
 )
 
@@ -462,15 +462,15 @@ func scoreAgenticSearchSymbol(parseTokens []string, parseQuery string, parseSymb
 
 func buildAgenticExplainReport(parseRootPath string, parseQuery string) agenticExplainReport {
 	parseQuery = strings.TrimSpace(parseQuery)
-	parseCodes := loadAgenticErrorCodes(parseRootPath)
-	for _, parseCode := range parseCodes {
-		if strings.EqualFold(parseCode.Code, parseQuery) {
+	_ = parseRootPath // codes come from the compiled registry, not the source tree
+	for _, parseCode := range errcode.All() {
+		if strings.EqualFold(string(parseCode.Code), parseQuery) {
 			return agenticExplainReport{
 				OK:    true,
 				Query: parseQuery,
 				Kind:  "errorcode",
 				ErrorCode: &agenticExplainErrorCode{
-					Code:        parseCode.Code,
+					Code:        string(parseCode.Code),
 					Docs:        parseCode.Docs,
 					Remediation: parseCode.Remediation,
 				},
@@ -498,14 +498,6 @@ func buildAgenticExplainReport(parseRootPath string, parseQuery string) agenticE
 		NotFound: true,
 		Message:  "no matching error code or capability",
 	}
-}
-
-func loadAgenticErrorCodes(parseRootPath string) []gwcerrorcodes.ErrorCode {
-	parseContent, parseErr := os.ReadFile(filepath.Join(parseRootPath, "internal", "runtime", "diagnostic_metadata.go"))
-	if parseErr != nil {
-		return nil
-	}
-	return gwcerrorcodes.ExtractCodes(string(parseContent))
 }
 
 func resolveAgenticRenderConfig(parseConfig agenticRenderConfig) (agenticRenderConfig, error) {

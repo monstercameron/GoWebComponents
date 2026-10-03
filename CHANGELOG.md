@@ -32,6 +32,272 @@ fork commit `0965e9db574e7b14a447b0ae2bf7ed36a5406462`; the separate adapter is
 not independently published. No v6.1.0 tag or production deployment exists yet.
 See `docs/plans/v6.1-windows-api-parity.md` and its manual evidence record.
 
+### v7 development log (branch v7/dev)
+
+Running notes for the unreleased v7 line, taken from the verified wave logs in
+`todos.md`. Nothing here is tagged or committed yet, the module path is still
+`/v6` until the rename lands, and these notes will be folded into the v7.0.0
+entry. Each item below passed its own tests; the Known issues list says what did
+not.
+
+#### Added
+
+- Error-code registry: tag-free `internal/errcode` (72 entries covering runtime,
+  ui, router, state, fetch, css, devtools and 14 `GWC-INTEROP-*` codes) with
+  `errcode.New`, `Is` by code and `CodeOf`. `docs/REFERENCE_MANUAL/error-codes.md`
+  and `gwc explain` are generated from it, every docs link now resolves to that
+  page (the old `ACTIONABLE_ERRORS.md` anchors were dead), and panic reports read a
+  leading `[GWC-...]` token. `interop.Error.GWCCode()` was added, `ErrCircuitOpen`
+  is now an `*errcode.Error` (`errors.Is` still works), and a ratchet test
+  (`TestNoNewUncodedErrors`) stops uncoded `Errorf` sites from growing.
+- Development diagnostics: component `(file:line)` in error-boundary and hook-order
+  stacks (empty in production wasm); `GWC-RUNTIME-HOOK-ORDER` for hook count or
+  kind changes between renders; `GWC-RUNTIME-HOOK-DEP-UNSTABLE` when a dependency
+  changes identity every render (a new closure, or a map or slice that is deeply
+  equal but a different object); `GWC-RUNTIME-HOOK-IN-LIST` for handlers created in
+  a list render; the `ui.Always` sentinel for an effect that should run every
+  render. All of these are development-only. `gwc lint` and `hookcheck` flag inline
+  `On*(func...)` handlers in loops and `Map` callbacks.
+- OpenTelemetry: native-only `telemetry/otel` (`NewBridge`, `Install`, `Middleware`
+  with a `gwc.ssr.render` server span, `ExportRecorderSpans`, `ExportRUMEvents`,
+  metrics through `Options.MeterProvider`). `ui.SetTracePropagator`,
+  `serverfn.SetTracePropagator` and `serverfn.SetServerSpanHook` are the hooks it
+  fills in; the `serverfn` client injects trace headers and the handler records a
+  `gwc.serverfn.<name>` span. Core packages and the wasm build import no
+  `go.opentelemetry.io/*` (guarded by `test/wasmdeps`). `go.mod` gained direct
+  requires on `otel/metric`, `otel/sdk` and `otel/sdk/metric` v1.43.0.
+- Browser telemetry: `telemetry` OTLP JSON now validates trace and span IDs,
+  derives deterministic ones, and sets span kind, status, parent span ID, resource
+  and scope attributes; `BatchExporter` retries with backoff and honors
+  `Retry-After`, `EventQueue` bounds memory, and the queue flushes on `pagehide`.
+  `interop` gained `NewTraceID`, `NewSpanID`, `ParseTraceparent` and a formatter.
+- `fetch` (wasm, fetch and XHR paths) adds a W3C `traceparent` header and
+  `fetch.Options.TracePropagationOrigins` for extra origins.
+- API: typed `OnInput`/`OnChange` with `OnInputHandler`/`OnChangeHandler`;
+  46-48 generated attribute builders (`html/internal/attrtable` and `attrgen`,
+  run with `go generate`); `CheckedIf`, `RequiredIf`, `IfProp`, `UnlessProp`;
+  `Markdown(src, ...MarkdownOption)` with `WithURLSchemes`; `Params.As[V]` and
+  `Query.Decode[T]` generic methods.
+- Router: `UseParams`, `UseQuery`, `UseSearchParams` and `UseRouteData` subscribe
+  like `UseRoute`; `WithBasePath` for history routers; native
+  `SPAFallbackHandler`; `RouterOption` and `RouteOption` interfaces that the old
+  option structs still satisfy, plus `With*` constructors.
+- Hydration: several islands on one page. The first container keeps the global
+  runtime, the others get isolated runtimes that share adapters
+  (`ResolveHydrationRuntime`).
+- Tooling: `gwc bench suite` and `gwc bench suite compare` (schema
+  `gwc.bench.suite/v1`; lanes native, wasm, size, build; `-resume`,
+  `-target-timeout`, progress log and partial report); `gwc bench` records a
+  `machine` block and takes `-stat` and `-include`; the shell-free wasm test
+  runner `bin/gowasmexec.exe` (built from `tools/gowasmexec`); `tools/binarycheck`
+  and a workflow that fails on tracked binaries; `api_baseline.txt` files and tests
+  for `ui`, `html`, `router` and `fetch` (add with `git add -f`; `*.txt` is
+  ignored); `api_compat_guard check` runs in `api-baseline.yml`; a `wasm-vet` job.
+- Tests: 26 sleep-based tests moved to `testing/synctest` bubbles (about 0.70 s of
+  real delay in the out-of-order SSR stream tests became about 0.01 s); wasm tests
+  now execute for the first time and pass for jsdom, state, internal/runtime,
+  interop, utils, testkit, devtools, pwa, hotreload, db/sqlite, css, desktop,
+  logging, validate, virtualization and test/{browser,hooks,render,ssr}.
+
+#### Changed
+
+- Go 1.27 is required: root, `tools/livereload`, `tools/agenthub` and
+  `desktop/wails` use `go 1.27.0` with `toolchain go1.27.1`; workflows run 1.27.x.
+  go1.27.1 did not change component identity, vet or unit-test results on the 27
+  core packages that were compared with go1.26.3. `strings.CutLast` is used at 9
+  sites.
+- `fetch` resilience: a zero `RetryPolicy.MaxDelay`, `RetryPolicy.Multiplier`,
+  `BreakerConfig.FailureThreshold` and `BreakerConfig.HalfOpenMaxCalls` now means
+  the documented default instead of a trap (see Migration notes).
+- `UsePersistedState` re-reads when its key changes; realtime connections use a
+  `MinStableDuration` (default 1 s) before a reconnect counter resets, and a
+  negative value restores the old reset-on-open behavior.
+- `Map` and `MapKeyed` mark list renders so the in-list diagnostic can fire.
+- `state.UseComputed` now calls `deprecation.Warn`.
+- Markdown is opt-in. `html.RenderMarkdown` and `html.Markdown` dispatch to an
+  engine installed with `html.RegisterMarkdownEngine` (type `html.MarkdownEngine`).
+  The goldmark engine moved to the new package `html/markdown` (blank import or
+  `markdown.Enable()`). With no engine the source renders as escaped text in
+  `<div data-gwc-markdown-unavailable>` plus one `GWC-UI-MARKDOWN-ENGINE-MISSING`
+  warning. `MarkdownRenderOptions.ResolveSafeHref` and `GetAllowedSchemes` are now
+  exported so other engines can share the link policy.
+- Binary size: `validate` uses hand-written matchers instead of `regexp`
+  (differential-tested against the old patterns), so goldmark and `regexp` are out
+  of the default wasm dependency graph. Go 1.27 enables `GOEXPERIMENT=jsonv2` by
+  default, which added about 976 KB raw (248 KB gzip) to the counter wasm;
+  `GOEXPERIMENT=nojsonv2` is recommended for wasm builds. It is not yet applied in
+  the wasm build environment of `gwc`. See `docs/V5_SIZE_STORY.md`.
+- `internal/apidump.Check` skips under `js` (`os.ReadDir` cannot open directories
+  there on Windows).
+
+#### Fixed
+
+- Render packages (20 defects): sanitize kept interior spaces and now checks
+  `poster`, `cite`, `background`, `ping`, `data`, `longdesc` and each `srcset`
+  candidate; Markdown email autolinks get `mailto:`; typed-nil nodes and Stringers
+  no longer panic in `html`; `MergeProps` empty-value ordering; virtual lists with
+  NaN, Inf or overflowing overscan and scrolling past the end; css `-0` and `0`
+  minting two classes, `CubicBezier`/`Repeat`/`GridSpan` clamps, name injection in
+  `DynamicVar`/`El`; `css/u` `MtN` negative index; client `UseHead` merge
+  duplicates, missing twitter tags and stale tags; `anim` NaN delta time, stiff
+  spring divergence, zero-value `Spring`, exact `Interpolate(..., 1, ...)`, nil
+  easing and zero-duration transitions; `GridLineAt(0)` clamps to 1.
+- Server and storage packages (15 defects): `db/offthread/server` hang on exec
+  without a transaction id; `serverfn` accepted status codes 200 and out of range
+  and read an unlimited remote error body (now 1 MiB); `agentbridge` concurrent
+  socket writes, `javascript:` filter bypasses and a leaked mount id; `kvstate`
+  `BindAtom` lost a `Set` before hydration; `projection` duplicate insert and
+  backoff overflow; `escalate.ClassifySQL` misclassifying `WITH ... DELETE` and
+  multi-statement input; `validate` skipping `*string` and mishandling NaN;
+  `desktop.Execute` panic containment; `db/sqlite/persist_wasm.go` returned an
+  empty database on an IndexedDB error and then overwrote the stored image
+  (compile-checked only).
+- Platform packages (25 defects): prerender Windows path traversal; flags
+  divide-by-zero and stale refresh re-enabling killed flags; events delivered to a
+  cancelled subscriber; localfirst duplicate-op resurrection and clock saturation;
+  delta `Apply` rollback; logging typed-nil and a depth-limit secret leak;
+  telemetryredaction dotted keys and JSON-string secrets; plugin `Setup` panic
+  rollback and duplicate IDs; i18n CLDR plurals for fractions, an open redirect
+  through `//evil.com`, `zh-Hant-TW`, direction by script and relative time;
+  pwa update-prompt retry and a `statechange` listener leak.
+- Runtime and forms: state hooks bound to the global runtime inside a second
+  island and in `RenderDetached`; `MustSetField`/`SetField` deferred-update bug;
+  `Reset` colliding with `validateSeq`.
+- Fixed after the first pass: the streamed SSR boundary replacement script was
+  missing a closing quote and never executed (`internal/runtime/ssr_stream.go`);
+  SSR `ErrorBoundary` no longer swallows suspensions; a hostile `BoundaryIDPrefix`
+  is filtered; `Fragment` siblings keep nil slots.
+- `ui` fixes: native `UseState[any]` updaters apply; native `UseId` uses the
+  `gwc-native-N` format; pointer, wheel and timer handlers see the latest render;
+  `UseTaskCtx` parent cancellation settles as Cancelled; composite-navigation
+  typeahead ignores Ctrl, Meta and Alt chords; the focus trap focuses the first
+  focusable element; `UseSpring` settles exactly on its target; panicking actions,
+  submit, validate and task bodies no longer wedge the hook.
+- `fetch`: retries stop once the circuit breaker opens
+  (`TestRetryStopsOnceBreakerOpens`).
+- Agent bridge: redaction now applies to console and window-error capture and to
+  `set-atom` dry runs; the wasm bridge uses `wss` on https pages.
+- `telemetry` did not build for js/wasm (`ui.GetSSRObservationAttributes` was
+  native-only); `go build ./...` is clean on the host after `main_native.go` stubs
+  were added to 10 wasm-only example packages.
+- Tooling: `go_js_wasm_exec.bat` mangled `-test.run=^$` under cmd.exe so the wasm
+  bench lane ran the whole suite (`bin/gowasmexec.exe` replaces it; the `.bat`
+  remains as a fallback); `tools/changelogcheck` was out of sync with the docs
+  mirror.
+
+#### BREAKING
+
+- `html.OnInput` and `html.OnChange` are generic: an untyped value, `nil` or a
+  function of the wrong signature no longer compiles. `ui.Handler` is still
+  accepted. `OnClick`, `OnSubmit` and `OnKeyDown` still take `any`.
+- Markdown rendering needs an engine: without the `html/markdown` import,
+  `html.Markdown` and `html.RenderMarkdown` no longer render markdown.
+- `html.Markdown(src, ...MarkdownOption)`: spreading a `[]MarkdownRenderOptions`
+  into it no longer compiles, and `WithURLSchemes()` with no arguments now allows
+  no schemes (the default stays http, https, mailto).
+- New dot-import names (`D`, `R`, `Fill`, `Stroke`, `Points`, `Part`, `Scope` and
+  others) can collide with package-level declarations in code that dot-imports
+  `html/shorthand`.
+- The `Slot` attribute builder is named `SlotAttr` because `shorthand.Slot`
+  (named slots) already exists.
+- Resilience zero values changed meaning (see below), `kvstate` table names can
+  change, and the Go floor is 1.27.
+
+#### Migration notes
+
+- Go: set `go 1.27.0` in `go.mod` and use Go 1.27.1 or newer. The `gofmt` on
+  `PATH` can be older than the toolchain and reject generic methods; run the
+  1.27 `gofmt`.
+- Resilience: `fetch.RetryPolicy{MaxDelay: 0}` now means 5 s and
+  `Multiplier: 0` means 2.0 (use `Multiplier: 1` for a constant delay).
+  `BreakerConfig{FailureThreshold: 0}` now means 5, and `HalfOpenMaxCalls: 0`
+  now means one probe; it used to allow unlimited calls in the half-open state.
+  Set explicit values if you relied on the old behavior.
+- Tracing: wasm `fetch` and XHR requests to the page origin now carry a generated
+  `traceparent` header unless the caller sets one. List cross-origin targets in
+  `Options.TracePropagationOrigins`; a cross-origin request with a new header
+  triggers a CORS preflight, so the server must allow `traceparent`. Tests that
+  compare request headers exactly must ignore it.
+- Inputs: change `OnInput(x)` calls with `any` values to a `func()`,
+  `func(string)` or `func(ui.Event)`, or wrap a `ui.Handler` with
+  `OnInputHandler`. Do the same for `OnChange` and `OnChangeHandler`.
+- Markdown engine: an app that renders markdown must now register an engine, with
+  `import _ "github.com/monstercameron/GoWebComponents/v6/html/markdown"` or
+  `markdown.Enable()`. Without it, `Markdown` and `RenderMarkdown` show the source
+  as escaped text and report `GWC-UI-MARKDOWN-ENGINE-MISSING` in development.
+- Markdown: call `Markdown(src, html.WithURLSchemes(...))`. A single
+  `MarkdownRenderOptions` value is still accepted as an option; pass it first.
+- Dot imports: rename a package-level identifier that collides with a new
+  shorthand name, or switch that file to a named import.
+- Router: pass `RouterOption` and `RouteOption` values (`WithBasePath`,
+  `WithDefaultRoute`); the old option structs still satisfy the interfaces.
+  Pair `WithBasePath` with `SPAFallbackHandler(indexHTML, staticDir, basePath)`
+  for deep-link refresh.
+- `kvstate`: `sanitizeIdent` is now injective. A name that contained a replaced
+  character (for example `a-b`) gets a hash suffix and maps to a different table,
+  so an existing table with such a name is not found. A one-time rename or row
+  copy into the new table is needed; there is no automatic migration yet. The
+  suffix is the FNV-1a 32-bit hash of the original name, as eight hex digits
+  after an underscore (see `kvstate/options.go`). Names made only of letters,
+  digits and underscores are unchanged. `123abc` and `_123abc` still collide.
+- `pwa`: canary bucketing was biased (a 50 percent route reached 58.7 percent of
+  clients). The fix reshuffles cohorts once on the first deploy; expect clients
+  to change canary side a single time.
+- `projection`: a failed `Post` is now a transport failure, so optimistic state
+  rolls back where it previously stayed.
+- `css.Inject`: the first call for an id wins; a repeat with a different body is
+  ignored silently.
+- SSR inline styles: `serializeStyleMap` kebab-cases keys and drops declarations
+  whose value could break out of the attribute (top-level `;`, braces, `/*`,
+  `</style`, unbalanced quotes or parentheses). A malformed declaration now
+  disappears instead of being written.
+- No deprecated symbol has been removed yet. `state.UseComputed` gained a
+  `deprecation.Warn`; the other listed deprecated symbols already had one
+  (`css/u.BgToken`, `css/u.TextToken` and `agentbridge.Build*Envelope` were not
+  verified). Most replacements are not named in earlier entries, so the v7.0.0
+  entry will name each one before anything is removed.
+
+#### Known issues
+
+- Under wasm, `TestHydrationRoundTripFuzz`, `TestHydrateEffectStateUpdatesScheduleAfterCommit`
+  and one more hydration test are flaky, and
+  `ui.TestComponentIdentitySameFunctionValueReusesOneCachedHandle` fails on a
+  second `-count=2` repeat. Fetch wasm tests print "call to released function"
+  noise (a `js.Func` released while still in use).
+- Islands have separate atom registries, isolated island runtimes are never torn
+  down (there is no unmount API), and island event dispatch was verified by
+  reading only.
+- Native `fetch` client trace injection is not implemented (`fetch/fetch_native.go`
+  is a stub); `tracetest`-based cross-boundary tests are not written.
+- `internal/runtime/panic_report.go:465` filters frames by the literal
+  `SetTimeout.func1`; make it robust before relying on closure names under 1.27.
+- Unfixed bug-hunt candidates still waiting for failing tests include failed
+  revalidation retrying forever (`fetch/cache.go`), `UseRevalidateOnFocus` never
+  refetching, `LoadNext` resetting an infinite query, a panicking effect cleanup
+  skipping later effects, a nil child not holding its slot, and
+  `RestoreSnapshot` not notifying dependents. See `todos.md` for the full list.
+- A raw string `style=` prop is only attribute-escaped, and the client DOM style
+  path was not audited. `UseHead` tag removal is browser-only with no mock-DOM
+  test.
+- `gwc bench suite`: the browser, heap and goroutine lanes are placeholders
+  (`not-run`); the build lane's `coldMs` is not a true cold build; the first
+  pilot run is not a valid baseline because the tree changed during the run.
+- The Windows host cannot always delete freshly built `*.test.exe` ("Access is
+  denied"). `gwc bench` and `bench suite` treat a PASS with only that cleanup
+  error as ok and record a warning; `bench capture` still fails on it.
+- Binary size: Go 1.27 enables `GOEXPERIMENT=jsonv2` by default (+976 KB raw on
+  the counter wasm); `nojsonv2` is recommended but not yet applied by `gwc`.
+- The dev machine has `GOARCH=amd64` set through `go env -w`, so native tests run
+  emulated; timings from it are not representative.
+- `go test` on the whole `tools/gwc` package still exits non-zero from the Windows
+  temp-exe lock even when every test passes.
+- Examples are being migrated after the core work: they have not yet been updated
+  for the v7 API changes (the markdown engine import, `Slot` to `SlotAttr`, router
+  options; typed `OnInput` still accepts `ui.Handler`).
+- `//go:fix inline` is not applied to deprecated wrappers: the inliner skips
+  wrappers whose body calls `deprecation.Warn` first, which the
+  `gwc-deprecations` lint requires.
+
 ## v6.0.0 - 2026-09-08
 
 ### Migration

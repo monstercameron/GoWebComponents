@@ -47,7 +47,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
@@ -68,7 +68,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Install security scanners
         run: |
@@ -101,7 +101,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Run API compatibility and migration-policy guard
         run: |
@@ -121,7 +121,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Run bridge unit lane
         run: go run ./third_party/GoGRPCBridge/tools/runner.go test-short
@@ -139,7 +139,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Run bridge wasm compile lane
         run: go run ./third_party/GoGRPCBridge/tools/runner.go build
@@ -158,7 +158,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Install Playwright browsers
         run: go run github.com/mxschmitt/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
@@ -185,7 +185,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Verify module replacement wiring
         run: go list -m github.com/monstercameron/GoGRPCBridge
@@ -203,7 +203,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Run clean-consumer go-get smoke test
         run: |
@@ -255,7 +255,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Run benchmark trend comparison
         run: go run ./third_party/GoGRPCBridge/tools/runner.go quality-trend

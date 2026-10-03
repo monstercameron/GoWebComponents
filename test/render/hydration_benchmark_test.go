@@ -39,8 +39,7 @@ func benchmarkHydration(parseB *testing.B, parseRows int) {
 		parseB.Fatalf("RenderToString: %v", parseErr)
 	}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseB.StopTimer()
 		getAdapter := mockdom.NewMockDOMAdapter()
 		getScheduler := mockdom.NewMockScheduler(true)

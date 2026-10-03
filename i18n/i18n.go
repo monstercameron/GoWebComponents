@@ -3,6 +3,7 @@ package i18n
 import (
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -230,6 +231,9 @@ func (parseB *Bundle) DefaultLocale() string {
 	if parseB == nil {
 		return ""
 	}
+	// Register writes the default locale under mu, so an unlocked read races with it.
+	parseB.mu.RLock()
+	defer parseB.mu.RUnlock()
 	return parseB.defaultLocale
 }
 
@@ -237,6 +241,8 @@ func (parseB *Bundle) FallbackLocale() string {
 	if parseB == nil {
 		return ""
 	}
+	parseB.mu.RLock()
+	defer parseB.mu.RUnlock()
 	return parseB.fallbackLocale
 }
 
@@ -419,9 +425,23 @@ func NormalizeLocale(parseRaw string) string {
 
 // DirectionForLocale returns DirectionRTL for right-to-left locales, otherwise DirectionLTR.
 func DirectionForLocale(parseLocale string) Direction {
-	parsePrimary := strings.ToLower(primaryLanguage(NormalizeLocale(parseLocale)))
+	parseNormalized := NormalizeLocale(parseLocale)
+	// Direction follows the script, not the language: "ku" is Latin-script (LTR) by default but
+	// "ku-Arab" and Sorani ("ckb") are RTL, and "az-Arab"/"pa-Arab" are RTL though "az"/"pa" are not.
+	if parseTag, parseErr := language.Parse(parseNormalized); parseErr == nil {
+		parseScript, _ := parseTag.Script()
+		switch parseScript.String() {
+		case "Arab", "Hebr", "Thaa", "Syrc", "Nkoo", "Adlm", "Rohg", "Mand", "Samr":
+			return DirectionRTL
+		case "Zzzz", "":
+			// Script unknown for this language: fall through to the language list below.
+		default:
+			return DirectionLTR
+		}
+	}
+	parsePrimary := strings.ToLower(primaryLanguage(parseNormalized))
 	switch parsePrimary {
-	case "ar", "fa", "he", "ur", "ps", "sd", "ku":
+	case "ar", "fa", "he", "ur", "ps", "sd", "yi", "dv", "ug", "ckb":
 		return DirectionRTL
 	default:
 		return DirectionLTR
@@ -435,7 +455,9 @@ func FormatNumber(parseLocale string, parseValue float64, parseOptions ...Number
 		parseResolved = parseOptions[0]
 	}
 	if parseResolved.MaximumFractionDigits < 0 {
-		if parseValue == float64(int64(parseValue)) {
+		// math.Trunc, not an int64 round trip: int64(1e19) is implementation-defined and made huge
+		// integral values print a bogus ".00".
+		if parseValue == math.Trunc(parseValue) {
 			parseResolved.MaximumFractionDigits = 0
 		} else {
 			parseResolved.MaximumFractionDigits = 2
@@ -455,41 +477,18 @@ func FormatDate(parseLocale string, parseValue time.Time, parseOptions ...DateOp
 	if parseResolved.Location != nil {
 		parseValue = parseValue.In(parseResolved.Location)
 	}
-	switch localeFamily(parseLocale) {
-	case "fr":
-		switch parseResolved.Style {
-		case DateStyleShort:
-			return parseValue.Format("02/01/2006")
-		case DateStyleLong:
-			return parseValue.Format("2 January 2006")
-		default:
-			return parseValue.Format("2 Jan 2006")
-		}
-	case "de":
-		switch parseResolved.Style {
-		case DateStyleShort:
-			return parseValue.Format("02.01.2006")
-		case DateStyleLong:
-			return parseValue.Format("2. January 2006")
-		default:
-			return parseValue.Format("2. Jan 2006")
-		}
-	case "ar":
-		switch parseResolved.Style {
-		case DateStyleLong:
-			return parseValue.Format("02 Jan 2006")
-		default:
-			return parseValue.Format("02/01/2006")
-		}
+	// Languages with a table get localized month names and field order; the
+	// rest keep the English layouts.
+	if parseFormatted, parseOk := formatLocaleDate(localeFamily(parseLocale), parseValue, parseResolved.Style); parseOk {
+		return parseFormatted
+	}
+	switch parseResolved.Style {
+	case DateStyleShort:
+		return parseValue.Format("01/02/2006")
+	case DateStyleLong:
+		return parseValue.Format("January 2, 2006")
 	default:
-		switch parseResolved.Style {
-		case DateStyleShort:
-			return parseValue.Format("01/02/2006")
-		case DateStyleLong:
-			return parseValue.Format("January 2, 2006")
-		default:
-			return parseValue.Format("Jan 2, 2006")
-		}
+		return parseValue.Format("Jan 2, 2006")
 	}
 }
 
@@ -507,7 +506,9 @@ func ResolvePath(parsePath string, parseOptions RouteOptions) ResolvedPath {
 	parseBasePath := parseNormalizedPath
 	if len(parseSegments) > 0 {
 		parseCandidate := NormalizeLocale(parseSegments[0])
-		if localeAllowed(parseCandidate, parseResolved.SupportedLocales) {
+		// Without a supported list any segment would pass localeAllowed, so "/about" became locale
+		// "about"; accept only well-formed locale shapes then.
+		if localeAllowed(parseCandidate, parseResolved.SupportedLocales) && (len(parseResolved.SupportedLocales) > 0 || isRouteLocaleSegment(parseSegments[0])) {
 			parseLocale = chooseRoutePrefixLocale(parseCandidate, parseResolved.SupportedLocales, parseResolved.DefaultLocale)
 			isParsePrefixPresent = true
 			parseRemaining := strings.Join(parseSegments[1:], "/")
@@ -551,10 +552,11 @@ func (parseB *Bundle) ToSSRBootstrap(parseOptions SSRBootstrapOptions) ui.SSRI18
 	if parseB == nil {
 		return ui.SSRI18nBootstrap{}
 	}
-	parseLocale := chooseSupportedLocale(parseOptions.Locale, parseB.Locales(), fallbackString(parseOptions.FallbackLocale, parseB.fallbackLocale))
+	parseBundleFallback := parseB.FallbackLocale()
+	parseLocale := chooseSupportedLocale(parseOptions.Locale, parseB.Locales(), fallbackString(parseOptions.FallbackLocale, parseBundleFallback))
 	parseIncludeLocales := parseOptions.IncludeLocales
 	if len(parseIncludeLocales) == 0 {
-		parseIncludeLocales = []string{parseLocale, fallbackString(parseOptions.FallbackLocale, parseB.fallbackLocale)}
+		parseIncludeLocales = []string{parseLocale, fallbackString(parseOptions.FallbackLocale, parseBundleFallback)}
 	}
 	parseIncludeNamespaces := make(map[string]struct{}, len(parseOptions.IncludeNamespaces))
 	for _, parseNamespace := range parseOptions.IncludeNamespaces {
@@ -580,7 +582,7 @@ func (parseB *Bundle) ToSSRBootstrap(parseOptions SSRBootstrapOptions) ui.SSRI18
 				}
 			}
 			for parseKey, parseEntry := range parseEntries {
-				parseMessages[parseCandidate][parseNamespace2+"."+parseKey] = ui.SSRI18nMessage{
+				parseMessages[parseCandidate][joinCombinedMessageKey(parseNamespace2, parseKey)] = ui.SSRI18nMessage{
 					Text:      parseEntry.Text,
 					PluralArg: parseEntry.PluralArg,
 					SelectArg: parseEntry.SelectArg,
@@ -700,9 +702,9 @@ func stringifyArgument(parseValue any) string {
 	switch parseTyped := parseValue.(type) {
 	case string:
 		return parseTyped
-	case fmt.Stringer:
-		return parseTyped.String()
 	default:
+		// fmt.Sprint honours fmt.Stringer/error AND guards a typed-nil receiver ("<nil>"), which a
+		// direct parseTyped.String() call would dereference.
 		return fmt.Sprint(parseValue)
 	}
 }
@@ -744,15 +746,23 @@ func numericArgument(parseValue any) float64 {
 
 func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCategory {
 	parsePrimary := localeFamily(parseLocale)
-	parseAbs := parseValue
-	if parseAbs < 0 {
-		parseAbs = -parseAbs
+	if math.IsNaN(parseValue) || math.IsInf(parseValue, 0) {
+		return PluralOther
 	}
-	parseInteger := int(parseAbs)
-	parseMod10 := parseInteger % 10
-	parseMod100 := parseInteger % 100
+	parseAbs := math.Abs(parseValue)
+	parseWhole := math.Trunc(parseAbs)
+	// CLDR keys most rules on "v = 0" (no visible fraction): 1.5 is not "one" in English even
+	// though its integer part is 1.
+	hasFraction := parseAbs != parseWhole
+	// Reduce in float space and clamp: int(parseAbs) is implementation-defined past the int range.
+	parseMod10 := int(math.Mod(parseWhole, 10))
+	parseMod100 := int(math.Mod(parseWhole, 100))
+	parseInteger := int(math.Min(parseWhole, 1<<30))
 	switch parsePrimary {
 	case "ar":
+		if hasFraction {
+			return PluralOther
+		}
 		switch {
 		case parseInteger == 0:
 			return PluralZero
@@ -773,6 +783,9 @@ func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCateg
 		}
 		return PluralOther
 	case "ru", "uk":
+		if hasFraction {
+			return PluralOther
+		}
 		switch {
 		case parseMod10 == 1 && parseMod100 != 11:
 			return PluralOne
@@ -784,6 +797,9 @@ func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCateg
 			return PluralOther
 		}
 	case "pl":
+		if hasFraction {
+			return PluralOther
+		}
 		switch {
 		case parseInteger == 1:
 			return PluralOne
@@ -795,6 +811,9 @@ func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCateg
 			return PluralOther
 		}
 	case "cs", "sk":
+		if hasFraction {
+			return PluralMany
+		}
 		switch {
 		case parseInteger == 1:
 			return PluralOne
@@ -803,10 +822,16 @@ func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCateg
 		default:
 			return PluralOther
 		}
-	case "ja", "ko", "zh", "th", "vi", "tr":
+	case "tr":
+		// Turkish distinguishes only n = 1 (exactly one) from everything else.
+		if parseAbs == 1 {
+			return PluralOne
+		}
+		return PluralOther
+	case "ja", "ko", "zh", "th", "vi":
 		return PluralOther
 	default:
-		if parseInteger == 1 {
+		if parseInteger == 1 && !hasFraction {
 			return PluralOne
 		}
 		return PluralOther
@@ -844,17 +869,41 @@ func localeCandidates(parseLocale string, parseFallbackLocale string, parseDefau
 
 func buildLocaleCandidates(parseLocale string, parseFallbackLocale string, parseDefaultLocale string) []string {
 	parseCandidates := []string{}
-	for _, parseRaw := range []string{parseLocale, primaryLanguage(parseLocale), parseFallbackLocale, primaryLanguage(parseFallbackLocale), parseDefaultLocale, primaryLanguage(parseDefaultLocale)} {
-		parseNormalized := NormalizeLocale(parseRaw)
-		if parseNormalized == "" {
-			continue
-		}
-		isParseAlready := slices.Contains(parseCandidates, parseNormalized)
-		if !isParseAlready {
-			parseCandidates = append(parseCandidates, parseNormalized)
+	for _, parseRaw := range []string{parseLocale, parseFallbackLocale, parseDefaultLocale} {
+		for _, parseChainEntry := range buildLocaleChain(parseRaw) {
+			isParseAlready := slices.Contains(parseCandidates, parseChainEntry)
+			if !isParseAlready {
+				parseCandidates = append(parseCandidates, parseChainEntry)
+			}
 		}
 	}
 	return parseCandidates
+}
+
+// buildLocaleChain expands one locale into its fallback chain, most specific first, by dropping
+// trailing subtags: "zh-Hant-TW" -> "zh-Hant-TW", "zh-Hant", "zh". Unicode/private-use
+// extensions ("-u-nu-arab") are kept only on the first entry and never truncated mid-extension.
+func buildLocaleChain(parseRaw string) []string {
+	parseNormalized := NormalizeLocale(parseRaw)
+	if parseNormalized == "" {
+		return nil
+	}
+	parseChain := []string{parseNormalized}
+	parseParts := strings.Split(parseNormalized, "-")
+	parseBaseEnd := len(parseParts)
+	for parseIndex := 1; parseIndex < len(parseParts); parseIndex++ {
+		if len(parseParts[parseIndex]) == 1 {
+			parseBaseEnd = parseIndex
+			break
+		}
+	}
+	for parseEnd := parseBaseEnd; parseEnd >= 1; parseEnd-- {
+		parseEntry := strings.Join(parseParts[:parseEnd], "-")
+		if parseEntry != parseChain[len(parseChain)-1] {
+			parseChain = append(parseChain, parseEntry)
+		}
+	}
+	return parseChain
 }
 
 func localeFamily(parseLocale string) string {
@@ -967,10 +1016,13 @@ func normalizeLeadingPath(parsePath string) string {
 	if parseTrimmed == "" {
 		return "/"
 	}
-	if !strings.HasPrefix(parseTrimmed, "/") {
-		parseTrimmed = "/" + parseTrimmed
-	}
-	if len(parseTrimmed) > 1 {
+	// Collapse any run of leading slashes/backslashes to exactly one "/": "//host" and "/\host" are
+	// protocol-relative URLs in a browser, and PrefixPath returns the path unchanged for the
+	// default locale, so they would turn a locale-prefixed in-app link into an off-site redirect.
+	parseTrimmed = "/" + strings.TrimLeft(parseTrimmed, `/\`)
+	// Trailing slashes are trimmed only for a bare path: with a query or fragment present the
+	// final "/" belongs to that value (a "next=/" redirect target), not to the path.
+	if len(parseTrimmed) > 1 && !strings.ContainsAny(parseTrimmed, "?#") {
 		parseTrimmed = strings.TrimRight(parseTrimmed, "/")
 	}
 	if parseTrimmed == "" {
@@ -1044,10 +1096,21 @@ func cloneSelect(parseSource map[string]string) map[string]string {
 	return parseClone
 }
 
+// splitCombinedMessageKey splits an SSR bootstrap key at its first unescaped
+// dot; "\." and "\\" in the namespace decode to "." and "\". A key without an
+// unescaped dot belongs to the default namespace.
 func splitCombinedMessageKey(parseValue string) (string, string) {
-	parseParts := strings.SplitN(parseValue, ".", 2)
-	if len(parseParts) == 1 {
-		return "default", parseParts[0]
+	var parseNamespace strings.Builder
+	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
+		switch parseChar := parseValue[parseIndex]; {
+		case parseChar == '\\' && parseIndex+1 < len(parseValue) && (parseValue[parseIndex+1] == '.' || parseValue[parseIndex+1] == '\\'):
+			parseIndex++
+			parseNamespace.WriteByte(parseValue[parseIndex])
+		case parseChar == '.':
+			return parseNamespace.String(), parseValue[parseIndex+1:]
+		default:
+			parseNamespace.WriteByte(parseChar)
+		}
 	}
-	return parseParts[0], parseParts[1]
+	return "default", parseValue
 }

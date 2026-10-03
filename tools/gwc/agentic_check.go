@@ -21,7 +21,7 @@ var runCheckCommand = func(parseL launcher, parseArgs []string) error {
 
 // agenticCheckRunCommand executes external check commands and is overridden by tests.
 var agenticCheckRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
-	return launcherRunCommand(parseCommand, parseArgs, parseCwd, parseEnv)
+	return runLauncherGoCommand(parseCommand, parseArgs, parseCwd, parseEnv)
 }
 
 type checkConfig struct {

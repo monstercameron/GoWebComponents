@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v6/devtools"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 
@@ -114,7 +115,7 @@ func TestBuildOTLPJSONDefaultsAndStableSyntheticIDs(parseT *testing.T) {
 	parseSpans := parseScopeSpans[0].(map[string]any)["spans"].([]any)
 	parseFirst := parseSpans[0].(map[string]any)
 	parseSecond := parseSpans[1].(map[string]any)
-	if parseFirst["traceId"] != "00000000000000000000000000000001" || parseFirst["spanId"] != "0000000000000001" {
+	if !interop.IsValidTraceID(parseFirst["traceId"].(string)) || !interop.IsValidSpanID(parseFirst["spanId"].(string)) || parseFirst["kind"] != float64(1) {
 		parseT.Fatalf("synthetic ids not stable: %#v", parseFirst)
 	}
 	if parseFirst["startTimeUnixNano"] != "0" || parseFirst["endTimeUnixNano"] != "10" {

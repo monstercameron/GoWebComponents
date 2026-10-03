@@ -5,6 +5,8 @@ import (
 	"maps"
 	"slices"
 	"sync"
+
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 // AtomRegistry manages global state atoms with fine-grained reactivity.
@@ -37,16 +39,27 @@ func NewAtomRegistry() *AtomRegistry {
 // RegisterDerivedAtom registers or replaces a derived atom and computes its current value.
 func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() any) error {
 	if parseAr == nil {
-		return fmt.Errorf("atom registry not initialized")
+		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
 	}
 	if parseCompute == nil {
-		return fmt.Errorf("derived atom %s compute function cannot be nil", parseId)
+		return errcode.New(errcode.RuntimeDerivedAtomInvalid, fmt.Sprintf("derived atom %s compute function cannot be nil (pass the function that computes its value from its dependencies)", parseId))
 	}
 	if slices.Contains(parseDeps, parseId) {
-		return fmt.Errorf("derived atom %s cannot depend on itself", parseId)
+		return errcode.New(errcode.RuntimeDerivedAtomInvalid, fmt.Sprintf("derived atom %s cannot depend on itself (remove %s from its dependency list)", parseId, parseId))
 	}
 
 	parseAr.mu.Lock()
+	// Refuse a cycle BEFORE touching the existing registration: unlinking the old
+	// dependents first and then bailing out left the previous derived atom in the
+	// map but detached from its sources, so it silently stopped updating.
+	for _, parseDep3 := range parseDeps {
+		if parseAr.hasDerivedDependencyPathLocked(parseDep3, parseId, map[string]bool{}) {
+			parseAr.mu.Unlock()
+			parseErr := errcode.New(errcode.RuntimeDerivedAtomInvalid, fmt.Sprintf("derived atom cycle detected involving %s (remove the circular dependency)", parseId))
+			ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
+			return parseErr
+		}
+	}
 	parseNextGen := uint64(0)
 	if parseExisting, parseOk := parseAr.derived[parseId]; parseOk {
 		for _, parseDep2 := range parseExisting.deps {
@@ -58,14 +71,6 @@ func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []str
 			}
 		}
 		parseNextGen = parseExisting.generation + 1
-	}
-	for _, parseDep3 := range parseDeps {
-		if parseAr.hasDerivedDependencyPathLocked(parseDep3, parseId, map[string]bool{}) {
-			parseAr.mu.Unlock()
-			parseErr := fmt.Errorf("derived atom cycle detected involving %s", parseId)
-			ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
-			return parseErr
-		}
 	}
 	parseCloneDeps := append([]string(nil), parseDeps...)
 	parseAr.derived[parseId] = derivedAtom{deps: parseCloneDeps, compute: parseCompute, active: true, generation: parseNextGen}
@@ -305,7 +310,7 @@ func (parseAr *AtomRegistry) recomputeDerived(parseId string, parseTrail map[str
 		parseTrail = map[string]bool{}
 	}
 	if parseTrail[parseId] {
-		return nil, fmt.Errorf("derived atom cycle detected involving %s", parseId)
+		return nil, errcode.New(errcode.RuntimeDerivedAtomInvalid, fmt.Sprintf("derived atom cycle detected involving %s (remove the circular dependency)", parseId))
 	}
 	parseTrail[parseId] = true
 	defer delete(parseTrail, parseId)
@@ -598,6 +603,26 @@ func (parseAr *AtomRegistry) RestoreSnapshot(parseSnapshot map[string]any) []*Fi
 	}
 	parseAr.mu.Unlock()
 
+	// Derived atoms depending on a restored atom must follow it, exactly as in
+	// setAtomAndNotify; otherwise their subscribers keep a stale projection.
+	// listDependents returns nil without allocating when nothing depends on the
+	// key, which is the common single-key case.
+	for parseId := range parseSnapshot {
+		for _, parseDerivedID := range parseAr.listDependents(parseId) {
+			parseDerivedFibers, parseErr := parseAr.recomputeDerived(parseDerivedID, map[string]bool{parseId: true})
+			if parseErr != nil {
+				ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
+				continue
+			}
+			for _, parseDerivedFiber := range parseDerivedFibers {
+				if parseUnique == nil {
+					parseUnique = make(map[*Fiber]bool, len(parseDerivedFibers))
+				}
+				parseUnique[parseDerivedFiber] = true
+			}
+		}
+	}
+
 	if len(parseUnique) == 0 {
 		return nil
 	}
@@ -800,7 +825,7 @@ func (parseRt *Runtime) GetAtomValue(parseId string) (any, bool) {
 // SetAtomValue is a helper to set an atom value directly (for debugging/testing)
 func (parseRt *Runtime) SetAtomValue(parseId string, parseValue any) error {
 	if parseRt.atomRegistry == nil {
-		return fmt.Errorf("atom registry not initialized")
+		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
 	}
 	apply := func(parseUpdateOrigin string) {
 		parseRt.atomRegistry.setAtomAndNotify(parseId, parseValue, func(parseFiber *Fiber) {
@@ -826,7 +851,7 @@ func (parseRt *Runtime) SetAtomValue(parseId string, parseValue any) error {
 // registry (that deadlocks under the held lock); see updateAtomAndNotify.
 func (parseRt *Runtime) UpdateAtomValue(parseId string, parseDefault any, parseFn func(any) any) error {
 	if parseRt.atomRegistry == nil {
-		return fmt.Errorf("atom registry not initialized")
+		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
 	}
 	apply := func(parseUpdateOrigin string) {
 		parseRt.atomRegistry.updateAtomAndNotify(parseId, parseDefault, parseFn, func(parseFiber *Fiber) {
@@ -883,7 +908,7 @@ func (parseRt *Runtime) DeleteAtomValueIfUnsubscribed(parseId string) bool {
 // RegisterDerivedAtom is a core package helper.
 func (parseRt *Runtime) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() any) error {
 	if parseRt == nil || parseRt.atomRegistry == nil {
-		return fmt.Errorf("atom registry not initialized")
+		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
 	}
 	return parseRt.atomRegistry.RegisterDerivedAtom(parseId, parseDeps, parseCompute)
 }
@@ -900,7 +925,7 @@ func (parseRt *Runtime) SnapshotAtoms() map[string]any {
 // any subscribed fibers.
 func (parseRt *Runtime) RestoreAtomSnapshot(parseSnapshot map[string]any) error {
 	if parseRt == nil || parseRt.atomRegistry == nil {
-		return fmt.Errorf("atom registry not initialized")
+		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
 	}
 	apply := func(parseUpdateOrigin string) {
 		for _, parseFiber := range parseRt.atomRegistry.RestoreSnapshot(parseSnapshot) {

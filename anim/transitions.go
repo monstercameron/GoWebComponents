@@ -163,8 +163,17 @@ func NewTransitionPref(parseDuration float64, parsePref MotionPreference) Transi
 // element to PhaseEntered and an exiting element to PhaseExited once Elapsed reaches
 // Duration. Settled phases (Entered/Exited) are unaffected. Negative deltas are ignored.
 func (parseT Transition) Advance(parseDelta float64) Transition {
-	if parseDelta <= 0 || (parseT.Phase != PhaseEntering && parseT.Phase != PhaseExiting) {
+	if parseT.Phase != PhaseEntering && parseT.Phase != PhaseExiting {
 		return parseT
+	}
+	// A zero-duration transition (reduced motion) is already at its end state, so
+	// it completes on the first tick even when that tick carries no elapsed time.
+	// The negated comparison ignores NaN deltas, which would otherwise wedge Elapsed.
+	if !(parseDelta > 0) && parseT.Duration > 0 {
+		return parseT
+	}
+	if !(parseDelta > 0) {
+		parseDelta = 0
 	}
 	parseT.Elapsed += parseDelta
 	if parseT.Elapsed >= parseT.Duration {

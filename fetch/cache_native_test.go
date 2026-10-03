@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
@@ -63,43 +64,45 @@ func TestFetchNativeCachedResourceDisposedHandleNoOps(parseT *testing.T) {
 }
 
 func TestFetchNativeCachedResourceSetCancelsInflightLoad(parseT *testing.T) {
-	installFetchTestHookContext(parseT)
+	synctest.Test(parseT, func(parseT *testing.T) {
+		installFetchTestHookContext(parseT)
 
-	parseRelease := make(chan struct{})
-	var parseLoads int32
-	parseResource := UseCachedResource("profile", func(parseCtx context.Context) (string, error) {
-		atomic.AddInt32(&parseLoads, 1)
-		select {
-		case <-parseCtx.Done():
-			return "", parseCtx.Err()
-		case <-parseRelease:
-			return "server", nil
+		parseRelease := make(chan struct{})
+		var parseLoads int32
+		parseResource := UseCachedResource("profile", func(parseCtx context.Context) (string, error) {
+			atomic.AddInt32(&parseLoads, 1)
+			select {
+			case <-parseCtx.Done():
+				return "", parseCtx.Err()
+			case <-parseRelease:
+				return "server", nil
+			}
+		})
+
+		parseResource.Reload()
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			return parseResource.Get().Loading
+		})
+
+		parseResource.Set("optimistic")
+		parseResource.Update(func(parsePrev string) string { return parsePrev + "-v2" })
+		close(parseRelease)
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			return atomic.LoadInt32(&parseLoads) == 1
+		})
+
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			parseState := parseResource.Get()
+			return !parseState.Loading && parseState.Ready
+		})
+		parseState := parseResource.Get()
+		if parseState.Value != "optimistic-v2" || parseState.Error != nil || parseState.Stale {
+			parseT.Fatalf("expected optimistic value to survive canceled load, got %+v", parseState)
+		}
+		if atomic.LoadInt32(&parseLoads) != 1 {
+			parseT.Fatalf("expected exactly one loader call, got %d", atomic.LoadInt32(&parseLoads))
 		}
 	})
-
-	parseResource.Reload()
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		return parseResource.Get().Loading
-	})
-
-	parseResource.Set("optimistic")
-	parseResource.Update(func(parsePrev string) string { return parsePrev + "-v2" })
-	close(parseRelease)
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		return atomic.LoadInt32(&parseLoads) == 1
-	})
-
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		parseState := parseResource.Get()
-		return !parseState.Loading && parseState.Ready
-	})
-	parseState := parseResource.Get()
-	if parseState.Value != "optimistic-v2" || parseState.Error != nil || parseState.Stale {
-		parseT.Fatalf("expected optimistic value to survive canceled load, got %+v", parseState)
-	}
-	if atomic.LoadInt32(&parseLoads) != 1 {
-		parseT.Fatalf("expected exactly one loader call, got %d", atomic.LoadInt32(&parseLoads))
-	}
 }
 
 func TestFetchNativeCacheHelperBranches(parseT *testing.T) {
@@ -268,61 +271,63 @@ func TestFetchNativeLoadCachedBranches(parseT *testing.T) {
 // retry storm. The fix removes UpdatedAt from the effect deps, so a failing loader
 // fires exactly once and does not re-schedule itself.
 func TestFetchNativeCachedResourceFailingLoaderNoRetryStorm(parseT *testing.T) {
-	installFetchTestHookContext(parseT)
+	synctest.Test(parseT, func(parseT *testing.T) {
+		installFetchTestHookContext(parseT)
 
-	var parseLoads int32
-	parseKey := "failing-resource"
-	parseEntry := getCachedResourceEntry(parseKey)
-	configureCachedResourceEntry[string](parseKey, parseEntry, CacheOptions{})
+		var parseLoads int32
+		parseKey := "failing-resource"
+		parseEntry := getCachedResourceEntry(parseKey)
+		configureCachedResourceEntry[string](parseKey, parseEntry, CacheOptions{})
 
-	// Run the loader directly (simulating what UseCachedResource would trigger) and
-	// let it complete with an error.
-	parseWaiters, parseStarted := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (any, error) {
-		_ = parseCtx
-		atomic.AddInt32(&parseLoads, 1)
-		return nil, fmt.Errorf("load error")
-	}, false, nil)
-	if !parseStarted {
-		parseT.Fatal("expected startCachedLoad to launch the first load")
-	}
+		// Run the loader directly (simulating what UseCachedResource would trigger) and
+		// let it complete with an error.
+		parseWaiters, parseStarted := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (any, error) {
+			_ = parseCtx
+			atomic.AddInt32(&parseLoads, 1)
+			return nil, fmt.Errorf("load error")
+		}, false, nil)
+		if !parseStarted {
+			parseT.Fatal("expected startCachedLoad to launch the first load")
+		}
 
-	// Wait for the first load to finish.
-	waitForCachedResource(context.Background(), parseWaiters) //nolint:errcheck
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+		// Wait for the first load to finish.
+		waitForCachedResource(context.Background(), parseWaiters) //nolint:errcheck
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			parseSnapshot := currentCachedSnapshot(parseKey)
+			return !parseSnapshot.Loading && parseSnapshot.Error != nil
+		})
+
+		// Snapshot has an error and UpdatedAt is set. Simulate the effect re-evaluation
+		// that the old code would have triggered: call startCachedLoad again with the same
+		// snapshot (no shouldLoad predicate changes other than UpdatedAt). Under the old
+		// code this would start another load; under the fix it must not.
 		parseSnapshot := currentCachedSnapshot(parseKey)
-		return !parseSnapshot.Loading && parseSnapshot.Error != nil
+		if parseSnapshot.Error == nil {
+			parseT.Fatal("expected error snapshot after failing load")
+		}
+
+		// shouldLoadCachedEntry must report false for a non-ready, non-stale, non-pending
+		// entry that already has an error — there is nothing that would trigger a reload.
+		parseEntry.mu.Lock()
+		parseShouldLoad := shouldLoadCachedEntry(parseSnapshot, parseEntry)
+		parseEntry.mu.Unlock()
+		if parseShouldLoad {
+			parseT.Fatal("shouldLoadCachedEntry must return false after a failed load to prevent retry storms")
+		}
+
+		// A second startCachedLoad call (not forced) must be a no-op.
+		_, parseStarted2 := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (any, error) {
+			_ = parseCtx
+			atomic.AddInt32(&parseLoads, 1)
+			return nil, fmt.Errorf("should not run")
+		}, false, nil)
+		if parseStarted2 {
+			parseT.Fatal("startCachedLoad must not start a second load after a failed non-stale non-invalidated load")
+		}
+		if atomic.LoadInt32(&parseLoads) != 1 {
+			parseT.Fatalf("expected exactly one loader invocation, got %d", atomic.LoadInt32(&parseLoads))
+		}
 	})
-
-	// Snapshot has an error and UpdatedAt is set. Simulate the effect re-evaluation
-	// that the old code would have triggered: call startCachedLoad again with the same
-	// snapshot (no shouldLoad predicate changes other than UpdatedAt). Under the old
-	// code this would start another load; under the fix it must not.
-	parseSnapshot := currentCachedSnapshot(parseKey)
-	if parseSnapshot.Error == nil {
-		parseT.Fatal("expected error snapshot after failing load")
-	}
-
-	// shouldLoadCachedEntry must report false for a non-ready, non-stale, non-pending
-	// entry that already has an error — there is nothing that would trigger a reload.
-	parseEntry.mu.Lock()
-	parseShouldLoad := shouldLoadCachedEntry(parseSnapshot, parseEntry)
-	parseEntry.mu.Unlock()
-	if parseShouldLoad {
-		parseT.Fatal("shouldLoadCachedEntry must return false after a failed load to prevent retry storms")
-	}
-
-	// A second startCachedLoad call (not forced) must be a no-op.
-	_, parseStarted2 := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (any, error) {
-		_ = parseCtx
-		atomic.AddInt32(&parseLoads, 1)
-		return nil, fmt.Errorf("should not run")
-	}, false, nil)
-	if parseStarted2 {
-		parseT.Fatal("startCachedLoad must not start a second load after a failed non-stale non-invalidated load")
-	}
-	if atomic.LoadInt32(&parseLoads) != 1 {
-		parseT.Fatalf("expected exactly one loader invocation, got %d", atomic.LoadInt32(&parseLoads))
-	}
 }
 
 // TestAbandonedCachedResourcesAreSweptOnAccess pins the collection path for

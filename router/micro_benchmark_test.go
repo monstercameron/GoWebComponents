@@ -33,7 +33,7 @@ func BenchmarkRouteContractMustHrefForMicro(parseB *testing.B) {
 	parseQuery := benchmarkRouteQuery{Tab: "billing"}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseContract.MustHrefFor(parseParams, parseQuery)
 	}
 }

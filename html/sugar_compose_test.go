@@ -161,18 +161,6 @@ func TestDefaultPropsFillsOnlyMissing(parseT *testing.T) {
 	}
 }
 
-// TestMarkdownRendersThroughShorthand verifies Markdown delegates to
-// RenderMarkdown and produces semantic HTML.
-func TestMarkdownRendersThroughShorthand(parseT *testing.T) {
-	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, Markdown("# Title\n\nBody text.")...))
-	if parseErr != nil {
-		parseT.Fatalf("expected Markdown render, got %v", parseErr)
-	}
-	if !strings.Contains(parseMarkup, "<h1>Title</h1>") || !strings.Contains(parseMarkup, "Body text.") {
-		parseT.Fatalf("expected markdown HTML, got %q", parseMarkup)
-	}
-}
-
 // TestTextLinesSplitsOnNewlines verifies TextLines interleaves <br> and yields a
 // single text node when there is no newline.
 func TestTextLinesSplitsOnNewlines(parseT *testing.T) {
@@ -295,7 +283,7 @@ func BenchmarkMergePropsHotPath(parseB *testing.B) {
 		},
 	}
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		benchmarkMergePropsSink = MergeProps(parseBase, parseOverride)
 	}
 }

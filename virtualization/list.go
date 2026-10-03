@@ -175,14 +175,14 @@ func List[T any](parseProps ListProps[T]) ui.Node {
 	parseInnerChildren := make([]ui.Node, 0, len(parseContent)+2)
 	if parseRendered.Start > 0 {
 		parseInnerChildren = append(parseInnerChildren, html.Div(html.Props{
-			Style: map[string]string{"height": px(float64(parseRendered.Start) * parseProps.RowHeight)},
+			Style: map[string]string{"height": pxExact(float64(parseRendered.Start) * parseProps.RowHeight)},
 			Aria:  map[string]string{"hidden": "true"},
 		}))
 	}
 	parseInnerChildren = append(parseInnerChildren, parseContent...)
 	if parseRendered.End < len(parseProps.Items) {
 		parseInnerChildren = append(parseInnerChildren, html.Div(html.Props{
-			Style: map[string]string{"height": px(float64(len(parseProps.Items)-parseRendered.End) * parseProps.RowHeight)},
+			Style: map[string]string{"height": pxExact(float64(len(parseProps.Items)-parseRendered.End) * parseProps.RowHeight)},
 			Aria:  map[string]string{"hidden": "true"},
 		}))
 	}
@@ -190,7 +190,7 @@ func List[T any](parseProps ListProps[T]) ui.Node {
 	return html.Div(buildListOuterProps(parseProps, parseListID), html.Div(html.Props{
 		Class: parseProps.InnerClass,
 		Style: map[string]string{
-			"height":        px(parseState.TotalHeight),
+			"height":        pxExact(parseState.TotalHeight),
 			"boxSizing":     "border-box",
 			"overflow":      "hidden",
 			"position":      "relative",
@@ -288,7 +288,7 @@ func renderRows[T any](parseRendered, parseVisible Range, parseItems []T, parseR
 		parseChildren = append(parseChildren, html.Div(html.Props{
 			Key: parseKeyValue,
 			Style: map[string]string{
-				"height":    px(parseRowHeight),
+				"height":    pxExact(parseRowHeight),
 				"boxSizing": "border-box",
 			},
 		}, ui.CreateElement(rowBodyComponent[T], rowBodyProps[T]{
@@ -309,6 +309,17 @@ func mergeStyle(parseBase, parseExtra map[string]string) map[string]string {
 	maps.Copy(parseMerged, parseBase)
 	maps.Copy(parseMerged, parseExtra)
 	return parseMerged
+}
+
+// pxExact formats a pixel length without rounding. Row heights, spacers and the
+// content height feed the same scroll arithmetic (index * RowHeight), so rounding
+// each of them independently (as px does) drifts the scroll geometry by up to half
+// a pixel per row for a fractional RowHeight such as 20.5.
+func pxExact(parseValue float64) string {
+	if math.IsNaN(parseValue) || math.IsInf(parseValue, 0) {
+		return "0px"
+	}
+	return strconv.FormatFloat(parseValue, 'f', -1, 64) + "px"
 }
 
 func px(parseValue float64) string {

@@ -494,6 +494,7 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.pendingBoundaryRecovery = false
 		parseRt.ScheduleUpdate()
 	}
+	parseRt.ageEffectErroredBoundaries()
 
 	// v5 P2.5 (T12): a higher-priority lane arrived mid-pass. The pass was
 	// allowed to finish and commit rather than being torn down in place; start
@@ -727,6 +728,9 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 				if parseFiber.hasDirectText && parseRt.domNodeText(parseFiber.dom) != parseFiber.textContent {
 					parseRt.domAdapter.SetTextContent(parseFiber.dom, parseFiber.textContent)
 				}
+				// A hydrated node is adopted, never placed, so the placement-time
+				// ref publish does not run for it.
+				parseRt.publishDOMRef(parseFiber, parseFiber.dom)
 				parseFiber.commitDurationNs += commitTimingSinceNs(parseStart3)
 				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
@@ -774,6 +778,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 						parseRt.updateDomProperties(parseFiber.dom, parseOldView, parseNewView)
 						isParseCommitted = true
 					}
+					parseRt.retargetDOMRef(parseFiber)
 					if isParseCommitted {
 						parseFiber.commitDurationNs += commitTimingSinceNs(parseStart5)
 						parseRt.recordFineGrainedDescendantCommit(parseFiber)
@@ -2139,10 +2144,32 @@ func (parseRt *Runtime) runOutgoingCleanup(parseFiber *Fiber, parseCleanupIndex 
 	parseFiber.hooks.cleanups[parseCleanupIndex] = nil
 
 	parseStart := commitTimingStart()
-	parseCleanup()
+	parseRt.callOutgoingCleanupContained(parseFiber, parseCleanup)
 	parseDurationNs := commitTimingSinceNs(parseStart)
 	parseFiber.cleanupDurationNs += parseDurationNs
 	recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
+}
+
+// callOutgoingCleanupContained calls one superseded effect cleanup and routes a
+// panic to the nearest error boundary, as runOneEffect does for the effect body.
+//
+// Without containment a throwing cleanup unwound through the whole effect
+// flush: the remaining effects of this fiber and every later fiber never ran,
+// although their dependencies were already stored at render, so they would not
+// run again either.
+func (parseRt *Runtime) callOutgoingCleanupContained(parseFiber *Fiber, parseCleanup func()) {
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			var isHandled bool
+			if panicPhaseMayRecoverWithBoundary(PanicPhaseCleanup) {
+				_, isHandled = parseRt.recoverBoundaryError(parseFiber, parseRecovered, boundaryPhaseCleanup)
+			}
+			if !isHandled {
+				panic(markUnhandledPanic(parseFiber, boundaryPhaseCleanup, parseRecovered))
+			}
+		}
+	}()
+	parseCleanup()
 }
 
 // runEffects runs all effects for a fiber tree.

@@ -108,10 +108,11 @@ func newMirrorHooksHost(parseB *testing.B, useTyped bool, useTypedHooks bool) (f
 func BenchmarkMirrorHooksRefresh(parseB *testing.B) {
 	getSetToken, getScheduler := newMirrorHooksHost(parseB, false, false)
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		getSetToken(parseI + 1)
 		getScheduler.FlushAll()
+		parseI++
 	}
 }
 
@@ -121,10 +122,11 @@ func BenchmarkMirrorHooksRefresh(parseB *testing.B) {
 func BenchmarkMirrorHooksRefreshTypedHooks(parseB *testing.B) {
 	getSetToken, getScheduler := newMirrorHooksHost(parseB, true, true)
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		getSetToken(parseI + 1)
 		getScheduler.FlushAll()
+		parseI++
 	}
 }
 
@@ -133,9 +135,10 @@ func BenchmarkMirrorHooksRefreshTypedHooks(parseB *testing.B) {
 func BenchmarkMirrorHooksRefreshTyped(parseB *testing.B) {
 	getSetToken, getScheduler := newMirrorHooksHost(parseB, true, false)
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		getSetToken(parseI + 1)
 		getScheduler.FlushAll()
+		parseI++
 	}
 }

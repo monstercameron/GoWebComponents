@@ -203,3 +203,60 @@ func TestGoUseFetch_RejectedPromise(parseT *testing.T) {
 		parseT.Fatalf("expected rejected promise error, got %q", parseState.Error)
 	}
 }
+
+// TestGoUseFetch_StaleResponseDoesNotOverwriteNewer pins that a slow older
+// response cannot overwrite the state written by a newer refetch.
+func TestGoUseFetch_StaleResponseDoesNotOverwriteNewer(parseT *testing.T) {
+	_, _ = initWasmFetchTestRuntime()
+	defer func() {
+		SetCurrentFiber(nil)
+		resetGlobalRuntimeForTest()
+	}()
+
+	var parseResolvers []js.Value
+	parseFetchFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return js.Global().Get("Promise").New(js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseResolvers = append(parseResolvers, parseArgs2[0])
+			return nil
+		}))
+	})
+	defer parseFetchFn.Release()
+	parseRestoreFetch := setGlobalJSValue("fetch", parseFetchFn)
+	defer parseRestoreFetch()
+
+	buildResponse := func(parsePayload string) js.Value {
+		parseTextFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return makeResolvedPromise(js.ValueOf(parsePayload))
+		})
+		parseResponse := js.Global().Get("Object").New()
+		parseResponse.Set("ok", true)
+		parseResponse.Set("text", parseTextFn)
+		return parseResponse
+	}
+	waitForCalls := func(parseCount int) {
+		parseT.Helper()
+		parseDeadline := time.Now().Add(2 * time.Second)
+		for len(parseResolvers) < parseCount {
+			if time.Now().After(parseDeadline) {
+				parseT.Fatalf("timed out waiting for %d fetch calls, saw %d", parseCount, len(parseResolvers))
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+
+	parseGetter, parseRefetch := GoUseFetch("/api/test")
+	parseRefetch()
+	waitForCalls(1)
+	parseRefetch()
+	waitForCalls(2)
+
+	// The newer request (second call) answers first, then the older one lands late.
+	parseResolvers[1].Invoke(buildResponse("newer"))
+	_ = waitForFetchState(parseT, parseGetter, func(parseState FetchState) bool { return !parseState.Loading })
+	parseResolvers[0].Invoke(buildResponse("older"))
+	time.Sleep(100 * time.Millisecond)
+
+	if parseData, _ := parseGetter().Data.(string); parseData != "newer" {
+		parseT.Fatalf("stale response overwrote newer state: %+v", parseGetter())
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"time"
@@ -385,7 +386,16 @@ func (parseHost *NativeHost) Require(parseFeature Feature) error {
 }
 
 // Execute handles one versioned native request and always returns a wire-safe reply.
-func (parseHost *NativeHost) Execute(parseContext context.Context, parseRequest NativeRequest) NativeReply {
+func (parseHost *NativeHost) Execute(parseContext context.Context, parseRequest NativeRequest) (parseReply NativeReply) {
+	// A faulty host adapter must not unwind through the transport: contain its
+	// panic as a typed failure. The panic value stays off the wire because it can
+	// name internal paths and state; the diagnostic belongs in the host's logs.
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			log.Printf("desktop: native method %q panicked: %v", parseRequest.Method, parseRecovered)
+			parseReply = nativeFailure(interop.CodeRemote, "native method failed unexpectedly")
+		}
+	}()
 	if parseRequest.Version != NativeContractVersion {
 		return nativeFailure(interop.CodeInvalid, "unsupported native contract version")
 	}
@@ -561,13 +571,12 @@ func nativeFailure(parseCode interop.ErrorCode, parseMessage string) NativeReply
 // nativeErrorReply preserves an interop classification in a wire envelope.
 func nativeErrorReply(parseErr error) NativeReply {
 	parseCode := interop.CodeRemote
-	var parseJSONType *json.UnmarshalTypeError
-	var parseJSONSyntax *json.SyntaxError
-	if errors.As(parseErr, &parseJSONType) || errors.As(parseErr, &parseJSONSyntax) {
+	_, parseJSONType := errors.AsType[*json.UnmarshalTypeError](parseErr)
+	_, parseJSONSyntax := errors.AsType[*json.SyntaxError](parseErr)
+	if parseJSONType || parseJSONSyntax {
 		parseCode = interop.CodeInvalid
 	}
-	var parseTyped *interop.Error
-	if errors.As(parseErr, &parseTyped) {
+	if parseTyped, parseOk := errors.AsType[*interop.Error](parseErr); parseOk {
 		parseCode = parseTyped.Code
 	}
 	return nativeFailure(parseCode, parseErr.Error())

@@ -81,19 +81,34 @@ func Menu(parseProps MenuProps) ui.Node {
 			},
 		}, html.Text(parseItem.Label)))
 	}
+	parseMenuAria := map[string]string{
+		"label":    parseProps.Label,
+		"expanded": boolString(parseProps.Open),
+	}
+	storeActiveDescendant(parseMenuAria, parseProps.ActiveID)
 	return html.Tag("div", html.Props{
 		ID:   parseProps.ID,
 		Role: "menu",
-		Aria: map[string]string{
-			"label":            parseProps.Label,
-			"expanded":         boolString(parseProps.Open),
-			"activedescendant": strings.TrimSpace(parseProps.ActiveID),
-		},
+		Aria: parseMenuAria,
 	}, parseItems...)
+}
+
+// storeActiveDescendant sets aria-activedescendant only when an id is present;
+// an empty IDREF is invalid ARIA and some assistive tech announces it.
+func storeActiveDescendant(parseAria map[string]string, parseActiveID string) {
+	if parseTrimmed := strings.TrimSpace(parseActiveID); parseTrimmed != "" {
+		parseAria["activedescendant"] = parseTrimmed
+	}
 }
 
 // Listbox renders a headless listbox with option selection state.
 func Listbox(parseProps ListboxProps) ui.Node {
+	return renderListbox(parseProps, html.TabIndexZero)
+}
+
+// renderListbox builds the listbox with an explicit tab index: a standalone
+// listbox is a tab stop, while a combobox popup keeps focus on its input.
+func renderListbox(parseProps ListboxProps, parseTabIndex int) ui.Node {
 	parseItems := make([]ui.Node, 0, len(parseProps.Items))
 	for _, parseItem := range parseProps.Items {
 		parseItems = append(parseItems, html.Tag("div", html.Props{
@@ -106,9 +121,9 @@ func Listbox(parseProps ListboxProps) ui.Node {
 		}, html.Text(parseItem.Label)))
 	}
 	parseAria := map[string]string{
-		"label":            parseProps.Label,
-		"activedescendant": strings.TrimSpace(parseProps.ActiveID),
+		"label": parseProps.Label,
 	}
+	storeActiveDescendant(parseAria, parseProps.ActiveID)
 	if parseProps.MultiSelect {
 		parseAria["multiselectable"] = "true"
 	}
@@ -124,7 +139,7 @@ func Listbox(parseProps ListboxProps) ui.Node {
 		// A composite widget MUST be focusable: the listbox owns arrow-key
 		// navigation and aria-activedescendant, so if it cannot take focus, none of
 		// that is reachable and the role is a promise the widget does not keep.
-		TabIndex: html.TabIndexZero,
+		TabIndex: parseTabIndex,
 		Aria:     parseAria,
 	}, parseItems...)
 }
@@ -132,21 +147,24 @@ func Listbox(parseProps ListboxProps) ui.Node {
 // Combobox renders the input/listbox shell expected by screen readers.
 func Combobox(parseProps ComboboxProps) ui.Node {
 	parseListID := parseProps.ID + "-listbox"
+	parseInputAria := map[string]string{
+		"label":        parseProps.Label,
+		"expanded":     boolString(parseProps.Expanded),
+		"controls":     parseListID,
+		"autocomplete": "list",
+	}
+	storeActiveDescendant(parseInputAria, parseProps.ActiveID)
 	return html.Tag("div", html.Props{ID: parseProps.ID + "-root"},
 		html.Input(html.Props{
 			ID:          parseProps.ID,
 			Role:        "combobox",
 			Value:       parseProps.Value,
 			Placeholder: parseProps.Placeholder,
-			Aria: map[string]string{
-				"label":            parseProps.Label,
-				"expanded":         boolString(parseProps.Expanded),
-				"controls":         parseListID,
-				"autocomplete":     "list",
-				"activedescendant": strings.TrimSpace(parseProps.ActiveID),
-			},
+			Aria:        parseInputAria,
 		}),
-		Listbox(ListboxProps{ID: parseListID, Label: parseProps.Label + " options", ActiveID: parseProps.ActiveID, Items: parseProps.Items}),
+		// The popup is not a tab stop: focus stays on the input, which drives it
+		// through aria-activedescendant.
+		renderListbox(ListboxProps{ID: parseListID, Label: parseProps.Label + " options", ActiveID: parseProps.ActiveID, Items: parseProps.Items}, -1),
 	)
 }
 

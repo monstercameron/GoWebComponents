@@ -9,13 +9,13 @@ import "reflect"
 
 // GoUseStateGlobal wraps GoUseState with global fiber context
 func GoUseStateGlobal[T any](parseStateInitialValue T) (func() T, func(interface{})) {
-	parseRuntime := GetGlobalRuntime()
+	parseRuntime := getHookRuntime()
 	return GoUseState(parseRuntime, parseStateInitialValue)
 }
 
-// GoUseStateSlotGlobal claims a value-type state slot on the global runtime.
+// GoUseStateSlotGlobal claims a value-type state slot on the runtime that owns the rendering tree.
 func GoUseStateSlotGlobal[T any](parseStateInitialValue T) StateSlot[T] {
-	parseRuntime := GetGlobalRuntime()
+	parseRuntime := getHookRuntime()
 	return GoUseStateSlot(parseRuntime, parseStateInitialValue)
 }
 

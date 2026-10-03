@@ -286,6 +286,16 @@ func readBuildHookPreviews(parseHooks []HookSnapshot, parseRedact bool) []AgentH
 	return parseResult
 }
 
+// AgentRedactionActive reports whether a snapshot redaction policy is
+// configured. Agent-visible surfaces that carry application values outside
+// BuildAgentSnapshot (captured console text, dry-run previews) consult it so
+// they follow the same fail-closed rule: with any policy configured, the
+// values are replaced with "[redacted]" rather than risk leaking a secret the
+// policy was meant to hide.
+func AgentRedactionActive() bool {
+	return readHookRedactionActive()
+}
+
 // readHookRedactionActive reports whether a panic-report redaction policy is
 // currently configured. Any configured policy causes hook value previews to be
 // redacted (fail-closed). See the BuildAgentSnapshot GoDoc for rationale.

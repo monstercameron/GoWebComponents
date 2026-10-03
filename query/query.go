@@ -87,6 +87,27 @@ type entry struct {
 	// lastUse orders entries for eviction. A counter rather than a timestamp so
 	// recency does not depend on the injected clock, which a test may freeze.
 	lastUse uint64
+	// layers are the unsettled-or-confirmed optimistic mutations stacked on
+	// this entry, oldest first, and base is the confirmed state beneath them.
+	// A failed mutation drops only its own layer, so overlapping mutations
+	// roll back to the right state instead of to another mutation's guess.
+	layers []*optimisticLayer
+	base   entrySnapshot
+}
+
+// entrySnapshot is the data-bearing part of an entry, captured for rollback.
+type entrySnapshot struct {
+	data      any
+	err       error
+	hasData   bool
+	updatedAt time.Time
+}
+
+// optimisticLayer is one Mutate/MutateAsync call's contribution to an entry.
+type optimisticLayer struct {
+	snap      entrySnapshot
+	isPending bool
+	hasFailed bool
 }
 
 // flight is one in-progress fetch that concurrent callers join instead of duplicating.
@@ -307,36 +328,14 @@ func SWR[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parse
 func Mutate[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn func() (T, error)) Result[T] {
 	parseC.mu.Lock()
 	parseE := parseC.ensureEntry(parseKey)
-	parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt := parseE.data, parseE.hasData, parseE.err, parseE.updatedAt
-	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseOptimistic, true, nil, parseC.now()
-	parseE.gen++
-	parseGen := parseE.gen
+	parseLayer := parseC.pushOptimisticLayerLocked(parseE, parseOptimistic)
 	parseC.mu.Unlock()
 
 	parseVal, parseErr := parseFn()
 
 	parseC.mu.Lock()
 	defer parseC.mu.Unlock()
-	if parseE.gen != parseGen {
-		// A newer write (another mutation, Set, or a completed fetch) landed
-		// while fn ran; committing or rolling back would clobber it. Report
-		// the outcome against the current state instead.
-		parseRes := resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
-		if parseErr != nil {
-			parseRes.Err = parseErr
-		}
-		return parseRes
-	}
-	if parseErr != nil {
-		parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt
-		parseE.gen++
-		parseRes := resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
-		parseRes.Err = parseErr
-		return parseRes
-	}
-	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseVal, true, nil, parseC.now()
-	parseE.gen++
-	return resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
+	return settleOptimisticLayerLocked[T](parseC, parseE, parseLayer, parseVal, parseErr)
 }
 
 // MutateAsync applies the optimistic value to key immediately (so a Snapshot taken right
@@ -348,38 +347,76 @@ func Mutate[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn fu
 func MutateAsync[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn func() (T, error), parseOnSettled func(Result[T])) {
 	parseC.mu.Lock()
 	parseE := parseC.ensureEntry(parseKey)
-	parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt := parseE.data, parseE.hasData, parseE.err, parseE.updatedAt
-	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseOptimistic, true, nil, parseC.now()
-	parseE.gen++
-	parseGen := parseE.gen
+	parseLayer := parseC.pushOptimisticLayerLocked(parseE, parseOptimistic)
 	parseC.mu.Unlock()
 
 	go func() {
 		parseVal, parseErr := parseFn()
 		parseC.mu.Lock()
-		var parseRes Result[T]
-		switch {
-		case parseE.gen != parseGen:
-			// A newer write landed while fn ran; leave it in place (see Mutate).
-			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
-			if parseErr != nil {
-				parseRes.Err = parseErr
-			}
-		case parseErr != nil:
-			parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt
-			parseE.gen++
-			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
-			parseRes.Err = parseErr
-		default:
-			parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseVal, true, nil, parseC.now()
-			parseE.gen++
-			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
-		}
+		parseRes := settleOptimisticLayerLocked[T](parseC, parseE, parseLayer, parseVal, parseErr)
 		parseC.mu.Unlock()
 		if parseOnSettled != nil {
 			parseOnSettled(parseRes)
 		}
 	}()
+}
+
+// pushOptimisticLayerLocked applies parseOptimistic to the entry as a new
+// mutation layer. The first layer captures the confirmed state beneath it.
+// Caller holds mu.
+func (parseC *Cache) pushOptimisticLayerLocked(parseE *entry, parseOptimistic any) *optimisticLayer {
+	if len(parseE.layers) == 0 {
+		parseE.base = entrySnapshot{data: parseE.data, err: parseE.err, hasData: parseE.hasData, updatedAt: parseE.updatedAt}
+	}
+	parseSnap := entrySnapshot{data: parseOptimistic, hasData: true, updatedAt: parseC.now()}
+	parseLayer := &optimisticLayer{snap: parseSnap, isPending: true}
+	parseE.layers = append(parseE.layers, parseLayer)
+	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseSnap.data, true, nil, parseSnap.updatedAt
+	parseE.gen++
+	return parseLayer
+}
+
+// settleOptimisticLayerLocked records the outcome of one mutation and shows the
+// newest layer that has not failed, or the confirmed base when every layer has
+// failed. A Set or committed fetch drops all layers, in which case the outcome is
+// reported against the current state without clobbering that newer write.
+// Caller holds mu.
+func settleOptimisticLayerLocked[T any](parseC *Cache, parseE *entry, parseLayer *optimisticLayer, parseVal T, parseErr error) Result[T] {
+	parseIsLive := false
+	for _, parseOther := range parseE.layers {
+		if parseOther == parseLayer {
+			parseIsLive = true
+			break
+		}
+	}
+	if parseIsLive {
+		parseLayer.isPending = false
+		if parseErr != nil {
+			parseLayer.hasFailed = true
+		} else {
+			parseLayer.snap = entrySnapshot{data: parseVal, hasData: true, updatedAt: parseC.now()}
+		}
+		parseShown := parseE.base
+		hasPending := false
+		for _, parseOther := range parseE.layers {
+			if parseOther.isPending {
+				hasPending = true
+			}
+			if !parseOther.hasFailed {
+				parseShown = parseOther.snap
+			}
+		}
+		parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseShown.data, parseShown.hasData, parseShown.err, parseShown.updatedAt
+		if !hasPending {
+			parseE.layers = nil
+		}
+		parseE.gen++
+	}
+	parseRes := resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
+	if parseErr != nil {
+		parseRes.Err = parseErr
+	}
+	return parseRes
 }
 
 // Set seeds or overwrites the cached value for key (e.g. priming from SSR data or a
@@ -389,6 +426,7 @@ func (parseC *Cache) Set(parseKey string, parseData any) {
 	defer parseC.mu.Unlock()
 	parseE := parseC.ensureEntry(parseKey)
 	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseData, true, nil, parseC.now()
+	parseE.layers = nil
 	parseE.gen++
 }
 
@@ -457,6 +495,9 @@ func (parseC *Cache) Invalidate(parseKey string) {
 	defer parseC.mu.Unlock()
 	if parseE := parseC.entries[parseKey]; parseE != nil {
 		parseE.updatedAt = time.Time{}
+		// An in-flight fetch began before this invalidation, so its result is
+		// pre-invalidation data and must not commit as fresh.
+		parseE.gen++
 	}
 }
 
@@ -553,6 +594,7 @@ func runFetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error), 
 		if parseE.gen == parseFlight.gen {
 			if parseErr == nil {
 				parseE.data, parseE.err, parseE.hasData, parseE.updatedAt = parseVal, nil, true, parseC.now()
+				parseE.layers = nil
 				parseE.gen++
 			} else {
 				parseE.err = parseErr

@@ -341,6 +341,7 @@ Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWA
 | Command | Use it when | Representative call |
 | --- | --- | --- |
 | `bench` | you want repeatable benchmark discovery, JSON output, or normalized scoring against a saved reference report | `go run ./tools/gwc bench -root . -reference .\docs\benchmarks\reference.json` |
+| `bench suite` and `bench suite compare` | you want one versioned report (schema `gwc.bench.suite/v1`) across native, wasm, size, and build lanes, and a significance-aware comparison of two reports | `go run ./tools/gwc bench suite -lane native -count 5 -out bin/bench-suite.json` |
 | `wasm measure` | you want a wasm artifact measurement pass with manifest output | `go run ./tools/gwc wasm measure -package .\examples\public\ui-render` |
 | `wasm compare` and related subcommands | you want wasm-specific diffing, compression, cache, or toolchain comparisons | `go run ./tools/gwc wasm compare-toolchain -package .\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0` |
 | `buildreport` | you want a "what rebuilt and why" report (rebuilt vs cached packages, ranked by compile time) from the build action graph | `go run ./tools/gwc buildreport -pattern ./... -json` |
@@ -351,6 +352,35 @@ Use the subcommand help directly for the wasm tools:
 go run ./tools/gwc wasm measure -h
 go run ./tools/gwc bench -h
 ```
+
+### Benchmark Suite (`gwc bench suite`)
+
+`gwc bench` runs and scores benchmarks; `gwc bench suite` runs a fixed set of lanes and writes ONE versioned report (schema `gwc.bench.suite/v1`, default `bin/bench-suite.json`) so two runs can be compared later. Run it from the repository root, because the size lane builds relative to the current directory.
+
+```powershell
+go run ./tools/gwc bench suite -lane native -count 5 -shuffle -seed 6001 -out bin/bench-suite.json
+go run ./tools/gwc bench suite compare -max-regress-pct 10 bin/baseline.json bin/bench-suite.json
+```
+
+Lanes are `native`, `wasm` (micro benchmarks), `size` (release wasm bytes) and `build` (first build against rebuild); all four run by default. The browser, heap and health lanes are written as `not-run` placeholders so a report never silently omits them. Flags, from `tools/gwc/bench_suite.go`:
+
+| Flag | Meaning |
+| --- | --- |
+| `-lane` | lanes to run; repeatable or comma-separated |
+| `-count` | samples per benchmark (`go test -count`, default 5) |
+| `-warmup` | discarded warm-up runs per package (default 1); applies to the native lane, and to wasm only when set explicitly |
+| `-shuffle`, `-seed` | randomize package order with a seed; `-seed 0` picks one from the clock and records it, and the order is recorded in `run.order` |
+| `-include` | root-relative directory to opt in even if skipped by default (for example `test/render`); repeatable |
+| `-resume` | skip targets already finished in `<out>.partial.json`; refuses when the configuration differs |
+| `-target-timeout` | kill one package's `go test` process tree after this long (default 15 minutes) and mark it `timeout`; `0` disables |
+| `-quiet` | suppress the progress lines on stderr |
+| `-out`, `-suite`, `-bench`, `-benchtime`, `-root`, `-json` | report path, suite name, benchmark regex, benchtime, root directory, JSON on stdout |
+
+While a run is going, the progress lines (also written to `<out>.log`, even with `-quiet`) show the target index, status and an estimate of the time remaining, and `<out>.partial.json` is updated after each target so an interrupted run can be resumed. The report records a `machine` block (architecture, host architecture, CPU model, logical CPUs, RAM, Go version, `GOMAXPROCS`, `GOFLAGS`, build tags, git SHA and dirty flag), and comparison refuses mismatched machines.
+
+`gwc bench suite compare` prints per-entry median deltas and per-layer geometric means. An entry is flagged only when its delta exceeds the larger of 2 percent and three times the combined relative MAD, which is why `-count` should be at least 5. `-max-regress-pct N` makes the command exit non-zero when a significant regression exceeds N percent, `-allow-machine-mismatch` compares reports from different architectures or CPUs, and `-json` emits the comparison as JSON.
+
+Known limits: the `build` lane's `coldMs` is not a true cold build because the Go cache is not cleared, and the wasm lane needs the executor described in [12 Devtools Testing And Observability](12-devtools-testing-and-observability.md). A baseline is only meaningful when the tree is frozen and nothing else is running, because the noise on a throttled machine is large.
 
 ## Runner Config Ownership
 

@@ -245,6 +245,7 @@ type verifySummary struct {
 	Audit            *doctorAuditReport `json:"audit,omitempty"`
 	AuditMinSeverity string             `json:"auditMinSeverity,omitempty"`
 	Resolution       map[string]string  `json:"resolution,omitempty"`
+	Warnings         []string           `json:"warnings,omitempty"`
 }
 
 type testConfig struct {
@@ -278,6 +279,7 @@ type testSummary struct {
 	SelectedLanes []string          `json:"selectedLanes"`
 	Lanes         []testLaneSummary `json:"lanes"`
 	Resolution    map[string]string `json:"resolution,omitempty"`
+	Warnings      []string          `json:"warnings,omitempty"`
 }
 
 var verifyExecuteBuild = executeBuild
@@ -297,7 +299,7 @@ var releaseMarshalIndent = json.MarshalIndent
 var releaseLookPath = exec.LookPath
 
 var releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-	return launcherRunCommand(command, args, cwd, env)
+	return runLauncherGoCommand(command, args, cwd, env)
 }
 
 var buildLookPath = exec.LookPath
@@ -307,6 +309,9 @@ var buildRunCommand = func(command string, args []string, cwd string, env []stri
 	cmd.Dir = cwd
 	cmd.Env = env
 	output, err := cmd.CombinedOutput()
+	if err != nil {
+		err = tolerateGoCleanupFailure(command+" "+strings.Join(args, " "), string(output), err)
+	}
 	return string(output), err
 }
 
@@ -384,6 +389,10 @@ var verifyRunGoTests = func(rootPath string) (string, error) {
 	output, err := cmd.CombinedOutput()
 	trimmed := strings.TrimSpace(string(output))
 	if err != nil {
+		// A locked freshly built test exe on Windows is a cleanup warning, not a test failure.
+		if tolerateGoCleanupFailure("go test ./...", trimmed, err) == nil {
+			return trimmed, nil
+		}
 		if trimmed == "" {
 			return "", fmt.Errorf("go test failed: %w", err)
 		}
@@ -1277,6 +1286,7 @@ func printVerifySummary(parseSummary verifySummary) {
 		fmt.Println("  tests:        skipped")
 	}
 	fmt.Printf("  build:        %s -> %s\n", parseSummary.Build.Profile.Name, parseSummary.Build.OutputPath)
+	printGoCleanupWarnings(parseSummary.Warnings)
 	if parseSummary.Audit != nil {
 		parseAuditStatus := "PASS"
 		if !parseSummary.Audit.OK {
@@ -1397,6 +1407,7 @@ func printTestSummary(parseSummary testSummary) {
 		}
 		fmt.Println()
 	}
+	printGoCleanupWarnings(parseSummary.Warnings)
 	printResolutionTrace(parseSummary.Resolution, []string{"app", "root"}, "  ")
 }
 

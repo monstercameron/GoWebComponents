@@ -29,9 +29,9 @@ func DynamicLength(parseName, parseProperty string, parseValue Length) Dynamic {
 
 // DynamicVar builds a Dynamic for any property/value pair.
 func DynamicVar(parseName, parseProperty, parseValue string) Dynamic {
-	if len(parseName) < 2 || parseName[:2] != "--" {
-		parseName = "--" + parseName
-	}
+	// Same sanitizing as Var/Custom*, so a crafted name cannot close var() and
+	// inject declarations into the emitted class.
+	parseName = customPropertyName(parseName)
 	return Dynamic{varName: parseName, property: parseProperty, value: parseValue}
 }
 

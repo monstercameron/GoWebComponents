@@ -1,13 +1,62 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v6/query"
+import (
+	"sync"
 
-// revalidateOnSignal is the pure action behind UseRevalidateOnFocus: it marks every cached
-// query stale so the next render's UseQuery components revalidate. Split out so the
-// invalidation behavior is unit-testable without the window-event lifecycle.
+	"github.com/monstercameron/GoWebComponents/v6/query"
+)
+
+// queryRevalidators holds, per cache, the refetch callbacks of every mounted UseQuery. Marking
+// entries stale alone refetches nothing (UseQuery's effect is keyed on [key, deps] and never
+// re-runs), so the focus signal must also call these. Guarded by queryRevalidatorsMu.
+var (
+	queryRevalidatorsMu     sync.Mutex
+	queryRevalidatorsNextID uint64
+	queryRevalidators       = map[*query.Cache]map[uint64]func(){}
+)
+
+// storeQueryRevalidator registers a refetch callback for parseCache and returns its unregister
+// func. Callbacks join any in-flight fetch through query.SWR, so many subscribers never storm.
+func storeQueryRevalidator(parseCache *query.Cache, parseRefetch func()) func() {
+	queryRevalidatorsMu.Lock()
+	defer queryRevalidatorsMu.Unlock()
+	queryRevalidatorsNextID++
+	parseID := queryRevalidatorsNextID
+	if queryRevalidators[parseCache] == nil {
+		queryRevalidators[parseCache] = map[uint64]func(){}
+	}
+	queryRevalidators[parseCache][parseID] = parseRefetch
+	return func() {
+		queryRevalidatorsMu.Lock()
+		defer queryRevalidatorsMu.Unlock()
+		delete(queryRevalidators[parseCache], parseID)
+		if len(queryRevalidators[parseCache]) == 0 {
+			delete(queryRevalidators, parseCache)
+		}
+	}
+}
+
+// handleQueryRevalidate runs every mounted UseQuery refetch callback for parseCache. Callbacks
+// are copied out first so a callback may mount or unmount queries without deadlocking.
+func handleQueryRevalidate(parseCache *query.Cache) {
+	queryRevalidatorsMu.Lock()
+	parseCallbacks := make([]func(), 0, len(queryRevalidators[parseCache]))
+	for _, parseCallback := range queryRevalidators[parseCache] {
+		parseCallbacks = append(parseCallbacks, parseCallback)
+	}
+	queryRevalidatorsMu.Unlock()
+	for _, parseCallback := range parseCallbacks {
+		parseCallback()
+	}
+}
+
+// revalidateOnSignal is the action behind UseRevalidateOnFocus: it marks every cached query
+// stale and triggers a refetch in every mounted UseQuery on that cache (deduped by query.SWR).
+// Split out so the behavior is testable without the window-event lifecycle.
 func revalidateOnSignal(parseCache *query.Cache) {
 	if parseCache != nil {
 		parseCache.InvalidateAll()
+		handleQueryRevalidate(parseCache)
 	}
 }
 

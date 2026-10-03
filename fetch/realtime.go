@@ -17,6 +17,7 @@ const (
 	defaultRealtimeMaxMessages    = 32
 	defaultRealtimeMaxErrors      = 8
 	defaultRealtimeMaxReconnects  = 3
+	defaultRealtimeMinStable      = time.Second
 	defaultRealtimeInitialBackoff = 250 * time.Millisecond
 	defaultRealtimeMaxBackoff     = 5 * time.Second
 	defaultRealtimeBackoffFactor  = 2
@@ -77,13 +78,18 @@ type RealtimeState struct {
 
 // WebSocketOptions configures UseWebSocket.
 type WebSocketOptions struct {
-	Protocols         []string
-	Manual            bool
-	DisableReconnect  bool
-	MaxReconnects     int
-	InitialBackoff    time.Duration
-	MaxBackoff        time.Duration
-	BackoffFactor     float64
+	Protocols        []string
+	Manual           bool
+	DisableReconnect bool
+	MaxReconnects    int
+	InitialBackoff   time.Duration
+	MaxBackoff       time.Duration
+	BackoffFactor    float64
+	// MinStableDuration is how long a connection must stay open before it counts as healthy and
+	// restores the full reconnect budget. A connection that drops sooner keeps the consecutive
+	// reconnect count, so a server that accepts and immediately drops cannot be retried forever.
+	// Zero uses one second; a negative value restores the count on every open.
+	MinStableDuration time.Duration
 	HeartbeatInterval time.Duration
 	HeartbeatTimeout  time.Duration
 	HeartbeatMessage  string
@@ -94,13 +100,18 @@ type WebSocketOptions struct {
 
 // EventSourceOptions configures UseEventSource.
 type EventSourceOptions struct {
-	WithCredentials   bool
-	Manual            bool
-	DisableReconnect  bool
-	MaxReconnects     int
-	InitialBackoff    time.Duration
-	MaxBackoff        time.Duration
-	BackoffFactor     float64
+	WithCredentials  bool
+	Manual           bool
+	DisableReconnect bool
+	MaxReconnects    int
+	InitialBackoff   time.Duration
+	MaxBackoff       time.Duration
+	BackoffFactor    float64
+	// MinStableDuration is how long a connection must stay open before it counts as healthy and
+	// restores the full reconnect budget. A connection that drops sooner keeps the consecutive
+	// reconnect count, so a server that accepts and immediately drops cannot be retried forever.
+	// Zero uses one second; a negative value restores the count on every open.
+	MinStableDuration time.Duration
 	HeartbeatInterval time.Duration
 	HeartbeatTimeout  time.Duration
 	MaxMessages       int
@@ -153,6 +164,7 @@ type realtimeResolvedOptions struct {
 	initialBackoff      time.Duration
 	maxBackoff          time.Duration
 	backoffFactor       float64
+	minStableDuration   time.Duration
 	heartbeatInterval   time.Duration
 	heartbeatTimeout    time.Duration
 	heartbeatMessage    string
@@ -178,6 +190,9 @@ type realtimeConnectionController struct {
 	timerMu          sync.Mutex
 	reconnectTimer   *time.Timer
 	heartbeatTimer   *time.Timer
+	// holdReconnectAttempts keeps ReconnectAttempts across the next open because the previous
+	// connection dropped before minStableDuration. Guarded by lifecycleMu.
+	holdReconnectAttempts bool
 }
 
 // UseWebSocket opens a bounded browser WebSocket connection for a component.
@@ -363,6 +378,13 @@ func (parseC *realtimeConnectionController) startLocked() {
 	parseC.manualClosed.Store(false)
 	parseC.connectionClosed.Store(false)
 	parseC.options.now = getRealtimeNow(parseC.options.now)
+	// An explicit start begins a fresh retry budget; the attempt count lives in
+	// state that outlives the controller and would otherwise stay exhausted.
+	parseC.holdReconnectAttempts = false
+	updateRealtimeState(parseC.state, func(parsePrev RealtimeState) RealtimeState {
+		parsePrev.ReconnectAttempts = 0
+		return parsePrev
+	})
 	parseC.openLocked()
 }
 
@@ -511,13 +533,18 @@ func (parseC *realtimeConnectionController) handleOpenLocked(parseID int) {
 	parseC.options.maxErrors = getPositiveOrDefault(parseC.options.maxErrors, defaultRealtimeMaxErrors)
 	parseC.options.maxMessages = getPositiveOrDefault(parseC.options.maxMessages, defaultRealtimeMaxMessages)
 	parseNow := parseC.options.now()
+	// A previous connection that dropped inside minStableDuration keeps its count, so a server
+	// that opens and drops forever still exhausts the budget.
+	shouldKeepAttempts := parseC.holdReconnectAttempts
 	updateRealtimeState(parseC.state, func(parsePrev RealtimeState) RealtimeState {
 		parsePrev.Status = RealtimeOpen
 		parsePrev.Supported = true
 		parsePrev.Connecting = false
 		parsePrev.Open = true
 		parsePrev.Closed = false
-		parsePrev.ReconnectAttempts = 0
+		if !shouldKeepAttempts {
+			parsePrev.ReconnectAttempts = 0
+		}
 		parsePrev.NextReconnectAt = time.Time{}
 		parsePrev.LastOpenAt = parseNow
 		parsePrev.Error = nil
@@ -584,12 +611,13 @@ func (parseC *realtimeConnectionController) scheduleReconnectLocked(parseErr err
 	if parseC.options.maxReconnects <= 0 {
 		parseC.options.maxReconnects = defaultRealtimeMaxReconnects
 	}
-	if parseC.options.maxReconnects > 0 && parseC.currentReconnectAttempts() >= parseC.options.maxReconnects {
+	parseAttempts := parseC.settleReconnectAttemptsLocked()
+	if parseC.options.maxReconnects > 0 && parseAttempts >= parseC.options.maxReconnects {
 		parseC.finishClosedLocked(parseErr)
 		return
 	}
 
-	parseAttempt := parseC.currentReconnectAttempts() + 1
+	parseAttempt := parseAttempts + 1
 	parseDelay := calculateRealtimeBackoff(parseAttempt, parseC.options.initialBackoff, parseC.options.maxBackoff, parseC.options.backoffFactor)
 	parseNext := parseC.options.now().Add(parseDelay)
 	updateRealtimeState(parseC.state, func(parsePrev RealtimeState) RealtimeState {
@@ -614,6 +642,23 @@ func (parseC *realtimeConnectionController) scheduleReconnectLocked(parseErr err
 	parseC.timerMu.Lock()
 	parseC.reconnectTimer = parseTimer
 	parseC.timerMu.Unlock()
+}
+
+// settleReconnectAttemptsLocked judges the connection that just ended and returns the consecutive
+// reconnect count to continue from. A connection that stayed open at least minStableDuration was
+// healthy, so the count restarts at zero; one that dropped sooner keeps it and holds it across the
+// next open. A failed open (never connected) leaves the count as is.
+func (parseC *realtimeConnectionController) settleReconnectAttemptsLocked() int {
+	parseState := parseC.state.Get()
+	if !parseState.Open || parseC.options.minStableDuration <= 0 {
+		return parseState.ReconnectAttempts
+	}
+	if parseC.options.now().Sub(parseState.LastOpenAt) < parseC.options.minStableDuration {
+		parseC.holdReconnectAttempts = true
+		return parseState.ReconnectAttempts
+	}
+	parseC.holdReconnectAttempts = false
+	return 0
 }
 
 // currentReconnectAttempts reads the current consecutive reconnect count.
@@ -699,7 +744,9 @@ func (parseC *realtimeConnectionController) handleHeartbeatLocked() {
 	if parseC.options.heartbeatTimeout > 0 {
 		parseState := parseC.state.Get()
 		parseLastActivity := parseState.LastMessage.ReceivedAt
-		if parseLastActivity.IsZero() {
+		// A message from a previous connection must not count as activity on
+		// this one, so idle time never starts before the current open.
+		if parseLastActivity.IsZero() || parseLastActivity.Before(parseState.LastOpenAt) {
 			parseLastActivity = parseState.LastOpenAt
 		}
 		isTimedOut = !parseLastActivity.IsZero() && parseNow.Sub(parseLastActivity) > parseC.options.heartbeatTimeout
@@ -934,6 +981,7 @@ func resolveWebSocketOptions(parseOptions []WebSocketOptions) realtimeResolvedOp
 		initialBackoff:      getDurationOrDefault(parseOption.InitialBackoff, defaultRealtimeInitialBackoff),
 		maxBackoff:          getDurationOrDefault(parseOption.MaxBackoff, defaultRealtimeMaxBackoff),
 		backoffFactor:       getFloatOrDefault(parseOption.BackoffFactor, defaultRealtimeBackoffFactor),
+		minStableDuration:   getRealtimeMinStable(parseOption.MinStableDuration),
 		heartbeatInterval:   parseOption.HeartbeatInterval,
 		heartbeatTimeout:    parseOption.HeartbeatTimeout,
 		heartbeatMessage:    parseOption.HeartbeatMessage,
@@ -966,6 +1014,7 @@ func resolveEventSourceOptions(parseOptions []EventSourceOptions) realtimeResolv
 		initialBackoff:    getDurationOrDefault(parseOption.InitialBackoff, defaultRealtimeInitialBackoff),
 		maxBackoff:        getDurationOrDefault(parseOption.MaxBackoff, defaultRealtimeMaxBackoff),
 		backoffFactor:     getFloatOrDefault(parseOption.BackoffFactor, defaultRealtimeBackoffFactor),
+		minStableDuration: getRealtimeMinStable(parseOption.MinStableDuration),
 		heartbeatInterval: parseOption.HeartbeatInterval,
 		heartbeatTimeout:  parseTimeout,
 		maxMessages:       getPositiveOrDefault(parseOption.MaxMessages, defaultRealtimeMaxMessages),
@@ -985,6 +1034,7 @@ func buildRealtimeDeps(parseURL string, parseOpenTick int, parseOptions realtime
 		parseOpenTick,
 		strings.Join(parseOptions.protocols, "\x00"),
 		parseOptions.withCredentials,
+		parseOptions.minStableDuration,
 		parseOptions.manual,
 		parseOptions.reconnect,
 		parseOptions.maxReconnects,
@@ -998,6 +1048,18 @@ func buildRealtimeDeps(parseURL string, parseOpenTick int, parseOptions realtime
 		parseOptions.maxMessages,
 		parseOptions.maxErrors,
 	}
+}
+
+// getRealtimeMinStable resolves the caller's MinStableDuration: zero selects the default and a
+// negative value disables the guard.
+func getRealtimeMinStable(parseValue time.Duration) time.Duration {
+	if parseValue == 0 {
+		return defaultRealtimeMinStable
+	}
+	if parseValue < 0 {
+		return 0
+	}
+	return parseValue
 }
 
 // calculateRealtimeBackoff returns one bounded exponential backoff duration.
@@ -1093,6 +1155,6 @@ func getPositiveOrDefault(parseValue int, parseFallback int) int {
 
 // isRealtimeUnsupportedError reports whether err is an unsupported transport error.
 func isRealtimeUnsupportedError(parseErr error) bool {
-	var parseUnsupported realtimeUnsupportedError
-	return errors.As(parseErr, &parseUnsupported)
+	_, parseOk := errors.AsType[realtimeUnsupportedError](parseErr)
+	return parseOk
 }

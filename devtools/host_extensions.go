@@ -1,14 +1,18 @@
 package devtools
 
 import "maps"
+import "sync"
 
 import "github.com/monstercameron/GoWebComponents/v6/plugin"
 
 // ApplyHostExtensions registers one compatibility host source and returns a cleanup that removes it.
 func ApplyHostExtensions(parseHost *plugin.Host) func() {
 	parseRegistrationID := registerHostExtensionSource(parseHost)
+	// Once-guarded: the registration is reference counted, so a repeated cleanup
+	// would otherwise release a reference some other holder of the host owns.
+	var parseOnce sync.Once
 	return func() {
-		unregisterHostExtensionSource(parseRegistrationID)
+		parseOnce.Do(func() { unregisterHostExtensionSource(parseRegistrationID) })
 	}
 }
 

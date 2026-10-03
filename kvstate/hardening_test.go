@@ -1,9 +1,39 @@
 package kvstate
 
 import (
+	"fmt"
+	"hash/fnv"
 	"sync"
 	"testing"
 )
+
+// sanitizeHashFor returns the collision-guard suffix sanitizeIdent appends to
+// names that needed punctuation replaced.
+func sanitizeHashFor(parseName string) string {
+	parseHash := fnv.New32a()
+	_, _ = parseHash.Write([]byte(parseName))
+	return fmt.Sprintf("%08x", parseHash.Sum32())
+}
+
+// TestSanitizeIdentKeepsDistinctNamesDistinct pins that punctuation variants no
+// longer collapse onto one table, while clean names (existing databases) are
+// returned unchanged.
+func TestSanitizeIdentKeepsDistinctNamesDistinct(parseT *testing.T) {
+	parseInputs := []string{"a-b", "a_b", "a b", "a.b", "a/b", "a$b", "a-b-", "a-b_", "caf\u00e9", "cafe", "!!!", "___"}
+	parseSeen := map[string]string{}
+	for _, parseIn := range parseInputs {
+		parseOut := sanitizeIdent(parseIn)
+		if parsePrev, parseDup := parseSeen[parseOut]; parseDup {
+			parseT.Fatalf("sanitizeIdent collision: %q and %q both map to %q", parsePrev, parseIn, parseOut)
+		}
+		parseSeen[parseOut] = parseIn
+	}
+	for _, parseClean := range []string{"a_b", "gwc", "My_Table9", "_x"} {
+		if parseGot := sanitizeIdent(parseClean); parseGot != parseClean {
+			parseT.Fatalf("clean name %q changed to %q; existing databases would lose their table", parseClean, parseGot)
+		}
+	}
+}
 
 // TestSanitizeIdentRejectsLeadingDigit pins that a sanitized SQL identifier never
 // begins with a digit. The result is interpolated UNQUOTED into DDL/DML, and
@@ -12,10 +42,11 @@ func TestSanitizeIdentRejectsLeadingDigit(parseT *testing.T) {
 	parseCases := map[string]string{
 		"123abc":    "_123abc",
 		"9":         "_9",
-		"user data": "user_data",
+		"user data": "user_data_" + sanitizeHashFor("user data"),
 		"table":     "table",
+		"a_b":       "a_b",
 		"":          "gwc_state",
-		"!!!":       "___",
+		"!!!":       "____" + sanitizeHashFor("!!!"),
 	}
 	for parseIn, parseWant := range parseCases {
 		if parseGot := sanitizeIdent(parseIn); parseGot != parseWant {

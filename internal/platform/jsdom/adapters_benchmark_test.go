@@ -175,6 +175,12 @@ func installBenchmarkDOM() func() {
 		parseNode.Set("before", parseBeforeNode)
 		parseNode.Set("replaceChild", parseReplaceChild)
 		parseNode.Set("replaceWith", parseReplaceWith)
+		// Plain-object nodes do not inherit Element.prototype, so attribute and listener
+		// methods must be installed per node for the adapter to call them.
+		parseNode.Set("setAttribute", setAttribute)
+		parseNode.Set("removeAttribute", parseRemoveAttribute)
+		parseNode.Set("addEventListener", parseAddEventListener)
+		parseNode.Set("removeEventListener", parseRemoveEventListener)
 	}
 
 	parseElementCtor := js.FuncOf(func(parseThis10 js.Value, parseArgs10 []js.Value) interface{} {
@@ -303,7 +309,7 @@ func BenchmarkWASMDOMAdapterCreateElement(parseB *testing.B) {
 
 	parseAdapter := NewWASMDOMAdapter()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseNode := parseAdapter.CreateElement("div")
 		if parseNode == nil || parseNode.IsNull() {
 			parseB.Fatal("expected DOM node")
@@ -318,7 +324,7 @@ func BenchmarkWASMDOMAdapterSetAttribute(parseB *testing.B) {
 	parseAdapter := NewWASMDOMAdapter()
 	parseNode := parseAdapter.CreateElement("div")
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseAdapter.SetAttribute(parseNode, "data-id", "42")
 	}
 }
@@ -330,7 +336,7 @@ func BenchmarkWASMDOMAdapterAppendChild(parseB *testing.B) {
 	parseAdapter := NewWASMDOMAdapter()
 	parseParent := parseAdapter.CreateElement("div")
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseChild := parseAdapter.CreateElement("span")
 		parseAdapter.AppendChild(parseParent, parseChild)
 	}
@@ -342,7 +348,7 @@ func BenchmarkWASMDOMAdapterQuerySelector(parseB *testing.B) {
 
 	parseAdapter := NewWASMDOMAdapter()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseNode := parseAdapter.QuerySelector("#app")
 		if parseNode == nil {
 			parseB.Fatal("expected DOM node")
@@ -356,7 +362,7 @@ func BenchmarkWASMDOMAdapterGetElementById(parseB *testing.B) {
 
 	parseAdapter := NewWASMDOMAdapter()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseNode := parseAdapter.GetElementById("app")
 		if parseNode == nil || parseNode.IsNull() {
 			parseB.Fatal("expected DOM node")
@@ -370,7 +376,7 @@ func BenchmarkWASMDOMAdapterQuerySelectorAll(parseB *testing.B) {
 
 	parseAdapter := NewWASMDOMAdapter()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseNodes := parseAdapter.QuerySelectorAll(".item")
 		if len(parseNodes) == 0 {
 			parseB.Fatal("expected DOM nodes")
@@ -385,7 +391,7 @@ func BenchmarkWASMDOMAdapterSetPropertyString(parseB *testing.B) {
 	parseAdapter := NewWASMDOMAdapter()
 	parseNode := parseAdapter.CreateElement("input")
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseAdapter.SetProperty(parseNode, "value", "payload")
 	}
 }
@@ -402,7 +408,7 @@ func BenchmarkWASMDOMAdapterBatchAppend16(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+	for parseB.Loop() {
 		parseAdapter.BeginBatch(parseParent)
 		for _, parseChild := range parseChildren {
 			parseAdapter.AppendChild(parseParent, parseChild)
@@ -419,7 +425,7 @@ func BenchmarkWASMDOMAdapterAppendChildCurrentVsLegacy(parseB *testing.B) {
 	parseAdapter := NewWASMDOMAdapter()
 	parseB.Run("current_append", func(parseB *testing.B) {
 		parseB.ReportAllocs()
-		for parseI := 0; parseI < parseB.N; parseI++ {
+		for parseB.Loop() {
 			parseParent := parseAdapter.CreateElement("div")
 			parseChild := parseAdapter.CreateElement("span")
 			parseAdapter.AppendChild(parseParent, parseChild)
@@ -427,7 +433,7 @@ func BenchmarkWASMDOMAdapterAppendChildCurrentVsLegacy(parseB *testing.B) {
 	})
 	parseB.Run("legacy_appendChild", func(parseB *testing.B) {
 		parseB.ReportAllocs()
-		for parseI := 0; parseI < parseB.N; parseI++ {
+		for parseB.Loop() {
 			parseParent := parseAdapter.CreateElement("div").(*WASMDOMNode)
 			parseChild := parseAdapter.CreateElement("span").(*WASMDOMNode)
 			parseParent.value.Call("appendChild", parseChild.value)
@@ -444,7 +450,7 @@ func BenchmarkWASMDOMAdapterBatchAppend16CurrentVsLegacy(parseB *testing.B) {
 	parseDocument := js.Global().Get("document")
 	parseB.Run("current_append", func(parseB *testing.B) {
 		parseB.ReportAllocs()
-		for parseI := 0; parseI < parseB.N; parseI++ {
+		for parseB.Loop() {
 			parseParent := parseAdapter.CreateElement("div")
 			parseChildren := make([]runtime.DOMNode, 16)
 			for parseChildIndex := range parseChildren {
@@ -459,7 +465,7 @@ func BenchmarkWASMDOMAdapterBatchAppend16CurrentVsLegacy(parseB *testing.B) {
 	})
 	parseB.Run("legacy_fragment_appendChild", func(parseB *testing.B) {
 		parseB.ReportAllocs()
-		for parseI := 0; parseI < parseB.N; parseI++ {
+		for parseB.Loop() {
 			parseParent := parseAdapter.CreateElement("div").(*WASMDOMNode)
 			parseChildren := make([]runtime.DOMNode, 16)
 			for parseChildIndex := range parseChildren {
@@ -485,7 +491,7 @@ func BenchmarkWASMEventAdapterAddRemoveListener(parseB *testing.B) {
 	defer parseEventAdapter.ReleaseEventHandler(parseHandler)
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseEventAdapter.AddEventListener(parseNode, "click", parseHandler)
 		parseEventAdapter.RemoveEventListener(parseNode, "click", parseHandler)
 	}
@@ -500,7 +506,7 @@ func BenchmarkWASMDOMAdapterWrapFunctionNoArgsInvoke(parseB *testing.B) {
 	defer parseWrapped.Release()
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseWrapped.Invoke()
 	}
 }
@@ -519,7 +525,7 @@ func BenchmarkWASMDOMAdapterWrapFunctionStringInvoke(parseB *testing.B) {
 	parseEvent.Set("target", parseTarget)
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseWrapped.Invoke(parseEvent)
 	}
 }
@@ -573,7 +579,7 @@ func BenchmarkLegacyWrapFunctionNoArgsInvoke(parseB *testing.B) {
 	defer parseWrapped.Release()
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseWrapped.Invoke()
 	}
 }
@@ -588,7 +594,7 @@ func BenchmarkLegacyWrapFunctionStringInvoke(parseB *testing.B) {
 	defer parseWrapped.Release()
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseWrapped.Invoke(parseEvent)
 	}
 }

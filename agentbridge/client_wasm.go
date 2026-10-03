@@ -30,7 +30,7 @@ type wasmSocket struct {
 	closeFn   js.Func
 }
 
-// dialWASMSocket constructs a wasmSocket that connects to the given ws:// URL
+// dialWASMSocket constructs a wasmSocket that connects to the given ws:// or wss:// URL
 // and returns it. The socket is ready when the first message or error is
 // received; the open event unblocks ReadFrame only after it fires.
 func dialWASMSocket(parseURL string) (*wasmSocket, error) {
@@ -185,6 +185,12 @@ func parseBootstrapString(parseValue js.Value, parseName string) string {
 	return parseField.String()
 }
 
+// parseLocationProtocol returns location.protocol (for example "https:").
+func parseLocationProtocol() string {
+	defer func() { recover() }()
+	return js.Global().Get("location").Get("protocol").String()
+}
+
 // parseLocationHost returns location.host from the browser.
 func parseLocationHost() string {
 	defer func() { recover() }()
@@ -227,12 +233,14 @@ func EnableAgentBridge() {
 		return
 	}
 
-	parseHost := parseLocationHost()
-	if parseHost == "" {
+	parseOverride := ""
+	if parseBootstrap := js.Global().Get("__GWC_AGENT_BRIDGE"); parseBootstrap.Type() == js.TypeObject {
+		parseOverride = parseBootstrapString(parseBootstrap, "url")
+	}
+	parseWSURL, parseWSOK := buildBridgeWSURL(parseLocationProtocol(), parseLocationHost(), parseToken, parseOverride)
+	if !parseWSOK {
 		return
 	}
-
-	parseWSURL := "ws://" + parseHost + "/gwc-agent?token=" + url.QueryEscape(parseToken)
 	RegisterReadCommands()
 	RegisterWriteCommands()
 	RegisterControlCommands()

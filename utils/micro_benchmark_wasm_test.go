@@ -7,17 +7,20 @@ import "testing"
 
 func BenchmarkConfigureAndReadMemStatsSampleRateMicro(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		ConfigureMemStatsSampleRate(int64((parseI % 512) + 1))
 		if GetMemStatsSampleRate() == 0 {
 			parseB.Fatal("expected non-zero mem stats sample rate")
 		}
+		parseI++
 	}
 }
 
 func BenchmarkConfigureDebugNamespacesAndGetStatusMicro(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		ConfigureDebugNamespaces(map[string]bool{
 			"fetch": parseI%2 == 0,
 			"ui":    true,
@@ -27,5 +30,6 @@ func BenchmarkConfigureDebugNamespacesAndGetStatusMicro(parseB *testing.B) {
 		if _, parseOk := parseStatus["ui"]; !parseOk {
 			parseB.Fatal("expected debug status to include configured namespace")
 		}
+		parseI++
 	}
 }

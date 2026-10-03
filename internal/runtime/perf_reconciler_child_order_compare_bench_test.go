@@ -55,7 +55,7 @@ func applyLegacyCommittedChildOrder(getRuntime *Runtime, getParent DOMNode, getE
 
 func BenchmarkApplyCommittedChildOrderCurrentVsLegacy(parseB *testing.B) {
 	parseB.Run("current", func(parseB *testing.B) {
-		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		for parseB.Loop() {
 			parseB.StopTimer()
 			getRuntime, getParent, getExpected := buildChildOrderBenchmarkFixture(128)
 			parseB.StartTimer()
@@ -65,7 +65,7 @@ func BenchmarkApplyCommittedChildOrderCurrentVsLegacy(parseB *testing.B) {
 	})
 
 	parseB.Run("legacy", func(parseB *testing.B) {
-		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		for parseB.Loop() {
 			parseB.StopTimer()
 			getRuntime, getParent, getExpected := buildChildOrderBenchmarkFixture(128)
 			parseB.StartTimer()

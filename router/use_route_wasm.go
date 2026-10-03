@@ -3,6 +3,7 @@
 package router
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
@@ -12,6 +13,16 @@ import (
 // Location into on every navigation. UseRoute subscribes to it. (A colon is fine
 // here — this is an atom id / event key, never a CSS element id.)
 const routeLocationAtomID = "gwc:router:location"
+
+// routeDataRevision counts loader completions; it is folded into the published
+// Location so UseRouteData subscribers see data that arrives after navigation.
+var routeDataRevision int
+
+// routeFactoryDepth is above zero while a route factory runs. Factories execute
+// inside the router's own fiber, which already re-renders on navigation, so
+// they must not add subscription hooks (that would make the router fiber's hook
+// order depend on the matched route).
+var routeFactoryDepth int
 
 // lastPublishedLocationKey dedupes publishes so an unchanged location does not
 // schedule redundant re-renders.
@@ -23,7 +34,20 @@ func currentLocationSnapshot() Location {
 		Path:   GetCurrentPath(),
 		Query:  getCurrentQueryValues().Encode(),
 		Params: copyParams(currentParams),
+
+		revision: routeDataRevision,
 	}
+}
+
+// subscribeRouteLocation subscribes the calling component to navigation so the
+// non-Location hooks (UseParams, UseQuery, UseSearchParams, UseRouteData) re-render
+// memoized components like UseRoute does. It is a no-op outside a component render
+// (event handlers, guards, tests) and inside route factories.
+func subscribeRouteLocation() {
+	if routeFactoryDepth > 0 || runtime.GetCurrentFiber() == nil {
+		return
+	}
+	UseRoute()
 }
 
 // UseRoute subscribes the calling component to navigation and returns the active
@@ -56,7 +80,7 @@ func publishLocation() {
 		return
 	}
 	parseLocation := currentLocationSnapshot()
-	parseKey := parseLocation.Path + "?" + parseLocation.Query
+	parseKey := parseLocation.Path + "?" + parseLocation.Query + "#" + strconv.Itoa(parseLocation.revision)
 	if parseKey == lastPublishedLocationKey {
 		return
 	}
@@ -111,8 +135,11 @@ func fireNavigationCallbacks(parseLocation Location) {
 //	A(Href(router.Href("/transactions")), "Transactions")
 func Href(parsePath string) string {
 	parseNormalized := normalizePath(parsePath)
-	if parseRouter := globalRouter; parseRouter != nil && parseRouter.routerType == routerTypeHash {
-		return "#" + parseNormalized
+	if parseRouter := globalRouter; parseRouter != nil {
+		if parseRouter.routerType == routerTypeHash {
+			return "#" + parseNormalized
+		}
+		return parseRouter.addBasePath(parseNormalized)
 	}
 	return parseNormalized
 }
@@ -134,6 +161,9 @@ func Href(parsePath string) string {
 func FragmentHref(parseFragment string) string {
 	parseFragment = strings.TrimPrefix(parseFragment, "#")
 	parsePath := normalizePath(GetCurrentPath())
+	if parseRouter := globalRouter; parseRouter != nil {
+		parsePath = parseRouter.addBasePath(parsePath)
+	}
 	if parseQuery := getCurrentQueryValues().Encode(); parseQuery != "" {
 		return parsePath + "?" + parseQuery + "#" + parseFragment
 	}

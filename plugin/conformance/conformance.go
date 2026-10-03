@@ -183,6 +183,16 @@ func Verify(parsePlugin plugin.Plugin) Result {
 	parseTeardownIdempotentCheck := Check{Name: "teardown/idempotent"}
 	parsePanicCheck := Check{Name: "lifecycle/no-panic"}
 
+	// Host.Register and Host.Close now contain a panicking Setup/cleanup and report it through
+	// PluginPanicHandler instead of propagating it, so the harness observes that hook to keep
+	// failing a plugin that panics.
+	var parseCapturedPanics []string
+	parsePreviousHandler := plugin.PluginPanicHandler
+	plugin.PluginPanicHandler = func(parseWhat string, parseRecovered any) {
+		parseCapturedPanics = append(parseCapturedPanics, fmt.Sprintf("%s: %v", parseWhat, parseRecovered))
+		parsePreviousHandler(parseWhat, parseRecovered)
+	}
+
 	func() {
 		defer func() {
 			if parseRecovered := recover(); parseRecovered != nil {
@@ -297,6 +307,12 @@ func Verify(parsePlugin plugin.Plugin) Result {
 		parsePanicCheck.Passed = true
 		parsePanicCheck.Detail = "no panic during register→observe→teardown cycle"
 	}()
+
+	plugin.PluginPanicHandler = parsePreviousHandler
+	if len(parseCapturedPanics) > 0 {
+		parsePanicCheck.Passed = false
+		parsePanicCheck.Detail = fmt.Sprintf("panic during register→observe→teardown cycle: %s", strings.Join(parseCapturedPanics, "; "))
+	}
 
 	parseResult.Checks = append(parseResult.Checks,
 		parseRegCheck,

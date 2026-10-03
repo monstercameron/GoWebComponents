@@ -10,11 +10,13 @@ func BenchmarkComputeViewportStateMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseScrollTop := float64((parseI % 6000) * 12)
 		_, parseErr := ComputeViewportState(parseConfig, parseScrollTop, 640)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
 		}
+		parseI++
 	}
 }

@@ -107,7 +107,7 @@ func UseFocusTrap(parseOptions FocusTrapOptions) {
 			isParseFocused = parseManager.FocusSelector(parseOptions.FallbackFocusSelector)
 		}
 		if !isParseFocused {
-			focusElementValue(firstFocusableWithin(parseContainer))
+			isParseFocused = focusElementValue(firstFocusableWithin(parseContainer))
 		}
 		if !isParseFocused {
 			focusElementValue(parseContainer)

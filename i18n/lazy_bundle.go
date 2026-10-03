@@ -1,6 +1,9 @@
 package i18n
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // LocaleLoader loads the full Catalog for one locale on demand — e.g. fetching a locale JSON
 // bundle in the browser (via interop.ImportModule or fetch) or reading an embedded file on the
@@ -18,6 +21,14 @@ type LazyBundle struct {
 	load   LocaleLoader
 	mu     sync.Mutex
 	loaded map[string]bool
+	// inflight tracks locales whose loader is running, so concurrent callers share one load.
+	inflight map[string]*lazyLoad
+}
+
+// lazyLoad is one in-progress locale load that concurrent EnsureLocale callers wait on.
+type lazyLoad struct {
+	done chan struct{}
+	err  error
 }
 
 // NewLazyBundle wraps bundle with the given on-demand loader. Any locales already registered on
@@ -50,24 +61,47 @@ func (parseL *LazyBundle) Loaded(parseLocale string) bool {
 // returned and the locale stays unloaded so a later call can retry.
 func (parseL *LazyBundle) EnsureLocale(parseLocale string) error {
 	parseKey := NormalizeLocale(parseLocale)
-	parseL.mu.Lock()
-	parseAlready := parseL.loaded[parseKey] || parseL.load == nil || parseL.bundle == nil
-	parseL.mu.Unlock()
-	if parseAlready {
+	if parseKey == "" {
 		return nil
 	}
+	parseL.mu.Lock()
+	if parseL.loaded[parseKey] || parseL.load == nil || parseL.bundle == nil {
+		parseL.mu.Unlock()
+		return nil
+	}
+	// Join a load already running for this locale: the LocaleLoader contract is "at most once",
+	// and a second concurrent fetch would waste a request and race the registration.
+	if parseRunning, parseIsRunning := parseL.inflight[parseKey]; parseIsRunning {
+		parseL.mu.Unlock()
+		<-parseRunning.done
+		return parseRunning.err
+	}
+	parseCall := &lazyLoad{done: make(chan struct{})}
+	if parseL.inflight == nil {
+		parseL.inflight = map[string]*lazyLoad{}
+	}
+	parseL.inflight[parseKey] = parseCall
+	parseL.mu.Unlock()
 
+	// The deferred finish also runs when the loader panics, so waiters are always released and
+	// the locale can be retried.
+	parseCall.err = fmt.Errorf("i18n: loader for %q did not complete", parseKey)
+	defer func() {
+		parseL.mu.Lock()
+		delete(parseL.inflight, parseKey)
+		parseL.mu.Unlock()
+		close(parseCall.done)
+	}()
 	parseCatalog, parseErr := parseL.load(parseKey)
 	if parseErr != nil {
+		parseCall.err = parseErr
 		return parseErr
 	}
 
 	parseL.mu.Lock()
-	defer parseL.mu.Unlock()
-	if parseL.loaded[parseKey] {
-		return nil // a concurrent caller already registered this locale
-	}
 	parseL.bundle.Register(parseKey, parseCatalog)
 	parseL.loaded[parseKey] = true
+	parseL.mu.Unlock()
+	parseCall.err = nil
 	return nil
 }

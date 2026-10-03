@@ -51,8 +51,8 @@ func TestAwaitNilContextNative(t *testing.T) {
 }
 
 func errorHasCode(parseErr error, parseCode interop.ErrorCode) bool {
-	var parseTyped *interop.Error
-	if errors.As(parseErr, &parseTyped) {
+	parseTyped, parseOk := errors.AsType[*interop.Error](parseErr)
+	if parseOk {
 		return parseTyped.Code == parseCode
 	}
 	return false

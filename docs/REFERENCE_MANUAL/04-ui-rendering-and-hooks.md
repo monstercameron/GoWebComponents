@@ -347,6 +347,12 @@ reconciler.
 - **`ui.ViewTransition(apply)`** — run a DOM-changing callback inside the View Transitions API when
   available, animating between states; degrades gracefully to calling `apply` directly.
 
+### Dependency lists and `ui.Always`
+
+`UseEffect`, `UseLayoutEffect`, `UseMemo` and `UseCallback` compare their dependencies by identity for functions, maps and slices, so a closure, map or slice built during render counts as changed every render. Development builds report this as `GWC-RUNTIME-HOOK-DEP-UNSTABLE` when a dependency changes identity (a new closure, or a map or slice that is deeply equal but a different object); production builds do not check. Fix it by depending on the values the closure uses, or by hoisting or memoizing the dependency.
+
+When running on every render is the intent, say so with the `ui.Always` sentinel as the only dependency: `UseEffect(fn, ui.Always)` behaves exactly like `UseEffect(fn)`, `UseMemo(fn, ui.Always)` recomputes every render, and `UseCallback(fn, ui.Always)` keeps the newest function. It is recognized only as the sole dependency (in a longer list it is an ordinary constant) and never raises the unstable-dependency diagnostic. Hook order is checked the same way, in development builds only; see [12 Devtools Testing And Observability](12-devtools-testing-and-observability.md) for `GWC-RUNTIME-HOOK-ORDER` and `GWC-RUNTIME-HOOK-IN-LIST`.
+
 ### Element-ref hooks (v3.3+)
 
 Hold an element with `ui.UseDOMRef()` and pass it to these:

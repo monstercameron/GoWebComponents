@@ -1,0 +1,26 @@
+name: No Tracked Binaries
+
+on:
+  pull_request:
+  push:
+    branches: [main, v7/dev]
+
+permissions:
+  contents: read
+
+jobs:
+  no-tracked-binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.x"
+
+      - name: Fail on tracked binaries
+        run: |
+          go test ./tools/binarycheck/...
+          go run ./tools/binarycheck/cmd/binarycheck

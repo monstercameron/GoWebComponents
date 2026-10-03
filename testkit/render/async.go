@@ -75,6 +75,9 @@ func (parseC *ResourceController[T]) Await(parseCtx context.Context) (T, error) 
 	if parseC == nil {
 		return parseZero, nil
 	}
+	if parseCtx == nil {
+		parseCtx = context.Background()
+	}
 
 	parsePending := &resourcePending[T]{done: make(chan resourceOutcome[T], 1)}
 	parseC.mu.Lock()
@@ -95,8 +98,10 @@ func (parseC *ResourceController[T]) Await(parseCtx context.Context) (T, error) 
 		parseC.mu.Lock()
 		if parseC.pending == parsePending {
 			parseC.pending = nil
-			parseC.attempts[parsePending.index-1].Cancelled = true
 		}
+		// A superseded attempt (a newer one replaced it as pending) is still
+		// canceled by its context, exactly as a refetch cancels the previous load.
+		parseC.attempts[parsePending.index-1].Cancelled = true
 		parseC.mu.Unlock()
 		return parseZero, parseCtx.Err()
 	}

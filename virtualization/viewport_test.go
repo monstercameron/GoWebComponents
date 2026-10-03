@@ -1,6 +1,9 @@
 package virtualization
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestComputeViewportStateEmptyList(parseT *testing.T) {
 	parseState, parseErr := ComputeViewportState(ViewportConfig{
@@ -229,5 +232,52 @@ func TestViewportDiagnosticsClampsNegativeOverscanGaps(parseT *testing.T) {
 	}).Diagnostics()
 	if parseDiagnostics.OverscanBeforeCount != 0 || parseDiagnostics.OverscanAfterCount != 0 {
 		parseT.Fatalf("expected negative overscan gap values to clamp at zero, got before=%d after=%d", parseDiagnostics.OverscanBeforeCount, parseDiagnostics.OverscanAfterCount)
+	}
+}
+
+// TestComputeViewportStateHostileNumbers pins that an oversized overscan or
+// non-finite scroll metrics never wrap the windows to empty or invalid ranges.
+func TestComputeViewportStateHostileNumbers(parseT *testing.T) {
+	parseCases := []struct {
+		parseName      string
+		parseOverscan  int
+		parseScrollTop float64
+		parseViewport  float64
+	}{
+		{"max overscan", math.MaxInt, 500, 200},
+		{"NaN scroll", 2, math.NaN(), 200},
+		{"+Inf scroll", 2, math.Inf(1), 200},
+		{"huge scroll", 2, 1e300, 200},
+		{"NaN viewport", 2, 100, math.NaN()},
+	}
+	for _, parseCase := range parseCases {
+		parseState, parseErr := ComputeViewportState(ViewportConfig{TotalItems: 100, RowHeight: 20, Overscan: parseCase.parseOverscan}, parseCase.parseScrollTop, parseCase.parseViewport)
+		if parseErr != nil {
+			parseT.Fatalf("%s: %v", parseCase.parseName, parseErr)
+		}
+		parseR := parseState.Rendered
+		if parseR.Start < 0 || parseR.End > 100 || parseR.Start > parseR.End {
+			parseT.Errorf("%s: invalid rendered range %+v", parseCase.parseName, parseR)
+		}
+		if parseCase.parseName == "max overscan" && (parseR.Start != 0 || parseR.End != 100) {
+			parseT.Errorf("%s: want the whole list, got %+v", parseCase.parseName, parseR)
+		}
+		if parseCase.parseName == "+Inf scroll" && parseState.Visible.End != 100 {
+			parseT.Errorf("%s: want visible end 100, got %+v", parseCase.parseName, parseState.Visible)
+		}
+	}
+}
+
+// TestPxExactKeepsFractionalRowHeights pins that fractional heights survive so row
+// divs and spacers agree with the RowHeight*index scroll arithmetic.
+func TestPxExactKeepsFractionalRowHeights(parseT *testing.T) {
+	if parseGot := pxExact(20.5); parseGot != "20.5px" {
+		parseT.Fatalf("pxExact(20.5) = %q", parseGot)
+	}
+	if parseGot := pxExact(40); parseGot != "40px" {
+		parseT.Fatalf("pxExact(40) = %q", parseGot)
+	}
+	if parseGot := pxExact(math.NaN()); parseGot != "0px" {
+		parseT.Fatalf("pxExact(NaN) = %q", parseGot)
 	}
 }

@@ -19,7 +19,7 @@ func BenchmarkClientCanExchangeMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = ClientCanExchange(parseLocal, parsePeer, "orders", ClientPayloadJSON)
 	}
 }

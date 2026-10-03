@@ -16,7 +16,7 @@ func BenchmarkRenderPortalToSelector(parseB *testing.B) {
 	)
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
 		parseRt.Render(parseElement, parseApp)

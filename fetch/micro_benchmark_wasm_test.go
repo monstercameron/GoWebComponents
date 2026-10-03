@@ -11,7 +11,9 @@ func BenchmarkNormalizeMutationIDMicro(parseB *testing.B) {
 	parseNow := time.Unix(1710000000, 0).UTC()
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		_ = normalizeMutationID("", parseNow, parseI)
+		parseI++
 	}
 }

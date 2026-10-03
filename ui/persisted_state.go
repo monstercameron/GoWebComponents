@@ -81,10 +81,28 @@ func resolveStorage(parseArea PersistStorageArea) (persistedStorage, error) {
 // are silently discarded. On native/SSR builds, storage is unavailable and the
 // hook degrades to plain in-memory state.
 func UsePersistedState[T any](parseKey string, parseInitial T, parseArea PersistStorageArea) PersistedState[T] {
-	parseStoredInitial := loadStoredInitial[T](parseKey, parseInitial, parseArea)
+	// The storage identity the in-memory value was last loaded for. UseState only
+	// honours its initial argument on the first render, so without this a changed
+	// key kept returning the previous key's value instead of its own stored one.
+	parseIdentity := string(parseArea) + ":" + parseKey
+	parseLoadedRef := UseRef("")
+	parseLoadedIdentity := parseLoadedRef.Get()
+	parseStoredInitial := parseInitial
+	if parseLoadedIdentity == "" {
+		parseStoredInitial = loadStoredInitial[T](parseKey, parseInitial, parseArea)
+	}
 
 	parseValState := UseState(parseStoredInitial)
 	parseErrState := UseState[error](nil)
+	if parseLoadedIdentity != parseIdentity {
+		parseLoadedRef.Set(parseIdentity)
+		if parseLoadedIdentity != "" {
+			// Key or storage area changed: adopt the new key's stored value (or the
+			// initial value when it has none). This is a render-phase update, not a
+			// write-through, so storage is left untouched.
+			parseValState.Set(loadStoredInitial[T](parseKey, parseInitial, parseArea))
+		}
+	}
 
 	// UseEffect registers the storage write-through and cross-tab sync listener.
 	// On native builds UseEffect is a no-op, so the closure never runs.
@@ -105,12 +123,13 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseArea Persist
 		get:  parseValState.get,
 		slot: parseValState.slot,
 		set: func(parseRaw any) {
-			if parseTyped, parseOk := parseRaw.(T); parseOk {
-				parseWriteThrough(parseTyped)
+			// Updaters are matched first: for an interface T a func(T) T also satisfies T.
+			if parseUpdater, parseOk := parseRaw.(func(T) T); parseOk {
+				parseWriteThrough(parseUpdater(parseValState.Get()))
 				return
 			}
-			if parseUpdater, parseOk2 := parseRaw.(func(T) T); parseOk2 {
-				parseWriteThrough(parseUpdater(parseValState.Get()))
+			if parseTyped, parseOk2 := parseRaw.(T); parseOk2 {
+				parseWriteThrough(parseTyped)
 			}
 		},
 	}

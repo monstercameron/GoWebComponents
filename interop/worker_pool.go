@@ -316,8 +316,17 @@ func (parseS *workerPoolState) getWorkerAtIndex(parseIndex int) (Worker, bool) {
 // silently running below the configured concurrency.
 func (parseS *workerPoolState) replaceWorker(parseIndex int) error {
 	parseS.storeMu.Lock()
-	if parseS.storeClosed || !parseS.storeAccepting || parseIndex < 0 || parseIndex >= len(parseS.storeWorkerList) {
+	if parseS.storeClosed || parseIndex < 0 || parseIndex >= len(parseS.storeWorkerList) {
 		parseS.storeMu.Unlock()
+		return nil
+	}
+	if !parseS.storeAccepting {
+		// Draining: no replacement is opened, but the slot must still be returned
+		// so accepted requests queued behind the disposed worker fail fast
+		// instead of waiting forever and hanging Drain.
+		parseWorkers := parseS.storeWorkers
+		parseS.storeMu.Unlock()
+		parseWorkers <- parseIndex
 		return nil
 	}
 	parseOpenWorker := parseS.storeOpenWorker

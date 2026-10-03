@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 type ErrorCode string
@@ -96,8 +98,8 @@ func Decode(parseValue any, parseTarget any) error {
 
 // IsCode reports whether err is an interop error with the provided code.
 func IsCode(parseErr error, parseCode ErrorCode) bool {
-	var parseInteropErr *Error
-	if !errors.As(parseErr, &parseInteropErr) {
+	parseInteropErr, parseOk := errors.AsType[*Error](parseErr)
+	if !parseOk {
 		return false
 	}
 	return parseInteropErr.Code == parseCode
@@ -105,8 +107,8 @@ func IsCode(parseErr error, parseCode ErrorCode) bool {
 
 // AsError unwraps an interop error into the structured Error form.
 func AsError(parseErr error) (*Error, bool) {
-	var parseInteropErr *Error
-	if !errors.As(parseErr, &parseInteropErr) {
+	parseInteropErr, parseOk := errors.AsType[*Error](parseErr)
+	if !parseOk {
 		return nil, false
 	}
 	return parseInteropErr, true
@@ -121,21 +123,44 @@ func CodeOf(parseErr error) (ErrorCode, bool) {
 	return parseInteropErr.Code, true
 }
 
+// interopGWCCodes maps each interop failure class to its registered
+// diagnostic code so the reference page documents every class.
+var interopGWCCodes = map[ErrorCode]errcode.Code{
+	CodeUnavailable:     errcode.InteropUnavailable,
+	CodePromiseRejected: errcode.InteropPromiseRejected,
+	CodeDisposed:        errcode.InteropDisposed,
+	CodeEncode:          errcode.InteropEncode,
+	CodeDecode:          errcode.InteropDecode,
+	CodeMissingExport:   errcode.InteropMissingExport,
+	CodeNotFunction:     errcode.InteropNotFunction,
+	CodeInvalid:         errcode.InteropInvalid,
+	CodeBlocked:         errcode.InteropPersistentStoreBlocked,
+	CodeQuotaExceeded:   errcode.InteropPersistentStoreQuota,
+	CodeUnauthorized:    errcode.InteropMultiClientUnauthorized,
+	CodeCancelled:       errcode.InteropCancelled,
+	CodeTimeout:         errcode.InteropTimeout,
+	CodeRemote:          errcode.InteropRemote,
+}
+
+// GWCCode returns the registered GWC-INTEROP-* diagnostic code for the error,
+// or "" when the error is nil or carries an unknown interop code.
+func (parseE *Error) GWCCode() errcode.Code {
+	if parseE == nil {
+		return ""
+	}
+	return interopGWCCodes[parseE.Code]
+}
+
+// interopActionableGuidance returns the reference-page location and the
+// remediation text for the interop codes that append guidance to messages.
 func interopActionableGuidance(parseCode ErrorCode) (string, string) {
 	switch parseCode {
-	case CodeInvalid:
-		return "ACTIONABLE_ERRORS.md#gwc-interop-invalid", "Validate required names, URLs, and callbacks before creating the interop binding"
-	case CodeBlocked:
-		return "ACTIONABLE_ERRORS.md#gwc-interop-persistent-store-blocked", "Close older tabs, workers, or windows that still hold the same IndexedDB database open, then retry the upgrade"
-	case CodeQuotaExceeded:
-		return "ACTIONABLE_ERRORS.md#gwc-interop-persistent-store-quota", "Purge stale durable data or reduce the payload size before retrying the write"
-	case CodeNotFunction:
-		return "ACTIONABLE_ERRORS.md#gwc-interop-not-function", "Verify the target export or property exists and is callable before invoking it"
-	case CodeUnauthorized:
-		return "ACTIONABLE_ERRORS.md#gwc-interop-multi-client-unauthorized", "Verify topic ownership, peer role, and origin policy before accepting or publishing privileged multi-client traffic"
-	default:
-		return "", ""
+	case CodeInvalid, CodeBlocked, CodeQuotaExceeded, CodeNotFunction, CodeUnauthorized:
+		if parseEntry, parseOk := errcode.Lookup(interopGWCCodes[parseCode]); parseOk {
+			return parseEntry.Docs, strings.TrimSuffix(parseEntry.Remediation, ".")
+		}
 	}
+	return "", ""
 }
 
 type Subscription struct {

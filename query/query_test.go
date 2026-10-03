@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -52,49 +53,51 @@ func (parseFC *fakeClock) advance(parseD time.Duration) {
 // concurrent Fetches for one key invoke the fetcher exactly once, and a later Fetch
 // within the stale window serves from cache without calling it again.
 func TestFetchCoalescesConcurrentCallsAndCaches(parseT *testing.T) {
-	parseCache := New(WithStaleTime(time.Hour))
-	var parseCalls atomic.Int64
-	parseRelease := make(chan struct{})
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseCache := New(WithStaleTime(time.Hour))
+		var parseCalls atomic.Int64
+		parseRelease := make(chan struct{})
 
-	var parseWG sync.WaitGroup
-	parseResults := make([]Result[int], 8)
-	for parseI := range parseResults {
-		parseWG.Add(1)
-		go func(parseIdx int) {
-			defer parseWG.Done()
-			parseResults[parseIdx] = Fetch(parseCache, "answer", func() (int, error) {
-				parseCalls.Add(1)
-				<-parseRelease
-				return 42, nil
-			})
-		}(parseI)
-	}
-
-	// Let all goroutines arrive and join the single in-flight fetch before releasing it.
-	time.Sleep(25 * time.Millisecond)
-	close(parseRelease)
-	parseWG.Wait()
-
-	if parseGot := parseCalls.Load(); parseGot != 1 {
-		parseT.Fatalf("expected exactly 1 coalesced fetch, got %d", parseGot)
-	}
-	for parseI, parseRes := range parseResults {
-		if parseRes.Data != 42 || parseRes.Status != StatusSuccess {
-			parseT.Fatalf("result %d: got %+v, want Data=42 success", parseI, parseRes)
+		var parseWG sync.WaitGroup
+		parseResults := make([]Result[int], 8)
+		for parseI := range parseResults {
+			parseWG.Add(1)
+			go func(parseIdx int) {
+				defer parseWG.Done()
+				parseResults[parseIdx] = Fetch(parseCache, "answer", func() (int, error) {
+					parseCalls.Add(1)
+					<-parseRelease
+					return 42, nil
+				})
+			}(parseI)
 		}
-	}
 
-	// A fresh cache hit must not call the fetcher again.
-	parseRes := Fetch(parseCache, "answer", func() (int, error) {
-		parseCalls.Add(1)
-		return -1, nil
+		// Let all goroutines arrive and join the single in-flight fetch before releasing it.
+		synctest.Wait()
+		close(parseRelease)
+		parseWG.Wait()
+
+		if parseGot := parseCalls.Load(); parseGot != 1 {
+			parseT.Fatalf("expected exactly 1 coalesced fetch, got %d", parseGot)
+		}
+		for parseI, parseRes := range parseResults {
+			if parseRes.Data != 42 || parseRes.Status != StatusSuccess {
+				parseT.Fatalf("result %d: got %+v, want Data=42 success", parseI, parseRes)
+			}
+		}
+
+		// A fresh cache hit must not call the fetcher again.
+		parseRes := Fetch(parseCache, "answer", func() (int, error) {
+			parseCalls.Add(1)
+			return -1, nil
+		})
+		if parseRes.Data != 42 {
+			parseT.Fatalf("cache hit returned %d, want 42", parseRes.Data)
+		}
+		if parseGot := parseCalls.Load(); parseGot != 1 {
+			parseT.Fatalf("fresh cache hit should not refetch; calls=%d", parseGot)
+		}
 	})
-	if parseRes.Data != 42 {
-		parseT.Fatalf("cache hit returned %d, want 42", parseRes.Data)
-	}
-	if parseGot := parseCalls.Load(); parseGot != 1 {
-		parseT.Fatalf("fresh cache hit should not refetch; calls=%d", parseGot)
-	}
 }
 
 // TestFetchErrorThenRecovery proves an error surfaces as StatusError with no data, and a

@@ -71,9 +71,13 @@ func (parseT *Text) Insert(parseIndex int, parseString string) {
 }
 
 // Delete tombstones count visible characters starting at visible position index. Out-of-range
-// requests are clamped; deleting an already-deleted element is a no-op.
+// requests are clamped: a negative index is treated as 0 (like Insert) and the run stops at the end
+// of the text; deleting an already-deleted element is a no-op.
 func (parseT *Text) Delete(parseIndex int, parseCount int) {
 	parseVisible := parseT.visible()
+	if parseIndex < 0 {
+		parseIndex = 0
+	}
 	for parseI := range parseCount {
 		parsePos := parseIndex + parseI
 		if parsePos < 0 || parsePos >= len(parseVisible) {
@@ -213,6 +217,13 @@ func RestoreText(parseState TextState, parseReplica string) *Text {
 	parseText := NewText(parseReplica)
 	for _, parseOp := range parseState.Ops {
 		parseID := elemID{Replica: parseOp.Replica, Seq: parseOp.Seq}
+		if parseExisting, parseFound := parseText.elems[parseID]; parseFound {
+			// A repeated op (duplicate delivery) must not resurrect a tombstone: deleted is monotonic.
+			if parseOp.Deleted {
+				parseExisting.deleted = true
+			}
+			continue
+		}
 		parseText.elems[parseID] = &textElem{
 			id:      parseID,
 			after:   elemID{Replica: parseOp.AfterReplica, Seq: parseOp.AfterSeq},

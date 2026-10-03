@@ -21,7 +21,7 @@ func UseTimerTrigger(parseDelay time.Duration) bool {
 			return nil
 		}
 		return func() { _ = parseTimer.Cancel() }
-	})
+	}, parseDelay)
 	return parseFired.Get()
 }
 

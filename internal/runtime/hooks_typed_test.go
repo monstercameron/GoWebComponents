@@ -99,6 +99,12 @@ func TestGoUseEffectOf_RunsOnceAndRerunsOnDepChange(parseT *testing.T) {
 
 	runQueuedTypedEffects := func() {
 		for _, parseQueued := range parseFiber.effects {
+			// Commit runs the superseded cleanup immediately before the setup
+			// (runOneEffect); the render phase no longer does.
+			if parsePrev := parseFiber.hooks.cleanups[parseQueued.CleanupIndex]; parsePrev != nil {
+				parseFiber.hooks.cleanups[parseQueued.CleanupIndex] = nil
+				parsePrev()
+			}
 			if parseCleanup := parseQueued.Fn(); parseCleanup != nil {
 				parseFiber.hooks.cleanups[parseQueued.CleanupIndex] = parseCleanup
 			}

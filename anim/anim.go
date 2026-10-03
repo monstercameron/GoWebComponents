@@ -73,9 +73,9 @@ func StiffSpring() SpringConfig {
 const maxDt = 0.064
 
 // Spring is a damped harmonic oscillator whose position advances frame by
-// frame via Step. Create one with NewSpring; the zero value is NOT valid —
-// its Mass is 0, so Step divides by zero and silently produces NaN/Inf
-// positions rather than panicking.
+// frame via Step. Create one with NewSpring; the zero value is inert (position
+// and target 0) and, because Step resolves non-positive config fields to the
+// gentle defaults, stepping it stays finite.
 type Spring struct {
 	parseConfig   SpringConfig
 	parsePosition float64
@@ -105,22 +105,44 @@ func (parseS *Spring) SetTarget(parseTarget float64) {
 // internal stability ceiling are clamped automatically, so callers do not
 // need to subdivide large gaps.
 func (parseS *Spring) Step(parseDt float64) float64 {
-	// Clamp to keep the integrator stable on long or initial frames.
+	// Clamp to keep the integrator stable on long or initial frames. The negated
+	// comparison also rejects NaN, which would otherwise poison the state forever.
 	if parseDt > maxDt {
 		parseDt = maxDt
 	}
-	if parseDt <= 0 {
+	if !(parseDt > 0) {
 		return parseS.parsePosition
 	}
 
-	parseCfg := parseS.parseConfig
-	parseDisplacement := parseS.parsePosition - parseS.parseTarget
-	parseForce := -parseCfg.Stiffness*parseDisplacement - parseCfg.Damping*parseS.parseVelocity
-	parseAccel := parseForce / parseCfg.Mass
+	parseCfg := parseS.parseConfig.resolvedConfig()
 
-	// Semi-implicit Euler: update velocity first, then position with new velocity.
-	parseS.parseVelocity += parseAccel * parseDt
-	parseS.parsePosition += parseS.parseVelocity * parseDt
+	// Explicit Euler is only stable while dt times the fastest rate (the natural
+	// frequency or the damping rate) stays under ~2. Stiff, light springs exceed
+	// that even at normal frame times, so split the frame into substeps. The
+	// presets sit below the threshold and keep their single-step results.
+	parseRate := math.Max(math.Sqrt(parseCfg.Stiffness/parseCfg.Mass), parseCfg.Damping/parseCfg.Mass)
+	parseSteps := 1
+	if parseDt*parseRate > 1.9 {
+		parseSteps = int(math.Min(math.Ceil(parseDt*parseRate), 2048))
+	}
+	parseH := parseDt / float64(parseSteps)
+	for parseI := 0; parseI < parseSteps; parseI++ {
+		parseDisplacement := parseS.parsePosition - parseS.parseTarget
+		parseForce := -parseCfg.Stiffness*parseDisplacement - parseCfg.Damping*parseS.parseVelocity
+		parseAccel := parseForce / parseCfg.Mass
+
+		// Semi-implicit Euler: update velocity first, then position with new velocity.
+		parseS.parseVelocity += parseAccel * parseH
+		parseS.parsePosition += parseS.parseVelocity * parseH
+	}
+
+	// A config so extreme that even 2048 substeps diverge (or a non-finite target)
+	// must not leave NaN/Inf behind; snap to rest at the target instead.
+	if math.IsNaN(parseS.parsePosition) || math.IsInf(parseS.parsePosition, 0) ||
+		math.IsNaN(parseS.parseVelocity) || math.IsInf(parseS.parseVelocity, 0) {
+		parseS.parsePosition = parseS.parseTarget
+		parseS.parseVelocity = 0
+	}
 
 	return parseS.parsePosition
 }
@@ -162,7 +184,7 @@ type EasingFunc = Easing
 
 // clamp01 constrains parseT to the closed interval [0, 1].
 func clamp01(parseT float64) float64 {
-	if parseT < 0 {
+	if parseT != parseT || parseT < 0 { // NaN maps to the start of the curve
 		return 0
 	}
 	if parseT > 1 {
@@ -225,7 +247,14 @@ var EaseInOutCubic Easing = func(parseT float64) float64 {
 // Interpolate linearly blends from parseFrom to parseTo using parseEasing
 // applied to parseT. parseT = 0 returns parseFrom; parseT = 1 returns parseTo.
 func Interpolate(parseFrom, parseTo, parseT float64, parseEasing Easing) float64 {
+	if parseEasing == nil {
+		parseEasing = Linear
+	}
 	parseEased := parseEasing(parseT)
+	if parseEased == 1 {
+		// Return the endpoint exactly; from+(to-from)*1 can miss it by an ulp.
+		return parseTo
+	}
 	return parseFrom + (parseTo-parseFrom)*parseEased
 }
 

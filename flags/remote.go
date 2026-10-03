@@ -27,6 +27,11 @@ type RemoteProvider struct {
 	subscribers map[int]func(Set)
 	nextID      int
 	now         func() time.Time
+	// requestSeq numbers Refresh calls in the order they STARTED; appliedSeq is the newest
+	// request whose result has been applied. A response for an older request that finishes after
+	// a newer one is discarded so a slow, stale fetch cannot undo a newer Set (a kill switch).
+	requestSeq uint64
+	appliedSeq uint64
 }
 
 // NewRemoteProvider returns a RemoteProvider seeded with parseInitial as
@@ -69,10 +74,19 @@ func (parseP *RemoteProvider) subscriberCount() int {
 // last-known-good time, stores the error, and returns it. A failed refresh
 // never clobbers good values.
 func (parseP *RemoteProvider) Refresh(parseCtx context.Context) error {
+	parseP.mu.Lock()
+	parseP.requestSeq++
+	parseTicket := parseP.requestSeq
+	parseP.mu.Unlock()
+
 	parseNext, parseErr := parseP.fetch(parseCtx)
 	if parseErr != nil {
 		parseP.mu.Lock()
-		parseP.lastErr = parseErr
+		// A failure from a request that a newer, already-applied one has superseded says nothing
+		// about the current state, so it must not replace the (cleared) last error.
+		if parseTicket >= parseP.appliedSeq {
+			parseP.lastErr = parseErr
+		}
 		parseP.mu.Unlock()
 		return parseErr
 	}
@@ -80,6 +94,11 @@ func (parseP *RemoteProvider) Refresh(parseCtx context.Context) error {
 	parseCopied := BuildSet(parseNext.Flags, parseNext.Experiments)
 
 	parseP.mu.Lock()
+	if parseTicket < parseP.appliedSeq {
+		parseP.mu.Unlock()
+		return nil
+	}
+	parseP.appliedSeq = parseTicket
 	parseP.current = parseCopied
 	parseP.lastUpdated = parseP.now()
 	parseP.lastErr = nil
@@ -190,7 +209,12 @@ func (parseP *RemoteProvider) Poll(
 		}
 		_ = parseP.Refresh(parseCtx)
 		if parseErr := parseSleep(parseCtx, parseInterval); parseErr != nil {
-			return parseCtx.Err()
+			// A cancelled context is the normal shutdown; any other sleep failure is surfaced
+			// rather than ending the loop with a nil that looks like a clean stop.
+			if parseCtxErr := parseCtx.Err(); parseCtxErr != nil {
+				return parseCtxErr
+			}
+			return parseErr
 		}
 		select {
 		case <-parseCtx.Done():

@@ -261,6 +261,10 @@ func trimFloat(n float64) string {
 	if math.IsNaN(n) || math.IsInf(n, 0) {
 		return "0"
 	}
+	if n == 0 {
+		// Collapses -0 onto 0 so Rem(-0) and Rem(0) fold to the same class text.
+		return "0"
+	}
 	s := strconv.FormatFloat(n, 'f', -1, 64)
 	if strings.Contains(s, ".") {
 		s = strings.TrimRight(s, "0")

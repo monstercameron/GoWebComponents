@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 // RouteChunkLoader loads one route-level code artifact before the route factory
@@ -56,17 +57,14 @@ func (parseChunk RouteChunk) errorComponent(parseOption Options) interface{} {
 }
 
 // RegisterLazy registers a route that loads chunk before rendering component.
-func (parseR *Router) RegisterLazy(parsePath string, parseComponent interface{}, parseChunk RouteChunk, parseOptions ...Options) {
-	parseOption := Options{}
-	if len(parseOptions) > 0 {
-		parseOption = parseOptions[0]
-	}
+func (parseR *Router) RegisterLazy(parsePath string, parseComponent interface{}, parseChunk RouteChunk, parseOptions ...RouteOption) {
+	parseOption := buildRouteOptions(parseOptions)
 	parseOption.Chunk = parseChunk
 	parseR.Register(parsePath, parseComponent, parseOption)
 }
 
 // RegisterLazyRoute registers a route on the global router with a route chunk.
-func RegisterLazyRoute(parsePath string, parseComponent interface{}, parseChunk RouteChunk, parseOptions ...Options) {
+func RegisterLazyRoute(parsePath string, parseComponent interface{}, parseChunk RouteChunk, parseOptions ...RouteOption) {
 	GetRouter().RegisterLazy(parsePath, parseComponent, parseChunk, parseOptions...)
 }
 
@@ -137,7 +135,7 @@ func (parseR *Router) ensureRouteChunkResult(parseKey string, parseChunk RouteCh
 		func() {
 			defer func() {
 				if parseRecovered := recover(); parseRecovered != nil {
-					parseErr = fmt.Errorf("router: route chunk loader panicked: %v", parseRecovered)
+					parseErr = errcode.New(errcode.RouterChunkLoadFailed, fmt.Sprintf("router: route chunk loader panicked: %v", parseRecovered))
 				}
 			}()
 			parseErr = loadRouteChunk(parseCtx, parseChunk, parseRouteCtx)
@@ -193,11 +191,11 @@ func loadRouteChunk(parseCtx context.Context, parseChunk RouteChunk, parseRouteC
 
 func loadRouteChunkScript(parseCtx context.Context, parseScriptURL string) error {
 	if parseScriptURL == "" {
-		return fmt.Errorf("router: route chunk script URL is required")
+		return errcode.New(errcode.RouterChunkLoadFailed, "router: route chunk script URL is required (set a non-empty entry in RouteChunk.Scripts)")
 	}
 	parseDocument := js.Global().Get("document")
 	if !parseDocument.Truthy() {
-		return fmt.Errorf("router: route chunk loader could not access document")
+		return errcode.New(errcode.RouterChunkLoadFailed, "router: route chunk loader could not access document")
 	}
 	parseScript := parseDocument.Call("createElement", "script")
 	parseDone := make(chan error, 1)
@@ -208,7 +206,7 @@ func loadRouteChunkScript(parseCtx context.Context, parseScriptURL string) error
 		return nil
 	})
 	parseError = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) any {
-		parseDone <- fmt.Errorf("router: route chunk script failed: %s", parseScriptURL)
+		parseDone <- errcode.New(errcode.RouterChunkLoadFailed, fmt.Sprintf("router: route chunk script failed: %s", parseScriptURL))
 		return nil
 	})
 	defer parseLoad.Release()

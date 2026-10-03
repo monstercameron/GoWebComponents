@@ -1,6 +1,8 @@
 package kvstate
 
 import (
+	"fmt"
+	"hash/fnv"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
@@ -97,16 +99,27 @@ func (parseO Options) withDefaults() Options {
 // sanitizeIdent keeps a SQL identifier (table name) safe for interpolation.
 func sanitizeIdent(parseName string) string {
 	parseOut := make([]rune, 0, len(parseName))
+	isReplaced := false
 	for _, parseR := range parseName {
 		switch {
 		case parseR >= 'a' && parseR <= 'z', parseR >= 'A' && parseR <= 'Z', parseR >= '0' && parseR <= '9', parseR == '_':
 			parseOut = append(parseOut, parseR)
 		default:
 			parseOut = append(parseOut, '_')
+			isReplaced = true
 		}
 	}
 	if len(parseOut) == 0 {
 		return "gwc_state"
+	}
+	// Mapping several punctuation characters onto '_' made "a-b" and "a_b" share
+	// one table. A name that needed replacement gets a short hash of the ORIGINAL
+	// text so distinct inputs stay distinct; already-clean names are returned
+	// unchanged so existing databases keep their tables.
+	if isReplaced {
+		parseHash := fnv.New32a()
+		_, _ = parseHash.Write([]byte(parseName))
+		parseOut = append(parseOut, []rune(fmt.Sprintf("_%08x", parseHash.Sum32()))...)
 	}
 	// The result is interpolated UNQUOTED into DDL/DML (CREATE TABLE <t>, FROM <t>),
 	// and an unquoted SQL identifier may not begin with a digit — "123abc" would be

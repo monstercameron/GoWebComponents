@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -26,37 +27,39 @@ func TestRenderToStringAsyncBoundarySuspensionFallback(parseT *testing.T) {
 }
 
 func TestAsyncBoundaryRetriesAfterSuspensionResolves(parseT *testing.T) {
-	parseAdapter := newTestDOMAdapter()
-	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
-	parseContainer := parseAdapter.CreateElement("div")
-	parseDone := make(chan struct{})
-	isReady := false
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseAdapter := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+		parseContainer := parseAdapter.CreateElement("div")
+		parseDone := make(chan struct{})
+		isReady := false
 
-	parseChild := func() *Element {
-		if !isReady {
-			SuspendUntil(parseDone, "load profile")
+		parseChild := func() *Element {
+			if !isReady {
+				SuspendUntil(parseDone, "load profile")
+			}
+			return CreateElement("span", map[string]any{"id": "ready"}, "ready")
 		}
-		return CreateElement("span", map[string]any{"id": "ready"}, "ready")
-	}
 
-	parseRt.Render(CreateElement(AsyncBoundaryNodeType, map[string]any{
-		"fallback": CreateElement("p", map[string]any{"id": "fallback"}, "loading"),
-	}, CreateElement(parseChild, nil)), parseContainer)
-	flushScheduledWork(parseScheduler)
+		parseRt.Render(CreateElement(AsyncBoundaryNodeType, map[string]any{
+			"fallback": CreateElement("p", map[string]any{"id": "fallback"}, "loading"),
+		}, CreateElement(parseChild, nil)), parseContainer)
+		flushScheduledWork(parseScheduler)
 
-	if parseGot := nodeTextContent(parseContainer); parseGot != "loading" {
-		parseT.Fatalf("expected initial fallback text, got %q", parseGot)
-	}
+		if parseGot := nodeTextContent(parseContainer); parseGot != "loading" {
+			parseT.Fatalf("expected initial fallback text, got %q", parseGot)
+		}
 
-	isReady = true
-	close(parseDone)
-	waitForAsyncBoundaryRetry(parseT, parseScheduler)
-	flushScheduledWork(parseScheduler)
+		isReady = true
+		close(parseDone)
+		waitForAsyncBoundaryRetry(parseT, parseScheduler)
+		flushScheduledWork(parseScheduler)
 
-	if parseGot2 := nodeTextContent(parseContainer); parseGot2 != "ready" {
-		parseT.Fatalf("expected ready text after suspension resolved, got %q", parseGot2)
-	}
+		if parseGot2 := nodeTextContent(parseContainer); parseGot2 != "ready" {
+			parseT.Fatalf("expected ready text after suspension resolved, got %q", parseGot2)
+		}
+	})
 }
 
 func TestSuspendUntilResolvedChannelDoesNotPanic(parseT *testing.T) {

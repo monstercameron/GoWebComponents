@@ -39,7 +39,7 @@ func buildHydrationListContainer(parseAdapter *testDOMAdapter, parseCount int) D
 func BenchmarkHydrateSimpleReuse(parseB *testing.B) {
 	parseB.ReportAllocs()
 
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseAdapter := newTestDOMAdapter()
 		parseScheduler := newTestScheduler()
 		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
@@ -55,14 +55,14 @@ func BenchmarkHydrateSimpleReuse(parseB *testing.B) {
 		if len(parseScheduler.timeouts) == 0 {
 			parseB.Fatal("expected scheduled hydration work")
 		}
-		parseScheduler.timeouts[0]()
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
 func BenchmarkHydrateTagMismatchFallback(parseB *testing.B) {
 	parseB.ReportAllocs()
 
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseAdapter := newTestDOMAdapter()
 		parseScheduler := newTestScheduler()
 		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
@@ -74,14 +74,14 @@ func BenchmarkHydrateTagMismatchFallback(parseB *testing.B) {
 		if len(parseScheduler.timeouts) == 0 {
 			parseB.Fatal("expected scheduled hydration work")
 		}
-		parseScheduler.timeouts[0]()
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
 func BenchmarkHydrateMediumTreeReuse(parseB *testing.B) {
 	parseB.ReportAllocs()
 
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseAdapter := newTestDOMAdapter()
 		parseScheduler := newTestScheduler()
 		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
@@ -91,14 +91,14 @@ func BenchmarkHydrateMediumTreeReuse(parseB *testing.B) {
 		if len(parseScheduler.timeouts) == 0 {
 			parseB.Fatal("expected scheduled hydration work")
 		}
-		parseScheduler.timeouts[0]()
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
 func BenchmarkHydrateMediumTreeFirstUpdate(parseB *testing.B) {
 	parseB.ReportAllocs()
 
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseAdapter := newTestDOMAdapter()
 		parseScheduler := newTestScheduler()
 		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
@@ -128,7 +128,9 @@ func BenchmarkHydrateMediumTreeFirstUpdate(parseB *testing.B) {
 		if len(parseScheduler.timeouts) == 0 {
 			parseB.Fatal("expected scheduled hydration work")
 		}
-		parseScheduler.timeouts[0]()
+		// Drain every continuation: under js/wasm the 5ms frame budget expires inside the
+		// root fiber, so the component renders in a later slice than on native.
+		drainBenchmarkScheduler(parseScheduler)
 		if setTitle == nil {
 			parseB.Fatal("expected hydrated component setter")
 		}
@@ -136,6 +138,6 @@ func BenchmarkHydrateMediumTreeFirstUpdate(parseB *testing.B) {
 		if len(parseScheduler.timeouts) == 0 {
 			parseB.Fatal("expected scheduled post-hydration update")
 		}
-		parseScheduler.timeouts[0]()
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }

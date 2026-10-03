@@ -375,7 +375,8 @@ func goUseEffectImpl(parseEffect func() func(), parseLayout bool, parseDeps ...a
 	} else {
 		// Check if deps changed
 		parsePrevDeps := parseHooks.deps[parseDepIdx]
-		if len(parseDeps) == 0 || !areDepsEqual(parsePrevDeps, parseDeps) || parseHooks.effectEpochs[parseCleanupIdx] != parseHooks.effectEpoch {
+		if len(parseDeps) == 0 || isAlwaysDeps(parseDeps) || !areDepsEqual(parsePrevDeps, parseDeps) || parseHooks.effectEpochs[parseCleanupIdx] != parseHooks.effectEpoch {
+			checkHookDepStability(parseHooks, "effect", parseDepIdx, parsePrevDeps, parseDeps)
 			parseHooks.deps[parseDepIdx] = parseDeps
 			shouldRun = true
 		}
@@ -455,7 +456,8 @@ func goUseMemo(parseCompute func() any, parseTargetType reflect.Type, parseDeps 
 	// Check if we need to recompute: only if deps changed (or this is the first render and memo.deps is uninitialized)
 	// First render: memo.deps will be nil, so we need to initialize it
 	// Subsequent renders: check if deps changed
-	if parseMemo.deps == nil || !areDepsEqual(parseMemo.deps, parseDeps) {
+	if parseMemo.deps == nil || isAlwaysDeps(parseDeps) || !areDepsEqual(parseMemo.deps, parseDeps) {
+		checkHookDepStability(parseHooks, "memo", parseMemoIdx, parseMemo.deps, parseDeps)
 		parseMemo.value = parseCompute()
 		parseMemo.deps = parseDeps
 		parseMemo.singleDep = nil
@@ -524,7 +526,8 @@ func GoUseMemoFor[T any](parseCompute func() T, parseDeps ...any) T {
 		}
 	}
 
-	if parseMemo.deps == nil || !areDepsEqual(parseMemo.deps, parseDeps) {
+	if parseMemo.deps == nil || isAlwaysDeps(parseDeps) || !areDepsEqual(parseMemo.deps, parseDeps) {
+		checkCurrentMemoDepStability(parseMemo.deps, parseDeps)
 		parseValue := parseCompute()
 		parseMemo.value = parseValue
 		parseMemo.deps = parseDeps
@@ -642,14 +645,9 @@ func GoUseEffectOf[D comparable](parseEffect func() func(), parseDep D) {
 	}
 
 	if shouldRun {
-		if parseHooks.cleanups[parseCleanupIdx] != nil {
-			parseStart := time.Now()
-			parseHooks.cleanups[parseCleanupIdx]()
-			parseDurationNs := time.Since(parseStart).Nanoseconds()
-			parseFiber.cleanupDurationNs += parseDurationNs
-			recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
-			parseHooks.cleanups[parseCleanupIdx] = nil
-		}
+		// The previous cleanup is deliberately NOT run here: this is the render
+		// phase, which can be discarded. runOneEffect runs it at commit, as it
+		// does for GoUseEffect.
 		appendFiberEffect(parseFiber, Effect{
 			Fn:           parseEffect,
 			CleanupIndex: parseCleanupIdx,
@@ -757,7 +755,8 @@ func GoUseCallback(parseFn any, parseDeps ...any) any {
 	parseCallback := &parseHooks.callbacks[parseCallbackIdx]
 
 	// Check if we need to update: only if deps changed or this is the first render
-	if parseCallback.deps == nil || !areDepsEqual(parseCallback.deps, parseDeps) {
+	if parseCallback.deps == nil || isAlwaysDeps(parseDeps) || !areDepsEqual(parseCallback.deps, parseDeps) {
+		checkHookDepStability(parseHooks, "callback", parseCallbackIdx, parseCallback.deps, parseDeps)
 		parseCallback.fn = parseFn
 		parseCallback.deps = parseDeps
 	}
@@ -890,6 +889,7 @@ func GoUseFunc(parseFn any) any {
 
 	parseHooks := parseFiber.hooks
 	recordHookSignature(parseHooks, "func")
+	checkHookInList(parseHooks)
 	parseHooks.index++
 
 	parseFuncIdx := parseHooks.funcIndex

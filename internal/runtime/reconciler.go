@@ -842,52 +842,90 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	var parsePrevSibling *Fiber
 	isParseFirstChildSet := false
 
+	// Child positions are slots in the element list. A nil child keeps its slot
+	// but builds no fiber, so the old chain is aligned to the element list by
+	// slotGap: parseSlotDelta is (old fiber slot - element slot) for the pair
+	// under the cursor. Zero is a match; positive means the element is newly
+	// inserted ahead of the old fiber; negative means the old fiber's element is
+	// gone. With no nil child on either side it stays zero and the loop is the
+	// plain pairwise walk.
+	parseSlotDelta := int(parseOldFiber2.slotGap)
+	parsePendingGap := 0
+
 	// Loop 1: Update/Replace (Both exist)
 	// Pre-compute element count for better branch prediction
 	parseElemCount := len(parseElements)
 	for parseIndex < parseElemCount && parseOldFiber2 != nil {
-		parseElement := parseElements[parseIndex]
+		parseElem, _ := parseElements[parseIndex].(*Element)
+		if parseElem == nil {
+			parsePendingGap++
+			parseSlotDelta--
+			parseIndex++
+			continue
+		}
 
 		var parseNewFiber *Fiber
 
-		if parseElement != nil {
-			if parseElem, parseOk := parseElement.(*Element); parseOk && parseElem != nil {
-				// Inline fast path for string type comparison (most common case)
-				isParseSameType := false
-				if parseS1, parseOk1 := parseElem.Type.(string); parseOk1 {
-					if parseS2, parseOk2 := parseOldFiber2.typeOf.(string); parseOk2 {
-						isParseSameType = parseS1 == parseS2
-					}
-				} else {
-					isParseSameType = isSameType(parseElem.Type, parseOldFiber2.typeOf)
-				}
-
-				if isParseSameType {
-					parseNewFiber = parseRt.buildUpdatedFiber(parseWipFiber, parseOldFiber2, parseElem)
-					// Advance oldFiber
-					parseOldFiber2 = parseOldFiber2.sibling
-				} else {
-					// REPLACE logic (Placement + Deletion)
-					if parseOldFiber2.sibling != nil || parseIndex < parseElemCount-1 {
-						parseWipFiber.needsChildOrder = true
-						markFiberCommitPath(parseWipFiber.parent)
-					}
-					parseNewFiber = parseRt.buildPlacementFiber(parseWipFiber, parseElem, parseOldFiber2)
-
-					// Mark old fiber for deletion
-					parseOldFiber2.effectTag = effectTagDeletion
-					parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
-					parseOldFiber2 = parseOldFiber2.sibling
+		if parseSlotDelta > 0 {
+			// Inserted before an existing fiber: placed in order, nothing consumed.
+			parseWipFiber.needsChildOrder = true
+			markFiberCommitPath(parseWipFiber.parent)
+			parseNewFiber = parseRt.buildPlacementFiber(parseWipFiber, parseElem, nil)
+			parseSlotDelta--
+		} else {
+			for parseSlotDelta < 0 && parseOldFiber2 != nil {
+				// The element that owned this old fiber is gone.
+				parseOldFiber2.effectTag = effectTagDeletion
+				parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
+				parseOldFiber2 = parseOldFiber2.sibling
+				parseSlotDelta++
+				if parseOldFiber2 != nil {
+					parseSlotDelta += int(parseOldFiber2.slotGap)
 				}
 			}
-		} else {
-			parseOldFiber2.effectTag = effectTagDeletion
-			parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
+			if parseOldFiber2 == nil {
+				// Old chain exhausted: Loop 2 places this element and the rest.
+				break
+			}
+
+			// Inline fast path for string type comparison (most common case)
+			isParseSameType := false
+			if parseS1, parseOk1 := parseElem.Type.(string); parseOk1 {
+				if parseS2, parseOk2 := parseOldFiber2.typeOf.(string); parseOk2 {
+					isParseSameType = parseS1 == parseS2
+				}
+			} else {
+				isParseSameType = isSameType(parseElem.Type, parseOldFiber2.typeOf)
+			}
+
+			if isParseSameType {
+				parseNewFiber = parseRt.buildUpdatedFiber(parseWipFiber, parseOldFiber2, parseElem)
+			} else {
+				// REPLACE logic (Placement + Deletion)
+				if parseOldFiber2.sibling != nil || parseIndex < parseElemCount-1 {
+					parseWipFiber.needsChildOrder = true
+					markFiberCommitPath(parseWipFiber.parent)
+				}
+				parseNewFiber = parseRt.buildPlacementFiber(parseWipFiber, parseElem, parseOldFiber2)
+
+				// Mark old fiber for deletion
+				parseOldFiber2.effectTag = effectTagDeletion
+				parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
+			}
+			// Advance oldFiber: the pair was consumed together, so only the next
+			// old fiber's own gap moves the delta.
 			parseOldFiber2 = parseOldFiber2.sibling
+			if parseOldFiber2 != nil {
+				parseSlotDelta += int(parseOldFiber2.slotGap)
+			}
 		}
 
 		// Link to parent
 		if parseNewFiber != nil {
+			if parsePendingGap != 0 {
+				setFiberSlotGap(parseNewFiber, parsePendingGap)
+				parsePendingGap = 0
+			}
 			if !isParseFirstChildSet {
 				parseWipFiber.child = parseNewFiber
 				isParseFirstChildSet = true
@@ -902,16 +940,20 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 
 	// Loop 2: Placement (Remaining elements)
 	for parseIndex < len(parseElements) {
-		parseElement2 := parseElements[parseIndex]
+		parseElem2, _ := parseElements[parseIndex].(*Element)
 		var parseNewFiber2 *Fiber
 
-		if parseElement2 != nil {
-			if parseElem2, parseOk4 := parseElement2.(*Element); parseOk4 && parseElem2 != nil {
-				parseNewFiber2 = parseRt.buildPlacementFiber(parseWipFiber, parseElem2, nil)
-			}
+		if parseElem2 != nil {
+			parseNewFiber2 = parseRt.buildPlacementFiber(parseWipFiber, parseElem2, nil)
+		} else {
+			parsePendingGap++
 		}
 
 		if parseNewFiber2 != nil {
+			if parsePendingGap != 0 {
+				setFiberSlotGap(parseNewFiber2, parsePendingGap)
+				parsePendingGap = 0
+			}
 			if !isParseFirstChildSet {
 				parseWipFiber.child = parseNewFiber2
 				isParseFirstChildSet = true
@@ -931,6 +973,13 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	}
 }
 
+// setFiberSlotGap records how many absent children preceded one fiber.
+func setFiberSlotGap(parseFiber *Fiber, parseGap int) {
+	if parseGap > 0xFFFF {
+		parseGap = 0xFFFF
+	}
+	parseFiber.slotGap = uint16(parseGap)
+}
 // mountChildren builds a sibling chain when the parent has no previous child.
 // It deliberately accepts the already-flattened element slice used by
 // reconcileChildren, and mirrors that function's treatment of nil/non-element
@@ -938,12 +987,18 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 func (parseRt *Runtime) mountChildren(parseWipFiber *Fiber, parseElements []any) {
 	var parseFirstChild *Fiber
 	var parsePrevSibling *Fiber
+	parsePendingGap := 0
 	for _, parseElement := range parseElements {
 		parseElem, parseOk := parseElement.(*Element)
 		if !parseOk || parseElem == nil {
+			parsePendingGap++
 			continue
 		}
 		parseNewFiber := parseRt.buildPlacementFiber(parseWipFiber, parseElem, nil)
+		if parsePendingGap != 0 {
+			setFiberSlotGap(parseNewFiber, parsePendingGap)
+			parsePendingGap = 0
+		}
 		if parseFirstChild == nil {
 			parseFirstChild = parseNewFiber
 		} else {

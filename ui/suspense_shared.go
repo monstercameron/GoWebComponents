@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+import (
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+)
 
 // SuspenseValue describes a render-time value that may not be ready yet.
 type SuspenseValue[T any] struct {
@@ -19,7 +22,7 @@ func SuspendUntil(parseDone <-chan struct{}, parseReason ...string) {
 // Await returns a ready value or suspends the current render until it is ready.
 func Await[T any](parseValue SuspenseValue[T]) T {
 	if parseValue.Error != nil {
-		panic(parseValue.Error)
+		panic(errcode.New(errcode.UIAwaitFailed, parseValue.Error))
 	}
 	if !parseValue.Ready {
 		SuspendUntil(parseValue.Done, parseValue.Reason)

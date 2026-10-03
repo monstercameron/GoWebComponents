@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v6/html"
+	_ "github.com/monstercameron/GoWebComponents/v6/html/markdown"
 	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 

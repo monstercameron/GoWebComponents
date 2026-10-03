@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 const propsKey = "__ui_props"
@@ -422,19 +423,30 @@ func UseState[T any](parseInitialValue T) State[T] {
 		set: func(parseNext any) {
 			parseUpdateMu.Lock()
 			defer parseUpdateMu.Unlock()
-			if parseValue, parseOk := parseNext.(T); parseOk {
-				parseValueMu.Lock()
-				parseCurrent = parseValue
-				parseValueMu.Unlock()
-				return
-			}
-			if parseUpdater, parseOk2 := parseNext.(func(T) T); parseOk2 {
+			// Updaters are matched first, mirroring the runtime state slot: for an interface T
+			// (for example any) a func(T) T also satisfies T, and a direct-value match would store the
+			// updater itself instead of applying it.
+			if parseUpdater, parseOk := parseNext.(func(T) T); parseOk {
 				parseValueMu.RLock()
 				parsePrevious := parseCurrent
 				parseValueMu.RUnlock()
 				parseNextValue := parseUpdater(parsePrevious)
 				parseValueMu.Lock()
 				parseCurrent = parseNextValue
+				parseValueMu.Unlock()
+				return
+			}
+			if parseValue, parseOk2 := parseNext.(T); parseOk2 {
+				parseValueMu.Lock()
+				parseCurrent = parseValue
+				parseValueMu.Unlock()
+				return
+			}
+			if parseNext == nil {
+				// A nil interface cannot satisfy a type assertion; it is the zero value of a nilable T.
+				var parseZero T
+				parseValueMu.Lock()
+				parseCurrent = parseZero
 				parseValueMu.Unlock()
 			}
 		},
@@ -514,7 +526,7 @@ func UseId() string {
 	nativeIDMu.Lock()
 	defer nativeIDMu.Unlock()
 	nativeIDCounter++
-	return fmt.Sprintf("gwc-native:%d", nativeIDCounter)
+	return fmt.Sprintf("gwc-native-%d", nativeIDCounter)
 }
 
 // UseMemo computes value immediately on non-browser targets.
@@ -883,7 +895,7 @@ func toInterfaces(parseChildren []Node) []any {
 
 // UnsupportedOnServer explains the current SSR limitation for hook-based components.
 func UnsupportedOnServer(parseName string) error {
-	return fmt.Errorf("%s", unsupportedOnServerMessage(parseName))
+	return errcode.New(errcode.UIUnsupportedOnServer, unsupportedOnServerMessage(parseName))
 }
 
 // ReadBootstrapScript is a non-browser stub that returns an UnsupportedOnServer error.

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 var storeSSRHookFibers sync.Map
@@ -20,11 +22,11 @@ func getSSRHookOwner() uint64 {
 	parseSize := runtime.Stack(parseBuffer[:], false)
 	parseFields := strings.Fields(string(parseBuffer[:parseSize]))
 	if len(parseFields) < 2 {
-		panic("SSR: cannot identify rendering goroutine")
+		panic(errcode.New(errcode.RuntimeSSRGoroutineIdentity, "SSR: cannot identify rendering goroutine (runtime.Stack returned an unparsable header; hooks must run on the goroutine that started the render)"))
 	}
 	parseOwner, parseErr := strconv.ParseUint(parseFields[1], 10, 64)
 	if parseErr != nil || parseOwner == 0 {
-		panic("SSR: invalid rendering goroutine identity")
+		panic(errcode.New(errcode.RuntimeSSRGoroutineIdentity, "SSR: invalid rendering goroutine identity (goroutine id parsed as zero or non-numeric: "+strings.TrimSpace(parseFields[1])+")"))
 	}
 	return parseOwner
 }

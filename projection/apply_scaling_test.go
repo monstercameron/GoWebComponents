@@ -42,7 +42,7 @@ func TestApplyScalesLinearlyWithOpCount(parseT *testing.T) {
 	parseMeasure := func(parseCount int) float64 {
 		parseOps := buildScalingOps(parseCount)
 		parseResult := testing.Benchmark(func(parseB *testing.B) {
-			for parseIteration := 0; parseIteration < parseB.N; parseIteration++ {
+			for parseB.Loop() {
 				parseB.StopTimer()
 				parseProjection, _ := projection.New(func(parsePayload []byte) (scalingRow, error) {
 					var parseRow scalingRow

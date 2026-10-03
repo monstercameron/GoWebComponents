@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -221,49 +222,51 @@ func TestCleanupPanicMatrixRecoversAfterDeletion(parseT *testing.T) {
 }
 
 func TestAsyncPanicMatrixReportsAndPreservesCommittedUI(parseT *testing.T) {
-	SetCurrentFiber(nil)
-	parseT.Cleanup(func() {
+	synctest.Test(parseT, func(parseT *testing.T) {
 		SetCurrentFiber(nil)
+		parseT.Cleanup(func() {
+			SetCurrentFiber(nil)
+		})
+		ClearDiagnostics()
+		ClearLogs()
+		defer ClearDiagnostics()
+		defer ClearLogs()
+
+		parseAdapter := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+		parseGetReports := capturePanicReports(parseT)
+		parseContainer := parseAdapter.CreateElement("div")
+
+		parseRt.Render(CreateElement("div", nil, "async alive"), parseContainer)
+		drainScheduledTimeouts(parseT, parseScheduler, 10)
+
+		parseDone := make(chan struct{})
+		SafeGo("test", "async matrix task", func() {
+			defer close(parseDone)
+			panic("async boom")
+		})
+		select {
+		case <-parseDone:
+		case <-time.After(5 * time.Second):
+			parseT.Fatal("async matrix task did not finish")
+		}
+
+		parseDeadline := time.Now().Add(5 * time.Second)
+		for len(parseGetReports()) == 0 && time.Now().Before(parseDeadline) {
+			time.Sleep(time.Millisecond)
+		}
+		parseReports := parseGetReports()
+		if len(parseReports) != 1 || parseReports[0].Phase != PanicPhaseAsync {
+			parseT.Fatalf("expected one async panic report, got %+v", parseReports)
+		}
+		if parseGot := nodeTextContent(parseContainer); parseGot != "async alive" {
+			parseT.Fatalf("expected async containment to preserve committed UI, got %q", parseGot)
+		}
+		if parseRt.currentRoot == nil || parseRt.wipRoot != nil || parseRt.updateScheduled {
+			parseT.Fatalf("expected async containment not to leave render work pending, current=%p wip=%p scheduled=%t", parseRt.currentRoot, parseRt.wipRoot, parseRt.updateScheduled)
+		}
 	})
-	ClearDiagnostics()
-	ClearLogs()
-	defer ClearDiagnostics()
-	defer ClearLogs()
-
-	parseAdapter := newTestDOMAdapter()
-	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
-	parseGetReports := capturePanicReports(parseT)
-	parseContainer := parseAdapter.CreateElement("div")
-
-	parseRt.Render(CreateElement("div", nil, "async alive"), parseContainer)
-	drainScheduledTimeouts(parseT, parseScheduler, 10)
-
-	parseDone := make(chan struct{})
-	SafeGo("test", "async matrix task", func() {
-		defer close(parseDone)
-		panic("async boom")
-	})
-	select {
-	case <-parseDone:
-	case <-time.After(5 * time.Second):
-		parseT.Fatal("async matrix task did not finish")
-	}
-
-	parseDeadline := time.Now().Add(5 * time.Second)
-	for len(parseGetReports()) == 0 && time.Now().Before(parseDeadline) {
-		time.Sleep(time.Millisecond)
-	}
-	parseReports := parseGetReports()
-	if len(parseReports) != 1 || parseReports[0].Phase != PanicPhaseAsync {
-		parseT.Fatalf("expected one async panic report, got %+v", parseReports)
-	}
-	if parseGot := nodeTextContent(parseContainer); parseGot != "async alive" {
-		parseT.Fatalf("expected async containment to preserve committed UI, got %q", parseGot)
-	}
-	if parseRt.currentRoot == nil || parseRt.wipRoot != nil || parseRt.updateScheduled {
-		parseT.Fatalf("expected async containment not to leave render work pending, current=%p wip=%p scheduled=%t", parseRt.currentRoot, parseRt.wipRoot, parseRt.updateScheduled)
-	}
 }
 
 func TestReportUnhandledPanicContextFormatsLoaderPhase(parseT *testing.T) {
@@ -279,7 +282,7 @@ func TestReportUnhandledPanicContextFormatsLoaderPhase(parseT *testing.T) {
 		!strings.Contains(parseMessage, "runtime: no route boundary recovered this loader panic") ||
 		!strings.Contains(parseMessage, "next: Match code GWC-RUNTIME-PANIC-LOADER in automation;") ||
 		!strings.Contains(parseMessage, "inspect the loader or async data path named by where/path first") ||
-		!strings.Contains(parseMessage, "ACTIONABLE_ERRORS.md#gwc-runtime-panic-loader") {
+		!strings.Contains(parseMessage, "docs/REFERENCE_MANUAL/error-codes.md#gwc-runtime-panic-loader") {
 		parseT.Fatalf("expected loader panic contract, got %q", parseMessage)
 	}
 

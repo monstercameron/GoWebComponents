@@ -4,7 +4,7 @@ import "testing"
 
 func BenchmarkFiberAllocation(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = &Fiber{
 			typeOf: "div",
 			props:  map[string]any{"id": "node"},
@@ -15,7 +15,7 @@ func BenchmarkFiberAllocation(parseB *testing.B) {
 
 func BenchmarkElementLiteralCreation(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = &Element{
 			Type:        "TEXT_ELEMENT",
 			TextContent: "payload",
@@ -30,7 +30,7 @@ func BenchmarkHooksPackedStateRead(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseHooks.states[0]
 		_ = parseHooks.states[2]
 		_ = parseHooks.states[4]
@@ -42,7 +42,7 @@ func BenchmarkFetchStateCopy(parseB *testing.B) {
 	parseState := FetchState{Data: "payload", Error: "", Loading: true}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseState
 	}
 }

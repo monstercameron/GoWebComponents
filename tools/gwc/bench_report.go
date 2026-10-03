@@ -103,7 +103,8 @@ func benchmarkBucketOrder(parseBucketID string) int {
 }
 
 func buildBenchmarkScoreSummary(parseReference benchmarkReport, parseCurrent benchmarkReport, parseConfig benchmarkConfig) *benchmarkScoreSummary {
-	parseReferenceIndex := benchmarkMetricIndex(parseReference)
+	parseStat, _ := normalizeBenchmarkStat(parseConfig.stat)
+	parseReferenceIndex := benchmarkMetricIndexByStat(parseReference, parseStat)
 	parseBucketRatios := map[string][]float64{}
 	parseMatchedBenchmarks := 0
 	for _, parsePackageReport := range parseCurrent.Packages {
@@ -111,7 +112,7 @@ func buildBenchmarkScoreSummary(parseReference benchmarkReport, parseCurrent ben
 			continue
 		}
 		for _, parseBenchmark := range parsePackageReport.Benchmarks {
-			parseMeasuredNS, parseOk := parseBenchmark.AverageMetrics["ns/op"]
+			parseMeasuredNS, parseOk := getBenchmarkStatMetrics(parseBenchmark, parseStat)["ns/op"]
 			if !parseOk || parseMeasuredNS <= 0 {
 				continue
 			}
@@ -214,22 +215,104 @@ func benchmarkMachineLabel(parseReport benchmarkReport) string {
 }
 
 func collectBenchmarkPackages(parseRootPath string) ([]string, []string, error) {
+	return collectBenchmarkPackagesWithIncludes(parseRootPath, nil)
+}
+
+// normalizeBenchmarkIncludes converts user supplied include dirs to clean root-relative slash paths.
+func normalizeBenchmarkIncludes(parseIncludes []string) []string {
+	parseNormalized := []string{}
+	for _, parseInclude := range parseIncludes {
+		parseClean := strings.Trim(filepath.ToSlash(filepath.Clean(strings.TrimSpace(parseInclude))), "/")
+		parseClean = strings.TrimPrefix(parseClean, "./")
+		if parseClean == "" || parseClean == "." {
+			continue
+		}
+		parseNormalized = append(parseNormalized, parseClean)
+	}
+	return parseNormalized
+}
+
+// isBenchmarkDirIncluded reports whether parseRel equals or sits below an include entry, and
+// returns the portion of the path below that entry.
+func isBenchmarkDirIncluded(parseRel string, parseIncludes []string) (bool, string) {
+	for _, parseInclude := range parseIncludes {
+		if parseRel == parseInclude {
+			return true, ""
+		}
+		if parseTail, isFound := strings.CutPrefix(parseRel, parseInclude+"/"); isFound {
+			return true, parseTail
+		}
+	}
+	return false, ""
+}
+
+// isBenchmarkDirTransit reports whether parseRel is a proper ancestor of an include entry, so
+// the walk must descend through it even though it is skipped by default.
+func isBenchmarkDirTransit(parseRel string, parseIncludes []string) bool {
+	for _, parseInclude := range parseIncludes {
+		if strings.HasPrefix(parseInclude, parseRel+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// hasBenchmarkSkippedComponent reports whether any path component is skipped by default.
+func hasBenchmarkSkippedComponent(parseRel string) bool {
+	if parseRel == "." || parseRel == "" {
+		return false
+	}
+	for parsePart := range strings.SplitSeq(parseRel, "/") {
+		if shouldSkipBenchmarkWalkDir(parsePart) {
+			return true
+		}
+	}
+	return false
+}
+
+// collectBenchmarkPackagesWithIncludes discovers benchmark packages; parseIncludes lists
+// root-relative directories that are opted in even though they are skipped by default.
+func collectBenchmarkPackagesWithIncludes(parseRootPath string, parseIncludesRaw []string) ([]string, []string, error) {
 	type benchmarkPresence struct {
 		native bool
 		wasm   bool
 	}
+	parseIncludes := normalizeBenchmarkIncludes(parseIncludesRaw)
 	parsePresence := map[string]*benchmarkPresence{}
 	parseErr := filepath.WalkDir(parseRootPath, func(parsePath string, parseEntry fs.DirEntry, parseWalkErr error) error {
 		if parseWalkErr != nil {
 			return parseWalkErr
 		}
+		parseDirPath := parsePath
+		if !parseEntry.IsDir() {
+			parseDirPath = filepath.Dir(parsePath)
+		}
+		parseRel := "."
+		if parseRelPath, parseRelErr := filepath.Rel(parseRootPath, parseDirPath); parseRelErr == nil {
+			parseRel = filepath.ToSlash(parseRelPath)
+		}
+		isIncluded, parseTail := isBenchmarkDirIncluded(parseRel, parseIncludes)
 		if parseEntry.IsDir() {
-			if shouldSkipBenchmarkWalkDir(parseEntry.Name()) && parsePath != parseRootPath {
+			if parsePath == parseRootPath {
+				return nil
+			}
+			switch {
+			case isIncluded:
+				// Defaults still apply below an include root so testdata-style dirs stay out.
+				if hasBenchmarkSkippedComponent(parseTail) {
+					return filepath.SkipDir
+				}
+			case isBenchmarkDirTransit(parseRel, parseIncludes):
+			case hasBenchmarkSkippedComponent(parseRel):
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		if !strings.HasSuffix(parseEntry.Name(), "_test.go") {
+			return nil
+		}
+		// Transit dirs are only walked to reach an include, so they stay out unless eligible by default.
+		if !isIncluded && hasBenchmarkSkippedComponent(parseRel) {
 			return nil
 		}
 		parseContent, parseErr2 := os.ReadFile(parsePath)
@@ -355,6 +438,10 @@ func parseBenchmarkOutput(parseOutput string) []benchmarkResultReport {
 	for _, parseName2 := range parseOrdered {
 		parseRecord2 := parseResults[parseName2]
 		parseRecord2.AverageMetrics = averageBenchmarkMetrics(parseRecord2.Samples)
+		if len(parseRecord2.Samples) > 1 {
+			parseRecord2.N = len(parseRecord2.Samples)
+			parseRecord2.Median, parseRecord2.MAD = summarizeBenchmarkSpread(parseRecord2.Samples)
+		}
 		parseReport = append(parseReport, *parseRecord2)
 	}
 	return parseReport
@@ -392,11 +479,16 @@ func loadBenchmarkReport(parsePath string) (benchmarkReport, error) {
 }
 
 func compareBenchmarkReports(parseBaseline benchmarkReport, parseCurrent benchmarkReport) *benchmarkComparisonSummary {
+	return compareBenchmarkReportsByStat(parseBaseline, parseCurrent, benchmarkStatMean)
+}
+
+// compareBenchmarkReportsByStat compares two reports using the mean or median statistic.
+func compareBenchmarkReportsByStat(parseBaseline benchmarkReport, parseCurrent benchmarkReport, parseStat string) *benchmarkComparisonSummary {
 	if parseBaseline.GeneratedAt == "" {
 		return nil
 	}
-	parseBaselineMetrics := benchmarkMetricIndex(parseBaseline)
-	parseCurrentMetrics := benchmarkMetricIndex(parseCurrent)
+	parseBaselineMetrics := benchmarkMetricIndexByStat(parseBaseline, parseStat)
+	parseCurrentMetrics := benchmarkMetricIndexByStat(parseCurrent, parseStat)
 	parseEntries := []benchmarkMetricComparison{}
 	parseImproved := 0
 	parseRegressed := 0
@@ -466,14 +558,76 @@ func compareBenchmarkReports(parseBaseline benchmarkReport, parseCurrent benchma
 	}
 }
 
+// medianBenchmarkValues returns the median of parseValues without mutating the input.
+func medianBenchmarkValues(parseValues []float64) float64 {
+	if len(parseValues) == 0 {
+		return 0
+	}
+	parseSorted := append([]float64(nil), parseValues...)
+	sort.Float64s(parseSorted)
+	parseMid := len(parseSorted) / 2
+	if len(parseSorted)%2 == 1 {
+		return parseSorted[parseMid]
+	}
+	return (parseSorted[parseMid-1] + parseSorted[parseMid]) / 2
+}
+
+// summarizeBenchmarkSpread computes the per-metric median and median absolute deviation.
+func summarizeBenchmarkSpread(parseSamples []benchmarkSample) (map[string]float64, map[string]float64) {
+	parseByMetric := map[string][]float64{}
+	for _, parseSample := range parseSamples {
+		for parseMetric, parseValue := range parseSample.Metrics {
+			parseByMetric[parseMetric] = append(parseByMetric[parseMetric], parseValue)
+		}
+	}
+	parseMedians := map[string]float64{}
+	parseMADs := map[string]float64{}
+	for parseMetric2, parseValues := range parseByMetric {
+		parseMedian := medianBenchmarkValues(parseValues)
+		parseDeviations := make([]float64, len(parseValues))
+		for parseIndex, parseValue2 := range parseValues {
+			parseDeviations[parseIndex] = math.Abs(parseValue2 - parseMedian)
+		}
+		parseMedians[parseMetric2] = parseMedian
+		parseMADs[parseMetric2] = medianBenchmarkValues(parseDeviations)
+	}
+	return parseMedians, parseMADs
+}
+
+// normalizeBenchmarkStat validates a -stat value and defaults the empty string to mean.
+func normalizeBenchmarkStat(parseStat string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(parseStat)) {
+	case "", "mean":
+		return benchmarkStatMean, nil
+	case "median":
+		return benchmarkStatMedian, nil
+	default:
+		return "", fmt.Errorf("unknown benchmark stat %q (want mean or median)", parseStat)
+	}
+}
+
+// getBenchmarkStatMetrics returns the metric map the chosen statistic scores against. Median
+// falls back to the mean map for reports without spread data (single sample or older JSON).
+func getBenchmarkStatMetrics(parseBenchmark benchmarkResultReport, parseStat string) map[string]float64 {
+	if parseStat == benchmarkStatMedian && len(parseBenchmark.Median) > 0 {
+		return parseBenchmark.Median
+	}
+	return parseBenchmark.AverageMetrics
+}
+
 func benchmarkMetricIndex(parseReport benchmarkReport) map[benchmarkMetricKey]float64 {
+	return benchmarkMetricIndexByStat(parseReport, benchmarkStatMean)
+}
+
+// benchmarkMetricIndexByStat indexes comparable metrics using the mean or median statistic.
+func benchmarkMetricIndexByStat(parseReport benchmarkReport, parseStat string) map[benchmarkMetricKey]float64 {
 	parseIndex := map[benchmarkMetricKey]float64{}
 	for _, parsePackageReport := range parseReport.Packages {
 		if !parsePackageReport.OK {
 			continue
 		}
 		for _, parseBenchmark := range parsePackageReport.Benchmarks {
-			for parseMetric, parseValue := range parseBenchmark.AverageMetrics {
+			for parseMetric, parseValue := range getBenchmarkStatMetrics(parseBenchmark, parseStat) {
 				if !benchmarkMetricComparable(parseMetric) {
 					continue
 				}
@@ -518,6 +672,9 @@ func printBenchmarkReport(parseReport benchmarkReport) {
 	fmt.Printf("root:          %s\n", parseReport.Root)
 	fmt.Printf("report:        %s\n", parseReport.ReportPath)
 	fmt.Printf("go version:    %s\n", parseReport.GoVersion)
+	if parseMachine := formatBenchmarkMachine(parseReport.Machine); parseMachine != "" {
+		fmt.Printf("machine:       %s\n", parseMachine)
+	}
 	fmt.Printf("lanes:         %s\n", strings.Join(parseReport.SelectedLanes, ", "))
 	fmt.Printf("parallel:      %d\n", parseReport.PackageParallelism)
 	fmt.Printf("packages:      %d\n", parseReport.PackageCount)

@@ -8,6 +8,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	internaldiagnostics "github.com/monstercameron/GoWebComponents/v6/internal/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 const frameworkModulePath = "github.com/monstercameron/GoWebComponents"
@@ -80,6 +83,8 @@ type ActionablePanicOptions struct {
 	Path           string
 	ComponentStack []string
 	Consequence    string
+	// Code selects a registered diagnostic directly; Message is then optional.
+	Code errcode.Code
 }
 
 type PanicReportRedactionContext struct {
@@ -348,6 +353,7 @@ func emitWrappedPanicReport(parseReport PanicReport) {
 		return
 	}
 	parseReport = redactPanicReport(parseReport)
+	internaldiagnostics.NotifyPanic(parseReport.Code)
 	if parseHook := currentPanicReportHook(); parseHook != nil {
 		func() {
 			defer func() { _ = recover() }()
@@ -707,14 +713,23 @@ func buildActionablePanicContext(parseOptions ActionablePanicOptions) panicRepor
 		parseSubject = parseSource
 	}
 	parseSummary := strings.TrimSpace(parseOptions.Message)
+	// A registered code is authoritative; the message substring switch is only
+	// the fallback for call sites that still describe the failure in prose.
+	parseDetails := diagnosticDetails{}
+	if parseEntry, parseOk := errcode.Lookup(parseOptions.Code); parseOk {
+		parseDetails = getDiagnosticDetails(parseEntry.Code, DiagnosticError, false)
+		if parseSummary == "" {
+			parseSummary = parseEntry.Headline
+		}
+	}
 	if parseSummary == "" {
 		parseSummary = "framework misuse without message"
 	}
-	parseDetails := diagnosticMetadata(parseSource, DiagnosticError, DiagnosticCorrectness, parseSummary)
 	if strings.TrimSpace(parseDetails.Code) == "" {
-		parseDetails.Code = "GWC-FRAMEWORK-USAGE"
-		parseDetails.Docs = actionableErrorsDoc
-		parseDetails.Remediation = "Inspect the where/path fields first, then correct the invalid framework API usage before retrying."
+		parseDetails = diagnosticMetadata(parseSource, DiagnosticError, DiagnosticCorrectness, parseSummary)
+	}
+	if strings.TrimSpace(parseDetails.Code) == "" {
+		parseDetails = getDiagnosticDetails(errcode.FrameworkUsage, DiagnosticError, false)
 	}
 	parseContext := panicReportContext{
 		Source:         parseSource,

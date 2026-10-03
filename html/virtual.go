@@ -2,6 +2,7 @@ package html
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
@@ -92,7 +93,7 @@ func VisibleRange(parseProps VirtualListProps) RowRange {
 	// A degenerate row height would divide by zero, and a viewport of zero
 	// height happens routinely before first layout. Falling back to rendering
 	// everything is the safe direction: too many rows is slow, too few is wrong.
-	if parseProps.ItemHeight <= 0 || parseProps.ViewportHeight <= 0 {
+	if !hasVirtualGeometry(parseProps) {
 		return RowRange{Start: 0, End: parseProps.ItemCount}
 	}
 
@@ -103,8 +104,19 @@ func VisibleRange(parseProps VirtualListProps) RowRange {
 	if parseOverscan < 0 {
 		parseOverscan = 0
 	}
+	// Overscan beyond the list size is meaningless and would overflow the int
+	// arithmetic below.
+	parseOverscan = min(parseOverscan, parseProps.ItemCount)
 
-	parseScrollTop := max(parseProps.ScrollTop, 0)
+	// Clamp the offset to the scrollable extent. NaN/Inf/huge offsets would
+	// otherwise convert to an arbitrary int, and a list that shrank underneath
+	// its scroll position would render nothing instead of its last rows.
+	parseScrollTop := parseProps.ScrollTop
+	if parseScrollTop != parseScrollTop || parseScrollTop < 0 {
+		parseScrollTop = 0
+	}
+	parseMaxScroll := max(float64(parseProps.ItemCount)*parseProps.ItemHeight-parseProps.ViewportHeight, 0)
+	parseScrollTop = min(parseScrollTop, parseMaxScroll)
 
 	parseFirstVisible := int(parseScrollTop / parseProps.ItemHeight)
 	// Ceiling, plus one: a viewport rarely divides evenly into rows, so the row
@@ -119,6 +131,14 @@ func VisibleRange(parseProps VirtualListProps) RowRange {
 		parseStart = parseEnd
 	}
 	return RowRange{Start: parseStart, End: parseEnd}
+}
+
+// hasVirtualGeometry reports whether the row and viewport heights are finite
+// and positive, the precondition for any window math. NaN and Inf are treated
+// like zero: they cannot be converted to row indices.
+func hasVirtualGeometry(parseProps VirtualListProps) bool {
+	return parseProps.ItemHeight > 0 && parseProps.ViewportHeight > 0 &&
+		!math.IsInf(parseProps.ItemHeight, 0) && !math.IsInf(parseProps.ViewportHeight, 0)
 }
 
 // VirtualList renders a scrollable list, building only the visible rows.
@@ -136,7 +156,7 @@ func VirtualList(parseProps VirtualListProps) ui.Node {
 	parseRange := VisibleRange(parseProps)
 	parseChildren := make([]ui.Node, 0, parseRange.Len()+2)
 
-	parseVirtualized := !parseProps.Unvirtualized && parseProps.ItemHeight > 0 && parseProps.ViewportHeight > 0
+	parseVirtualized := !parseProps.Unvirtualized && hasVirtualGeometry(parseProps)
 
 	if parseVirtualized && parseRange.Start > 0 {
 		parseChildren = append(parseChildren, spacer("gwc-vlist-top", float64(parseRange.Start)*parseProps.ItemHeight))

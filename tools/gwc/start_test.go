@@ -1978,6 +1978,7 @@ func TestSeedScaffoldGoSumCopiesRootGoSum(parseT *testing.T) {
 }
 
 func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
+	useIsolatedGoTmp(parseT)
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
@@ -2151,9 +2152,9 @@ func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
 	parseTestCmd.Dir = parseTargetDir
 	// Baseline scaffold tests run on the host, independently of an outer cross-target lane.
 	parseTestCmd.Env = buildNativeGoEnv()
-	parseTestOutput, parseErr := parseTestCmd.CombinedOutput()
+	parseTestOutput, parseErr := runChildGoCommand(parseT, parseTestCmd)
 	if parseErr != nil {
-		parseT.Fatalf("expected generated scaffold baseline tests to pass, got error: %v\n%s", parseErr, string(parseTestOutput))
+		parseT.Fatalf("expected generated scaffold baseline tests to pass, got error: %v\n%s", parseErr, parseTestOutput)
 	}
 }
 
@@ -2308,6 +2309,7 @@ func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(parseT *testing.T)
 }
 
 func TestDefaultStarterTemplatesScaffoldTidyTestAndBuild(parseT *testing.T) {
+	useIsolatedGoTmp(parseT)
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
@@ -2340,9 +2342,9 @@ func TestDefaultStarterTemplatesScaffoldTidyTestAndBuild(parseT *testing.T) {
 			parseTestCmd := exec.Command("go", "test", "./...")
 			parseTestCmd.Dir = parseTargetDir
 			parseTestCmd.Env = buildNativeGoEnv()
-			parseTestOutput, parseErr2 := parseTestCmd.CombinedOutput()
+			parseTestOutput, parseErr2 := runChildGoCommand(parseT2, parseTestCmd)
 			if parseErr2 != nil {
-				parseT2.Fatalf("generated starter tests failed: %v\n%s", parseErr2, string(parseTestOutput))
+				parseT2.Fatalf("generated starter tests failed: %v\n%s", parseErr2, parseTestOutput)
 			}
 
 			parseBuildErr := parseLauncher.runBuild([]string{
@@ -3241,6 +3243,7 @@ func TestGeneratedScaffoldLauncherBuildTestVerifyReleaseRoundTrip(parseT *testin
 		parseT.Skip("skipping launcher round-trip test in short mode")
 	}
 
+	useIsolatedGoTmp(parseT)
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
@@ -3366,12 +3369,11 @@ func ensureScaffoldUsesLocalRepoModule(parseT *testing.T, parseRepoRoot string, 
 func runLauncherJSONCommand(parseT *testing.T, parseRepoRoot string, parseTarget any, parseArgs ...string) {
 	parseT.Helper()
 
-	parseCmd := exec.Command("go", append([]string{"run", "./tools/gwc"}, parseArgs...)...)
-	parseCmd.Dir = parseRepoRoot
-	parseOutput, parseErr := parseCmd.CombinedOutput()
-	if parseErr != nil {
-		parseT.Fatalf("run launcher command %q: %v\n%s", strings.Join(parseArgs, " "), parseErr, string(parseOutput))
-	}
+	// Run in-process so the benign Windows exe-cleanup failure of the nested `go test`
+	// can be recognised at the one place that sees the raw tool output.
+	useBenignTolerantLauncherRuns(parseT)
+	parseStdout := runLauncherCapturingStdout(parseT, launcher{repoRoot: parseRepoRoot}, parseArgs)
+	parseOutput := []byte(parseStdout)
 	parsePayload := bytes.TrimSpace(parseOutput)
 	if len(parsePayload) > 0 && parsePayload[0] != '{' {
 		parseStart := bytes.IndexByte(parsePayload, '{')

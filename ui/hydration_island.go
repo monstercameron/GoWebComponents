@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
 
@@ -53,7 +54,7 @@ func NormalizeHydrationIslandOptions(parseOptions HydrationIslandOptions) (Hydra
 func HydrationIsland(parseOptions HydrationIslandOptions, parseContent Node) Node {
 	parseNormalized, parseErr := NormalizeHydrationIslandOptions(parseOptions)
 	if parseErr != nil {
-		panic(parseErr)
+		panic(errcode.New(errcode.HydrationIslandInvalid, parseErr))
 	}
 	parseProps := map[string]any{
 		"data-gwc-hydration-island": parseNormalized.ID,

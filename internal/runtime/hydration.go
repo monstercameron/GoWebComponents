@@ -102,6 +102,14 @@ func (parseRt *Runtime) claimHydrationNode(parseFiber *Fiber) (DOMNode, bool) {
 	}
 
 	parseBoundary := parseFiber.hydration
+	// An empty or whitespace-only text child has no server node to claim: the
+	// server emits nothing for empty text, and whitespace nodes are skipped as
+	// ignorable by nextHydrationCandidate. Claiming would take the NEXT real
+	// node and abort the whole subtree on a type mismatch, so decline and let
+	// the caller create the node, leaving the cursor where it is.
+	if isTextLikeFiber(parseFiber) && strings.TrimSpace(textLikeFiberValue(parseFiber)) == "" {
+		return nil, false
+	}
 	parseCandidate := parseRt.nextHydrationCandidate(parseBoundary.cursor)
 	parseBoundary.cursor = parseCandidate
 	if IsDOMNodeNull(parseCandidate) {

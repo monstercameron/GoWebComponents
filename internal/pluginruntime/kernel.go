@@ -68,6 +68,9 @@ func NewKernel(parseOptions BootstrapOptions) (*Kernel, error) {
 			continue
 		}
 		if parseErr2 := buildKernel.startPlugin(parseRegistration); parseErr2 != nil {
+			// Tear down the plugins that already started (reverse order): the half-built kernel
+			// is discarded, so their handles and cleanups would otherwise leak.
+			_ = buildKernel.Close()
 			return nil, parseErr2
 		}
 	}
@@ -331,8 +334,15 @@ func (parseKernel *Kernel) startPlugin(parseRegistration mergedRegistration) err
 	})
 	if getResult.getErr != nil {
 		parseKernel.getMu.Lock()
+		getFailedState := parseKernel.getPlugins[parseRegistration.getManifest.ID]
 		delete(parseKernel.getPlugins, parseRegistration.getManifest.ID)
 		parseKernel.getMu.Unlock()
+		// A plugin that registered cleanups before failing still owns those resources.
+		if getFailedState != nil {
+			if getCleanupErr := parseKernel.runPluginCleanups(parseRegistration.getManifest.ID, getFailedState.getCleanups); getCleanupErr != nil {
+				getResult.getErr = errors.Join(getResult.getErr, getCleanupErr)
+			}
+		}
 		buildReason := HealthReasonStartupError
 		if getResult.getRecovered != nil {
 			buildReason = HealthReasonPanic
@@ -361,14 +371,8 @@ func (parseKernel *Kernel) stopPlugin(parsePluginID string) error {
 			parseKernel.appendDiagnostic(parsePluginID, "stop", HealthReasonStopped, getResult.getErr)
 		}
 	}
-	for parseIndex := len(getState.getCleanups) - 1; parseIndex >= 0; parseIndex-- {
-		if parseCleanup := getState.getCleanups[parseIndex]; parseCleanup != nil {
-			getResult := runGuardedCall("plugin cleanup", parseCleanup)
-			if getResult.getErr != nil {
-				buildJoined = errors.Join(buildJoined, getResult.getErr)
-				parseKernel.appendDiagnostic(parsePluginID, "cleanup", HealthReasonStopped, getResult.getErr)
-			}
-		}
+	if getCleanupErr := parseKernel.runPluginCleanups(parsePluginID, getState.getCleanups); getCleanupErr != nil {
+		buildJoined = errors.Join(buildJoined, getCleanupErr)
 	}
 	parseKernel.storeHealth(parsePluginID, HealthStateStopped, HealthReasonStopped, "", 0)
 	parseKernel.getMu.Lock()
@@ -383,6 +387,22 @@ func (parseKernel *Kernel) stopPlugin(parsePluginID string) error {
 		break
 	}
 	parseKernel.getMu.Unlock()
+	return buildJoined
+}
+
+// runPluginCleanups runs one plugin's cleanups newest first under guarded execution, records a
+// diagnostic for each failure, and returns the joined errors.
+func (parseKernel *Kernel) runPluginCleanups(parsePluginID string, parseCleanups []CleanupFunc) error {
+	var buildJoined error
+	for parseIndex := len(parseCleanups) - 1; parseIndex >= 0; parseIndex-- {
+		if parseCleanup := parseCleanups[parseIndex]; parseCleanup != nil {
+			getResult := runGuardedCall("plugin cleanup", parseCleanup)
+			if getResult.getErr != nil {
+				buildJoined = errors.Join(buildJoined, getResult.getErr)
+				parseKernel.appendDiagnostic(parsePluginID, "cleanup", HealthReasonStopped, getResult.getErr)
+			}
+		}
+	}
 	return buildJoined
 }
 

@@ -63,6 +63,8 @@ func TestUseRouteReadsPublishedLocation(parseT *testing.T) {
 	runtime.SetCurrentFiber(parseFiber)
 	parseLoc := UseRoute()
 	runtime.SetCurrentFiber(nil)
+	// Release the route-location subscription so later tests (and -count reruns) start clean.
+	runtime.GetGlobalRuntime().CleanupAtomSubscriptions(parseFiber)
 
 	if parseLoc.Path != "/beta" {
 		parseT.Fatalf("UseRoute returned %q, want /beta", parseLoc.Path)
@@ -238,6 +240,8 @@ func TestUseLocationAliasesUseRoute(parseT *testing.T) {
 	runtime.SetCurrentFiber(parseFiber)
 	parseLoc := UseLocation()
 	runtime.SetCurrentFiber(nil)
+	// Release the route-location subscription so later tests (and -count reruns) start clean.
+	runtime.GetGlobalRuntime().CleanupAtomSubscriptions(parseFiber)
 	if parseLoc.Path != "/alpha" {
 		parseT.Fatalf("UseLocation returned %q, want /alpha", parseLoc.Path)
 	}

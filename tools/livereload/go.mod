@@ -1,19 +1,16 @@
 module livereload
 
-go 1.26.0
-
-require (
-	agenthub v0.0.0
-	github.com/monstercameron/GoWebComponents/v6 v6.0.0
-)
+go 1.27.0
 
 replace agenthub => ../agenthub
 
 replace github.com/monstercameron/GoWebComponents/v6 => ../..
 
 require (
+	agenthub v0.0.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/monstercameron/GoWebComponents/v6 v6.0.0
 )
 
 require (

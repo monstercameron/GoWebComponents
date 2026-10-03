@@ -71,7 +71,7 @@ go run ./tools/gwc desktop doctor -root ./examples/desktop/wails-counter
 go run ./tools/gwc desktop dev -root ./examples/desktop/wails-counter
 ```
 
-Requires Windows, Go 1.26.6 or newer and the WebView2 runtime. The native host embeds the GWC
+Requires Windows, Go 1.27.1 or newer and the WebView2 runtime. The native host embeds the GWC
 Wasm frontend; `desktop dev` rebuilds and restarts it on source changes.
 Use `desktop build` for an executable or `desktop package` for an unsigned ZIP.
 Signing and installer distribution are separate steps.
@@ -108,8 +108,8 @@ import (
 
 Requirements:
 
-- Go 1.26.6 or newer is recommended for current standard-library security fixes
-  (the module's language-version floor remains Go 1.26)
+- Go 1.27.1 or newer is recommended for current standard-library security fixes
+  (v7 development requires Go 1.27: the module's language-version floor is Go 1.27)
 - A browser with WebAssembly support
 
 The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `html/shorthand`, `css`, `css/u`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`.
@@ -543,9 +543,10 @@ go test ./internal/runtime -run ^$ -bench . -benchmem
 Wasm adapter microbenchmarks:
 
 ```powershell
+go build -o .\bin\gowasmexec.exe ./tools/gowasmexec
 $env:GOOS = "js"
 $env:GOARCH = "wasm"
-go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem
+go test -exec .\bin\gowasmexec.exe ./internal/platform/jsdom -run ^$ -bench . -benchmem
 ```
 
 Release-style wasm comparisons and benchmark reporting are driven through [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md), [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md), [docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md](docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md), and [tools/README.md](tools/README.md), especially `gwc build`, `gwc release`, and `gwc bench`.

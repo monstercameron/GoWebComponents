@@ -4,7 +4,7 @@ import "testing"
 
 func BenchmarkSnapshotNowMicro(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = SnapshotNow()
 	}
 }
@@ -20,7 +20,7 @@ func BenchmarkCompareSnapshotsMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_, parseErr := CompareSnapshots(parseBefore, parseAfter)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)

@@ -61,7 +61,7 @@ func BenchmarkCreateElementHostWithTextChildren(parseB *testing.B) {
 	parseProps := map[string]any{"id": "root", "className": "card", "role": "button"}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = CreateElement("button", parseProps, "alpha", "beta", "gamma")
 	}
 }
@@ -70,7 +70,7 @@ func BenchmarkCreateElementHostWithDirectTextChild(parseB *testing.B) {
 	parseProps := map[string]any{"id": "root", "className": "card", "role": "button"}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = CreateElement("button", parseProps, "alpha")
 	}
 }
@@ -83,7 +83,7 @@ func BenchmarkPropsEqualChildrenSamePointer(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if !propsEqual(parseProps, parseProps) {
 			parseB.Fatal("expected props to compare equal")
 		}
@@ -101,7 +101,7 @@ func BenchmarkPropsEqualChildrenDifferentPointer(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if propsEqual(parsePropsA, parsePropsB) {
 			parseB.Fatal("expected props to compare different")
 		}
@@ -115,8 +115,7 @@ func BenchmarkReconcileChildrenStableList16(parseB *testing.B) {
 	parseParent := &Fiber{alternate: &Fiber{child: parseOldFirst}}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseParent.child = nil
 		parseRt.deletions = parseRt.deletions[:0]
 		parseRt.reconcileChildren(parseParent, parseElements)
@@ -144,8 +143,7 @@ func BenchmarkReconcileChildrenWithFragments16(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseParent.child = nil
 		parseRt.deletions = parseRt.deletions[:0]
 		parseRt.reconcileChildren(parseParent, parseElements)
@@ -159,8 +157,7 @@ func BenchmarkReconcileChildrenKeyedStableList16(parseB *testing.B) {
 	parseParent := &Fiber{alternate: &Fiber{child: parseOldFirst}}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseParent.child = nil
 		parseRt.deletions = parseRt.deletions[:0]
 		parseRt.reconcileChildren(parseParent, parseElements)
@@ -182,8 +179,7 @@ func BenchmarkPerformUnitOfWorkFunctionComponentLeaf(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseFiber.dirty = true
 		parseFiber.child = nil
 		parseRt.deletions = parseRt.deletions[:0]
@@ -206,8 +202,7 @@ func BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseFiber.dirty = true
 		parseFiber.child = nil
 		parseRt.deletions = parseRt.deletions[:0]
@@ -229,8 +224,7 @@ func BenchmarkUpdateDomPropertiesInitialRender(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseDom := parseRt.domAdapter.CreateElement("input")
 		parseRt.updateDomProperties(parseDom, nil, parseNewProps)
 	}
@@ -261,8 +255,7 @@ func BenchmarkUpdateDomPropertiesSteadyState(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRt.updateDomProperties(parseDom, parseOldProps, parseNewProps)
 	}
 }
@@ -272,8 +265,7 @@ func BenchmarkCommitDeletionDomlessSubtree32(parseB *testing.B) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseParentDOM := parseAdapter.CreateElement("div")
 		parseRoot := &Fiber{typeOf: func(map[string]any) *Element { return nil }}
 		var parsePrev *Fiber
@@ -319,8 +311,7 @@ func BenchmarkCommitWorkPlacementChain16(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+	for parseB.Loop() {
 		parseParentDOM.(*testDOMNode).children = parseParentDOM.(*testDOMNode).children[:0]
 		parseRt.commitWork(parseFirst, parseParentDOM)
 	}
@@ -342,8 +333,7 @@ func BenchmarkRunEffectsChain16(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+	for parseB.Loop() {
 		parseRt.runEffects(parseRoot)
 	}
 }

@@ -530,11 +530,11 @@ func renderScaffoldGoMod(parseSelection startSelection, parseRepoModulePath stri
 // scaffoldModuleMajorSuffix returns the "vN" major-version suffix of a module path when N>=2
 // (e.g. "github.com/x/y/v4" -> "v4"), or "" for v0/v1 paths that carry no suffix.
 func scaffoldModuleMajorSuffix(parseModulePath string) string {
-	parseIdx := strings.LastIndex(parseModulePath, "/v")
-	if parseIdx < 0 {
+	_, parseMajorDigits, isMajorFound := strings.CutLast(parseModulePath, "/v")
+	if !isMajorFound {
 		return ""
 	}
-	parseSuffix := parseModulePath[parseIdx+1:] // e.g. "v4"
+	parseSuffix := "v" + parseMajorDigits // e.g. "v4"
 	if len(parseSuffix) < 2 || (parseSuffix == "v0" || parseSuffix == "v1") {
 		return ""
 	}

@@ -7,8 +7,10 @@ func BenchmarkAtomRegistryInitAtomExisting(parseB *testing.B) {
 	parseRegistry.InitAtom("counter", 0)
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseRegistry.InitAtom("counter", parseI)
+		parseI++
 	}
 }
 
@@ -17,7 +19,7 @@ func BenchmarkAtomRegistryGetAtom(parseB *testing.B) {
 	parseRegistry.InitAtom("counter", 42)
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseValue, parseOk := parseRegistry.GetAtom("counter")
 		if !parseOk || parseValue.(int) != 42 {
 			parseB.Fatal("expected atom value")
@@ -30,7 +32,7 @@ func BenchmarkAtomRegistrySubscribeUnsubscribe(parseB *testing.B) {
 	parseFiber := newTestFiber("bench")
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRegistry.Subscribe("counter", parseFiber)
 		parseRegistry.Unsubscribe("counter", parseFiber)
 	}
@@ -43,11 +45,13 @@ func BenchmarkAtomRegistrySetAtom32Subscribers(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+	parseI2 := 0
+	for parseB.Loop() {
 		parseSubs := parseRegistry.SetAtom("counter", parseI2)
 		if len(parseSubs) != 32 {
 			parseB.Fatalf("expected 32 subscribers, got %d", len(parseSubs))
 		}
+		parseI2++
 	}
 }
 
@@ -62,11 +66,12 @@ func BenchmarkGoUseAtomIntUpdate(parseB *testing.B) {
 	_, set := GoUseAtom(parseRt, "counter", 0)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseRt.updateScheduled = false
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
 		set(parseI)
+		parseI++
 	}
 }
 
@@ -82,8 +87,8 @@ func BenchmarkGoUseAtomPointerNilReset(parseB *testing.B) {
 	_, set := GoUseAtom(parseRt, "ptr", &parseInitial)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseRt.updateScheduled = false
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
 		if parseI%2 == 0 {
@@ -92,6 +97,7 @@ func BenchmarkGoUseAtomPointerNilReset(parseB *testing.B) {
 			parseValue := parseI
 			set(&parseValue)
 		}
+		parseI++
 	}
 }
 
@@ -106,8 +112,7 @@ func BenchmarkGoUseAtomGetter(parseB *testing.B) {
 	get, _ := GoUseAtom(parseRt, "counter", 42)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if parseValue := get(); parseValue != 42 {
 			parseB.Fatal("expected atom value")
 		}
@@ -126,8 +131,7 @@ func BenchmarkGoUseAtomStableRerender(parseB *testing.B) {
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		resetHookRenderState(parseFiber)
 		get, _ := GoUseAtom(parseRt, "counter", 42)
 		if parseValue := get(); parseValue != 42 {
@@ -145,7 +149,7 @@ func BenchmarkCleanupAtomSubscriptions8(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		for _, parseAtomID2 := range parseFiber.hooks.atoms {
 			parseRt.atomRegistry.Subscribe(parseAtomID2, parseFiber)
 		}
@@ -159,7 +163,7 @@ func BenchmarkAtomRegistryUnsubscribeMany8(parseB *testing.B) {
 	parseAtomIDs := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		for _, parseAtomID := range parseAtomIDs {
 			parseRegistry.Subscribe(parseAtomID, parseFiber)
 		}

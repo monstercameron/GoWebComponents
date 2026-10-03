@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v6/interop"
@@ -106,66 +107,120 @@ func TestFetchNativePersistentCachePoliciesAndRetry(parseT *testing.T) {
 }
 
 func TestFetchNativePersistentCacheRestorePersistAndDelete(parseT *testing.T) {
-	installFetchTestHookContext(parseT)
+	synctest.Test(parseT, func(parseT *testing.T) {
+		installFetchTestHookContext(parseT)
 
-	parseStore, parseData := buildFetchTestPersistentStore(parseT)
-	ConfigurePersistentCache(PersistentCacheOptions{
-		StoreResolver: func(parseCtx context.Context) (interop.PersistentStore, error) {
-			_ = parseCtx
-			return parseStore, nil
-		},
-	})
+		parseStore, parseData := buildFetchTestPersistentStore(parseT)
+		ConfigurePersistentCache(PersistentCacheOptions{
+			StoreResolver: func(parseCtx context.Context) (interop.PersistentStore, error) {
+				_ = parseCtx
+				return parseStore, nil
+			},
+		})
 
-	parseKey := "persisted-profile"
-	parseEntry := getCachedResourceEntry(parseKey)
-	configureCachedResourceEntry[string](parseKey, parseEntry, CacheOptions{Persist: true, StaleAfter: time.Hour, MaxAge: 2 * time.Hour})
+		parseKey := "persisted-profile"
+		parseEntry := getCachedResourceEntry(parseKey)
+		configureCachedResourceEntry[string](parseKey, parseEntry, CacheOptions{Persist: true, StaleAfter: time.Hour, MaxAge: 2 * time.Hour})
 
-	parseRecord := persistedCachedResource{
-		Value:      json.RawMessage(`"restored"`),
-		UpdatedAt:  time.Now().Add(-time.Minute),
-		LastLoaded: time.Now().Add(-time.Minute),
-	}
-	parseEncoded, parseErr := json.Marshal(parseRecord)
-	if parseErr != nil {
-		parseT.Fatalf("expected persisted cache test record to encode, got %v", parseErr)
-	}
-	parseData[parseKey] = string(parseEncoded)
-
-	parseEntry.mu.Lock()
-	parseEntry.restore = newCachedResourceWaiters()
-	parseEntry.mu.Unlock()
-	startPersistentCachedRestore(parseKey, parseEntry)
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		parseSnapshot := currentCachedSnapshot(parseKey)
-		return parseSnapshot.Ready && parseSnapshot.Value == "restored"
-	})
-
-	setCachedValue(parseKey, "updated")
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		parseStored, _, parseStoreErr := parseStore.GetItem(context.Background(), parseKey)
-		return parseStoreErr == nil && strings.Contains(parseStored, `"updated"`)
-	})
-
-	deletePersistentCachedSnapshot(parseKey)
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		_, parseOk, parseStoreErr := parseStore.GetItem(context.Background(), parseKey)
-		if parseStoreErr != nil {
-			return false
+		parseRecord := persistedCachedResource{
+			Value:      json.RawMessage(`"restored"`),
+			UpdatedAt:  time.Now().Add(-time.Minute),
+			LastLoaded: time.Now().Add(-time.Minute),
 		}
-		return !parseOk
-	})
+		parseEncoded, parseErr := json.Marshal(parseRecord)
+		if parseErr != nil {
+			parseT.Fatalf("expected persisted cache test record to encode, got %v", parseErr)
+		}
+		parseData[parseKey] = string(parseEncoded)
 
-	parseCorruptKey := "persisted-corrupt"
-	parseCorruptEntry := getCachedResourceEntry(parseCorruptKey)
-	configureCachedResourceEntry[string](parseCorruptKey, parseCorruptEntry, CacheOptions{Persist: true})
-	parseData[parseCorruptKey] = `{"value":{`
-	parseCorruptEntry.mu.Lock()
-	parseCorruptEntry.restore = newCachedResourceWaiters()
-	parseCorruptEntry.mu.Unlock()
-	startPersistentCachedRestore(parseCorruptKey, parseCorruptEntry)
-	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+		parseEntry.mu.Lock()
+		parseEntry.restore = newCachedResourceWaiters()
+		parseEntry.mu.Unlock()
+		startPersistentCachedRestore(parseKey, parseEntry)
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			parseSnapshot := currentCachedSnapshot(parseKey)
+			return parseSnapshot.Ready && parseSnapshot.Value == "restored"
+		})
+
+		setCachedValue(parseKey, "updated")
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			parseStored, _, parseStoreErr := parseStore.GetItem(context.Background(), parseKey)
+			return parseStoreErr == nil && strings.Contains(parseStored, `"updated"`)
+		})
+
+		deletePersistentCachedSnapshot(parseKey)
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			_, parseOk, parseStoreErr := parseStore.GetItem(context.Background(), parseKey)
+			if parseStoreErr != nil {
+				return false
+			}
+			return !parseOk
+		})
+
+		parseCorruptKey := "persisted-corrupt"
+		parseCorruptEntry := getCachedResourceEntry(parseCorruptKey)
+		configureCachedResourceEntry[string](parseCorruptKey, parseCorruptEntry, CacheOptions{Persist: true})
+		parseData[parseCorruptKey] = `{"value":{`
 		parseCorruptEntry.mu.Lock()
-		defer parseCorruptEntry.mu.Unlock()
-		return parseCorruptEntry.restored && parseCorruptEntry.restore == nil
+		parseCorruptEntry.restore = newCachedResourceWaiters()
+		parseCorruptEntry.mu.Unlock()
+		startPersistentCachedRestore(parseCorruptKey, parseCorruptEntry)
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			parseCorruptEntry.mu.Lock()
+			defer parseCorruptEntry.mu.Unlock()
+			return parseCorruptEntry.restored && parseCorruptEntry.restore == nil
+		})
+	})
+}
+
+// TestFetchNativePersistentCacheRestoreDoesNotOverwriteNewerSet verifies that a
+// slow restore of an older persisted record cannot replace a value that was
+// set in memory after the restore began.
+func TestFetchNativePersistentCacheRestoreDoesNotOverwriteNewerSet(parseT *testing.T) {
+	synctest.Test(parseT, func(parseT *testing.T) {
+		installFetchTestHookContext(parseT)
+
+		parseStore, parseData := buildFetchTestPersistentStore(parseT)
+		ConfigurePersistentCache(PersistentCacheOptions{
+			StoreResolver: func(parseCtx context.Context) (interop.PersistentStore, error) {
+				_ = parseCtx
+				return parseStore, nil
+			},
+		})
+
+		parseKey := "persisted-newer-set"
+		parseEntry := getCachedResourceEntry(parseKey)
+		configureCachedResourceEntry[string](parseKey, parseEntry, CacheOptions{Persist: true, StaleAfter: time.Hour, MaxAge: 2 * time.Hour})
+
+		setCachedValue(parseKey, "fresh")
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			parseStored, _, parseStoreErr := parseStore.GetItem(context.Background(), parseKey)
+			return parseStoreErr == nil && strings.Contains(parseStored, `"fresh"`)
+		})
+
+		// Simulate the restore having read an older record than the live value.
+		parseOld, parseErr := json.Marshal(persistedCachedResource{
+			Value:      json.RawMessage(`"old"`),
+			UpdatedAt:  time.Now().Add(-time.Hour),
+			LastLoaded: time.Now().Add(-time.Hour),
+		})
+		if parseErr != nil {
+			parseT.Fatal(parseErr)
+		}
+		parseData[parseKey] = string(parseOld)
+
+		parseEntry.mu.Lock()
+		parseEntry.restore = newCachedResourceWaiters()
+		parseEntry.mu.Unlock()
+		startPersistentCachedRestore(parseKey, parseEntry)
+		waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+			parseEntry.mu.Lock()
+			defer parseEntry.mu.Unlock()
+			return parseEntry.restored && parseEntry.restore == nil
+		})
+
+		if parseSnapshot := currentCachedSnapshot(parseKey); parseSnapshot.Value != "fresh" {
+			parseT.Fatalf("expected restore to keep the newer in-memory value, got %q", parseSnapshot.Value)
+		}
 	})
 }

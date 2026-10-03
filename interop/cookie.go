@@ -44,7 +44,7 @@ func GetCookie(parseName string) (string, bool, error) {
 // no options produces a session cookie with no path, domain, or security
 // attributes. When SameSite is SameSiteNone the Secure flag is forced on.
 func SetCookie(parseName string, parseValue string, parseOptions ...CookieOptions) error {
-	if strings.TrimSpace(parseName) == "" {
+	if sanitizeCookieName(parseName) == "" {
 		return wrapError("SetCookie", parseName, CodeInvalid, errors.New("cookie name must not be empty"))
 	}
 	parseOpts := CookieOptions{}
@@ -80,28 +80,56 @@ func buildCookieString(parseName string, parseValue string, parseOpts CookieOpti
 	parseEncoded := url.QueryEscape(parseValue)
 	parseParts := []string{parseSafeName + "=" + parseEncoded}
 
-	if parseOpts.Path != "" {
-		parseParts = append(parseParts, "Path="+parseOpts.Path)
+	if parsePath := sanitizeCookieAttribute(parseOpts.Path); parsePath != "" {
+		parseParts = append(parseParts, "Path="+parsePath)
 	}
-	if parseOpts.Domain != "" {
-		parseParts = append(parseParts, "Domain="+parseOpts.Domain)
+	if parseDomain := sanitizeCookieAttribute(parseOpts.Domain); parseDomain != "" {
+		parseParts = append(parseParts, "Domain="+parseDomain)
 	}
 	if parseOpts.MaxAge != 0 {
 		parseParts = append(parseParts, "Max-Age="+strconv.Itoa(parseOpts.MaxAge))
 	}
 
 	parseSecure := parseOpts.Secure
-	if parseOpts.SameSite == SameSiteNone {
+	if normalizeCookieSameSite(parseOpts.SameSite) == SameSiteNone {
 		parseSecure = true
 	}
 	if parseSecure {
 		parseParts = append(parseParts, "Secure")
 	}
-	if parseOpts.SameSite != "" {
-		parseParts = append(parseParts, "SameSite="+string(parseOpts.SameSite))
+	if parseSameSite := normalizeCookieSameSite(parseOpts.SameSite); parseSameSite != "" {
+		parseParts = append(parseParts, "SameSite="+string(parseSameSite))
 	}
 
 	return strings.Join(parseParts, "; ")
+}
+
+// sanitizeCookieAttribute drops control bytes and ";" from a Path or Domain
+// value so it cannot terminate its directive and inject another one.
+func sanitizeCookieAttribute(parseValue string) string {
+	var parseBuilder strings.Builder
+	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
+		parseC := parseValue[parseIndex]
+		if parseC < 0x20 || parseC == 0x7f || parseC == ';' {
+			continue
+		}
+		parseBuilder.WriteByte(parseC)
+	}
+	return strings.TrimSpace(parseBuilder.String())
+}
+
+// normalizeCookieSameSite maps a SameSite value onto its canonical constant and
+// returns the empty value for anything the cookie grammar does not allow.
+func normalizeCookieSameSite(parseValue SameSite) SameSite {
+	switch strings.ToLower(strings.TrimSpace(string(parseValue))) {
+	case "lax":
+		return SameSiteLax
+	case "strict":
+		return SameSiteStrict
+	case "none":
+		return SameSiteNone
+	}
+	return ""
 }
 
 // sanitizeCookieName drops bytes that are illegal in a cookie name and could

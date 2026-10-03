@@ -20,7 +20,7 @@ func BenchmarkGoUseFetchInit(parseB *testing.B) {
 	defer SetCurrentFiber(nil)
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseFiber.hooks = nil
 		_, _ = GoUseFetch("/api/test")
 	}
@@ -43,8 +43,7 @@ func BenchmarkGoUseFetchRefetchUnavailable(parseB *testing.B) {
 	parseGetter, parseRefetch := GoUseFetch("/api/test")
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRt.updateScheduled = false
 		parseRefetch()
 		parseDeadline := time.Now().Add(2 * time.Second)

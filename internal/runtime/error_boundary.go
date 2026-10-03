@@ -50,7 +50,23 @@ func boundaryCapturedError(parseFiber *Fiber) error {
 func (parseRt *Runtime) recoverBoundaryError(parseSource *Fiber, parseRecovered any, parsePhase boundaryPhase) (*Fiber, bool) {
 	parseBoundary := findNearestErrorBoundary(parseSource)
 	if parseBoundary == nil {
-		return nil, false
+		// A second effect or cleanup failure under a boundary that has already
+		// caught one in this flush still belongs to that boundary: its
+		// children have not been swapped for the fallback yet.
+		parseBoundary = parseRt.findPendingRecoveryBoundary(parseSource, parsePhase)
+		if parseBoundary == nil {
+			return nil, false
+		}
+		parseExtra := normalizeBoundaryError(parseRecovered)
+		parseRt.invokeBoundaryOnError(parseBoundary, parseExtra)
+		ReportDiagnosticWithContext(
+			"runtime",
+			DiagnosticWarning,
+			fmt.Sprintf("error boundary already recovering; additional %s failure: %v", parsePhase, parseExtra),
+			diagnosticPathWithSource(parseSource),
+			diagnosticComponentStack(parseSource),
+		)
+		return parseBoundary, true
 	}
 
 	parseErr := normalizeBoundaryError(parseRecovered)
@@ -60,7 +76,7 @@ func (parseRt *Runtime) recoverBoundaryError(parseSource *Fiber, parseRecovered 
 		"runtime",
 		DiagnosticWarning,
 		fmt.Sprintf("error boundary caught %s failure: %v", parsePhase, parseErr),
-		diagnosticPathForFiber(parseSource),
+		diagnosticPathWithSource(parseSource),
 		diagnosticComponentStack(parseSource),
 	)
 
@@ -73,7 +89,43 @@ func (parseRt *Runtime) recoverBoundaryError(parseSource *Fiber, parseRecovered 
 	}
 
 	parseRt.requestBoundaryRecovery(parseBoundary)
+	parseRt.effectErroredBoundaries = append(parseRt.effectErroredBoundaries, parseBoundary)
 	return parseBoundary, true
+}
+
+// ageEffectErroredBoundaries retires the effect-failure records one commit after
+// they were made: the recovery commit tears down the failed children (whose
+// cleanups can still throw) and then the records have done their job.
+func (parseRt *Runtime) ageEffectErroredBoundaries() {
+	if len(parseRt.effectErroredBoundaries) == 0 {
+		return
+	}
+	if parseRt.isEffectErroredAged {
+		parseRt.effectErroredBoundaries = parseRt.effectErroredBoundaries[:0]
+		parseRt.isEffectErroredAged = false
+		return
+	}
+	parseRt.isEffectErroredAged = true
+}
+
+// findPendingRecoveryBoundary returns the nearest ancestor boundary that caught
+// an effect or cleanup failure and has not yet rendered its fallback. Render
+// failures never match: a failing fallback must escape to the outer boundary.
+func (parseRt *Runtime) findPendingRecoveryBoundary(parseSource *Fiber, parsePhase boundaryPhase) *Fiber {
+	if len(parseRt.effectErroredBoundaries) == 0 || parsePhase == boundaryPhaseRender {
+		return nil
+	}
+	for parseFiber := parseSource; parseFiber != nil; parseFiber = parseFiber.parent {
+		if _, parseOk := parseFiber.typeOf.(*ErrorBoundaryType); !parseOk {
+			continue
+		}
+		for _, parsePending := range parseRt.effectErroredBoundaries {
+			if parsePending == parseFiber || parsePending == parseFiber.alternate {
+				return parseFiber
+			}
+		}
+	}
+	return nil
 }
 
 // normalizeBoundaryError is a core package helper.

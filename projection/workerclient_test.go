@@ -365,8 +365,11 @@ func TestContainedPanicsArriveAsRejectionsNotDeaths(parseT *testing.T) {
 	}
 }
 
-// TestAFailedPostIsWorkerDeathNotASilentDrop.
-func TestAFailedPostIsWorkerDeathNotASilentDrop(parseT *testing.T) {
+// TestAFailedPostIsATransportFailureNotASilentDrop pins that a failed post
+// surfaces as FailureTransport. It previously pinned worker-died, which marked
+// the command MayHaveApplied even though the message never reached the worker,
+// so Optimistic kept local state for a command the domain never saw.
+func TestAFailedPostIsATransportFailureNotASilentDrop(parseT *testing.T) {
 	parsePoster := &recordingPoster{failWith: errors.New("port closed")}
 	parseClient := buildWorkerClient(parseT, parsePoster)
 
@@ -374,11 +377,34 @@ func TestAFailedPostIsWorkerDeathNotASilentDrop(parseT *testing.T) {
 	if parseErr == nil {
 		parseT.Fatal("a failed post must surface")
 	}
-	if projection.Classify(parseErr) != projection.FailureWorkerDied {
-		parseT.Errorf("kind = %s, want worker-died", projection.Classify(parseErr))
+	if projection.Classify(parseErr) != projection.FailureTransport {
+		parseT.Errorf("kind = %s, want transport", projection.Classify(parseErr))
+	}
+	if projection.Classify(parseErr).MayHaveApplied() {
+		parseT.Errorf("a failed post must not be MayHaveApplied: the worker never received it")
 	}
 	if parseClient.InFlight() != 0 {
 		parseT.Errorf("%d slots held after a failed post", parseClient.InFlight())
+	}
+}
+
+// TestOptimisticRollsBackWhenPostFails pins the consequence that motivated the
+// reclassification: a command that never reached the worker is rolled back.
+func TestOptimisticRollsBackWhenPostFails(parseT *testing.T) {
+	parseClient := buildWorkerClient(parseT, &recordingPoster{failWith: errors.New("port closed")})
+	parseLocalState := "original"
+	_, parseErr := projection.Optimistic(context.Background(),
+		func() { parseLocalState = "optimistic" },
+		func() { parseLocalState = "original" },
+		func(parseCtx context.Context) (struct{}, error) {
+			_, parseSendErr := parseClient.Send(parseCtx, "cmd", nil)
+			return struct{}{}, parseSendErr
+		})
+	if parseErr == nil {
+		parseT.Fatal("a failed post must surface")
+	}
+	if parseLocalState != "original" {
+		parseT.Errorf("state = %q, want rollback: the command never reached the worker", parseLocalState)
 	}
 }
 

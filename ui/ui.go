@@ -419,9 +419,9 @@ func RenderInto(parseRoot Node, parseTarget interface{}) error {
 // hydrateWithBootstrap is the shared body of Hydrate and HydrateInto: it resolves the bootstrap
 // payload (options/script/reference), records startup cost, wires the hydration observer, restores
 // the ID seed + atom snapshot, sets strict mode, then mounts. The ONLY per-entrypoint difference is
-// the mount call, supplied as parseMount, so the bootstrap/observability logic lives in exactly one
+// the runtime selection (parseSelect, nil for the global runtime) and the mount call (parseMount), so the bootstrap/observability logic lives in exactly one
 // place.
-func hydrateWithBootstrap(parseOptions []HydrationOptions, parseMount func(parseRt *runtime.Runtime) error) (SSRBootstrap, error) {
+func hydrateWithBootstrap(parseOptions []HydrationOptions, parseSelect func() (*runtime.Runtime, error), parseMount func(parseRt *runtime.Runtime) error) (SSRBootstrap, error) {
 	runtime.BeginStartupProfiling("hydrate")
 	parseBootstrapStarted := time.Now()
 	parseBootstrapSource := "options"
@@ -461,6 +461,13 @@ func hydrateWithBootstrap(parseOptions []HydrationOptions, parseMount func(parse
 	}
 	ensureInitialized()
 	parseRt := runtime.GetGlobalRuntime()
+	if parseSelect != nil {
+		parseSelected, parseSelectErr := parseSelect()
+		if parseSelectErr != nil {
+			return SSRBootstrap{}, parseSelectErr
+		}
+		parseRt = parseSelected
+	}
 	parseRt.SetNextHydrationObserver(parseResolved.Observability.CorrelationID, func(parseMetrics runtime.HydrationMetrics) {
 		dispatchSSRObservation(parseResolved.Observability, newSSRHydrationObservation(parseMetrics))
 	})
@@ -480,7 +487,7 @@ func hydrateWithBootstrap(parseOptions []HydrationOptions, parseMount func(parse
 }
 
 func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
-	return hydrateWithBootstrap(parseOptions,
+	return hydrateWithBootstrap(parseOptions, nil,
 		func(parseRt *runtime.Runtime) error { parseRt.HydrateTo(parseSelector, parseRoot); return nil },
 	)
 }
@@ -488,6 +495,7 @@ func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOpti
 // HydrateInto resumes a UI tree into an explicit DOM node.
 func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
 	return hydrateWithBootstrap(parseOptions,
+		func() (*runtime.Runtime, error) { return runtime.ResolveHydrationRuntime(parseTarget) },
 		func(parseRt *runtime.Runtime) error { return parseRt.HydrateInto(parseTarget, parseRoot) },
 	)
 }

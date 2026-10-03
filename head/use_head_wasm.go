@@ -24,8 +24,13 @@ func UseHead(parseDoc Document) {
 	)
 }
 
+// appliedHeadTags records the tags the previous applyHead call set, so tags the
+// next page omits can be removed instead of leaking (e.g. robots=noindex).
+var appliedHeadTags []headTag
+
 // applyHead writes the document title and head tags. Empty fields are skipped (an existing tag is
-// left untouched rather than blanked).
+// left untouched rather than blanked), but a tag a previous applyHead set that this Document omits
+// is removed so the previous page's robots/canonical/social tags do not persist across navigation.
 func applyHead(parseDoc Document) {
 	parseDocument := js.Global().Get("document")
 	if !parseDocument.Truthy() {
@@ -34,17 +39,18 @@ func applyHead(parseDoc Document) {
 	if parseDoc.Metadata.Title != "" {
 		parseDocument.Set("title", parseDoc.Metadata.Title)
 	}
-	upsertHeadTag(parseDocument, "meta", "name", "description", "content", parseDoc.Metadata.Description)
-	upsertHeadTag(parseDocument, "meta", "name", "robots", "content", parseDoc.Robots)
-	upsertHeadTag(parseDocument, "link", "rel", "canonical", "href", parseDoc.Metadata.CanonicalURL)
-	upsertHeadTag(parseDocument, "meta", "property", "og:type", "content", parseDoc.Social.Type)
-	upsertHeadTag(parseDocument, "meta", "property", "og:title", "content", parseDoc.Social.Title)
-	upsertHeadTag(parseDocument, "meta", "property", "og:description", "content", parseDoc.Social.Description)
-	upsertHeadTag(parseDocument, "meta", "property", "og:image", "content", parseDoc.Social.ImageURL)
-	upsertHeadTag(parseDocument, "meta", "property", "og:url", "content", parseDoc.Social.URL)
-	upsertHeadTag(parseDocument, "meta", "name", "twitter:card", "content", parseDoc.Social.TwitterCard)
+	parseNext := buildHeadTags(parseDoc)
+	for _, parseStale := range diffHeadStaleTags(appliedHeadTags, parseNext) {
+		parseSelector := parseStale.Tag + `[` + parseStale.SelectorAttr + `="` + parseStale.SelectorVal + `"]`
+		if parseEl := parseDocument.Call("querySelector", parseSelector); parseEl.Truthy() {
+			parseEl.Call("remove")
+		}
+	}
+	for _, parseTag := range parseNext {
+		upsertHeadTag(parseDocument, parseTag.Tag, parseTag.SelectorAttr, parseTag.SelectorVal, parseTag.ValueAttr, parseTag.Value)
+	}
+	appliedHeadTags = parseNext
 }
-
 // upsertHeadTag finds <parseTag parseSelectorAttr="parseSelectorVal"> in the document and sets
 // parseValueAttr to parseValue, creating the element in <head> if it does not exist. A blank value
 // is a no-op (it never blanks an existing tag). The selector attribute/value are framework-owned

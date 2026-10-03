@@ -3,12 +3,14 @@
 package router
 
 import (
+	"fmt"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"syscall/js"
 
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 	"github.com/monstercameron/GoWebComponents/v6/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 )
@@ -70,12 +72,14 @@ func (parseR Revalidator) Loading() bool {
 // For hash routers it reads the `?` portion after the hash path, for example
 // `#/search?q=golang`. For history routers it also supports `window.location.search`.
 func UseQuery() Query {
+	subscribeRouteLocation()
 	return Query{values: getCurrentQueryValues()}
 }
 
 // UseSearchParams returns the current query values together with update helpers
 // that preserve the active route path while changing the query string.
 func UseSearchParams() SearchParams {
+	subscribeRouteLocation()
 	parseValues := copyQueryValues(getCurrentQueryValues())
 	return SearchParams{
 		values: parseValues,
@@ -90,11 +94,13 @@ func UseSearchParams() SearchParams {
 
 // UseParams returns the params captured by the current matched route pattern.
 func UseParams() Params {
+	subscribeRouteLocation()
 	return Params{values: copyParams(currentParams)}
 }
 
 // UseRouteData returns loader-provided route data for the current matched route.
 func UseRouteData() Attrs {
+	subscribeRouteLocation()
 	return copyAttrs(currentRouteData)
 }
 
@@ -296,6 +302,41 @@ func (parseP Params) Bool(parseKey string) (bool, bool) {
 	return parseValue, true
 }
 
+// ParamValue is the set of scalar types Params.As can decode a route param into.
+type ParamValue interface {
+	~string | ~bool | ~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64
+}
+
+// As decodes the route param for name into V. It returns an error when the param
+// is absent or cannot be parsed as V, instead of the silent false of Int and Bool.
+//
+//	id, err := router.UseParams().As[int]("id")
+func (parseP Params) As[V ParamValue](parseName string) (V, error) {
+	var parseResult V
+	parseErr := decodeParamInto(parseP, parseName, reflect.ValueOf(&parseResult).Elem())
+	return parseResult, parseErr
+}
+
+// decodeParamInto is the non-generic body of Params.As, kept out of the generic
+// method so only one copy lands in the wasm binary.
+func decodeParamInto(parseP Params, parseName string, parseTarget reflect.Value) error {
+	if !parseP.Has(parseName) {
+		return errcode.New(errcode.RouterRouteParamsInvalid, fmt.Sprintf("router: route param %q is not captured by the matched route", parseName))
+	}
+	if parseErr := setQueryField(parseTarget, []string{strings.TrimSpace(parseP.Get(parseName))}); parseErr != nil {
+		return errcode.New(errcode.RouterRouteParamsInvalid, fmt.Sprintf("router: route param %q: %v", parseName, parseErr))
+	}
+	return nil
+}
+
+// Decode decodes the query into the struct T using `query:"name"` tags and
+// `validate:"..."` rules; it is DecodeQuery applied to this Query.
+//
+//	list, err := router.UseQuery().Decode[ListQuery]()
+func (parseQ Query) Decode[T any]() (T, error) {
+	return DecodeQuery[T](parseQ.values)
+}
 // GetRoute returns the component for the current route as an Element.
 func GetRoute() *Element {
 	return GetRouter().Current()

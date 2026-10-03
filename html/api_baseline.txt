@@ -1,0 +1,324 @@
+const DefaultOverscan
+const TabIndexZero
+func (MarkdownRenderOptions) GetAllowedSchemes() []string
+func (MarkdownRenderOptions) ResolveSafeHref(parseDestination string) string
+func (RowRange) Len() int
+func A(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Abbr(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Accept(parseValue string) PropOption
+func Alt(parseValue string) PropOption
+func ApplyPropOptions(parseProps *Props, parseOptions ...PropOption)
+func Aria(parseName string, parseValue string) PropOption
+func AriaBusy(isParseEnabled bool) PropOption
+func AriaChecked(isParseEnabled bool) PropOption
+func AriaControls(parseValue string) PropOption
+func AriaCurrent(parseValue string) PropOption
+func AriaDescribedBy(parseValue string) PropOption
+func AriaDisabled(isParseEnabled bool) PropOption
+func AriaExpanded(isParseEnabled bool) PropOption
+func AriaHasPopup(parseValue string) PropOption
+func AriaHidden(isParseEnabled bool) PropOption
+func AriaLabel(parseValue string) PropOption
+func AriaLabelledBy(parseValue string) PropOption
+func AriaLive(parseValue string) PropOption
+func AriaModal(isParseEnabled bool) PropOption
+func AriaPressed(isParseEnabled bool) PropOption
+func AriaSelected(isParseEnabled bool) PropOption
+func AriaSet(parseValues map[string]string) PropOption
+func Article(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Aside(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Attr(parseKey string, parseValue any) PropOption
+func AttrIf(isCondition bool, parseKey string, parseValue any) PropOption
+func Attrs(parseValues map[string]any) PropOption
+func Audio(parseProps Props, parseChildren ...ui.Node) ui.Node
+func AutoComplete(parseValue string) PropOption
+func AutoFocus(parseValues ...bool) PropOption
+func B(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Bind(parseState ui.State[string]) PropOption
+func BindFunc(parseGet func() string, parseSet func(string)) PropOption
+func BindTo(parseTarget Binding) PropOption
+func Blockquote(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Body(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Br(parseProps Props) ui.Node
+func Button(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Canvas(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Caption(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Case(parseValue any, parseNode ui.Node) SwitchBranch
+func Checked(parseValues ...bool) PropOption
+func CheckedIf(isCondition bool) PropOption
+func Children(parseValues ...any) []ui.Node
+func Circle(parseProps Props) ui.Node
+func Class(parseValue string) PropOption
+func ClassIf(isCondition bool, parseClass string) PropOption
+func ClassMap(parseValues map[string]bool) string
+func ClassNames(parseParts ...any) string
+func Coalesce[T any](parseValues ...*T) *T
+func Code(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Col(parseProps Props) ui.Node
+func ColSpan(parseValue int) PropOption
+func Colgroup(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Cols(parseValue int) PropOption
+func Cond(parseBranches ...CondBranch) ui.Node
+func ContentEditable(parseValue string) PropOption
+func CustomElement(parseName string, parseProps CustomElementProps, parseChildren ...ui.Node) ui.Node
+func Cx(parseValue string) PropOption
+func Cy(parseValue string) PropOption
+func D(parseValue string) PropOption
+func DNSPrefetch(parseHref string) ui.Node
+func Data(parseName string, parseValue string) PropOption
+func Datalist(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Dataset(parseValues map[string]string) PropOption
+func Debounce(parseDelay time.Duration, parseCallback any) any
+func Default(parseNode ui.Node) SwitchBranch
+func DefaultProps(parseProps Props, parseDefaults Props) Props
+func Defs(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Del(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Details(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Dialog(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Dir(parseValue string) PropOption
+func Disabled(parseValues ...bool) PropOption
+func DisabledIf(isCondition bool) PropOption
+func Div(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Download(parseValue string) PropOption
+func Draggable(isParseEnabled bool) PropOption
+func Em(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Enctype(parseValue string) PropOption
+func Fieldset(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Figcaption(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Figure(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Fill(parseValue string) PropOption
+func FillRule(parseValue string) PropOption
+func FilterMap[T any](parseItems []T, render func(T) (ui.Node, bool)) []ui.Node
+func FlatMap[T any](parseItems []T, render func(T) []ui.Node) []ui.Node
+func Footer(parseProps Props, parseChildren ...ui.Node) ui.Node
+func For(parseValue string) PropOption
+func Form(parseProps Props, parseChildren ...ui.Node) ui.Node
+func FormAction(parseValue string) PropOption
+func FormMethod(parseValue string) PropOption
+func FormNoValidate(parseValues ...bool) PropOption
+func FormTarget(parseValue string) PropOption
+func Fragment(parseChildren ...ui.Node) ui.Node
+func G(parseProps Props, parseChildren ...ui.Node) ui.Node
+func H1(parseProps Props, parseChildren ...ui.Node) ui.Node
+func H2(parseProps Props, parseChildren ...ui.Node) ui.Node
+func H3(parseProps Props, parseChildren ...ui.Node) ui.Node
+func H4(parseProps Props, parseChildren ...ui.Node) ui.Node
+func H5(parseProps Props, parseChildren ...ui.Node) ui.Node
+func H6(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Head(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Header(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Height(parseValue string) PropOption
+func Hidden(parseValues ...bool) PropOption
+func HiddenInput(parseName string, parseValue string) ui.Node
+func Hr(parseProps Props) ui.Node
+func Href(parseValue string) PropOption
+func Html(parseProps Props, parseChildren ...ui.Node) ui.Node
+func I(parseProps Props, parseChildren ...ui.Node) ui.Node
+func ID(parseValue string) PropOption
+func If(isCondition bool, parseNode ui.Node) ui.Node
+func IfElse(isCondition bool, parseWhenTrue ui.Node, parseWhenFalse ui.Node) ui.Node
+func IfProp(isCondition bool, parseOptions ...PropOption) PropOption
+func Iframe(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Img(parseProps Props) ui.Node
+func Input(parseProps Props) ui.Node
+func InputMode(parseValue string) PropOption
+func Ins(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Join(parseSeparator ui.Node, parseNodes ...ui.Node) []ui.Node
+func Kbd(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Label(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Lang(parseValue string) PropOption
+func Legend(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Li(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Line(parseProps Props) ui.Node
+func Link(parseProps Props) ui.Node
+func Loading(parseValue string) PropOption
+func Main(parseProps Props, parseChildren ...ui.Node) ui.Node
+func MapIndexed[T any](parseItems []T, render func(parseIndex int, parseItem T) ui.Node) []ui.Node
+func MapKeyedComponent[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node) []ui.Node
+func MapKeyedIndexed[T any](parseItems []T, parseKey func(parseIndex int, parseItem T) any, render func(parseIndex int, parseItem T) ui.Node) []ui.Node
+func MapKeyedOr[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node, parseFallback ui.Node) ui.Node
+func MapKeyed[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node) []ui.Node
+func MapOr[T any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node) ui.Node
+func Map[T any](parseItems []T, render func(T) ui.Node) []ui.Node
+func Mark(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Markdown(parseSource string, parseOptions ...MarkdownOption) []ui.Node
+func Match(isCondition bool, parseNode ui.Node) CondBranch
+func Max(parseValue string) PropOption
+func MaxLength(parseValue int) PropOption
+func MaybeOr[T any](parseValue *T, render func(T) ui.Node, parseFallback ui.Node) ui.Node
+func Maybe[T any](parseValue *T, render func(T) ui.Node) ui.Node
+func MergeProps(parseBase Props, parseOverride Props) Props
+func Meta(parseProps Props) ui.Node
+func Meter(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Min(parseValue string) PropOption
+func MinLength(parseValue int) PropOption
+func ModulePreload(parseHref string) ui.Node
+func Multiple(parseValues ...bool) PropOption
+func Name(parseValue string) PropOption
+func Nav(parseProps Props, parseChildren ...ui.Node) ui.Node
+func NoScript(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Ol(parseProps Props, parseChildren ...ui.Node) ui.Node
+func OnAnimationEnd(parseCallback any) PropOption
+func OnBlur(parseCallback any) PropOption
+func OnChangeHandler(parseHandler ui.Handler) PropOption
+func OnChange[F ChangeFn](parseCallback F) PropOption
+func OnClick(parseCallback any) PropOption
+func OnClickParallel(parseSlotID string, parseCallback any) PropOption
+func OnContextMenu(parseCallback any) PropOption
+func OnDoubleClick(parseCallback any) PropOption
+func OnDragEnd(parseCallback any) PropOption
+func OnDragOver(parseCallback any) PropOption
+func OnDragStart(parseCallback any) PropOption
+func OnDrop(parseCallback any) PropOption
+func OnError(parseCallback any) PropOption
+func OnFocus(parseCallback any) PropOption
+func OnInputHandler(parseHandler ui.Handler) PropOption
+func OnInput[F InputFn](parseCallback F) PropOption
+func OnKeyDown(parseCallback any) PropOption
+func OnKeyUp(parseCallback any) PropOption
+func OnLoad(parseCallback any) PropOption
+func OnMouseDown(parseCallback any) PropOption
+func OnMouseEnter(parseCallback any) PropOption
+func OnMouseLeave(parseCallback any) PropOption
+func OnMouseUp(parseCallback any) PropOption
+func OnPointerDown(parseCallback any) PropOption
+func OnPointerMove(parseCallback any) PropOption
+func OnPointerUp(parseCallback any) PropOption
+func OnScroll(parseCallback any) PropOption
+func OnSubmit(parseCallback any) PropOption
+func OnTouchEnd(parseCallback any) PropOption
+func OnTouchMove(parseCallback any) PropOption
+func OnTouchStart(parseCallback any) PropOption
+func OnTransitionEnd(parseCallback any) PropOption
+func OnWheel(parseCallback any) PropOption
+func Open(parseValues ...bool) PropOption
+func Optgroup(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Option(parseProps Props, parseChildren ...ui.Node) ui.Node
+func OrElse[T any](parseValue *T, parseFallback T) T
+func Otherwise(parseNode ui.Node) CondBranch
+func Output(parseProps Props, parseChildren ...ui.Node) ui.Node
+func P(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Part(parseValue string) PropOption
+func Passive(parseCallback any) any
+func Path(parseProps Props) ui.Node
+func Pattern(parseValue string) PropOption
+func Picture(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Placeholder(parseValue string) PropOption
+func Points(parseValue string) PropOption
+func Polygon(parseProps Props) ui.Node
+func Polyline(parseProps Props) ui.Node
+func Popover(parseValue string) PropOption
+func PopoverTarget(parseValue string) PropOption
+func Pre(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Preconnect(parseHref string) ui.Node
+func Prefetch(parseHref string) ui.Node
+func Preload(parseHref, parseAs string) ui.Node
+func PreserveAspectRatio(parseValue string) PropOption
+func Prevent(parseCallback any) any
+func Progress(parseProps Props, parseChildren ...ui.Node) ui.Node
+func PropsOf(parseOptions ...PropOption) Props
+func R(parseValue string) PropOption
+func Range(parseCount int, render func(parseIndex int) ui.Node) []ui.Node
+func RawHTML(parseMarkup string) []ui.Node
+func RawHTMLUnsafe(parseMarkup string) []ui.Node
+func RawHTMLWith(parseMarkup string, parsePolicy sanitize.Policy) []ui.Node
+func ReadOnly(parseValues ...bool) PropOption
+func ReadOnlyIf(isCondition bool) PropOption
+func Rect(parseProps Props) ui.Node
+func Ref(parseRef ui.DOMRef) PropOption
+func RegisterMarkdownEngine(parseEngine MarkdownEngine)
+func Rel(parseValue string) PropOption
+func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions) []ui.Node
+func Repeat(parseCount int, parseNode ui.Node) []ui.Node
+func Required(parseValues ...bool) PropOption
+func RequiredIf(isCondition bool) PropOption
+func ResolveMarkdownHref(parseSourcePath, parseDestination string) string
+func Role(parseValue string) PropOption
+func RowSpan(parseValue int) PropOption
+func Rows(parseValue int) PropOption
+func Rx(parseValue string) PropOption
+func Ry(parseValue string) PropOption
+func SanitizeMarkdownHref(parseDestination string, parseAllowed []string) string
+func Scope(parseValue string) PropOption
+func Script(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Section(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Select(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Selected(parseValues ...bool) PropOption
+func SelectedIf(isCondition bool) PropOption
+func Show(isCondition bool, parseNode ui.Node) ui.Node
+func SlotAttr(parseValue string) PropOption
+func Small(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Source(parseProps Props) ui.Node
+func Span(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Src(parseValue string) PropOption
+func Step(parseValue string) PropOption
+func Stop(parseCallback any) any
+func Stroke(parseValue string) PropOption
+func StrokeLinecap(parseValue string) PropOption
+func StrokeLinejoin(parseValue string) PropOption
+func StrokeWidth(parseValue string) PropOption
+func Strong(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Style(parseValues map[string]string) PropOption
+func StyleIf(isCondition bool, parseValues map[string]string) PropOption
+func StyleVar(parseName string, parseValue string) PropOption
+func Sub(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Summary(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Sup(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Svg(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Switch(parseValue any, parseBranches ...SwitchBranch) ui.Node
+func TabIndex(parseValue int) PropOption
+func Table(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Tag(parseName string, parseProps Props, parseChildren ...ui.Node) ui.Node
+func Target(parseValue string) PropOption
+func Tbody(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Td(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Text(parseContent any) ui.Node
+func TextIf(isCondition bool, parseContent any) ui.Node
+func TextLines(parseText string) []ui.Node
+func Textarea(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Textf(format string, parseArgs ...any) ui.Node
+func Tfoot(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Th(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Thead(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Throttle(parseInterval time.Duration, parseCallback any) any
+func Time(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Title(parseValue string) PropOption
+func Tr(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Track(parseProps Props) ui.Node
+func Type(parseValue string) PropOption
+func U(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Ul(parseProps Props, parseChildren ...ui.Node) ui.Node
+func Unless(isCondition bool, parseNode ui.Node) ui.Node
+func UnlessProp(isCondition bool, parseOptions ...PropOption) PropOption
+func Use(parseProps Props) ui.Node
+func Value(parseValue string) PropOption
+func Video(parseProps Props, parseChildren ...ui.Node) ui.Node
+func ViewBox(parseValue string) PropOption
+func VirtualList(parseProps VirtualListProps) ui.Node
+func VisibleRange(parseProps VirtualListProps) RowRange
+func When(isCondition bool, parseClassName string) string
+func Width(parseValue string) PropOption
+func WithChildren(parseNode ui.Node, parseChildren ...ui.Node) ui.Node
+func WithKey(parseNode ui.Node, parseKey any) ui.Node
+func WithProps(parseBase Props, parseOptions ...PropOption) Props
+func WithURLSchemes(parseSchemes ...string) MarkdownOption
+func X1(parseValue string) PropOption
+func X2(parseValue string) PropOption
+func Xmlns(parseValue string) PropOption
+func Y1(parseValue string) PropOption
+func Y2(parseValue string) PropOption
+type = ChangeFn InputFn
+type Binding interface { Get() string Set(string) }
+type CondBranch struct { isCondition bool node ui.Node isDefault bool }
+type CustomElementProps struct { Props Props Attributes map[string]string Presence map[string]bool Properties map[string]any }
+type DataAttribute struct { Name string Value string }
+type InputFn interface { ~func() | ~func(string) | ~func(ui.Event) | ui.Handler }
+type MarkdownClasses struct { Heading1 string Heading2 string Heading3 string Heading4 string Heading5 string Heading6 string Paragraph string Blockquote string List string OrderedList string UnorderedList string ListItem string CodeBlockContainer string CodeBlockLabel string CodeBlockPre string InlineCode string Strong string Emphasis string Link string HorizontalRule string }
+type MarkdownEngine func(parseMarkdown string, parseConfig MarkdownRenderOptions) []ui.Node
+type MarkdownOption interface { applyMarkdown(*MarkdownRenderOptions) }
+type MarkdownRenderOptions struct { SourcePath string ResolveHref func(sourcePath, destination string) string Classes MarkdownClasses CodeBlockLabel string LinkTarget string LinkRel string AllowedURLSchemes []string isSchemeOverride bool }
+type PropOption interface { apply(*Props) }
+type Props struct { ID string Class string Key string Slot string Title string Type string Name string Value string Placeholder string Accept string Href string Src string Alt string For string Role string Target string Rel string As string Action string Method string EncType string AutoComplete string Min string Max string Step string Pattern string Lang string Dir string Width string Height string Loading string Rows int Cols int TabIndex int MaxLength int MinLength int ColSpan int RowSpan int Checked bool Disabled bool Selected bool Required bool ReadOnly bool Hidden bool Multiple bool AutoFocus bool Open bool Style map[string]string Data map[string]string Aria map[string]string Raw map[string]any DataAttr DataAttribute DataAttrs []DataAttribute Text string OnClick ui.Handler OnInput ui.Handler OnChange ui.Handler OnSubmit ui.Handler OnKeyDown ui.Handler OnKeyUp ui.Handler OnMouseUp ui.Handler OnMouseDown ui.Handler OnMouseEnter ui.Handler OnMouseLeave ui.Handler OnDoubleClick ui.Handler OnContextMenu ui.Handler OnWheel ui.Handler OnTransitionEnd ui.Handler OnAnimationEnd ui.Handler OnLoad ui.Handler OnError ui.Handler OnPointerDown ui.Handler OnPointerMove ui.Handler OnPointerUp ui.Handler OnTouchStart ui.Handler OnTouchMove ui.Handler OnTouchEnd ui.Handler OnDragStart ui.Handler OnDragOver ui.Handler OnDrop ui.Handler OnDragEnd ui.Handler OnFocus ui.Handler OnBlur ui.Handler OnScroll ui.Handler }
+type RowRange struct { Start int End int }
+type SwitchBranch struct { value any node ui.Node isDefault bool }
+type VirtualListProps struct { ItemCount int ItemHeight float64 ViewportHeight float64 ScrollTop float64 Overscan int Render func(parseIndex int) ui.Node Key func(parseIndex int) any Unvirtualized bool Props Props }

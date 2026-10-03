@@ -7,6 +7,8 @@ import (
 	"html"
 	"io"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 const (
@@ -61,7 +63,7 @@ type ssrStreamState struct {
 // boundary replacement chunks as their render-time suspensions resolve.
 func RenderToStream(parseCtx context.Context, parseWriter io.Writer, parseElement *Element, parseOptions SSRStreamOptions) (parseErr error) {
 	if parseWriter == nil {
-		return fmt.Errorf("ssr stream: writer is required")
+		return errcode.New(errcode.RuntimeSSRStreamFailed, "ssr stream: writer is required (pass the io.Writer that receives the stream)")
 	}
 	if parseCtx == nil {
 		parseCtx = context.Background()
@@ -158,7 +160,7 @@ func safeRenderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ss
 			parseChunk = SSRStreamChunk{
 				Kind:       SSRStreamChunkBoundary,
 				BoundaryID: parseBoundary.id,
-				Err:        fmt.Errorf("ssr stream: boundary %s panicked during resolution: %v", parseBoundary.id, parseRecovered),
+				Err:        errcode.New(errcode.RuntimeSSRStreamFailed, fmt.Sprintf("ssr stream: boundary %s panicked during resolution: %v", parseBoundary.id, parseRecovered)),
 			}
 		}
 	}()
@@ -170,7 +172,7 @@ func renderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStr
 		return SSRStreamChunk{
 			Kind:       SSRStreamChunkBoundary,
 			BoundaryID: parseBoundary.id,
-			Err:        fmt.Errorf("ssr stream: boundary %s suspended without a completion channel", parseBoundary.id),
+			Err:        errcode.New(errcode.RuntimeSSRStreamFailed, fmt.Sprintf("ssr stream: boundary %s suspended without a completion channel", parseBoundary.id)),
 		}
 	}
 
@@ -185,7 +187,7 @@ func renderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStr
 		defer func() {
 			if parseRecovered := recover(); parseRecovered != nil {
 				if _, parseOk := AsSuspension(parseRecovered); parseOk {
-					parseErr = fmt.Errorf("ssr stream: boundary %s suspended again after completion", parseBoundary.id)
+					parseErr = errcode.New(errcode.RuntimeSSRStreamFailed, fmt.Sprintf("ssr stream: boundary %s suspended again after completion", parseBoundary.id))
 					return
 				}
 				panic(parseRecovered)
@@ -287,6 +289,11 @@ func renderErrorBoundaryToStreamShell(parseBuilder *strings.Builder, parseElemen
 		}
 		parseState.pending = parseState.pending[:parsePendingLen]
 		parseState.nextBoundaryID = parseNextBoundaryID
+		// A suspension is not a failure: it must reach the nearest async boundary,
+		// exactly as the client reconciler routes it past error boundaries.
+		if _, isSuspension := AsSuspension(parseRecovered); isSuspension {
+			panic(parseRecovered)
+		}
 
 		parseBoundaryErr := normalizeBoundaryError(parseRecovered)
 		if parseOnError, _ := parseElement.Props["onError"].(func(error)); parseOnError != nil {
@@ -480,11 +487,26 @@ func renderChildrenToStreamShell(parseBuilder *strings.Builder, parseChildren []
 
 func (parseState *ssrStreamState) nextSSRStreamBoundaryID() string {
 	parseState.nextBoundaryID++
-	parsePrefix := strings.TrimSpace(parseState.options.BoundaryIDPrefix)
+	parsePrefix := filterSSRStreamBoundaryPrefix(parseState.options.BoundaryIDPrefix)
 	if parsePrefix == "" {
 		parsePrefix = "gwc-stream-"
 	}
 	return fmt.Sprintf("%s%d", parsePrefix, parseState.nextBoundaryID)
+}
+
+// filterSSRStreamBoundaryPrefix keeps a caller-supplied boundary id prefix
+// inside [A-Za-z0-9_.-]. The id is written into an HTML comment marker, where
+// "-->" would end the comment early and let the rest of the prefix inject markup.
+func filterSSRStreamBoundaryPrefix(parsePrefix string) string {
+	parsePrefix = strings.TrimSpace(parsePrefix)
+	return strings.Map(func(parseRune rune) rune {
+		switch {
+		case parseRune >= 'a' && parseRune <= 'z', parseRune >= 'A' && parseRune <= 'Z',
+			parseRune >= '0' && parseRune <= '9', parseRune == '_', parseRune == '.', parseRune == '-':
+			return parseRune
+		}
+		return '_'
+	}, parsePrefix)
 }
 
 func writeSSRStreamBoundaryStart(parseBuilder *strings.Builder, parseBoundaryID string) {
@@ -516,6 +538,7 @@ func writeSSRStreamBoundaryPatchScript(parseBuilder *strings.Builder, parseBound
 	parseEncodedID, _ := json.Marshal(parseBoundaryID)
 	parseBuilder.WriteString(`<script data-gwc-stream-boundary="`)
 	parseBuilder.WriteString(html.EscapeString(parseBoundaryID))
+	parseBuilder.WriteByte('"')
 	writeSSRScriptNonceAttr(parseBuilder, parseScriptNonce)
 	parseBuilder.WriteString(`>(function(){var id=`)
 	parseBuilder.Write(parseEncodedID)

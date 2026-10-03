@@ -138,6 +138,7 @@ func (parseR *Router) renderRouteLevel(parseRoutes []resolvedRoute, parseIndex i
 
 // withRouteRenderContext is an internal router helper.
 func withRouteRenderContext(parseParams map[string]string, parseData Attrs, parseOutlet *Element) (map[string]string, Attrs, *Element) {
+	routeFactoryDepth++
 	parsePrevParams := currentParams
 	parsePrevData := currentRouteData
 	parsePrevOutlet := currentRouteOutlet
@@ -149,6 +150,7 @@ func withRouteRenderContext(parseParams map[string]string, parseData Attrs, pars
 
 // restoreRouteRenderContext is an internal router helper.
 func restoreRouteRenderContext(parseParams map[string]string, parseData Attrs, parseOutlet *Element) {
+	routeFactoryDepth--
 	currentParams = parseParams
 	currentRouteData = parseData
 	currentRouteOutlet = parseOutlet

@@ -319,6 +319,8 @@ func FitContent(limit Length) Track {
 
 // Repeat repeats a track pattern a fixed number of times: Repeat(3, Fr(1)).
 func Repeat(count int, tracks ...Track) Track {
+	// repeat() requires an integer of at least 1; anything lower is a dead declaration.
+	count = max(count, 1)
 	return Track("repeat(" + strconv.Itoa(count) + "," + joinTracks(tracks) + ")")
 }
 
@@ -414,11 +416,20 @@ const GridAuto GridPlacement = "auto"
 
 // GridLineAt names a numbered grid line. Negative indices count back from the end,
 // so GridLineAt(-1) is the last line — the typed way to say "to the far edge"
-// without knowing the column count.
-func GridLineAt(parseN int) GridPlacement { return GridPlacement(strconv.Itoa(parseN)) }
+// without knowing the column count. CSS grid lines are 1-based or negative; line 0
+// does not exist and a browser drops the whole declaration, so 0 is clamped to 1
+// (the same way GridSpan clamps non-positive spans).
+func GridLineAt(parseN int) GridPlacement {
+	if parseN == 0 {
+		parseN = 1
+	}
+	return GridPlacement(strconv.Itoa(parseN))
+}
 
 // GridSpan spans a number of tracks from wherever the item lands: GridSpan(2).
 func GridSpan(parseN int) GridPlacement {
+	// A span must be a positive integer; span 0 / span -1 invalidate the declaration.
+	parseN = max(parseN, 1)
 	return GridPlacement("span " + strconv.Itoa(parseN))
 }
 

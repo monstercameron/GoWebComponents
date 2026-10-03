@@ -19,7 +19,8 @@ type BenchmarkReport struct {
 	GoVersion          string                      `json:"goVersion"`
 	GOOS               string                      `json:"goos"`
 	GOARCH             string                      `json:"goarch"`
-	SelectedLanes      []string                    `json:"selectedLanes"`
+	Machine            *BenchmarkMachine           `json:"machine,omitempty"`
+	SelectedLanes     []string                    `json:"selectedLanes"`
 	Bench              string                      `json:"bench"`
 	Count              int                         `json:"count"`
 	PackageParallelism int                         `json:"packageParallelism"`
@@ -29,6 +30,22 @@ type BenchmarkReport struct {
 	FailedPackages     int                         `json:"failedPackages"`
 	Scores             *BenchmarkScoreSummary      `json:"scores,omitempty"`
 	Comparison         *BenchmarkComparisonSummary `json:"comparison,omitempty"`
+}
+
+// BenchmarkMachine mirrors the optional machine block written by gwc bench.
+type BenchmarkMachine struct {
+	OS          string `json:"os"`
+	Arch        string `json:"arch"`
+	HostArch    string `json:"hostArch,omitempty"`
+	CPUModel    string `json:"cpuModel,omitempty"`
+	LogicalCPUs int    `json:"logicalCpus"`
+	RAMBytes    uint64 `json:"ramBytes,omitempty"`
+	GoVersion   string `json:"goVersion,omitempty"`
+	GOMAXPROCS  int    `json:"gomaxprocs"`
+	GOFLAGS     string `json:"goflags,omitempty"`
+	BuildTags   string `json:"buildTags,omitempty"`
+	GitSHA      string `json:"gitSha,omitempty"`
+	GitDirty    bool   `json:"gitDirty,omitempty"`
 }
 
 type BenchmarkScoreSummary struct {
@@ -91,6 +108,10 @@ func RenderDriftNote(parseReport BenchmarkReport) string {
 	parseBuilder.WriteString("## Current Report\n\n")
 	fmt.Fprintf(&parseBuilder, "- Generated at: `%s`\n", fallback(parseReport.GeneratedAt, "unknown"))
 	fmt.Fprintf(&parseBuilder, "- Toolchain: `%s %s/%s`\n", fallback(parseReport.GoVersion, "unknown"), fallback(parseReport.GOOS, "unknown"), fallback(parseReport.GOARCH, "unknown"))
+	if parseMachine := parseReport.Machine; parseMachine != nil {
+		// Only emitted when present so notes for older reports stay byte-identical.
+		fmt.Fprintf(&parseBuilder, "- Machine: `%s/%s` (host `%s`), `%s`, `%d` logical CPUs\n", fallback(parseMachine.OS, "unknown"), fallback(parseMachine.Arch, "unknown"), fallback(parseMachine.HostArch, "unknown"), fallback(parseMachine.CPUModel, "unknown CPU"), parseMachine.LogicalCPUs)
+	}
 	fmt.Fprintf(&parseBuilder, "- Report path: `%s`\n", fallback(parseReport.ReportPath, "docs/benchmarks/latest.json"))
 	fmt.Fprintf(&parseBuilder, "- Packages / benchmarks: `%d / %d`\n", parseReport.PackageCount, parseReport.BenchmarkCount)
 	fmt.Fprintf(&parseBuilder, "- Selected lanes: `%s`\n", strings.Join(parseReport.SelectedLanes, ", "))

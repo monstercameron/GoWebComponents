@@ -17,7 +17,7 @@ func BenchmarkEvaluateRouteMicro(parseB *testing.B) {
 	parseRequest := RouteRequest{Path: "/dashboard"}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseDecision := parseHost.EvaluateRoute(parseRequest)
 		if parseDecision.Outcome != GuardAllow {
 			parseB.Fatalf("unexpected outcome: %s", parseDecision.Outcome)

@@ -88,8 +88,7 @@ func BenchmarkRequestWorkerDecodedFanoutDispatch(parseB *testing.B) {
 		for parseWorkerIndex := range getWorkerFanoutBenchmarkWorkerCount {
 			parseWorkers[parseWorkerIndex] = buildWorkerFanoutBenchmarkWorker(parseWorkerIndex)
 		}
-		parseB.ResetTimer()
-		for parseIteration := 0; parseIteration < parseB.N; parseIteration++ {
+		for parseB.Loop() {
 			runWorkerFanoutBenchmarkBatch(parseB, parseCtx, func(parseRequestCtx context.Context, parseProbe int) error {
 				_, parseErr := RequestWorkerDecoded[workerFanoutBenchmarkRequest, struct{}, workerFanoutBenchmarkResult](
 					parseRequestCtx,
@@ -108,8 +107,7 @@ func BenchmarkRequestWorkerDecodedFanoutDispatch(parseB *testing.B) {
 		parseB.Cleanup(func() {
 			_ = parsePool.Close()
 		})
-		parseB.ResetTimer()
-		for parseIteration := 0; parseIteration < parseB.N; parseIteration++ {
+		for parseB.Loop() {
 			runWorkerFanoutBenchmarkBatch(parseB, parseCtx, func(parseRequestCtx context.Context, parseProbe int) error {
 				_, parseErr := RequestWorkerDecoded[workerFanoutBenchmarkRequest, struct{}, workerFanoutBenchmarkResult](
 					parseRequestCtx,

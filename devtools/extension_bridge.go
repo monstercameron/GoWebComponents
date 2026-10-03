@@ -3,6 +3,8 @@ package devtools
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/v6/logging"
 )
 
 const extensionManifestVersion = 3
@@ -82,5 +84,15 @@ func BuildExtensionPanelPayload(parseSnapshot Snapshot) ExtensionPanelPayload {
 
 // ExportExtensionPanelPayloadJSON serializes the stable browser-extension panel payload.
 func ExportExtensionPanelPayloadJSON(parseSnapshot Snapshot) ([]byte, error) {
-	return json.Marshal(BuildExtensionPanelPayload(parseSnapshot))
+	parseEncoded, parseErr := json.Marshal(BuildExtensionPanelPayload(parseSnapshot))
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	// The payload leaves the app for a browser extension, so it gets the same
+	// telemetry redaction ExportSnapshotJSON applies.
+	var parseGeneric any
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseGeneric); parseErr2 != nil {
+		return nil, parseErr2
+	}
+	return json.Marshal(logging.RedactTelemetryValue("devtools.extension", parseGeneric))
 }

@@ -9,6 +9,8 @@ import (
 )
 
 func TestRunVerifyJSONRunsTestsAndCIBuild(parseT *testing.T) {
+	useIsolatedGoTmp(parseT)
+	useBenignTolerantGoTests(parseT)
 	parseTempApp := parseT.TempDir()
 	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
 	parseMainPath := filepath.Join(parseTempApp, "main.go")

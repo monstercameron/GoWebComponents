@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -81,31 +82,33 @@ func TestContainPanicSkipsAlreadyReported(parseT *testing.T) {
 // TestSafeGoContainsGoroutinePanic verifies a panic inside a SafeGo goroutine
 // is reported and does not kill the program.
 func TestSafeGoContainsGoroutinePanic(parseT *testing.T) {
-	parseGetReports := capturePanicReports(parseT)
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseGetReports := capturePanicReports(parseT)
 
-	parseDone := make(chan struct{})
-	SafeGo("test", "panicking goroutine", func() {
-		defer close(parseDone)
-		panic("goroutine-boom")
+		parseDone := make(chan struct{})
+		SafeGo("test", "panicking goroutine", func() {
+			defer close(parseDone)
+			panic("goroutine-boom")
+		})
+
+		select {
+		case <-parseDone:
+		case <-time.After(5 * time.Second):
+			parseT.Fatal("SafeGo goroutine never finished")
+		}
+
+		parseDeadline := time.Now().Add(5 * time.Second)
+		for len(parseGetReports()) == 0 && time.Now().Before(parseDeadline) {
+			time.Sleep(time.Millisecond)
+		}
+		parseReports := parseGetReports()
+		if len(parseReports) != 1 {
+			parseT.Fatalf("expected one contained-goroutine report, got %d", len(parseReports))
+		}
+		if !strings.Contains(parseReports[0].Summary, "goroutine-boom") {
+			parseT.Fatalf("report summary = %q", parseReports[0].Summary)
+		}
 	})
-
-	select {
-	case <-parseDone:
-	case <-time.After(5 * time.Second):
-		parseT.Fatal("SafeGo goroutine never finished")
-	}
-
-	parseDeadline := time.Now().Add(5 * time.Second)
-	for len(parseGetReports()) == 0 && time.Now().Before(parseDeadline) {
-		time.Sleep(time.Millisecond)
-	}
-	parseReports := parseGetReports()
-	if len(parseReports) != 1 {
-		parseT.Fatalf("expected one contained-goroutine report, got %d", len(parseReports))
-	}
-	if !strings.Contains(parseReports[0].Summary, "goroutine-boom") {
-		parseT.Fatalf("report summary = %q", parseReports[0].Summary)
-	}
 }
 
 // TestSafeGoNilFunc verifies a nil fn is a safe no-op.

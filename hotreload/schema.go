@@ -3,6 +3,7 @@ package hotreload
 import (
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -22,7 +23,8 @@ func SchemaFingerprint(parseSnapshot map[string]any) string {
 		if parseIndex > 0 {
 			parseBuilder.WriteByte(';')
 		}
-		parseBuilder.WriteString(parseKey)
+		// Quoted so a key containing ':' or ';' cannot masquerade as several keys.
+		parseBuilder.WriteString(strconv.Quote(parseKey))
 		parseBuilder.WriteByte(':')
 		parseBuilder.WriteString(typeOf(parseSnapshot[parseKey]))
 	}

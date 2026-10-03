@@ -95,7 +95,7 @@ func UseAsyncDefer[T any](parseTriggered bool, parseLoad func() (T, error)) Defe
 			// Contain loader panics like every sibling async hook: an
 			// unrecovered goroutine panic kills the whole wasm program.
 			defer runtime.RecoverContainedPanic("ui", "UseAsyncDefer loader")
-			parseData, parseErr := parseLoad()
+			parseData, parseErr := containAsyncFn("UseAsyncDefer loader", parseLoad)()
 			if parseErr != nil {
 				parseState.Set(DeferState[T]{Status: DeferError, Err: parseErr})
 				return

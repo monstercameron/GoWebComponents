@@ -77,6 +77,10 @@ var voidElements = map[string]bool{
 // urlAttributes are attributes whose values must pass scheme validation.
 var urlAttributes = map[string]bool{
 	"href": true, "src": true, "action": true, "formaction": true, "xlink:href": true,
+	"poster": true, "cite": true, "background": true, "ping": true, "data": true,
+	"longdesc": true, "usemap": true, "manifest": true, "codebase": true,
+	"icon": true, "lowsrc": true, "dynsrc": true, "profile": true, "archive": true,
+	"classid": true,
 }
 
 // Sanitize parses parseHTML and returns an XSS-safe HTML string. The first
@@ -200,7 +204,17 @@ func (parsePolicy Policy) writeAttr(parseBuf *strings.Builder, parseAttr html.At
 	// stripped copy while emitting the original is the shape of bug that becomes
 	// a bypass the moment the stripped set and the browser's scheme recovery
 	// diverge.
-	if urlAttributes[parseName] {
+	if parseName == "srcset" {
+		// srcset is a comma-separated candidate list; every candidate URL must
+		// pass the same scheme check, otherwise the whole attribute is dropped.
+		parseValue = stripControlChars(parseAttr.Val)
+		for _, parseCandidate := range strings.Split(parseValue, ",") {
+			parseFields := strings.Fields(parseCandidate)
+			if len(parseFields) > 0 && !parsePolicy.isSafeURL(parseFields[0]) {
+				return
+			}
+		}
+	} else if urlAttributes[parseName] {
 		parseValue = stripControlChars(parseAttr.Val)
 		if !parsePolicy.isSafeURL(parseValue) {
 			return
@@ -264,16 +278,23 @@ func (parsePolicy Policy) isSafeURL(parseURL string) bool {
 	return parsePolicy.AllowedURLSchemes[parseScheme]
 }
 
-// stripControlChars removes ASCII control characters (Unicode code points
-// 0x00–0x20) that can be embedded in URLs to disguise scheme names.
+// stripControlChars removes control, format and non-ASCII space characters that
+// can be embedded in URLs to disguise scheme names, and trims leading/trailing
+// ASCII spaces. Interior ASCII spaces are kept so legitimate URLs such as
+// "/search?q=a b" are not corrupted; a space inside a scheme ("java script:")
+// yields a scheme that is not on the allowlist and is rejected.
 func stripControlChars(parseInput string) string {
 	var parseBuf strings.Builder
 	parseBuf.Grow(len(parseInput))
 	for _, parseRune := range parseInput {
+		if parseRune == ' ' {
+			parseBuf.WriteRune(parseRune)
+			continue
+		}
 		if unicode.IsSpace(parseRune) || unicode.IsControl(parseRune) || unicode.Is(unicode.Cf, parseRune) {
 			continue
 		}
 		parseBuf.WriteRune(parseRune)
 	}
-	return parseBuf.String()
+	return strings.Trim(parseBuf.String(), " ")
 }

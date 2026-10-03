@@ -260,11 +260,10 @@ func readRepoModulePath(parseRepoRoot string) (string, error) {
 // Go rejects a require of ".../v5" at v0.0.0, so the version cannot be a
 // constant either — it has to track whatever major the path declares.
 func requireVersionForModulePath(parseModulePath string) string {
-	parseIndex := strings.LastIndex(parseModulePath, "/v")
-	if parseIndex < 0 {
+	_, parseSuffix, isMajorFound := strings.CutLast(parseModulePath, "/v")
+	if !isMajorFound {
 		return "v0.0.0"
 	}
-	parseSuffix := parseModulePath[parseIndex+2:]
 	if parseSuffix == "" {
 		return "v0.0.0"
 	}

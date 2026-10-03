@@ -80,3 +80,29 @@ func (parseRt *Runtime) releaseDOMRefsSubtree(parseFiber *Fiber) {
 		parseRt.releaseDOMRefsSubtree(parseChild)
 	}
 }
+
+// retargetDOMRef moves a ref when an element that stays mounted is handed a
+// different sink: the old sink is cleared and the new one receives the node.
+// Placement and deletion already publish and clear, but a surviving fiber
+// reaches neither, so without this the new sink never sees its node and the old
+// one keeps a node it no longer owns. Typed fast-lane fibers carry no props map
+// and return after one nil check.
+func (parseRt *Runtime) retargetDOMRef(parseFiber *Fiber) {
+	if parseFiber == nil || parseFiber.alternate == nil || (parseFiber.props == nil && parseFiber.alternate.props == nil) {
+		return
+	}
+	parseOld, hasOld := parseFiber.alternate.props[DOMRefKey]
+	parseNew, hasNew := parseFiber.props[DOMRefKey]
+	if !hasOld && !hasNew {
+		return
+	}
+	if parseSame, isComparable := safeComparableEqual(parseOld, parseNew); isComparable && parseSame {
+		return
+	}
+	if parseOldSink, parseIsSink := parseOld.(DOMRefSink); parseIsSink && parseOldSink != nil {
+		parseOldSink.SetDOMNode(nil)
+	}
+	if parseNewSink, parseIsSink := parseNew.(DOMRefSink); parseIsSink && parseNewSink != nil {
+		parseNewSink.SetDOMNode(parseFiber.dom)
+	}
+}

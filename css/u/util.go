@@ -10,7 +10,11 @@
 // incremental table entries.
 package u
 
-import "github.com/monstercameron/GoWebComponents/v6/css"
+import (
+	"strings"
+
+	"github.com/monstercameron/GoWebComponents/v6/css"
+)
 
 // --- display & layout (static utilities) --------------------------------------
 
@@ -63,7 +67,24 @@ func My(index Spacing) css.Rule { return css.MarginY(css.SpacingValue(int(index)
 
 // MtN is a negative top margin (-mt-n): MtN(u.Spacing4) -> margin-top: -1rem.
 func MtN(index Spacing) css.Rule {
-	return css.Raw("margin-top", "-"+string(css.SpacingValue(int(index))))
+	return css.Raw("margin-top", negateLength(css.SpacingValue(int(index))))
+}
+
+// negateLength returns the CSS text of -v. A plain numeric length is prefixed with
+// '-' (or has its existing '-' removed, so a negative spacing index does not yield
+// the invalid "--1rem"); a function or custom-property value is wrapped in calc().
+func negateLength(parseValue css.Length) string {
+	parseText := strings.TrimSpace(string(parseValue))
+	switch {
+	case parseText == "" || parseText == "0":
+		return "0"
+	case parseText[0] == '-' && len(parseText) > 1 && (parseText[1] >= '0' && parseText[1] <= '9' || parseText[1] == '.'):
+		return parseText[1:]
+	case parseText[0] >= '0' && parseText[0] <= '9' || parseText[0] == '.':
+		return "-" + parseText
+	default:
+		return "calc(-1 * " + parseText + ")"
+	}
 }
 
 // Gap takes a typed spacing-scale index; GapV takes an arbitrary Layer-1 length.

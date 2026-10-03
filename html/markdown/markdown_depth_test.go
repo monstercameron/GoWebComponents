@@ -1,9 +1,10 @@
-package html
+package markdown
 
 import (
 	"strings"
 	"testing"
 
+	. "github.com/monstercameron/GoWebComponents/v6/html"
 	"github.com/monstercameron/GoWebComponents/v6/ui"
 )
 

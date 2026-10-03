@@ -14,7 +14,13 @@ const (
 
 var supportInlineSecretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+\b`),
-	regexp.MustCompile(`(?i)\b(password|passwd|secret|token|authorization|cookie|session|api[_-]?key|apikey|jwt|credential)\b(\s*[:=]\s*)([^&\s,;]+)`),
+	// Whole Cookie / Set-Cookie header values: every cookie in the header can be a
+	// session id, not only the first one.
+	regexp.MustCompile(`(?i)\b(?:set-)?cookie["']?\s*[:=][^\r\n]+`),
+	// key[:=]value pairs, including JSON-quoted keys ("token":"x"), compound
+	// names (access_token, x-api-key) and an Authorization scheme before its
+	// credential (Basic dXNlcjpwYXNz).
+	regexp.MustCompile(`(?i)\b[\w-]*(?:password|passwd|passphrase|secret|token|authorization|session|api[_-]?key|jwt|credential|access[_-]?key|private[_-]?key)[\w-]*["']?\s*[:=]\s*["']?(?:(?:basic|digest|negotiate|bearer)\s+)?[^&\s,;"'}]+["']?`),
 }
 
 // CaptureSupportDiagnosticBundle captures one redacted support-safe debugging bundle from the current snapshot.
@@ -113,9 +119,12 @@ func sanitizeKernelForSupport(parseKernel KernelSnapshot) KernelSnapshot {
 }
 
 func sanitizeRouteForSupport(parseRoute Route) Route {
+	parseRoute.Path = redactSupportString(parseRoute.Path)
 	parseRoute.Query = sanitizeStringSlicesMapForSupport(parseRoute.Query)
 	parseRoute.Params = sanitizeStringMapForSupport(parseRoute.Params)
 	for parseI := range parseRoute.Stack {
+		parseRoute.Stack[parseI].ID = redactSupportString(parseRoute.Stack[parseI].ID)
+		parseRoute.Stack[parseI].Path = redactSupportString(parseRoute.Stack[parseI].Path)
 		parseRoute.Stack[parseI].Params = sanitizeStringMapForSupport(parseRoute.Stack[parseI].Params)
 		parseRoute.Stack[parseI].Metadata = sanitizeRouteMetadataForSupport(parseRoute.Stack[parseI].Metadata)
 	}
@@ -149,6 +158,7 @@ func sanitizeCacheEntriesForSupport(parseEntries []CacheEntry) []CacheEntry {
 }
 
 func sanitizeMultiClientForSupport(parseMulti MultiClient) MultiClient {
+	parseMulti.LocalPeerID = redactSupportString(parseMulti.LocalPeerID)
 	parseMulti.AuthorityView = sanitizeStringMapForSupport(parseMulti.AuthorityView)
 	for parseI := range parseMulti.Peers {
 		parseMulti.Peers[parseI].ID = redactSupportString(parseMulti.Peers[parseI].ID)
@@ -302,6 +312,9 @@ func sanitizeHydrationForSupport(parseHydration HydrationDebug) HydrationDebug {
 func sanitizeDiagnosticsForSupport(parseDiagnostics []Diagnostic) []Diagnostic {
 	for parseI := range parseDiagnostics {
 		parseDiagnostics[parseI].Message = redactSupportString(parseDiagnostics[parseI].Message)
+		parseDiagnostics[parseI].Consequence = redactSupportString(parseDiagnostics[parseI].Consequence)
+		parseDiagnostics[parseI].Remediation = redactSupportString(parseDiagnostics[parseI].Remediation)
+		parseDiagnostics[parseI].Docs = redactSupportString(parseDiagnostics[parseI].Docs)
 		parseDiagnostics[parseI].Path = redactSupportString(parseDiagnostics[parseI].Path)
 		parseDiagnostics[parseI].TopFrame = redactSupportString(parseDiagnostics[parseI].TopFrame)
 		parseDiagnostics[parseI].ComponentStack = sanitizeStringSliceForSupport(parseDiagnostics[parseI].ComponentStack)
@@ -313,6 +326,9 @@ func sanitizeDiagnosticsForSupport(parseDiagnostics []Diagnostic) []Diagnostic {
 func sanitizeLogsForSupport(parseLogs []Log) []Log {
 	for parseI := range parseLogs {
 		parseLogs[parseI].Message = redactSupportString(parseLogs[parseI].Message)
+		parseLogs[parseI].Consequence = redactSupportString(parseLogs[parseI].Consequence)
+		parseLogs[parseI].Remediation = redactSupportString(parseLogs[parseI].Remediation)
+		parseLogs[parseI].Docs = redactSupportString(parseLogs[parseI].Docs)
 		parseLogs[parseI].TopFrame = redactSupportString(parseLogs[parseI].TopFrame)
 		parseLogs[parseI].CorrelationID = redactSupportString(parseLogs[parseI].CorrelationID)
 		parseLogs[parseI].Fields = sanitizeStringMapForSupport(parseLogs[parseI].Fields)
@@ -390,14 +406,39 @@ func redactSupportURL(parseRaw string) (string, bool) {
 	if parseErr != nil {
 		return "", false
 	}
-	if parseParsed.Scheme == "" && parseParsed.Host == "" && !strings.Contains(parseRaw, "?") {
+	// "key: value" text parses as scheme "key" with an opaque tail; only a real URL (host, query or fragment) takes this path.
+	if parseParsed.Host == "" && !strings.Contains(parseRaw, "?") && !strings.Contains(parseRaw, "#") {
 		return "", false
 	}
-	parseQuery := parseParsed.Query()
-	if len(parseQuery) == 0 {
-		return parseRaw, true
-	}
 	isParseChanged := false
+	// Credentials embedded as scheme://user:password@host never appear in the
+	// query, so drop the userinfo wholesale.
+	if parseParsed.User != nil {
+		parseParsed.User = url.User("redacted")
+		isParseChanged = true
+	}
+	// OAuth implicit flows return tokens in the fragment (#access_token=...).
+	if strings.Contains(parseParsed.Fragment, "=") {
+		if parseFragmentValues, parseFragmentErr := url.ParseQuery(parseParsed.Fragment); parseFragmentErr == nil {
+			isFragmentChanged := false
+			for parseKey, parseValues := range parseFragmentValues {
+				if !isSupportSensitiveKey(parseKey) {
+					continue
+				}
+				for parseI := range parseValues {
+					parseValues[parseI] = redactedSupportValue
+				}
+				isFragmentChanged = true
+			}
+			if isFragmentChanged {
+				parseParsed.Fragment = parseFragmentValues.Encode()
+				parseParsed.RawFragment = ""
+				isParseChanged = true
+			}
+		}
+	}
+	parseQuery := parseParsed.Query()
+	isQueryChanged := false
 	for parseKey, parseValues := range parseQuery {
 		if !isSupportSensitiveKey(parseKey) {
 			continue
@@ -407,11 +448,14 @@ func redactSupportURL(parseRaw string) (string, bool) {
 		}
 		parseQuery[parseKey] = parseValues
 		isParseChanged = true
+		isQueryChanged = true
 	}
 	if !isParseChanged {
 		return parseRaw, true
 	}
-	parseParsed.RawQuery = parseQuery.Encode()
+	if isQueryChanged {
+		parseParsed.RawQuery = parseQuery.Encode()
+	}
 	return parseParsed.String(), true
 }
 
@@ -439,6 +483,12 @@ func isSupportSensitiveKey(parseKey string) bool {
 	case strings.Contains(parseNormalized, "jwt"):
 		return true
 	case strings.Contains(parseNormalized, "credential"):
+		return true
+	case strings.Contains(parseNormalized, "passphrase"):
+		return true
+	case strings.Contains(parseNormalized, "privatekey"), strings.Contains(parseNormalized, "accesskey"):
+		return true
+	case strings.Contains(parseNormalized, "bearer"), strings.Contains(parseNormalized, "csrf"), strings.Contains(parseNormalized, "xsrf"):
 		return true
 	default:
 		return false

@@ -177,6 +177,15 @@ func defaultPragmas(parsePragmas map[string]string) map[string]string {
 		"foreign_keys": "ON",
 		"busy_timeout": "5000",
 	}
+	for parseKey := range parsePragmas {
+		// PRAGMA names are case-insensitive, so an override that differs only in
+		// case must replace the default rather than sort next to it.
+		for parseDefault := range parseMerged {
+			if strings.EqualFold(parseKey, parseDefault) {
+				delete(parseMerged, parseDefault)
+			}
+		}
+	}
 	maps.Copy(parseMerged, parsePragmas)
 	return parseMerged
 }

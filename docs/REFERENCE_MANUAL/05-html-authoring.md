@@ -227,7 +227,7 @@ Use this table before choosing a style.
 | Semantic structure | `Header`, `Nav`, `Main`, `Article`, `Aside`, `Footer`, `Section` | `Stable` host surface | document structure and accessibility semantics matter | a generic `Div` tree is genuinely enough |
 | Generic tags | `Tag` | `Stable` escape hatch | you need an uncommon or custom tag with plain attrs and children | the element needs property assignment or custom-event integration |
 | Custom-element host | `CustomElement` | supported consumption surface | a browser-defined custom element needs attributes, properties, slots, or typed event integration | the element is simple enough for `Tag` |
-| Markdown helpers | `RenderMarkdown`, `ResolveMarkdownHref` | specialized public helper | you need markdown rendered into the current tree | the content is already structured Go markup |
+| Markdown helpers | `RenderMarkdown`, `Markdown`, `ResolveMarkdownHref`, `RegisterMarkdownEngine` (needs an engine, see Markdown Guidance) | specialized public helper | you need markdown rendered into the current tree | the content is already structured Go markup |
 
 ## Semantic Layout Guidance
 
@@ -264,6 +264,35 @@ Practical rule:
 
 That keeps markup and workflow concerns separate.
 
+### Typed `OnInput` And `OnChange`
+
+`html.OnInput` and `html.OnChange` (and the same names in `html/shorthand`) are generic over the callback shape. Pass exactly one of:
+
+- `func()`, when the handler does not need the value
+- `func(string)`, which receives the control's current string value
+- `func(ui.Event)`, which receives the full event
+- a `ui.Handler`, such as the result of `ui.UseEvent`
+
+Any other value, including an untyped `nil`, an `any` variable or a function with a different signature, is a compile error. Earlier versions accepted `any` and silently ignored a handler of the wrong shape. A typed-nil function still yields an empty handler. If a `ui.Handler` is stored in a variable of an interface type, use `OnInputHandler(h)` or `OnChangeHandler(h)`. `OnClick`, `OnSubmit` and `OnKeyDown` still accept `any`.
+
+Because the callback is built through the same path as other `On*` props, it follows the hook rule in [04 UI Rendering And Hooks](04-ui-rendering-and-hooks.md): creating a handler inline inside `Map` or `MapKeyed` takes a positional hook slot. `gwc lint` flags inline `On*(func...)` handlers in loops, and development builds report `GWC-RUNTIME-HOOK-IN-LIST`.
+
+### Conditional Props
+
+Use the conditional builders instead of branching around a prop:
+
+- `CheckedIf(cond)`, `RequiredIf(cond)`, `DisabledIf`, `ReadOnlyIf`, `SelectedIf` set one boolean attribute
+- `IfProp(cond, opts...)` applies a group of props only when `cond` is true, and `UnlessProp(cond, opts...)` is its negation
+- `AttrIf`, `ClassIf` and `StyleIf` do the same for an arbitrary attribute, a class and a style declaration
+
+A false condition produces a no-op option that `PropsOf` and `WithProps` skip.
+
+### Generated Attribute Builders
+
+Most element-specific attribute builders (`Draggable`, `ContentEditable`, `InputMode`, `Part`, `Popover`, the `Aria*` helpers, form attributes and SVG presentation attributes such as `ViewBox`, `Fill` and `Stroke`) are generated from one table, `html/internal/attrtable`, by `html/internal/attrgen`. The generator writes `html/attrs_gen.go` and `html/shorthand/attrs_gen.go` plus golden-case tests for both. Do not edit those files; add a row to the table and run `go generate ./html` from the repository root. Two names differ from the attribute: the `slot` attribute builder is `SlotAttr`, because `shorthand.Slot` already builds a named slot, and `Transform` is intentionally absent because examples declare their own.
+
+Dot-importing `html/shorthand` brings these names into your file's scope. A package-level declaration in the same package with a colliding name (`D`, `R`, `Fill`, `Stroke`, `Points`, `Part`, `Scope`, among others) is now a compile error; rename yours or import the package by name.
+
 ## Generic Tags And Custom Elements
 
 Use `html.Tag(...)` when:
@@ -287,10 +316,23 @@ Keep the boundary clear:
 
 Use `RenderMarkdown(...)` when markdown is a real content source and it is useful to keep the rendering path inside the current tree composition model.
 
+Markdown is opt-in. `html.RenderMarkdown` and `html.Markdown` dispatch to an engine registered with `html.RegisterMarkdownEngine` (type `html.MarkdownEngine`; the last registration wins). The goldmark engine lives in the separate package `html/markdown`, so apps that never render markdown do not link goldmark or `regexp`. Register it with a blank import, `import _ "github.com/monstercameron/GoWebComponents/v6/html/markdown"`, or call `markdown.Enable()`. Without an engine the source renders as escaped text inside `<div data-gwc-markdown-unavailable>` and one development warning, `GWC-UI-MARKDOWN-ENGINE-MISSING`, is reported.
+
 Do not use it as a default content strategy when:
 
 - the page is mostly application UI, not authored content
 - structured Go markup is already clearer than markdown transformation
+
+### Markdown Options
+
+`html.Markdown(src, ...MarkdownOption)` (also `shorthand.Markdown`) applies every option in order. A `MarkdownRenderOptions` value is itself a `MarkdownOption` that replaces the whole configuration, so pass it first and refine it with later options. `WithURLSchemes(schemes...)` sets the scheme allowlist for links, images and autolinks, written without the colon.
+
+- omitting `WithURLSchemes` keeps the default allowlist: `http`, `https` and `mailto`
+- `WithURLSchemes()` with no arguments allows no schemes, so only relative paths, absolute paths and fragments survive
+- raw HTML is never emitted; route untrusted HTML through the `sanitize` package
+- custom engines can reuse the link policy through `MarkdownRenderOptions.ResolveSafeHref(dest)` and `GetAllowedSchemes()`
+
+Two migration traps: spreading a `[]MarkdownRenderOptions` into `Markdown` no longer compiles because the elements are not `[]MarkdownOption`, and `RenderMarkdown(src, opts...)` still reads only its first options value and drops the rest, so prefer `Markdown` for new code.
 
 ## Typed CSS
 

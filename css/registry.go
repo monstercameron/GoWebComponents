@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 // Sink is the documented emission seam. New(...) calls Emit exactly once per
@@ -37,17 +38,24 @@ var (
 	// value) — mints a new class per distinct value and grows the registry (and the
 	// live <style>) without bound. When the count crosses the churn threshold, warn
 	// ONCE so the developer can find the leak. Vars are test seams.
-	classRegistryChurnThreshold = 10000
+	classRegistryChurnThreshold      = 10000
 	classChurnWarned            bool // guarded by registryMu
 	reportClassRegistryChurn    = func(parseCount int) {
 		diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
-			Code:     "GWC-CSS-CLASS-CHURN",
+			Code:     string(errcode.CSSClassChurn),
+			Docs:     getRegistryDocs(errcode.CSSClassChurn),
 			Headline: fmt.Sprintf("css class registry exceeded %d unique classes", classRegistryChurnThreshold),
 			Summary:  fmt.Sprintf("the css class registry has grown to %d classes; this usually means classes are minted from runtime values on every render", parseCount),
 			Next:     "route live values through css.DynamicLength / css.DynamicVar (a stable var(--…) class + inline value) instead of building a new class per value",
 		}))
 	}
 )
+
+// getRegistryDocs returns the reference-page location of a registered code.
+func getRegistryDocs(parseCode errcode.Code) string {
+	parseEntry, _ := errcode.Lookup(parseCode)
+	return parseEntry.Docs
+}
 
 // SetSink swaps the active emission sink and returns the previous one. Mainly for
 // tests and for wiring a custom emission target. Passing nil restores the
@@ -114,6 +122,12 @@ func Reset() {
 // registerAndEmit registers the class if new and emits its CSS through the active
 // sink exactly once. Returns true if this call performed the emission.
 func registerAndEmit(parseClass, parseCSS string) bool {
+	return registerAndEmitWith(parseClass, parseCSS, true)
+}
+
+// registerAndEmitWith is registerAndEmit with control over whether a repeat
+// registration of the class with different CSS is reported as a collision.
+func registerAndEmitWith(parseClass, parseCSS string, parseReportCollision bool) bool {
 	parseFingerprint := cssContentFingerprint(parseCSS)
 	registryMu.Lock()
 	if registry[parseClass] {
@@ -123,7 +137,7 @@ func registerAndEmit(parseClass, parseCSS string) bool {
 		// otherwise silently give the second element the first's styles.
 		parsePrevFingerprint, parseHasFingerprint := classFingerprints[parseClass]
 		registryMu.Unlock()
-		if parseHasFingerprint && parsePrevFingerprint != parseFingerprint {
+		if parseReportCollision && parseHasFingerprint && parsePrevFingerprint != parseFingerprint {
 			reportClassHashCollision(parseClass)
 		}
 		return false
@@ -142,6 +156,14 @@ func registerAndEmit(parseClass, parseCSS string) bool {
 	}
 	sink.Emit(parseClass, parseCSS)
 	return true
+}
+
+// registerInjectedOnce is registerAndEmit for slot-keyed CSS (css.Inject): the
+// first body for a key is emitted, and any later call for the key is a silent
+// no-op rather than a class-collision report, because an inject id is not a
+// content hash.
+func registerInjectedOnce(parseKey, parseCSS string) {
+	registerAndEmitWith(parseKey, parseCSS, false)
 }
 
 // classPrefix is the stable prefix for every generated class name.
@@ -176,7 +198,8 @@ func cssContentFingerprint(parseCSS string) uint64 {
 // emitted, so its element renders with the first rule-set's styles. A test seam.
 var reportClassHashCollision = func(parseClass string) {
 	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
-		Code:     "GWC-CSS-CLASS-COLLISION",
+		Code:     string(errcode.CSSClassCollision),
+		Docs:     getRegistryDocs(errcode.CSSClassCollision),
 		Headline: fmt.Sprintf("css class name collision on %q", parseClass),
 		Summary:  fmt.Sprintf("two distinct rule-sets hashed to class %q with different CSS; the second rule-set's styles were dropped and its element will render with the first's styles", parseClass),
 		Next:     "this is an astronomically rare hash collision — vary one of the colliding rule-sets slightly (e.g. add a no-op declaration) to force a different class name",

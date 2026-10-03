@@ -7509,7 +7509,7 @@ func BenchmarkLocalStorageGetItem(parseB *testing.B) {
 		parseB.Fatal(parseErr)
 	}
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseValue, parseOk, parseErr2 := parseLocal.GetItem("theme")
 		if parseErr2 != nil || !parseOk || parseValue != "dark" {
 			parseB.Fatalf("unexpected storage read: %q ok=%t err=%v", parseValue, parseOk, parseErr2)
@@ -7536,7 +7536,7 @@ func BenchmarkModuleCall(parseB *testing.B) {
 		parseB.Fatal(parseErr)
 	}
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseValue, parseErr2 := parseModule.Call(context.Background(), "next", 41)
 		if parseErr2 != nil || parseValue.(float64) != 42 {
 			parseB.Fatalf("unexpected module call result %#v err=%v", parseValue, parseErr2)

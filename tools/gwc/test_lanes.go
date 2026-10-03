@@ -97,6 +97,7 @@ func (parseL launcher) runTest(parseArgs []string) error {
 	if parseErr2 != nil {
 		return parseErr2
 	}
+	parseSummary.Warnings = takeGoCleanupWarnings()
 	if parseConfig.json {
 		parseEncoder := json.NewEncoder(os.Stdout)
 		parseEncoder.SetIndent("", "  ")
@@ -239,7 +240,7 @@ var testRaceDetectorSupported = func() bool {
 
 func (parseL launcher) runUnitTestLane(parseRootPath string) (testLaneSummary, error) {
 	parseOutputs := []string{}
-	parseOutput, parseErr := launcherRunCommand("go", []string{"test", "./..."}, parseRootPath, buildNativeGoEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", []string{"test", "./..."}, parseRootPath, buildNativeGoEnv())
 	if parseOutput != "" {
 		parseOutputs = append(parseOutputs, parseOutput)
 	}
@@ -260,7 +261,7 @@ func (parseL launcher) runUnitTestLane(parseRootPath string) (testLaneSummary, e
 			return testLaneSummary{}, parseErr2
 		}
 		if fileExists(filepath.Join(parseNestedRoot, "go.mod")) {
-			parseNestedOutput, parseNestedErr := launcherRunCommand("go", []string{"test", "./..."}, parseNestedRoot, buildNativeGoEnv())
+			parseNestedOutput, parseNestedErr := runLauncherGoCommand("go", []string{"test", "./..."}, parseNestedRoot, buildNativeGoEnv())
 			if parseNestedOutput != "" {
 				parseOutputs = append(parseOutputs, parseNestedOutput)
 			}
@@ -287,7 +288,7 @@ func (parseL launcher) runRaceTestLane(parseRootPath string) (testLaneSummary, e
 		}, nil
 	}
 	parseArgs := []string{"test", "-race", "./..."}
-	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRootPath, buildNativeGoEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", parseArgs, parseRootPath, buildNativeGoEnv())
 	if parseErr != nil {
 		return testLaneSummary{}, parseErr
 	}
@@ -327,7 +328,7 @@ func (parseL launcher) runWasmTestLane(parseRootPath string, isHydrationOnly boo
 		return testLaneSummary{}, parseErr
 	}
 	parseArgs := append([]string{"test", "-exec", parseWasmExec}, parsePackages...)
-	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRootPath, buildWasmGoEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", parseArgs, parseRootPath, buildWasmGoEnv())
 	if parseErr != nil {
 		return testLaneSummary{}, parseErr
 	}
@@ -368,7 +369,7 @@ func (parseL launcher) runBrowserTestLane(parseRootPath string) (testLaneSummary
 		}, nil
 	}
 	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", "TestMainSuite", "-v"}
-	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
 	if parseErr != nil {
 		return testLaneSummary{}, parseErr
 	}
@@ -408,7 +409,7 @@ func (parseL launcher) runPerfBudgetTestLane(parseRootPath string) (testLaneSumm
 		}, nil
 	}
 	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", "TestPerfBudget", "-v"}
-	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
 	if parseErr != nil {
 		return testLaneSummary{}, parseErr
 	}
@@ -436,7 +437,7 @@ func (parseL launcher) runI18nCompletenessTestLane(parseRootPath string) (testLa
 		}, nil
 	}
 	parseArgs := []string{"test", "./i18n/extract"}
-	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRootPath, buildNativeGoEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", parseArgs, parseRootPath, buildNativeGoEnv())
 	if parseErr != nil {
 		return testLaneSummary{}, parseErr
 	}
@@ -454,7 +455,7 @@ func (parseL launcher) runI18nCompletenessTestLane(parseRootPath string) (testLa
 func (parseL launcher) runAgentBridgeTestLane(parseRootPath string) (testLaneSummary, error) {
 	parseOutputs := []string{}
 	parseRootArgs := []string{"test", "./agentbridge", "./internal/runtime"}
-	parseRootOutput, parseRootErr := launcherRunCommand("go", parseRootArgs, parseRootPath, buildNativeGoEnv())
+	parseRootOutput, parseRootErr := runLauncherGoCommand("go", parseRootArgs, parseRootPath, buildNativeGoEnv())
 	if parseRootOutput != "" {
 		parseOutputs = append(parseOutputs, parseRootOutput)
 	}
@@ -466,7 +467,7 @@ func (parseL launcher) runAgentBridgeTestLane(parseRootPath string) (testLaneSum
 		if !fileExists(filepath.Join(parseWorkspace, "go.mod")) {
 			continue
 		}
-		parseOutput, parseErr := launcherRunCommand("go", []string{"test", "./..."}, parseWorkspace, buildNativeGoEnv())
+		parseOutput, parseErr := runLauncherGoCommand("go", []string{"test", "./..."}, parseWorkspace, buildNativeGoEnv())
 		if parseOutput != "" {
 			parseOutputs = append(parseOutputs, parseOutput)
 		}
@@ -511,7 +512,7 @@ func (parseL launcher) runAgentBridgeHeadlessTestLane(parseRootPath string) (tes
 	}
 	parseRunPattern := "TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless"
 	parseArgs := []string{"test", "-tags", "playwrightgo", "-run", parseRunPattern, "-count=1", "-timeout=5m", "-v", parsePackagePattern}
-	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
 	if parseErr != nil {
 		parseCommandText := "go " + strings.Join(parseArgs, " ")
 		if strings.TrimSpace(parseOutput) == "" {
@@ -702,7 +703,7 @@ func resolveActiveGoToolchain(parseRootPath string) (string, error) {
 	if parseCwd == "" {
 		parseCwd = "."
 	}
-	parseOutput, parseErr := launcherRunCommand("go", []string{"env", "GOVERSION"}, parseCwd, buildNativeGoEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", []string{"env", "GOVERSION"}, parseCwd, buildNativeGoEnv())
 	if parseErr != nil {
 		return "", fmt.Errorf("resolve active Go toolchain: %w", parseErr)
 	}
@@ -982,6 +983,9 @@ func resolveWasmTestExec(parseRepoRoot string) (string, error) {
 		return parseValue, nil
 	}
 	if runtime.GOOS == "windows" {
+		if parseBuilt, isBuilt := buildWasmExecHelper(parseRepoRoot); isBuilt {
+			return parseBuilt, nil
+		}
 		parseCandidate := filepath.Join(parseRepoRoot, "tools", "go_js_wasm_exec.bat")
 		if fileExists(parseCandidate) {
 			return parseCandidate, nil
@@ -1056,4 +1060,31 @@ func resolveLauncherLivereloadClientScript(parseRootPath string, _ ...string) (s
 		return parseOverridePath, true, nil
 	}
 	return "", false, nil
+}
+
+// buildWasmExecHelper builds tools/gowasmexec into bin/ (reusing a current binary) and
+// returns its path. The shell-free Go helper replaces the .bat wrapper, whose cmd.exe
+// argument handling corrupts `-test.run=^$`. It reports false when the source is absent
+// or the build fails so callers can fall back to the deprecated .bat.
+var buildWasmExecHelper = func(parseRepoRoot string) (string, bool) {
+	parseSource := filepath.Join(parseRepoRoot, "tools", "gowasmexec", "main.go")
+	parseSourceInfo, parseErr := os.Stat(parseSource)
+	if parseErr != nil {
+		return "", false
+	}
+	parseBinaryName := "gowasmexec"
+	if runtime.GOOS == "windows" {
+		parseBinaryName += ".exe"
+	}
+	parseBinary := filepath.Join(parseRepoRoot, "bin", parseBinaryName)
+	if parseInfo, parseStatErr := os.Stat(parseBinary); parseStatErr == nil && !parseInfo.ModTime().Before(parseSourceInfo.ModTime()) {
+		return parseBinary, true
+	}
+	if parseMkErr := os.MkdirAll(filepath.Dir(parseBinary), 0755); parseMkErr != nil {
+		return "", false
+	}
+	if _, parseBuildErr := runLauncherGoCommand("go", []string{"build", "-o", parseBinary, "./tools/gowasmexec"}, parseRepoRoot, buildNativeGoEnv()); parseBuildErr != nil {
+		return "", false
+	}
+	return parseBinary, true
 }

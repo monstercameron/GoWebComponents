@@ -14,7 +14,7 @@ func TestGoUseAtomRegistryPanicUsesUnifiedContract(parseT *testing.T) {
 			parseT.Fatal("expected GoUseAtom to panic when registry is missing")
 		}
 		parseMessage := parseRecovered.(string)
-		if !strings.Contains(parseMessage, "GWC-RUNTIME-ATOM-REGISTRY-NIL") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") || !strings.Contains(parseMessage, "docs: ACTIONABLE_ERRORS.md#gwc-runtime-atom-registry-nil") {
+		if !strings.Contains(parseMessage, "GWC-RUNTIME-ATOM-REGISTRY-NIL") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") || !strings.Contains(parseMessage, "docs: docs/REFERENCE_MANUAL/error-codes.md#gwc-runtime-atom-registry-nil") {
 			parseT.Fatalf("expected unified atom registry panic output, got %q", parseMessage)
 		}
 	}()

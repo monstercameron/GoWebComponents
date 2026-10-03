@@ -154,7 +154,7 @@ func writeHandleSetAtom(parsePayload json.RawMessage) (json.RawMessage, *Envelop
 	// applying it or recording a mutation.
 	if parseDec.DryRun {
 		parsePreview, parseMarshalErr := json.Marshal(writeSetAtomDryRunResult{
-			DryRun: true, ID: parseDec.ID, From: parseCurrent, To: parseRawValue,
+			DryRun: true, ID: parseDec.ID, From: redactValue(parseCurrent), To: parseRawValue,
 		})
 		if parseMarshalErr != nil {
 			return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: parseMarshalErr.Error()}
@@ -578,16 +578,24 @@ func writeHandleMount(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeE
 	writeMountedRoots[parseDec.ID] = writeMountedRoot{Component: parseDec.Component, Selector: parseDec.Selector, Props: parseProps}
 	writeMountMu.Unlock()
 
+	// Release the reservation on EVERY failure exit, including a panicking
+	// factory (ExecuteAgentCommand recovers it, but the id and a slot of the
+	// bounded registry would otherwise stay reserved for the life of the page).
+	parseMountSettled := false
+	defer func() {
+		if !parseMountSettled {
+			writeMountReleaseReservation(parseDec.ID)
+		}
+	}()
 	parseElement := parseFactory(parseProps)
 	if parseElement == nil {
-		writeMountReleaseReservation(parseDec.ID)
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("mount: component %q rendered nil", parseDec.Component)}
 	}
 	if parseErr := writeRenderToSelector(parseDec.Selector, parseElement); parseErr != nil {
-		writeMountReleaseReservation(parseDec.ID)
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: "mount: " + parseErr.Error()}
 	}
 
+	parseMountSettled = true
 	// Record a reversible mutation whose undo unmounts the component.
 	parseMountID := parseDec.ID
 	parseMountSelector := parseDec.Selector

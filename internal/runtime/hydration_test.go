@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+// runHydrationWork runs exactly one queued scheduler task. Hydration tests build
+// their runtimes with FrameBudgetMs: -1 because the default 5ms wall-clock slice
+// budget can expire mid-pass on a slow wasm start; the pass then yields before
+// commit and this single-task helper observes an uncommitted tree.
 func runHydrationWork(parseT *testing.T, parseScheduler *testScheduler) {
 	parseT.Helper()
 	if len(parseScheduler.timeouts) == 0 {
@@ -22,7 +26,7 @@ func TestHydrateReusesExistingDOMForSimpleTree(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("section")
@@ -59,7 +63,7 @@ func TestHydrateSplitsAdjacentTextWithoutDestroyingContent(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("p")
@@ -99,7 +103,7 @@ func TestHydrateFallsBackForTagMismatch(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("span")
@@ -127,7 +131,7 @@ func TestHydrateReportsTextMismatchAndUpdatesNode(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("p")
@@ -160,7 +164,7 @@ func TestHydrateMismatchDiagnosticsIncludePathAndComponentStack(parseT *testing.
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("p")
@@ -206,7 +210,7 @@ func TestHydrateDiscardsTrailingUnexpectedNodes(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseFirst := parseAdapter.CreateElement("li")
@@ -303,7 +307,7 @@ func TestHydrateSupportsComponentUpdatesAfterResume(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerButton := parseAdapter.CreateElement("button")
@@ -349,7 +353,7 @@ func TestHydrateReportsObservabilityMetrics(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("span")
@@ -386,7 +390,7 @@ func TestHydrateReportsObservabilityMetrics(parseT *testing.T) {
 func TestHydrateUpdatesClosureComponentChildrenAfterResume(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("p")
@@ -441,7 +445,7 @@ func TestHydrateUpdatesClosureComponentChildrenAfterResume(parseT *testing.T) {
 func TestHydrateDefersAtomSubscriptionsUntilCommitCompletes(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("p")
@@ -467,7 +471,7 @@ func TestHydrateDefersAtomSubscriptionsUntilCommitCompletes(parseT *testing.T) {
 func TestHydrateEffectStateUpdatesScheduleAfterCommit(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("p")
@@ -509,7 +513,7 @@ func TestHydrateEffectStateUpdatesScheduleAfterCommit(parseT *testing.T) {
 func TestHydrateAttachesEventHandlersBeforeEffectsRun(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerButton := parseAdapter.CreateElement("button")
@@ -540,7 +544,7 @@ func TestHydrateAttachesEventHandlersBeforeEffectsRun(parseT *testing.T) {
 func TestHydratePreservesLiveInputValueUntilPostHydrationUpdate(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerInput := parseAdapter.CreateElement("input")

@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -322,14 +323,11 @@ func parseStringLit(parseExpr ast.Expr) (string, bool) {
 	if !parseOk || parseLit.Kind != token.STRING {
 		return "", false
 	}
-	// BasicLit.Value includes surrounding quotes; strip them.
-	parseRaw := parseLit.Value
-	if len(parseRaw) >= 2 {
-		// Handle both "..." and `...` forms.
-		if (parseRaw[0] == '"' && parseRaw[len(parseRaw)-1] == '"') ||
-			(parseRaw[0] == '`' && parseRaw[len(parseRaw)-1] == '`') {
-			return parseRaw[1 : len(parseRaw)-1], true
-		}
+	// Unquote (not a slice of the quotes): "tab\tkey" and "say \"hi\"" must yield the runtime key
+	// string the program actually looks up, in both "..." and `...` forms.
+	parseUnquoted, parseErr := strconv.Unquote(parseLit.Value)
+	if parseErr != nil {
+		return "", false
 	}
-	return "", false
+	return parseUnquoted, true
 }

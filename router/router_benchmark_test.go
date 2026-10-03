@@ -33,8 +33,7 @@ func BenchmarkResolveRouteStackNestedLayout(parseB *testing.B) {
 	installRouterBrowserEnv(parseB)
 	parseR := benchmarkNestedHashRouter()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseResolved := parseR.resolveRouteStack("/dashboard/settings/profile")
 		if !parseResolved.found || len(parseResolved.routes) != 3 {
 			parseB.Fatal("expected 3-level resolved route stack")
@@ -48,8 +47,7 @@ func BenchmarkCurrentNestedLayoutRoute(parseB *testing.B) {
 	globalRouter = parseR
 	js.Global().Get("location").Set("hash", "/dashboard/settings/profile")
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseElem := parseR.Current()
 		if parseElem == nil {
 			parseB.Fatal("expected nested route element")
@@ -63,8 +61,7 @@ func BenchmarkEvaluateNavigationNestedLayouts(parseB *testing.B) {
 	globalRouter = parseR
 	js.Global().Get("location").Set("hash", "/dashboard/settings/profile")
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseTarget, parseOk := parseR.evaluateNavigation("/docs/getting-started")
 		if !parseOk || parseTarget != "/docs/getting-started" {
 			parseB.Fatal("expected nested navigation evaluation to succeed")

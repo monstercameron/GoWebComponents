@@ -255,7 +255,8 @@ func (parseN CompositeNavigation) OnKeyDown(parseEvent KeyboardEvent) {
 		parseEvent.PreventDefault()
 		parseN.MoveEnd()
 	default:
-		if compositeIsTypeaheadKey(parseKey) {
+		// Ctrl/Meta/Alt chords are browser or OS shortcuts (reload, copy, select-all), not typeahead.
+		if compositeIsTypeaheadKey(parseKey) && !parseEvent.GetCtrlKey() && !parseEvent.GetMetaKey() && !parseEvent.GetAltKey() {
 			parseEvent.PreventDefault()
 			parseN.applyTypeahead(parseKey)
 		}

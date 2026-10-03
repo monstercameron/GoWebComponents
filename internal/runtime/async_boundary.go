@@ -1,6 +1,10 @@
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+)
 
 // Suspension describes render-time async work that should be retried after Done closes.
 type Suspension struct {
@@ -221,7 +225,7 @@ func asyncBoundaryFallbackChildren(parseBoundary *Fiber, parseErr error) []any {
 func safeAsyncBoundaryFallback(parseFallback func(error) *Element, parseErr error) (parseElement *Element) {
 	defer func() {
 		if parseRecovered := recover(); parseRecovered != nil {
-			panic(fmt.Errorf("async boundary fallback panic: %v", parseRecovered))
+			panic(errcode.New(errcode.RuntimeAsyncFallbackPanic, fmt.Sprintf("async boundary fallback panic: %v (the errorFallback callback must not panic)", parseRecovered)))
 		}
 	}()
 	return parseFallback(parseErr)

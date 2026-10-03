@@ -17,6 +17,10 @@ introduces the Windows-first desktop integration and an explicit major-version
 import migration. Update `/v5` imports and requirements to `/v6` as documented
 in the changelog.
 
+**v7 development targets Go 1.27.** The v7 line requires Go 1.27 (`go 1.27.0` in
+`go.mod`, toolchain `go1.27.1`), so raising the Go floor is part of the v7 major bump rather than a
+minor or patch change. Until the module-path rename lands, the module path stays `/v6`.
+
 It previously moved to `/v5` in v5.0.0 because retiring runtime2 as a renderer removed `ui.ParallelRegion`
 and the surrounding public API, and changed the `ui.Hydrate`/`ui.HydrateInto`
 signatures — exactly the trigger in the Major row above. The change had been sitting

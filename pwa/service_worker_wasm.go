@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/v6/interop"
@@ -100,7 +102,11 @@ func newServiceWorkerRegistration(parseContainer js.Value, parseRaw js.Value) Se
 				return ServiceWorkerSubscription{}, &interop.Error{Op: "ServiceWorkerRegistration.SubscribeLifecycle", Target: parseSnapshot().Scope, Code: interop.CodeInvalid, Err: errors.New("lifecycle handler is nil")}
 			}
 			parseAttachments := []serviceWorkerEventAttachment{}
-			parseAttachedWorkers := map[string]bool{}
+			// Workers already listened to, compared by object identity: keying on script URL and
+			// state attached a fresh statechange listener to the same worker on every transition
+			// (n transitions -> n notifications) and skipped any later update's new worker object
+			// that shared the previous one's URL and state.
+			var parseAttachedWorkers []js.Value
 			var parseNotify func()
 			parseAttach := func(parseTarget js.Value, parseEventName string, parseFn js.Func) {
 				parseTarget.Call("addEventListener", parseEventName, parseFn)
@@ -111,11 +117,17 @@ func newServiceWorkerRegistration(parseContainer js.Value, parseRaw js.Value) Se
 					if parseWorker.IsUndefined() || parseWorker.IsNull() {
 						continue
 					}
-					parseKey := strings.TrimSpace(parseWorker.Get("scriptURL").String()) + "|" + strings.TrimSpace(parseWorker.Get("state").String())
-					if parseAttachedWorkers[parseKey] {
+					isAttached := false
+					for _, parseKnown := range parseAttachedWorkers {
+						if parseKnown.Equal(parseWorker) {
+							isAttached = true
+							break
+						}
+					}
+					if isAttached {
 						continue
 					}
-					parseAttachedWorkers[parseKey] = true
+					parseAttachedWorkers = append(parseAttachedWorkers, parseWorker)
 					parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 						parseNotify()
 						return nil
@@ -251,11 +263,24 @@ func awaitServiceWorkerValue(parseCtx context.Context, parseOp string, parseTarg
 	parseRejectedCh := make(chan error, 1)
 	var parseResolveFn js.Func
 	var parseRejectFn js.Func
+	var parseReleaseOnce sync.Once
 	parseCleanup := func() {
-		parseResolveFn.Release()
-		parseRejectFn.Release()
+		parseReleaseOnce.Do(func() {
+			parseResolveFn.Release()
+			parseRejectFn.Release()
+		})
+	}
+	// A context that ends before the promise settles must not release the callbacks yet: the
+	// promise would later call a released js.Func. The callbacks release themselves on settling.
+	var isParseSettled, isParseAbandoned atomic.Bool
+	parseSettle := func() {
+		isParseSettled.Store(true)
+		if isParseAbandoned.Load() {
+			go parseCleanup()
+		}
 	}
 	parseResolveFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer parseSettle()
 		if len(parseArgs) == 0 {
 			select {
 			case parseResolvedCh <- js.Undefined():
@@ -270,6 +295,7 @@ func awaitServiceWorkerValue(parseCtx context.Context, parseOp string, parseTarg
 		return nil
 	})
 	parseRejectFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer parseSettle()
 		parseMessage := "service worker promise rejected"
 		if len(parseArgs2) > 0 {
 			if parseText := strings.TrimSpace(parseArgs2[0].String()); parseText != "" {
@@ -283,14 +309,19 @@ func awaitServiceWorkerValue(parseCtx context.Context, parseOp string, parseTarg
 		return nil
 	})
 	parseValue.Call("then", parseResolveFn).Call("catch", parseRejectFn)
-	defer parseCleanup()
 
 	select {
 	case parseResolved := <-parseResolvedCh:
+		parseCleanup()
 		return parseResolved, nil
 	case parseErr := <-parseRejectedCh:
+		parseCleanup()
 		return js.Undefined(), parseErr
 	case <-parseCtx.Done():
+		isParseAbandoned.Store(true)
+		if isParseSettled.Load() {
+			parseCleanup()
+		}
 		parseCode := interop.CodeCancelled
 		if errors.Is(parseCtx.Err(), context.DeadlineExceeded) {
 			parseCode = interop.CodeTimeout

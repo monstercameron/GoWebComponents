@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/v6/deprecation"
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
@@ -102,7 +103,7 @@ var (
 // before loading stored snapshots. Passing nil removes the migration.
 func RegisterSnapshotMigration(parseFromVersion int, parseMigration SnapshotMigration) error {
 	if parseFromVersion < 0 || parseFromVersion >= currentSnapshotVersion {
-		return fmt.Errorf("state: snapshot migration source version %d is unsupported", parseFromVersion)
+		return errcode.New(errcode.StateSnapshotInvalid, fmt.Sprintf("state: snapshot migration source version %d is unsupported (register migrations only for versions 0 through %d)", parseFromVersion, currentSnapshotVersion-1))
 	}
 	snapshotMigrationMu.Lock()
 	defer snapshotMigrationMu.Unlock()
@@ -235,6 +236,7 @@ func (parseA Atom[T]) Update(parseFn func(T) T) {
 // Deprecated: prefer ui.UseMemo, which returns the value directly (UseComputed only wraps it in a
 // Computed handle). For a shared, cross-component derived value use state.UseDerived instead.
 func UseComputed[T any](parseCompute func() T, parseDeps ...any) Computed[T] {
+	deprecation.Warn("state.UseComputed", "ui.UseMemo")
 	parseValue := runtime.GoUseMemoGlobal(func() any {
 		return parseCompute()
 	}, parseDeps...)
@@ -490,7 +492,7 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 	if parseProtocolData, parseFound := parseRaw["protocol"]; parseFound {
 		var parseProtocol string
 		if parseErr := json.Unmarshal(parseProtocolData, &parseProtocol); parseErr != nil {
-			return nil, fmt.Errorf("state: invalid snapshot protocol: %w", parseErr)
+			return nil, errcode.New(errcode.StateSnapshotInvalid, "state: invalid snapshot protocol:", parseErr)
 		}
 		parseProtocol = strings.TrimSpace(parseProtocol)
 		if parseProtocol != "" {
@@ -499,7 +501,7 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 				return nil, parseErr2
 			}
 			if parseProtocol != snapshotWireProtocol {
-				return nil, fmt.Errorf("state: unsupported snapshot protocol %q", parseProtocol)
+				return nil, errcode.New(errcode.StateSnapshotInvalid, fmt.Sprintf("state: unsupported snapshot protocol %q (clear the stored snapshot or deploy a matching build)", parseProtocol))
 			}
 			parseVersion, parseErr3 := normalizeSnapshotVersion(parseEnvelope.Version)
 			if parseErr3 != nil {
@@ -510,7 +512,7 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 			}
 			parseNormalized, parseOk := normalizeSnapshot(parseEnvelope.State).(Snapshot)
 			if !parseOk {
-				return nil, fmt.Errorf("state: snapshot normalization returned unexpected type")
+				return nil, errcode.New(errcode.StateSnapshotInvalid, "state: snapshot normalization returned unexpected type")
 			}
 			return migrateSnapshot(parseVersion, parseNormalized)
 		}
@@ -525,20 +527,20 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 	}
 	parseNormalized, parseOk := normalizeSnapshot(parseSnapshot).(Snapshot)
 	if !parseOk {
-		return nil, fmt.Errorf("state: snapshot normalization returned unexpected type")
+		return nil, errcode.New(errcode.StateSnapshotInvalid, "state: snapshot normalization returned unexpected type")
 	}
 	return parseNormalized, nil
 }
 
 func normalizeSnapshotVersion(parseVersion int) (int, error) {
 	if parseVersion < 0 {
-		return 0, fmt.Errorf("state: unsupported snapshot version %d", parseVersion)
+		return 0, errcode.New(errcode.StateSnapshotInvalid, fmt.Sprintf("state: unsupported snapshot version %d (this build supports versions 0 through %d; clear the stored snapshot or deploy a matching build)", parseVersion, currentSnapshotVersion))
 	}
 	if parseVersion == 0 {
 		return 0, nil
 	}
 	if parseVersion > currentSnapshotVersion {
-		return 0, fmt.Errorf("state: unsupported snapshot version %d", parseVersion)
+		return 0, errcode.New(errcode.StateSnapshotInvalid, fmt.Sprintf("state: unsupported snapshot version %d (this build supports versions 0 through %d; clear the stored snapshot or deploy a matching build)", parseVersion, currentSnapshotVersion))
 	}
 	return parseVersion, nil
 }
@@ -556,11 +558,11 @@ func migrateSnapshot(parseVersion int, parseSnapshot Snapshot) (Snapshot, error)
 			if parseFrom == 0 {
 				return parseCurrent, nil
 			}
-			return nil, fmt.Errorf("state: missing snapshot migration from version %d to %d", parseFrom, parseFrom+1)
+			return nil, errcode.New(errcode.StateSnapshotMigrationFailed, fmt.Sprintf("state: missing snapshot migration from version %d to %d (register a migration for every version step)", parseFrom, parseFrom+1))
 		}
 		parseNext, parseErr := parseMigration(parseCurrent.Select())
 		if parseErr != nil {
-			return nil, fmt.Errorf("state: migrate snapshot from version %d to %d: %w", parseFrom, parseFrom+1, parseErr)
+			return nil, errcode.New(errcode.StateSnapshotMigrationFailed, fmt.Sprintf("state: migrate snapshot from version %d to %d:", parseFrom, parseFrom+1), parseErr)
 		}
 		if parseNext == nil {
 			parseNext = Snapshot{}
@@ -717,7 +719,7 @@ func openSnapshotStorage(parseArea StorageArea) (interop.Storage, error) {
 	case SessionStorage:
 		return loadStateSessionStorage()
 	default:
-		return interop.Storage{}, fmt.Errorf("storage area %q is not available; valid areas are %q (state.LocalStorage) and %q (state.SessionStorage)", parseArea, LocalStorage, SessionStorage)
+		return interop.Storage{}, errcode.New(errcode.StateStorageAreaInvalid, fmt.Sprintf("storage area %q is not available; valid areas are %q (state.LocalStorage) and %q (state.SessionStorage)", parseArea, LocalStorage, SessionStorage))
 	}
 }
 

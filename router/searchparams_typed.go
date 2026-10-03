@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 	"github.com/monstercameron/GoWebComponents/v6/validate"
 )
 
@@ -33,7 +34,7 @@ func DecodeQuery[T any](parseValues url.Values) (T, error) {
 	parseRV := reflect.ValueOf(&parseTarget).Elem()
 	parseRT := parseRV.Type()
 	if parseRT.Kind() != reflect.Struct {
-		return parseTarget, fmt.Errorf("DecodeQuery: T must be a struct, got %s", parseRT.Kind())
+		return parseTarget, errcode.New(errcode.RouterQueryParamInvalid, fmt.Sprintf("DecodeQuery: T must be a struct, got %s (declare a struct with `query:\"name\"` tags)", parseRT.Kind()))
 	}
 
 	for parseI := 0; parseI < parseRT.NumField(); parseI++ {
@@ -50,7 +51,7 @@ func DecodeQuery[T any](parseValues url.Values) (T, error) {
 			continue
 		}
 		if parseErr := setQueryField(parseRV.Field(parseI), parseRaw); parseErr != nil {
-			return parseTarget, fmt.Errorf("query param %q: %w", parseName, parseErr)
+			return parseTarget, errcode.New(errcode.RouterQueryParamInvalid, fmt.Sprintf("query param %q (field %s.%s): %v", parseName, parseRT.Name(), parseField.Name, parseErr))
 		}
 	}
 

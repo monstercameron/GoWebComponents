@@ -192,10 +192,10 @@ func parseFrames(parseStack []byte, parseExtraSkip []string) []frame {
 		}
 		parseLocation = strings.TrimSpace(strings.SplitN(parseLocation, " +", 2)[0])
 		parseLine := 0
-		if parseLastColon := strings.LastIndex(parseLocation, ":"); parseLastColon > 0 {
-			if parseParsed, parseErr := strconv.Atoi(parseLocation[parseLastColon+1:]); parseErr == nil {
+		if parseBefore, parseAfter, isColonFound := strings.CutLast(parseLocation, ":"); isColonFound && parseBefore != "" {
+			if parseParsed, parseErr := strconv.Atoi(parseAfter); parseErr == nil {
 				parseLine = parseParsed
-				parseLocation = parseLocation[:parseLastColon]
+				parseLocation = parseBefore
 			}
 		}
 		parseFrames = append(parseFrames, frame{Function: parseFunction, File: parseLocation, Line: parseLine})

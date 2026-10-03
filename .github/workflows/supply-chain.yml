@@ -24,7 +24,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Build gwc
         run: go build -o gwc ./tools/gwc
@@ -60,7 +60,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
       - name: Build server stack for WASI (wasip1)
         env:
           GOOS: wasip1
@@ -79,7 +79,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
       - name: Build gwc
         run: go build -o gwc ./tools/gwc
       - name: Routes codegen up to date

@@ -26,7 +26,7 @@ func Text(parseContent any) ui.Node {
 	case string:
 		return ui.Text(parseValue)
 	case fmt.Stringer:
-		return ui.Text(parseValue.String())
+		return ui.Text(formatStringerText(parseValue))
 	case func() string:
 		// v5 PA.2(a): the map literal is constructed here and has no other
 		// reference, so the caller-may-retain contract CreateElement's clone
@@ -40,6 +40,19 @@ func Text(parseContent any) ui.Node {
 	default:
 		return ui.Text(fmt.Sprint(parseValue))
 	}
+}
+
+// formatStringerText returns parseValue.String(), or "" when parseValue is a nil
+// pointer/map/slice/func held in the interface, whose String method would
+// otherwise dereference nil and panic the render.
+func formatStringerText(parseValue fmt.Stringer) string {
+	switch parseReflected := reflect.ValueOf(parseValue); parseReflected.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Interface:
+		if parseReflected.IsNil() {
+			return ""
+		}
+	}
+	return parseValue.String()
 }
 
 // Textf formats a text node without requiring an explicit fmt.Sprintf call first.
@@ -138,6 +151,7 @@ func Map[T any](parseItems []T, render func(T) ui.Node) []ui.Node {
 		return nil
 	}
 
+	defer runtime.BeginListRender()()
 	parseNodes := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
 		parseNodes = append(parseNodes, render(parseItem))
@@ -175,6 +189,7 @@ func MapKeyed[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Nod
 		return nil
 	}
 
+	defer runtime.BeginListRender()()
 	parseNodes := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
 		parseNodes = append(parseNodes, WithKey(render(parseItem), parseKey(parseItem)))
@@ -423,7 +438,14 @@ func Value(parseValue string) PropOption {
 			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]any{"value": ""})
 		})
 	}
-	return optionFunc(func(parseProps *Props) { parseProps.Value = parseValue })
+	return optionFunc(func(parseProps *Props) {
+		// Drop a value="" stashed in Raw by an earlier Value(""), which would
+		// otherwise override this later write when the map lane copies Raw last.
+		if parseStale, hasStale := parseProps.Raw["value"]; hasStale && parseStale == "" {
+			delete(parseProps.Raw, "value")
+		}
+		parseProps.Value = parseValue
+	})
 }
 
 // Placeholder sets the placeholder attribute on a Props.
@@ -725,16 +747,6 @@ func OnClickParallel(parseSlotID string, parseCallback any) PropOption {
 	})
 }
 
-// OnInput registers an oninput event handler on the Props.
-func OnInput(parseCallback any) PropOption {
-	return optionFunc(func(parseProps *Props) { parseProps.OnInput = toHandler(parseCallback) })
-}
-
-// OnChange registers an onchange event handler on the Props.
-func OnChange(parseCallback any) PropOption {
-	return optionFunc(func(parseProps *Props) { parseProps.OnChange = toHandler(parseCallback) })
-}
-
 // OnSubmit registers an onsubmit event handler on the Props.
 func OnSubmit(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnSubmit = toHandler(parseCallback) })
@@ -979,11 +991,15 @@ func appendNormalizedChild(parseDst *[]ui.Node, parseValue any) {
 	case nil:
 		return
 	case ui.Node:
-		*parseDst = append(*parseDst, parseTyped)
+		// A typed-nil node (for example the result of If(false, ...)) is a
+		// non-child, exactly like an untyped nil.
+		if parseTyped != nil {
+			*parseDst = append(*parseDst, parseTyped)
+		}
 	case string:
 		*parseDst = append(*parseDst, Text(parseTyped))
 	case fmt.Stringer:
-		*parseDst = append(*parseDst, Text(parseTyped.String()))
+		*parseDst = append(*parseDst, Text(formatStringerText(parseTyped)))
 	case func() string:
 		*parseDst = append(*parseDst, Text(parseTyped))
 	case []ui.Node:
@@ -1026,7 +1042,7 @@ func appendClassFragments(parseDst *[]string, parseValues ...any) {
 				}
 			}
 		case fmt.Stringer:
-			appendClassFragments(parseDst, parseTyped.String())
+			appendClassFragments(parseDst, formatStringerText(parseTyped))
 		case []string:
 			for _, parseEntry := range parseTyped {
 				appendClassFragments(parseDst, parseEntry)
@@ -1336,6 +1352,12 @@ func MergeProps(parseBase Props, parseOverride Props) Props {
 	parseResult.Data = mergeStringMap(parseResult.Data, parseOverride.Data)
 	parseResult.Aria = mergeStringMap(parseResult.Aria, parseOverride.Aria)
 	parseResult.Raw = mergeAnyMap(parseResult.Raw, parseOverride.Raw)
+	if parseOverride.Value != "" {
+		// An override Value must beat a base value="" kept in Raw (see Value).
+		if parseStale, hasStale := parseResult.Raw["value"]; hasStale && parseStale == "" {
+			delete(parseResult.Raw, "value")
+		}
+	}
 	return parseResult
 }
 
@@ -1343,13 +1365,6 @@ func MergeProps(parseBase Props, parseOverride Props) Props {
 // parseProps leaves zero. Explicit values in parseProps always win.
 func DefaultProps(parseProps Props, parseDefaults Props) Props {
 	return MergeProps(parseDefaults, parseProps)
-}
-
-// Markdown renders Markdown source into nodes via RenderMarkdown, exposing it on
-// the shorthand surface. Untrusted source is still scheme-sanitized; raw HTML is
-// never emitted (route untrusted HTML through the sanitize package instead).
-func Markdown(parseSource string, parseOptions ...MarkdownRenderOptions) []ui.Node {
-	return RenderMarkdown(parseSource, parseOptions...)
 }
 
 // TextLines splits text on newlines into text nodes separated by <br> elements,

@@ -103,7 +103,7 @@ func assertWrappedOutputQuality(parseT *testing.T, parseOutput string, parseCode
 		!strings.Contains(parseOutput, "error: ") ||
 		!strings.Contains(parseOutput, "runtime: ") ||
 		!strings.Contains(parseOutput, "next: ") ||
-		!strings.Contains(parseOutput, "docs: ACTIONABLE_ERRORS.md") {
+		!strings.Contains(parseOutput, "docs: docs/REFERENCE_MANUAL/error-codes.md") {
 		parseT.Fatalf("expected wrapped panic contract fields, got %q", parseOutput)
 	}
 	if parseExpectedPath != "" && !strings.Contains(parseOutput, "path: "+parseExpectedPath) {
@@ -117,7 +117,7 @@ func assertWrappedOutputQuality(parseT *testing.T, parseOutput string, parseCode
 	}
 	if strings.Contains(parseOutput, "markUnhandledPanicContext") ||
 		strings.Contains(parseOutput, "finalizeUnhandledPanicContext") ||
-		strings.Contains(parseOutput, "SetTimeout.func1") {
+		strings.Contains(parseOutput, "WASMScheduler).SetTimeout") {
 		parseT.Fatalf("expected compact first-pass stack without low-signal framework frames, got %q", parseOutput)
 	}
 }
@@ -303,7 +303,7 @@ func TestUnhandledRenderPanicReportsActionableDiagnostic(parseT *testing.T) {
 		!strings.Contains(parseReport, "runtime: no error boundary recovered this render panic") ||
 		!strings.Contains(parseReport, "next: Match code GWC-RUNTIME-PANIC-RENDER in automation") ||
 		!strings.Contains(parseReport, "stack:\napp:") ||
-		!strings.Contains(parseReport, "ACTIONABLE_ERRORS.md#gwc-runtime-panic-render") {
+		!strings.Contains(parseReport, "docs/REFERENCE_MANUAL/error-codes.md#gwc-runtime-panic-render") {
 		parseT.Fatalf("expected actionable render panic message, got %q", parseReport)
 	}
 
@@ -345,7 +345,7 @@ func TestUnhandledEventPanicReportsActionableDiagnostic(parseT *testing.T) {
 		!strings.Contains(parseReport, "path: panicDiagnosticOwnerComponent") ||
 		!strings.Contains(parseReport, "error: event boom") ||
 		!strings.Contains(parseReport, "runtime: no error boundary recovered this event panic") ||
-		!strings.Contains(parseReport, "ACTIONABLE_ERRORS.md#gwc-runtime-panic-event") {
+		!strings.Contains(parseReport, "docs/REFERENCE_MANUAL/error-codes.md#gwc-runtime-panic-event") {
 		parseT.Fatalf("expected actionable event panic message, got %q", parseReport)
 	}
 
@@ -383,7 +383,7 @@ func TestUnhandledEffectPanicReportsActionableDiagnostic(parseT *testing.T) {
 		!strings.Contains(parseReport, "path: panicDiagnosticEffectComponent") ||
 		!strings.Contains(parseReport, "error: effect boom") ||
 		!strings.Contains(parseReport, "runtime: no error boundary recovered this effect panic") ||
-		!strings.Contains(parseReport, "ACTIONABLE_ERRORS.md#gwc-runtime-panic-effect") {
+		!strings.Contains(parseReport, "docs/REFERENCE_MANUAL/error-codes.md#gwc-runtime-panic-effect") {
 		parseT.Fatalf("expected actionable effect panic message, got %q", parseReport)
 	}
 
@@ -457,7 +457,7 @@ func TestUnhandledCleanupPanicReportsActionableDiagnostic(parseT *testing.T) {
 		!strings.Contains(parseReport, "path: panicDiagnosticCleanupComponent") ||
 		!strings.Contains(parseReport, "error: cleanup boom") ||
 		!strings.Contains(parseReport, "runtime: no error boundary recovered this cleanup panic") ||
-		!strings.Contains(parseReport, "ACTIONABLE_ERRORS.md#gwc-runtime-panic-cleanup") {
+		!strings.Contains(parseReport, "docs/REFERENCE_MANUAL/error-codes.md#gwc-runtime-panic-cleanup") {
 		parseT.Fatalf("expected actionable cleanup panic message, got %q", parseReport)
 	}
 

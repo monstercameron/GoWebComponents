@@ -3,7 +3,6 @@ package i18n
 import (
 	"fmt"
 	"math"
-	"strings"
 	"time"
 )
 
@@ -15,30 +14,15 @@ func FormatRelativeTime(parseLocale string, parseValue time.Time, parseBase time
 	parseAbsDelta := parseDelta
 	if parseAbsDelta < 0 {
 		parseAbsDelta = -parseAbsDelta
+		// -MinInt64 overflows back to a negative: time.Sub saturates for spans over ~292 years
+		// (the zero time.Time against now), so clamp to the largest representable span.
+		if parseAbsDelta < 0 {
+			parseAbsDelta = time.Duration(math.MaxInt64)
+		}
 	}
 
 	// Pick the largest fitting unit and compute n.
-	type parseUnit struct {
-		key string
-		n   int
-	}
-	var parseU parseUnit
-	switch {
-	case parseAbsDelta < 60*time.Second:
-		parseU = parseUnit{"second", int(math.Round(parseAbsDelta.Seconds()))}
-	case parseAbsDelta < 60*time.Minute:
-		parseU = parseUnit{"minute", int(math.Round(parseAbsDelta.Minutes()))}
-	case parseAbsDelta < 24*time.Hour:
-		parseU = parseUnit{"hour", int(math.Round(parseAbsDelta.Hours()))}
-	case parseAbsDelta < 7*24*time.Hour:
-		parseU = parseUnit{"day", int(math.Round(parseAbsDelta.Hours() / 24))}
-	case parseAbsDelta < 30*24*time.Hour:
-		parseU = parseUnit{"week", int(math.Round(parseAbsDelta.Hours() / (24 * 7)))}
-	case parseAbsDelta < 365*24*time.Hour:
-		parseU = parseUnit{"month", int(math.Round(parseAbsDelta.Hours() / (24 * 30)))}
-	default:
-		parseU = parseUnit{"year", int(math.Round(parseAbsDelta.Hours() / (24 * 365)))}
-	}
+	parseU := getRelativeUnit(parseAbsDelta)
 
 	parseFamily := localeFamily(NormalizeLocale(parseLocale))
 	parseN := parseU.n
@@ -75,6 +59,37 @@ func FormatRelativeTime(parseLocale string, parseValue time.Time, parseBase time
 		}
 		return fmt.Sprintf("%d %s ago", parseN, parseUnitStr)
 	}
+}
+
+// relativeUnit is one unit key ("minute") with its rounded count.
+type relativeUnit struct {
+	key string
+	n   int
+}
+
+// getRelativeUnit picks the unit and rounded count for one absolute span. The unit is chosen from
+// the ROUNDED count, so 59.7 seconds reads "1 minute" rather than "60 seconds", and 350 days reads
+// "1 year" rather than "12 months".
+func getRelativeUnit(parseAbs time.Duration) relativeUnit {
+	if parseSeconds := int(math.Round(parseAbs.Seconds())); parseSeconds < 60 {
+		return relativeUnit{"second", parseSeconds}
+	}
+	if parseMinutes := int(math.Round(parseAbs.Minutes())); parseMinutes < 60 {
+		return relativeUnit{"minute", parseMinutes}
+	}
+	if parseHours := int(math.Round(parseAbs.Hours())); parseHours < 24 {
+		return relativeUnit{"hour", parseHours}
+	}
+	if parseDays := int(math.Round(parseAbs.Hours() / 24)); parseDays < 7 {
+		return relativeUnit{"day", parseDays}
+	}
+	if parseAbs < 30*24*time.Hour {
+		return relativeUnit{"week", int(math.Round(parseAbs.Hours() / (24 * 7)))}
+	}
+	if parseMonths := int(math.Round(parseAbs.Hours() / (24 * 30))); parseMonths < 12 {
+		return relativeUnit{"month", parseMonths}
+	}
+	return relativeUnit{"year", max(1, int(math.Round(parseAbs.Hours()/(24*365))))}
 }
 
 // parseEnUnit returns the English singular or plural form for the given unit key.
@@ -221,36 +236,11 @@ func parseArUnit(parseKey string, parseCategory PluralCategory) string {
 // FormatList joins parseItems into a locale-aware list string using the
 // appropriate conjunction for parseLocale (e.g. "a, b, and c" for en).
 func FormatList(parseLocale string, parseItems []string) string {
-	parseFamily := localeFamily(NormalizeLocale(parseLocale))
-	parseCount := len(parseItems)
-
-	switch parseCount {
+	switch len(parseItems) {
 	case 0:
 		return ""
 	case 1:
 		return parseItems[0]
 	}
-
-	switch parseFamily {
-	case "fr":
-		if parseCount == 2 {
-			return parseItems[0] + " et " + parseItems[1]
-		}
-		return strings.Join(parseItems[:parseCount-1], ", ") + " et " + parseItems[parseCount-1]
-
-	case "ja":
-		return strings.Join(parseItems, "、")
-
-	case "ar":
-		if parseCount == 2 {
-			return parseItems[0] + " و " + parseItems[1]
-		}
-		return strings.Join(parseItems[:parseCount-1], "، ") + "، و " + parseItems[parseCount-1]
-
-	default: // en
-		if parseCount == 2 {
-			return parseItems[0] + " and " + parseItems[1]
-		}
-		return strings.Join(parseItems[:parseCount-1], ", ") + ", and " + parseItems[parseCount-1]
-	}
+	return joinLocaleList(localeFamily(NormalizeLocale(parseLocale)), parseItems)
 }

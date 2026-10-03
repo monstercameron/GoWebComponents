@@ -223,10 +223,10 @@ func TestFormattingAndRouteHelperEdgeBranches(parseT *testing.T) {
 		parseT.Fatalf("expected explicit max fraction digits to apply, got %q", parseGot2)
 	}
 
-	if parseGot3 := FormatDate("fr-FR", parseDate, DateOptions{Style: DateStyleLong}); parseGot3 != "16 March 2026" {
+	if parseGot3 := FormatDate("fr-FR", parseDate, DateOptions{Style: DateStyleLong}); parseGot3 != "16 mars 2026" {
 		parseT.Fatalf("expected french long date branch, got %q", parseGot3)
 	}
-	if parseGot4 := FormatDate("fr-FR", parseDate); parseGot4 != "16 Mar 2026" {
+	if parseGot4 := FormatDate("fr-FR", parseDate); parseGot4 != "16 mars 2026" {
 		parseT.Fatalf("expected french medium date branch, got %q", parseGot4)
 	}
 	if parseGot5 := FormatDate("en-US", parseDate); parseGot5 != "Mar 16, 2026" {

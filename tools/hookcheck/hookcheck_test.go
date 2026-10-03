@@ -328,3 +328,50 @@ func Comp(show bool) {
 		t.Fatalf("top-level hooks must not be flagged, got %v", parseFindings)
 	}
 }
+
+func TestFlagsInlineHandlerInRangeLoop(t *testing.T) {
+	parseFindings := check(t, `
+func List(items []int) {
+	for range items {
+		_ = html.Button(html.OnClick(func() {}))
+	}
+}`)
+	if len(parseFindings) != 1 || parseFindings[0].Kind != KindInlineHandler || parseFindings[0].Hook != "html.OnClick" {
+		t.Fatalf("expected one inline-handler finding, got %v", parseFindings)
+	}
+	if !strings.Contains(parseFindings[0].String(), "MapKeyedComponent") {
+		t.Fatalf("message must name MapKeyedComponent: %s", parseFindings[0])
+	}
+}
+
+func TestFlagsInlineHandlerInMapKeyedCallback(t *testing.T) {
+	parseFindings := check(t, `
+func List(items []int) {
+	_ = Div(html.MapKeyed(items, key, func(i int) Node {
+		return Button(OnClick(func() {}))
+	})...)
+}`)
+	if len(parseFindings) != 1 || parseFindings[0].Hook != "OnClick" || parseFindings[0].Func != "List" {
+		t.Fatalf("expected one OnClick finding in List, got %v", parseFindings)
+	}
+}
+
+func TestInlineHandlerFalsePositivesStayQuiet(t *testing.T) {
+	parseFindings := check(t, `
+func List(items []int) {
+	parseH := UseEvent(func() {})
+	_ = Button(OnClick(func() {}))                       // top level
+	for range items {
+		_ = Button(OnClick(parseH))                      // prebuilt handler
+		_ = func() Node { return Button(OnClick(func() {})) } // nested closure
+		other.OnClick(func() {})                         // another package
+		_ = Button(OnClick(func() {})) //hookcheck:ignore
+	}
+	_ = MapKeyedComponent(items, key, func(i int) Node { return Button(OnClick(func() {})) })
+}`)
+	for _, parseFinding := range parseFindings {
+		if parseFinding.Kind == KindInlineHandler {
+			t.Fatalf("unexpected inline-handler finding: %v", parseFinding)
+		}
+	}
+}

@@ -34,8 +34,12 @@ func UseQuery[T any](parseCache *query.Cache, parseKey string, parseFetcher func
 	parseRerender := UseForceUpdate()
 	parseEffectDeps := append([]any{parseKey}, parseDeps...)
 	UseEffect(func() func() {
-		query.SWR(parseCache, parseKey, parseFetcher, func(query.Result[T]) { parseRerender() })
-		return nil
+		parseRefetch := func() {
+			query.SWR(parseCache, parseKey, parseFetcher, func(query.Result[T]) { parseRerender() })
+		}
+		parseRefetch()
+		// Registered so UseRevalidateOnFocus can trigger a refetch; unregistered when key or deps change.
+		return storeQueryRevalidator(parseCache, parseRefetch)
 	}, parseEffectDeps...)
 	return query.Snapshot[T](parseCache, parseKey)
 }

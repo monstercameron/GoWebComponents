@@ -34,8 +34,22 @@ func openPersistent(parseCtx context.Context, parseOptions Options) (*DB, error)
 	}
 
 	// Rehydrate the image before the connection opens.
-	if parseEncoded, parseOK, parseGetErr := parseStore.GetItem(parseCtx, parseName); parseGetErr == nil && parseOK && parseEncoded != "" {
-		if parseImage, parseDecErr := base64.StdEncoding.DecodeString(parseEncoded); parseDecErr == nil && len(parseImage) > 0 {
+	//
+	// A read or decode failure is an error, never "start empty": the first Flush
+	// after an empty start overwrites the stored image, so swallowing a transient
+	// IndexedDB failure here would permanently destroy the user's database.
+	parseEncoded, parseOK, parseGetErr := parseStore.GetItem(parseCtx, parseName)
+	if parseGetErr != nil {
+		_ = parseStore.Close()
+		return nil, fmt.Errorf("read persisted sqlite image: %w", parseGetErr)
+	}
+	if parseOK && parseEncoded != "" {
+		parseImage, parseDecErr := base64.StdEncoding.DecodeString(parseEncoded)
+		if parseDecErr != nil {
+			_ = parseStore.Close()
+			return nil, fmt.Errorf("decode persisted sqlite image: %w", parseDecErr)
+		}
+		if len(parseImage) > 0 {
 			if parseOptions.Encryptor != nil {
 				// Decrypt at rest. A failure means a wrong passphrase or tampered
 				// data — surface it rather than silently starting fresh (which

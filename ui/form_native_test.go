@@ -5,6 +5,7 @@ package ui
 import (
 	"errors"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -91,16 +92,18 @@ func TestReadNamedFieldGuardsUnexportedField(parseT *testing.T) {
 // TestFormZeroValueFormContract pins the dead-form behavior: HasField is type-level (true even on a
 // zero Form), but MustSetField panics because a zero Form has no state to write.
 func TestFormZeroValueFormContract(parseT *testing.T) {
-	var parseDead Form[sampleFormModel]
-	if !parseDead.HasField("Name") {
-		parseT.Fatal("HasField is type-level and must be true even on a zero-value form")
-	}
-	defer func() {
-		if parseR := recover(); parseR == nil {
-			parseT.Fatal("MustSetField on a zero-value (state-less) form must panic")
+	synctest.Test(parseT, func(parseT *testing.T) {
+		var parseDead Form[sampleFormModel]
+		if !parseDead.HasField("Name") {
+			parseT.Fatal("HasField is type-level and must be true even on a zero-value form")
 		}
-	}()
-	parseDead.MustSetField("Name", "x")
+		defer func() {
+			if parseR := recover(); parseR == nil {
+				parseT.Fatal("MustSetField on a zero-value (state-less) form must panic")
+			}
+		}()
+		parseDead.MustSetField("Name", "x")
+	})
 }
 
 func waitForCondition(parseT *testing.T, parseTimeout time.Duration, parseCheck func() bool) {
@@ -265,111 +268,113 @@ func TestFormBasicLifecycleAndFieldState(parseT *testing.T) {
 }
 
 func TestFormValidationAndSubmissionAsyncPaths(parseT *testing.T) {
-	parseForm := UseForm(sampleFormModel{Name: "Atlas", Count: 1})
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseForm := UseForm(sampleFormModel{Name: "Atlas", Count: 1})
 
-	if parseOk := parseForm.Validate(nil); !parseOk {
-		parseT.Fatal("nil validator should pass")
-	}
-	if parseOk2 := parseForm.Validate(func(parseValue sampleFormModel) FieldErrors {
-		if parseValue.Name == "" {
-			return FieldErrors{"Name": "required"}
+		if parseOk := parseForm.Validate(nil); !parseOk {
+			parseT.Fatal("nil validator should pass")
 		}
-		return nil
-	}); !parseOk2 {
-		parseT.Fatal("expected validator to pass for non-empty name")
-	}
-	parseForm.SetField("Name", "")
-	if parseOk3 := parseForm.Validate(func(parseValue2 sampleFormModel) FieldErrors {
-		if parseValue2.Name == "" {
-			return FieldErrors{"Name": "required"}
+		if parseOk2 := parseForm.Validate(func(parseValue sampleFormModel) FieldErrors {
+			if parseValue.Name == "" {
+				return FieldErrors{"Name": "required"}
+			}
+			return nil
+		}); !parseOk2 {
+			parseT.Fatal("expected validator to pass for non-empty name")
 		}
-		return nil
-	}); parseOk3 {
-		parseT.Fatal("expected validator to fail for empty name")
-	}
-
-	if parseOk4 := parseForm.ValidateIntent(" publish ", nil); !parseOk4 {
-		parseT.Fatal("nil intent validator should pass")
-	}
-	if parseGot := parseForm.SubmitIntent(); parseGot != "publish" {
-		parseT.Fatalf("expected intent to be recorded, got %q", parseGot)
-	}
-	if parseOk5 := parseForm.ValidateIntent("delete", func(parseValue3 sampleFormModel, parseIntent string) FieldErrors {
-		if parseIntent == "delete" {
-			return FieldErrors{"Name": "cannot delete"}
+		parseForm.SetField("Name", "")
+		if parseOk3 := parseForm.Validate(func(parseValue2 sampleFormModel) FieldErrors {
+			if parseValue2.Name == "" {
+				return FieldErrors{"Name": "required"}
+			}
+			return nil
+		}); parseOk3 {
+			parseT.Fatal("expected validator to fail for empty name")
 		}
-		return nil
-	}); parseOk5 {
-		parseT.Fatal("expected intent validation error")
-	}
 
-	parseValidateDone := make(chan bool, 2)
-	parseForm.ValidateAsync(func(parseValue4 sampleFormModel) (FieldErrors, string) {
-		time.Sleep(20 * time.Millisecond)
-		return FieldErrors{"Name": "stale"}, "stale"
-	}, func(isOk bool) { parseValidateDone <- isOk })
-	parseForm.ValidateAsync(func(parseValue5 sampleFormModel) (FieldErrors, string) {
-		return nil, ""
-	}, func(isOk2 bool) { parseValidateDone <- isOk2 })
-
-	waitForCondition(parseT, 200*time.Millisecond, func() bool { return parseForm.Validated() && !parseForm.Validating() })
-	if parseForm.HasErrors() {
-		parseT.Fatalf("expected second validation result to win, got errors=%#v form=%q", parseForm.Errors(), parseForm.FormError())
-	}
-	<-parseValidateDone
-	<-parseValidateDone
-
-	parseSubmitRelease := make(chan struct{})
-	parseForm.Submit(func(parseValue6 sampleFormModel) error {
-		<-parseSubmitRelease
-		return nil
-	})
-	waitForCondition(parseT, 200*time.Millisecond, func() bool { return parseForm.Submitting() })
-	if parseIntentMismatch := !parseForm.IntentPending("publish") && parseForm.SubmitIntent() != ""; parseIntentMismatch {
-		parseT.Fatal("expected intent mismatch check to stay false for non-matching intent")
-	}
-	close(parseSubmitRelease)
-	waitForCondition(parseT, 200*time.Millisecond, func() bool { return !parseForm.Submitting() })
-	if !parseForm.Submitted() || parseForm.SubmitError() != nil || parseForm.FormError() != "" {
-		parseT.Fatalf("expected successful submission state, submitted=%t err=%v form=%q", parseForm.Submitted(), parseForm.SubmitError(), parseForm.FormError())
-	}
-
-	parseSubmitErrRelease := make(chan struct{})
-	parseExpectedSubmitErr := errors.New("submit failed")
-	parseForm.SubmitWithIntent("  archive  ", func(parseValue7 sampleFormModel, parseIntent2 string) error {
-		if parseIntent2 != "archive" {
-			parseT.Fatalf("expected trimmed intent archive, got %q", parseIntent2)
+		if parseOk4 := parseForm.ValidateIntent(" publish ", nil); !parseOk4 {
+			parseT.Fatal("nil intent validator should pass")
 		}
-		<-parseSubmitErrRelease
-		return parseExpectedSubmitErr
-	})
-	waitForCondition(parseT, 200*time.Millisecond, func() bool { return parseForm.Submitting() && parseForm.IntentPending("archive") })
-	close(parseSubmitErrRelease)
-	waitForCondition(parseT, 200*time.Millisecond, func() bool { return !parseForm.Submitting() })
-	if parseForm.Submitted() || !errors.Is(parseForm.SubmitError(), parseExpectedSubmitErr) || parseForm.FormError() != parseExpectedSubmitErr.Error() {
-		parseT.Fatalf("expected failed submission state, submitted=%t err=%v form=%q", parseForm.Submitted(), parseForm.SubmitError(), parseForm.FormError())
-	}
-
-	parseZero := Form[sampleFormModel]{}
-	if parseZero.Get() != (sampleFormModel{}) {
-		parseT.Fatal("zero-value form should return zero value on Get")
-	}
-	parseZero.Set(sampleFormModel{Name: "ignored"})
-	parseZero.Update(func(parseValue8 sampleFormModel) sampleFormModel { parseValue8.Name = "ignored"; return parseValue8 })
-	if parseOk6 := parseZero.SetField("Name", "ignored"); parseOk6 {
-		parseT.Fatal("zero-value form should not allow SetField")
-	}
-	parseZero.Touch("Name")
-	if parseZero.Touched("Name") || parseZero.Dirty("Name") || parseZero.Submitting() || parseZero.Validating() || parseZero.Validated() || parseZero.Submitted() || parseZero.IntentPending("x") {
-		parseT.Fatal("zero-value form guards should keep false state")
-	}
-	if parseZero.SubmitError() != nil {
-		parseT.Fatal("zero-value form submit error should be nil")
-	}
-	parseZero.ValidateAsync(nil, func(isOk3 bool) {
-		if !isOk3 {
-			parseT.Fatal("zero-value form async validate should complete as true")
+		if parseGot := parseForm.SubmitIntent(); parseGot != "publish" {
+			parseT.Fatalf("expected intent to be recorded, got %q", parseGot)
 		}
+		if parseOk5 := parseForm.ValidateIntent("delete", func(parseValue3 sampleFormModel, parseIntent string) FieldErrors {
+			if parseIntent == "delete" {
+				return FieldErrors{"Name": "cannot delete"}
+			}
+			return nil
+		}); parseOk5 {
+			parseT.Fatal("expected intent validation error")
+		}
+
+		parseValidateDone := make(chan bool, 2)
+		parseForm.ValidateAsync(func(parseValue4 sampleFormModel) (FieldErrors, string) {
+			time.Sleep(20 * time.Millisecond)
+			return FieldErrors{"Name": "stale"}, "stale"
+		}, func(isOk bool) { parseValidateDone <- isOk })
+		parseForm.ValidateAsync(func(parseValue5 sampleFormModel) (FieldErrors, string) {
+			return nil, ""
+		}, func(isOk2 bool) { parseValidateDone <- isOk2 })
+
+		waitForCondition(parseT, 200*time.Millisecond, func() bool { return parseForm.Validated() && !parseForm.Validating() })
+		if parseForm.HasErrors() {
+			parseT.Fatalf("expected second validation result to win, got errors=%#v form=%q", parseForm.Errors(), parseForm.FormError())
+		}
+		<-parseValidateDone
+		<-parseValidateDone
+
+		parseSubmitRelease := make(chan struct{})
+		parseForm.Submit(func(parseValue6 sampleFormModel) error {
+			<-parseSubmitRelease
+			return nil
+		})
+		waitForCondition(parseT, 200*time.Millisecond, func() bool { return parseForm.Submitting() })
+		if parseIntentMismatch := !parseForm.IntentPending("publish") && parseForm.SubmitIntent() != ""; parseIntentMismatch {
+			parseT.Fatal("expected intent mismatch check to stay false for non-matching intent")
+		}
+		close(parseSubmitRelease)
+		waitForCondition(parseT, 200*time.Millisecond, func() bool { return !parseForm.Submitting() })
+		if !parseForm.Submitted() || parseForm.SubmitError() != nil || parseForm.FormError() != "" {
+			parseT.Fatalf("expected successful submission state, submitted=%t err=%v form=%q", parseForm.Submitted(), parseForm.SubmitError(), parseForm.FormError())
+		}
+
+		parseSubmitErrRelease := make(chan struct{})
+		parseExpectedSubmitErr := errors.New("submit failed")
+		parseForm.SubmitWithIntent("  archive  ", func(parseValue7 sampleFormModel, parseIntent2 string) error {
+			if parseIntent2 != "archive" {
+				parseT.Fatalf("expected trimmed intent archive, got %q", parseIntent2)
+			}
+			<-parseSubmitErrRelease
+			return parseExpectedSubmitErr
+		})
+		waitForCondition(parseT, 200*time.Millisecond, func() bool { return parseForm.Submitting() && parseForm.IntentPending("archive") })
+		close(parseSubmitErrRelease)
+		waitForCondition(parseT, 200*time.Millisecond, func() bool { return !parseForm.Submitting() })
+		if parseForm.Submitted() || !errors.Is(parseForm.SubmitError(), parseExpectedSubmitErr) || parseForm.FormError() != parseExpectedSubmitErr.Error() {
+			parseT.Fatalf("expected failed submission state, submitted=%t err=%v form=%q", parseForm.Submitted(), parseForm.SubmitError(), parseForm.FormError())
+		}
+
+		parseZero := Form[sampleFormModel]{}
+		if parseZero.Get() != (sampleFormModel{}) {
+			parseT.Fatal("zero-value form should return zero value on Get")
+		}
+		parseZero.Set(sampleFormModel{Name: "ignored"})
+		parseZero.Update(func(parseValue8 sampleFormModel) sampleFormModel { parseValue8.Name = "ignored"; return parseValue8 })
+		if parseOk6 := parseZero.SetField("Name", "ignored"); parseOk6 {
+			parseT.Fatal("zero-value form should not allow SetField")
+		}
+		parseZero.Touch("Name")
+		if parseZero.Touched("Name") || parseZero.Dirty("Name") || parseZero.Submitting() || parseZero.Validating() || parseZero.Validated() || parseZero.Submitted() || parseZero.IntentPending("x") {
+			parseT.Fatal("zero-value form guards should keep false state")
+		}
+		if parseZero.SubmitError() != nil {
+			parseT.Fatal("zero-value form submit error should be nil")
+		}
+		parseZero.ValidateAsync(nil, func(isOk3 bool) {
+			if !isOk3 {
+				parseT.Fatal("zero-value form async validate should complete as true")
+			}
+		})
 	})
 }
 

@@ -250,15 +250,15 @@ func (parseR *Router) replaceLocation(parseTarget string) {
 	if parseR.routerType == "history" {
 		parseHistory := getHistoryValue()
 		if parseHistory.Truthy() && parseHistory.Get("replaceState").Truthy() {
-			parseHistory.Call("replaceState", nil, "", parseTarget)
+			parseHistory.Call("replaceState", nil, "", parseR.addBasePath(parseTarget))
 			return
 		}
 		if parseLoc := getLocationValue(); parseLoc.Truthy() {
 			if parseIdx := strings.Index(parseTarget, "?"); parseIdx >= 0 {
-				parseLoc.Set("pathname", parseTarget[:parseIdx])
+				parseLoc.Set("pathname", parseR.addBasePath(parseTarget[:parseIdx]))
 				parseLoc.Set("search", parseTarget[parseIdx:])
 			} else {
-				parseLoc.Set("pathname", parseTarget)
+				parseLoc.Set("pathname", parseR.addBasePath(parseTarget))
 				parseLoc.Set("search", "")
 			}
 		}
@@ -347,6 +347,7 @@ func (parseR *Router) ensureLoaderResult(parseKey string, parseLoader LoaderFunc
 		parseCurrent2.pending = false
 		parseCurrent2.data = copyAttrs(parseData)
 		parseCurrent2.err = parseErr
+		routeDataRevision++
 		parseCurrent2.cancel = nil
 		if parseErr != nil {
 			runtime.ReportLogWithFields("router", runtime.LogError, runtime.DiagnosticCorrectness, "route loader failed", "", map[string]string{

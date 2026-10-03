@@ -12,6 +12,7 @@ import (
 	"syscall/js"
 
 	gwcruntime "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/interop"
 )
 
 // Fetch performs an asynchronous HTTP fetch operation and returns a channel for the result.
@@ -71,6 +72,15 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 				parseHeaders.Set(parseK, fmt.Sprint(parseV))
 			}
 			parseRequestOptions.Set("headers", parseHeaders)
+		}
+
+		if parseTrace := getTraceparentValue(parseUrl, parseOptions); parseTrace != "" {
+			parseTraceHeaders := parseRequestOptions.Get("headers")
+			if parseTraceHeaders.IsUndefined() || parseTraceHeaders.IsNull() {
+				parseTraceHeaders = js.Global().Get("Object").New()
+				parseRequestOptions.Set("headers", parseTraceHeaders)
+			}
+			parseTraceHeaders.Set("traceparent", parseTrace)
 		}
 
 		if !parseBodyValue.IsUndefined() && !parseBodyValue.IsNull() {
@@ -223,6 +233,9 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 				}
 				parseXhr.Call("setRequestHeader", parseK, fmt.Sprint(parseV))
 			}
+		}
+		if parseTrace := getTraceparentValue(parseUrl, parseOptions); parseTrace != "" {
+			parseXhr.Call("setRequestHeader", "traceparent", parseTrace)
 		}
 
 		parseProgressFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
@@ -404,4 +417,28 @@ func buildMultipartFormData(parseBody MultipartBody) (js.Value, error) {
 		}
 	}
 	return parseForm, nil
+}
+
+// getTraceparentValue returns a freshly generated sampled traceparent value when the request
+// qualifies for propagation, or an empty string when it must be left untouched. Fetch has no
+// context argument, so the trace is always generated rather than taken from log correlation.
+func getTraceparentValue(parseUrl string, parseOptions Options) string {
+	parsePageOrigin := ""
+	if parseLocation := js.Global().Get("location"); parseLocation.Truthy() {
+		if parseOrigin := parseLocation.Get("origin"); parseOrigin.Type() == js.TypeString {
+			parsePageOrigin = parseOrigin.String()
+		}
+	}
+	if !shouldInjectTraceparent(parseOptions.Headers, parseUrl, parsePageOrigin, parseOptions.TracePropagationOrigins) {
+		return ""
+	}
+	parseTraceID, parseErr := interop.NewTraceID()
+	if parseErr != nil {
+		return ""
+	}
+	parseSpanID, parseErr := interop.NewSpanID()
+	if parseErr != nil {
+		return ""
+	}
+	return interop.FormatTraceparent(parseTraceID, parseSpanID, true)
 }

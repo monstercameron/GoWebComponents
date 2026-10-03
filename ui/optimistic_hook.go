@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v6/query"
+import (
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v6/query"
+)
 
 // UseAsyncMutation is the async sibling of UseMutation: the returned function applies the
 // optimistic value immediately (re-rendering now) and reconciles in the background —
@@ -10,7 +14,7 @@ import "github.com/monstercameron/GoWebComponents/v6/query"
 func UseAsyncMutation[T any](parseCache *query.Cache, parseKey string) func(parseOptimistic T, parseFn func() (T, error)) {
 	parseRerender := UseForceUpdate()
 	return func(parseOptimistic T, parseFn func() (T, error)) {
-		query.MutateAsync(parseCache, parseKey, parseOptimistic, parseFn, func(query.Result[T]) { parseRerender() })
+		query.MutateAsync(parseCache, parseKey, parseOptimistic, containAsyncFn("UseAsyncMutation action", parseFn), func(query.Result[T]) { parseRerender() })
 		parseRerender()
 	}
 }
@@ -44,4 +48,25 @@ func UseOptimistic[T any](parseCache *query.Cache, parseKey string) (query.Resul
 func UseAction[T any](parseCache *query.Cache, parseKey string) (query.Result[T], func(parseOptimistic T, parseFn func() (T, error))) {
 	parseRun := UseAsyncMutation[T](parseCache, parseKey)
 	return query.Snapshot[T](parseCache, parseKey), parseRun
+}
+
+// containAsyncFn wraps a background callback so a panic is contained and reported as an ordinary error.
+// The callbacks run on their own goroutines, where an escaping panic would end the whole process (in the
+// browser the whole wasm program), and where merely recovering would leave the owning hook's state stuck
+// in its running/loading phase because the settle step after the callback never runs.
+func containAsyncFn[T any](parseSubject string, parseFn func() (T, error)) func() (T, error) {
+	if parseFn == nil {
+		return parseFn
+	}
+	return func() (parseValue T, parseErr error) {
+		defer func() {
+			if parseRecovered := recover(); parseRecovered != nil {
+				runtime.ContainPanic("ui", runtime.PanicPhaseAsync, parseSubject, parseRecovered)
+				var parseZero T
+				parseValue = parseZero
+				parseErr = errcode.New(errcode.RuntimePanicAsync, "ui: "+parseSubject+" panicked", parseRecovered)
+			}
+		}()
+		return parseFn()
+	}
 }

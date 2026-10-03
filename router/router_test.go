@@ -1398,7 +1398,7 @@ func TestMakeRouteFactoryNilPanicIncludesActionableGuidance(parseT *testing.T) {
 			parseT.Fatal("expected panic")
 		}
 		parseMessage := parseRecovered.(string)
-		if !strings.Contains(parseMessage, "GWC-ROUTER-COMPONENT-NIL") || !strings.Contains(parseMessage, "ACTIONABLE_ERRORS.md#gwc-router-component-nil") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
+		if !strings.Contains(parseMessage, "GWC-ROUTER-COMPONENT-NIL") || !strings.Contains(parseMessage, "docs/REFERENCE_MANUAL/error-codes.md#gwc-router-component-nil") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
 			parseT.Fatalf("expected actionable router panic, got %q", parseMessage)
 		}
 	}()

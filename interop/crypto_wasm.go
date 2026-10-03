@@ -127,6 +127,10 @@ func Decrypt(parseCtx context.Context, parseKey CryptoKey, parseCiphertext []byt
 	}
 	parseResolved, parseErr3 := awaitValue(parseCtx, "Decrypt", "crypto.subtle.decrypt", parseRawResult)
 	if parseErr3 != nil {
+		// A canceled or expired context is not evidence of tampering; report it as such.
+		if errors.Is(parseErr3, context.Canceled) || errors.Is(parseErr3, context.DeadlineExceeded) {
+			return nil, parseErr3
+		}
 		// The promise rejection from a tampered ciphertext is surfaced here.
 		return nil, wrapError("Decrypt", "crypto.subtle.decrypt", CodeDecode,
 			errors.New("authentication tag mismatch or decryption failure: "+parseErr3.Error()))

@@ -269,11 +269,17 @@ func (parseE StaticExport) Route(parseRoutePath string) (ExportedRoute, error) {
 		HTMLFile: parseHtmlFile,
 		Snapshot: parseSnapshot,
 	}
+	// Map iteration order is random, and a precompressed sibling (about.json.br)
+	// also matches the prefix; always pick the shortest matching name so the
+	// plain sidecar wins deterministically.
 	for parseFile, parseData := range parseE.Bootstrap {
-		if staticBootstrapMatches(parseNormalized, parseFile) {
+		if !staticBootstrapMatches(parseNormalized, parseFile) {
+			continue
+		}
+		if parseResult.BootstrapFile == "" || len(parseFile) < len(parseResult.BootstrapFile) ||
+			(len(parseFile) == len(parseResult.BootstrapFile) && parseFile < parseResult.BootstrapFile) {
 			parseResult.BootstrapFile = parseFile
 			parseResult.Bootstrap = append([]byte(nil), parseData...)
-			break
 		}
 	}
 	return parseResult, nil

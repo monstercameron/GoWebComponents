@@ -100,8 +100,7 @@ func runGovulncheck(parsePattern string) (string, error) {
 	parseCmd := exec.Command("govulncheck", "-json", parsePattern)
 	parseOut, parseErr := parseCmd.Output()
 	if parseErr != nil {
-		var parseExitErr *exec.ExitError
-		if errors.As(parseErr, &parseExitErr) {
+		if _, parseOk := errors.AsType[*exec.ExitError](parseErr); parseOk {
 			// govulncheck exits non-zero when vulnerabilities are found; the JSON is still
 			// on stdout, so treat that as success for parsing.
 			return string(parseOut), nil

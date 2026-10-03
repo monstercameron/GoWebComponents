@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
 )
 
 const CurrentSSRStateUpdateVersion = 1
@@ -212,22 +213,22 @@ func validateSSRPayloadEnum(parseKind SSRPayloadKind, parseScope SSRPayloadScope
 	switch parseKind {
 	case SSRPayloadKindData, SSRPayloadKindRouteData, SSRPayloadKindFormDefaults, SSRPayloadKindCacheSeed, SSRPayloadKindSessionHint:
 	default:
-		return fmt.Errorf("ui: unsupported payload kind %q", parseKind)
+		return errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: unsupported payload kind %q (use one of the SSRPayloadKind constants)", parseKind))
 	}
 	switch parseScope {
 	case SSRPayloadScopeApp, SSRPayloadScopeRoute, SSRPayloadScopeSubtree:
 	default:
-		return fmt.Errorf("ui: unsupported payload scope %q", parseScope)
+		return errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: unsupported payload scope %q (use one of the SSRPayloadScope constants)", parseScope))
 	}
 	switch parseReuse {
 	case SSRPayloadReuseTrustOnFirstResume, SSRPayloadReuseRevalidateAfterResume, SSRPayloadReuseClientOwned:
 	default:
-		return fmt.Errorf("ui: unsupported payload reuse policy %q", parseReuse)
+		return errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: unsupported payload reuse policy %q (use one of the SSRPayloadReuse constants)", parseReuse))
 	}
 	switch parseEncoding {
 	case SSRPayloadEncodingJSON, SSRPayloadEncodingText, SSRPayloadEncodingBinary, SSRPayloadEncodingTimeRFC3339, SSRPayloadEncodingTimeUnixNano, SSRPayloadEncodingCBOR:
 	default:
-		return fmt.Errorf("ui: unsupported payload encoding %q", parseEncoding)
+		return errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: unsupported payload encoding %q (use one of the SSRPayloadEncoding constants)", parseEncoding))
 	}
 	return nil
 }
@@ -326,7 +327,7 @@ func encodeSSRTextPayload(parseValue any) (string, error) {
 		}
 		return string(parseText), nil
 	default:
-		return "", fmt.Errorf("ui: payload value of type %T does not support text encoding", parseValue)
+		return "", errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: payload value of type %T does not support text encoding (use a string, []byte, or encoding.TextMarshaler)", parseValue))
 	}
 }
 
@@ -336,7 +337,7 @@ func encodeSSRBinaryPayload(parseValue any) ([]byte, error) {
 	case []byte:
 		return append([]byte(nil), parseTyped...), nil
 	default:
-		return nil, fmt.Errorf("ui: payload value of type %T does not support binary encoding", parseValue)
+		return nil, errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: payload value of type %T does not support binary encoding (use []byte)", parseValue))
 	}
 }
 
@@ -346,7 +347,7 @@ func encodeSSRTimePayload(parseValue any) (time.Time, error) {
 	case time.Time:
 		return parseTyped, nil
 	default:
-		return time.Time{}, fmt.Errorf("ui: payload value of type %T does not support time encoding", parseValue)
+		return time.Time{}, errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: payload value of type %T does not support time encoding (use time.Time)", parseValue))
 	}
 }
 
@@ -422,7 +423,7 @@ func decodeSSRPayloadEnvelope[T any](parseEnvelope SSRPayloadEnvelope) (T, error
 		}
 		return parseValue, nil
 	default:
-		return parseValue, fmt.Errorf("ui: unsupported payload encoding %q", parseEnvelope.Encoding)
+		return parseValue, errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: unsupported payload encoding %q (the envelope was written by an incompatible build)", parseEnvelope.Encoding))
 	}
 }
 
@@ -440,7 +441,7 @@ func assignDecodedSSRValue[T any](parseDecoded any) (T, error) {
 
 	parseTarget := reflect.ValueOf(&parseValue).Elem()
 	if !parseTarget.CanSet() {
-		return parseValue, fmt.Errorf("ui: could not set decoded payload value")
+		return parseValue, errcode.New(errcode.UISSRPayloadInvalid, "ui: could not set decoded payload value")
 	}
 	parseSource := reflect.ValueOf(parseDecoded)
 	if !parseSource.IsValid() {
@@ -454,17 +455,17 @@ func assignDecodedSSRValue[T any](parseDecoded any) (T, error) {
 		parseTarget.Set(parseSource.Convert(parseTarget.Type()))
 		return parseValue, nil
 	}
-	return parseValue, fmt.Errorf("ui: decoded value of type %s cannot populate %s", parseSource.Type(), parseTarget.Type())
+	return parseValue, errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: decoded value of type %s cannot populate %s (request the payload with the type it was registered with)", parseSource.Type(), parseTarget.Type()))
 }
 
 // RegisterBootstrapPayload stores one typed payload entry under SSRBootstrap.Data.
 func RegisterBootstrapPayload[T any](parseBootstrap *SSRBootstrap, parseKey string, parseValue T, parseOptions ...SSRPayloadOptions) error {
 	if parseBootstrap == nil {
-		return fmt.Errorf("ui: bootstrap cannot be nil")
+		return errcode.New(errcode.UISSRPayloadInvalid, "ui: bootstrap cannot be nil (pass the *SSRBootstrap being built for this render)")
 	}
 	parseTrimmedKey := strings.TrimSpace(parseKey)
 	if parseTrimmedKey == "" {
-		return fmt.Errorf("ui: payload key cannot be empty")
+		return errcode.New(errcode.UISSRPayloadInvalid, "ui: payload key cannot be empty (use a stable non-empty key such as DefaultRouteBootstrapPayloadKey)")
 	}
 	parseEnvelope, parseErr := encodeSSRPayloadEnvelope(parseValue, normalizeSSRPayloadOptions(parseOptions))
 	if parseErr != nil {
@@ -481,7 +482,7 @@ func RegisterBootstrapPayload[T any](parseBootstrap *SSRBootstrap, parseKey stri
 func ReadBootstrapPayload[T any](parseBootstrap SSRBootstrap, parseKey string) (SSRPayloadValue[T], bool, error) {
 	parseTrimmedKey := strings.TrimSpace(parseKey)
 	if parseTrimmedKey == "" {
-		return SSRPayloadValue[T]{}, false, fmt.Errorf("ui: payload key cannot be empty")
+		return SSRPayloadValue[T]{}, false, errcode.New(errcode.UISSRPayloadInvalid, "ui: payload key cannot be empty (use the key the payload was registered under)")
 	}
 	parseRaw, parseOk := parseBootstrap.Data[parseTrimmedKey]
 	if !parseOk {
@@ -646,7 +647,7 @@ func normalizeSSRStateUpdate(parseUpdate SSRStateUpdate) (SSRStateUpdate, error)
 	for parseKey, parseEnvelope := range parseUpdate.Upserts {
 		parseTrimmedKey := strings.TrimSpace(parseKey)
 		if parseTrimmedKey == "" {
-			return SSRStateUpdate{}, fmt.Errorf("ui: state update upsert key cannot be empty")
+			return SSRStateUpdate{}, errcode.New(errcode.UISSRPayloadInvalid, "ui: state update upsert key cannot be empty (give every upsert a non-empty payload key)")
 		}
 		if parseEnvelope.Scope == "" {
 			parseEnvelope.Scope = parseUpdate.Scope
@@ -688,13 +689,13 @@ func normalizeSSRStateUpdate(parseUpdate SSRStateUpdate) (SSRStateUpdate, error)
 // normalizeSSRStateUpdateVersion is a core package helper.
 func normalizeSSRStateUpdateVersion(parseVersion int) (int, error) {
 	if parseVersion < 0 {
-		return 0, fmt.Errorf("ui: unsupported SSR state update version %d", parseVersion)
+		return 0, errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: unsupported SSR state update version %d (this build supports up to %d; redeploy matching server and client builds)", parseVersion, CurrentSSRStateUpdateVersion))
 	}
 	if parseVersion == 0 {
 		return CurrentSSRStateUpdateVersion, nil
 	}
 	if parseVersion > CurrentSSRStateUpdateVersion {
-		return 0, fmt.Errorf("ui: unsupported SSR state update version %d", parseVersion)
+		return 0, errcode.New(errcode.UISSRPayloadInvalid, fmt.Sprintf("ui: unsupported SSR state update version %d (this build supports up to %d; redeploy matching server and client builds)", parseVersion, CurrentSSRStateUpdateVersion))
 	}
 	return parseVersion, nil
 }
@@ -702,11 +703,11 @@ func normalizeSSRStateUpdateVersion(parseVersion int) (int, error) {
 // RegisterStateUpdatePayload stores one typed payload upsert in a state-update envelope.
 func RegisterStateUpdatePayload[T any](parseUpdate *SSRStateUpdate, parseKey string, parseValue T, parseOptions ...SSRPayloadOptions) error {
 	if parseUpdate == nil {
-		return fmt.Errorf("ui: state update cannot be nil")
+		return errcode.New(errcode.UISSRPayloadInvalid, "ui: state update cannot be nil (pass the *SSRStateUpdate being built)")
 	}
 	parseTrimmedKey := strings.TrimSpace(parseKey)
 	if parseTrimmedKey == "" {
-		return fmt.Errorf("ui: state update payload key cannot be empty")
+		return errcode.New(errcode.UISSRPayloadInvalid, "ui: state update payload key cannot be empty (use a stable non-empty key)")
 	}
 	parseResolved := normalizeSSRPayloadOptions(parseOptions)
 	if parseResolved.Scope == "" && parseUpdate.Scope != "" {
@@ -775,7 +776,7 @@ func UnmarshalSSRStateUpdateBinary(parseData []byte) (SSRStateUpdate, error) {
 // ApplySSRStateUpdate merges a text or binary update envelope into a bootstrap payload snapshot.
 func ApplySSRStateUpdate(parseBootstrap *SSRBootstrap, parseUpdate SSRStateUpdate) error {
 	if parseBootstrap == nil {
-		return fmt.Errorf("ui: bootstrap cannot be nil")
+		return errcode.New(errcode.UISSRPayloadInvalid, "ui: bootstrap cannot be nil (pass the *SSRBootstrap being built for this render)")
 	}
 	parseUpdate, parseErr := normalizeSSRStateUpdate(parseUpdate)
 	if parseErr != nil {

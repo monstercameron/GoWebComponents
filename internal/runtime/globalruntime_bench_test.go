@@ -7,7 +7,7 @@ import "testing"
 // hooks scenario).
 func BenchmarkGetGlobalRuntime(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if GetGlobalRuntime() == nil {
 			parseB.Fatal("nil runtime")
 		}

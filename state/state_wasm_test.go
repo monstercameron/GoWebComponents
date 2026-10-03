@@ -49,7 +49,7 @@ func (parseS *queuedScheduler) Flush() {
 
 func installStateHookContext(parseT *testing.T) {
 	parseT.Helper()
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}, Reset: true})
 	runtime.SetCurrentFiber(&runtime.Fiber{})
 	parseT.Cleanup(func() {
 		runtime.SetCurrentFiber(nil)
@@ -57,7 +57,7 @@ func installStateHookContext(parseT *testing.T) {
 }
 
 func TestUseAtomSharesGlobalState(parseT *testing.T) {
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}, Reset: true})
 
 	parseAtomID := "state-test-shared"
 
@@ -173,7 +173,7 @@ func TestSelectProjectsDerivedValues(parseT *testing.T) {
 }
 
 func TestSelectScopesRequestedIDsPerHookContext(parseT *testing.T) {
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}, Reset: true})
 	parseCountAID := "state-test-select-scope-a"
 	parseCountBID := "state-test-select-scope-b"
 
@@ -275,7 +275,7 @@ func TestSelectTextBuildsReactiveTextElement(parseT *testing.T) {
 
 func TestImportSnapshotTransitionViaUIPublicWrapperDefersUntilTimeout(parseT *testing.T) {
 	parseScheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: parseScheduler})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: parseScheduler, Reset: true})
 	parseFiber := &runtime.Fiber{}
 	runtime.SetCurrentFiber(parseFiber)
 	parseT.Cleanup(func() {
@@ -362,7 +362,7 @@ func installMockStorage(parseT *testing.T) {
 }
 
 func TestSnapshotExportImportAndSelect(parseT *testing.T) {
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}, Reset: true})
 	_ = runtime.GetGlobalRuntime().SetAtomValue("persist-theme", "dark")
 	_ = runtime.GetGlobalRuntime().SetAtomValue("persist-flag", true)
 
@@ -390,7 +390,7 @@ func TestSnapshotExportImportAndSelect(parseT *testing.T) {
 
 func TestSnapshotJSONStorageRoundTrip(parseT *testing.T) {
 	installMockStorage(parseT)
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}, Reset: true})
 
 	parseSnapshot := Snapshot{
 		"persist-user":  "alice",
@@ -424,7 +424,7 @@ func TestPersistentSnapshotRoundTrip(parseT *testing.T) {
 	installMockStorage(parseT)
 	parseRestoreIndexedDB := setGlobalValue("indexedDB", js.Undefined())
 	defer parseRestoreIndexedDB()
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}, Reset: true})
 
 	parseSnapshot := Snapshot{
 		"persist-user":  "atlas",

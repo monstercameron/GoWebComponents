@@ -165,7 +165,8 @@ func collectLintHookRuleFileIssues(parseRootPath string, parsePath string) ([]li
 		return nil, fmt.Errorf("parse hook rules file %s: %w", parsePath, parseErr)
 	}
 	parseImports := buildLintHookRuleImports(parseFile.Imports)
-	if len(parseImports) == 0 {
+	parseHTMLImports := buildLintHookHTMLImports(parseFile.Imports)
+	if len(parseImports) == 0 && len(parseHTMLImports) == 0 {
 		return nil, nil
 	}
 
@@ -180,6 +181,22 @@ func collectLintHookRuleFileIssues(parseRootPath string, parsePath string) ([]li
 			return false
 		}
 		if parseCall, isParseCall := parseNode.(*ast.CallExpr); isParseCall {
+			if parseHandlerName, parseHandlerPos, isParseHandler := isLintHookInlineHandlerCall(parseCall, parseHTMLImports); isParseHandler {
+				if parseListContext := getLintHookListContext(parseStack, parseHTMLImports); parseListContext != "" {
+					parsePosition := parseFileSet.Position(parseHandlerPos)
+					parseMessage, parseSymbol := buildLintHookInlineHandlerIssue(parseHandlerName, parseListContext)
+					parseIssues = append(parseIssues, lintIssueRecord{
+						Linter:     lintHookRuleLinter,
+						Severity:   "warning",
+						Path:       parseLintIssuePath(parseRootPath, parsePath),
+						Line:       parsePosition.Line,
+						Column:     parsePosition.Column,
+						Message:    parseMessage,
+						SourceLine: parseLintHookRuleSourceLine(parseSourceLines, parsePosition.Line),
+						Symbol:     parseSymbol,
+					})
+				}
+			}
 			parseHookName, parseHookPos, isParseHook := parseLintHookRuleCallName(parseCall, parseImports)
 			if isParseHook {
 				parseContext := buildLintHookRuleContext(parseStack)
@@ -290,8 +307,8 @@ func parseLintHookRuleCallFun(parseExpr ast.Expr) ast.Expr {
 // parseLintHookRuleImportPackage extracts the final package path segment.
 func parseLintHookRuleImportPackage(parseImportPath string) string {
 	parseImportPath = strings.TrimSpace(parseImportPath)
-	if parseIndex := strings.LastIndex(parseImportPath, "/"); parseIndex >= 0 {
-		return parseImportPath[parseIndex+1:]
+	if _, parseAfter, isSlashFound := strings.CutLast(parseImportPath, "/"); isSlashFound {
+		return parseAfter
 	}
 	return parseImportPath
 }
