@@ -122,6 +122,7 @@ type benchSuiteConfig struct {
 	hasWarmup    bool
 	benchtime    string
 	bench        string
+	skip         string
 	seed         int64
 	isShuffle    bool
 	include      []string
@@ -138,6 +139,11 @@ type benchSuiteConfig struct {
 	targetTimeoutFor map[string]time.Duration
 	// goarch is passed to native-lane children as GOARCH; empty keeps the child default.
 	goarch string
+	// tags is the normalized comma list of build tags passed to every micro-lane go test and to the
+	// size and build lanes; empty adds no -tags flag.
+	tags string
+	// packages restricts the micro lanes to these package paths or globs; empty runs every package.
+	packages []string
 	// resumeFrom is the validated partial file to resume from, set by runBenchmarkSuite.
 	resumeFrom *benchSuitePartial
 	// progressWriter overrides the console sink (stderr); tests set it.
@@ -214,6 +220,7 @@ func (parseL launcher) runBenchmarkSuite(parseArgs []string) error {
 	parseSuite := parseFs.String("suite", "gwc-v6-baseline", "Suite name recorded in the report")
 	parseCount := parseFs.Int("count", 5, "Samples per benchmark (go test -count)")
 	parseBench := parseFs.String("bench", ".", "Benchmark regex passed to go test -bench")
+	parseSkip := parseFs.String("skip", "", "Regex passed to go test -skip for every target (excludes benchmarks that cannot run on one side of a comparison)")
 	parseBenchtime := parseFs.String("benchtime", "", "Optional benchtime forwarded to go test (for example 200ms or 1x)")
 	parseSeed := parseFs.Int64("seed", 0, "Seed for -shuffle and the recorded run; 0 picks one from the clock and records it")
 	parseShuffle := parseFs.Bool("shuffle", false, "Randomize package run order with -seed and record the order in run.order")
@@ -225,6 +232,8 @@ func (parseL launcher) runBenchmarkSuite(parseArgs []string) error {
 	parseResume := parseFs.Bool("resume", false, "Skip targets already completed in <out>.partial.json; refuses when the configuration differs")
 	parseTimeout := parseFs.Duration("target-timeout", 15*time.Minute, "Kill one package's go test process tree after this long and mark it timeout; 0 disables")
 	parseTimeoutFor := parseFs.String("target-timeout-for", "", "Per-package timeouts as pkg=duration,pkg=duration (for example ./internal/runtime=75m); overrides -target-timeout. ./internal/runtime defaults to 75m")
+	parseTags := parseFs.String("tags", "", "Comma-separated build tags passed as -tags to every go test of the micro lanes and to the size and build lane go build (for example production, the build wasm users receive); recorded in machine.buildTags")
+	parsePackages := parseFs.String("packages", "", "Comma-separated package paths or globs the micro lanes are limited to (for example ./internal/runtime,./ui,./internal/platform/*); an entry matching no benchmark package is an error that lists the valid ones; empty runs every package")
 	parseGoarch := parseFs.String("goarch", "", "GOARCH passed explicitly to native-lane go test children (for example arm64); empty keeps the child toolchain default. The architecture the benchmarks actually printed is recorded in machine.arch; a mismatch fails the lane")
 	var parseLanes stringListFlag
 	parseFs.Var(&parseLanes, "lane", "Lanes to run among native,wasm,size,build; repeatable or comma-separated (default native,wasm,size,build)")
@@ -249,6 +258,8 @@ func (parseL launcher) runBenchmarkSuite(parseArgs []string) error {
 	parseConfig, parseErr2 := resolveBenchSuiteConfig(benchSuiteConfig{
 		targetTimeoutFor: parseTimeoutMap,
 		goarch:           *parseGoarch,
+		tags:             *parseTags,
+		packages:         splitBenchSuiteList(*parsePackages),
 		rootPath:         *parseRoot,
 		outPath:          *parseOut,
 		suiteName:        *parseSuite,
@@ -258,6 +269,7 @@ func (parseL launcher) runBenchmarkSuite(parseArgs []string) error {
 		hasWarmup:        hasWarmup,
 		benchtime:        *parseBenchtime,
 		bench:            *parseBench,
+		skip:             *parseSkip,
 		seed:             *parseSeed,
 		isShuffle:        *parseShuffle,
 		include:          parseInclude.Values(),
@@ -366,6 +378,12 @@ func resolveBenchSuiteConfig(parseConfig benchSuiteConfig) (benchSuiteConfig, er
 	parseConfig.rootPath = parseAbsRoot
 	parseConfig.outPath = filepath.Clean(parseOut)
 	parseConfig.goarch = parseGoarch
+	parseTags, parseTagsErr := normalizeBenchSuiteTags(parseConfig.tags)
+	if parseTagsErr != nil {
+		return benchSuiteConfig{}, parseTagsErr
+	}
+	parseConfig.tags = parseTags
+	parseConfig.packages = normalizeBenchSuitePackageList(parseConfig.packages)
 	parseConfig.suiteName = parseSuite
 	parseConfig.lanes = parseLanes
 	parseConfig.bench = parseBench
@@ -460,9 +478,14 @@ func (parseL launcher) executeBenchSuite(parseConfig benchSuiteConfig) (benchSui
 		Refs:   map[string]any{},
 		Health: map[string]any{},
 	}
+	// The tags are part of what was measured, so they replace whatever GOFLAGS reported.
+	if parseConfig.tags != "" && parseReport.Machine != nil {
+		parseReport.Machine.BuildTags = parseConfig.tags
+	}
 	parseMicro := benchmarkConfig{
 		rootPath:  parseConfig.rootPath,
 		bench:     parseConfig.bench,
+		skip:      parseConfig.skip,
 		benchtime: parseConfig.benchtime,
 		count:     parseConfig.count,
 		parallel:  1,
@@ -471,6 +494,7 @@ func (parseL launcher) executeBenchSuite(parseConfig benchSuiteConfig) (benchSui
 		targetTimeout:    parseConfig.targetTimeout,
 		targetTimeoutFor: parseConfig.targetTimeoutFor,
 		goarch:           parseConfig.goarch,
+		tags:             parseConfig.tags,
 	}
 	var parseErrs []string
 	isArchObserved := false
@@ -541,6 +565,10 @@ func (parseL launcher) executeBenchSuite(parseConfig benchSuiteConfig) (benchSui
 		if parseErr != nil {
 			return parseReport, parseErr
 		}
+		parseNative, parseWasm, parseErr = filterBenchSuitePackages(parseNative, parseWasm, parseConfig.lanes, parseConfig.packages)
+		if parseErr != nil {
+			return parseReport, parseErr
+		}
 		parseJobs := []benchSuiteJob{}
 		if hasBenchSuiteLane(parseConfig.lanes, benchSuiteLaneNative) {
 			for _, parsePackage := range parseNative {
@@ -571,6 +599,12 @@ func (parseL launcher) executeBenchSuite(parseConfig benchSuiteConfig) (benchSui
 		parseProgress.setTotal(len(parseJobs) + parseUnits)
 		parseProgress.writeLine(fmt.Sprintf("bench suite: %d package targets + %d size/build steps, lanes %s, count %d, warmup %d, seed %d, target-timeout %s",
 			len(parseJobs), parseUnits, strings.Join(parseConfig.lanes, ","), parseConfig.count, parseConfig.warmup, parseConfig.seed, parseConfig.targetTimeout))
+		if parseConfig.tags != "" {
+			parseProgress.writeLine("build tags: " + parseConfig.tags)
+		}
+		if len(parseConfig.packages) > 0 {
+			parseProgress.writeLine("packages: " + strings.Join(parseConfig.packages, ","))
+		}
 		if parseConfig.resumeFrom != nil {
 			parseProgress.writeLine(fmt.Sprintf("resuming: %d completed targets restored from %s", len(parseResumed), parsePartialPath))
 		}
@@ -622,7 +656,9 @@ func (parseL launcher) executeBenchSuite(parseConfig benchSuiteConfig) (benchSui
 			parseIndex := parseProgress.beginUnit(parseLabel, "release wasm build")
 			parseStop := parseProgress.startHeartbeat(parseLabel, benchSuiteHeartbeatInterval)
 			parseStart := time.Now()
-			parseSize, parseErr := benchSuiteMeasureSize(parseConfig.sizePackage, parseOutDir)
+			parseSize, parseErr := runBenchSuiteWithBuildTags(parseConfig.tags, func() (benchSuiteSize, error) {
+				return benchSuiteMeasureSize(parseConfig.sizePackage, parseOutDir)
+			})
 			parseStop()
 			if parseErr != nil {
 				parseLaneState.Status = benchSuiteStatusFailed
@@ -652,7 +688,9 @@ func (parseL launcher) executeBenchSuite(parseConfig benchSuiteConfig) (benchSui
 			parseIndex := parseProgress.beginUnit(parseLabel, "first build + rebuild")
 			parseStop := parseProgress.startHeartbeat(parseLabel, benchSuiteHeartbeatInterval)
 			parseStart := time.Now()
-			parseBuild, parseErr := benchSuiteMeasureBuild(parseConfig.rootPath, parseConfig.buildPattern, "wasm")
+			parseBuild, parseErr := runBenchSuiteWithBuildTags(parseConfig.tags, func() (benchSuiteBuild, error) {
+				return benchSuiteMeasureBuild(parseConfig.rootPath, parseConfig.buildPattern, "wasm")
+			})
 			parseStop()
 			if parseErr != nil {
 				parseLaneState.Status = benchSuiteStatusFailed
@@ -711,6 +749,10 @@ func runBenchSuiteTarget(parseL launcher, parseMicro benchmarkConfig, parseConfi
 	parseStop()
 	parseDuration := time.Since(parseStart)
 
+	// With build tags the exact go test command line is logged so the tags are visibly forwarded.
+	if parseConfig.tags != "" && parsePackageReport.Command != "" {
+		parseProgress.writeLine("      command: " + parsePackageReport.Command + "  (dir " + parsePackageReport.Workspace + ")")
+	}
 	parseTarget := benchSuiteTarget{Lane: parseJob.lane, Package: parseJob.packagePath, DurationMs: parseDuration.Milliseconds(),
 		GoOS: parsePackageReport.GoOS, GoArch: parsePackageReport.GoArch}
 	parseFailedDir := getBenchSuiteFailedDir(parseConfig.outPath)

@@ -164,7 +164,11 @@ func writeSerializedAttrsRoundTrip(parseBuilder *strings.Builder, parseAttrs []H
 	var parseStorage [16]HostAttr
 	parsePairs := parseStorage[:0]
 	for _, parseAttr := range parseAttrs {
-		parsePairs = append(parsePairs, HostAttr{Name: compactAttrPropName(parseAttr.Name), Value: parseAttr.Value})
+		parseName := compactAttrPropName(parseAttr.Name)
+		if isEmptyEquivalentAttr(parseName, parseAttr.Value) {
+			continue
+		}
+		parsePairs = append(parsePairs, HostAttr{Name: parseName, Value: parseAttr.Value})
 	}
 	for parseIndex := 1; parseIndex < len(parsePairs); parseIndex++ {
 		parsePair := parsePairs[parseIndex]

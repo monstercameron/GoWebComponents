@@ -71,8 +71,10 @@ func hashBenchSuiteConfig(parseConfig benchSuiteConfig) string {
 		SizePackage  string   `json:"sizePackage"`
 		BuildPattern string   `json:"buildPattern"`
 		Goarch       string   `json:"goarch,omitempty"`
+		Tags         string   `json:"tags,omitempty"`
+		Packages     []string `json:"packages,omitempty"`
 	}{parseConfig.suiteName, parseConfig.lanes, parseConfig.count, parseConfig.warmup, parseConfig.hasWarmup, parseConfig.benchtime,
-		parseConfig.bench, parseConfig.seed, parseConfig.isShuffle, parseConfig.include, parseConfig.sizePackage, parseConfig.buildPattern, parseConfig.goarch}
+		parseConfig.bench, parseConfig.seed, parseConfig.isShuffle, parseConfig.include, parseConfig.sizePackage, parseConfig.buildPattern, parseConfig.goarch, parseConfig.tags, parseConfig.packages}
 	parsePayload, _ := json.Marshal(parseFields)
 	parseSum := sha256.Sum256(parsePayload)
 	return hex.EncodeToString(parseSum[:8])

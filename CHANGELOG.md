@@ -34,7 +34,7 @@ See `docs/plans/v6.1-windows-api-parity.md` and its manual evidence record.
 
 ### v7 development log (branch v7/dev)
 
-198 fixes across 34 areas; 22 security.
+200 fixes across 34 areas; 22 security.
 
 Running notes for the unreleased v7 line, taken from the verified wave logs in
 `todos.md`. Nothing here is tagged or committed yet, the module path is still
@@ -143,6 +143,8 @@ package name says wasm.
 
 ##### Rendering and reconciler (internal/runtime)
 
+- internal/runtime: lists with more than about 5,000 siblings overflowed the JS stack because commit, deletion, portal-move and effect walks recursed once per sibling -> they loop over siblings and recurse only for child depth; allocations for a 100-sibling re-render are unchanged (test: TestCommitWideSiblingListsDoNotRecursePerSibling)
+- internal/runtime: freshly created elements were given `class=""` and `style=""` (1,000 empty `class` writes when mounting a 1,000-row table) -> empty `class` and `style` are skipped on create only; hydration, updates, `value=""`, ARIA and `data-*` are unchanged (test: TestCreateSkipsEmptyClassAndStyleAttributes)
 - internal/runtime: a nil child (`If(false, ...)`) did not hold its slot, so the next unkeyed sibling remounted and lost its state -> the slot is kept (test: TestP7NilChildKeepsSiblingSlot)
 - internal/runtime: `Fragment` siblings dropped nil slots the same way -> they keep their slots (test: TestFragmentSiblingKeepsNilSlotForStatefulNeighbour)
 - internal/runtime: a ref was never published on a node adopted during hydration -> the ref is set (test: TestDOMRefPublishesOnHydratedNode)

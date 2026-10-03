@@ -43,9 +43,9 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 					if parseFiber.hasDirectText {
 						parsePreparedText = parseFiber.textContent
 					}
-					parseDom = parsePreparedAdapter.CreatePreparedElement(parseT, parseFiber.getHostAttrs, parsePreparedText)
+					parseDom = parsePreparedAdapter.CreatePreparedElement(parseT, getCreatedHostAttrs(parseFiber.getHostAttrs), parsePreparedText)
 					if parseFiber.hasCompactSpecialProps && !IsDOMNodeNull(parseDom) {
-						parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
+						parseRt.applyCreatedDomProps(parseDom, parseFiber.props)
 					}
 				}
 			}
@@ -53,13 +53,13 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 				// Regular element (not TEXT_ELEMENT or FRAGMENT)
 				parseDom = parseRt.domAdapter.CreateElement(parseT)
 				if parseFiber.isCompactHostProps {
-					parseRt.applyCompactHostAttrs(parseDom, parseFiber.getHostAttrs)
+					parseRt.applyCompactHostAttrs(parseDom, getCreatedHostAttrs(parseFiber.getHostAttrs))
 					if parseFiber.hasCompactSpecialProps {
-						parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
+						parseRt.applyCreatedDomProps(parseDom, parseFiber.props)
 					}
 				} else {
 					// Apply properties only for non-text elements
-					parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
+					parseRt.applyCreatedDomProps(parseDom, parseFiber.props)
 				}
 				if parseFiber.hasDirectText {
 					parseRt.domAdapter.SetTextContent(parseDom, parseFiber.textContent)
@@ -79,6 +79,48 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 	// Function components don't have DOM nodes - they render their children
 
 	return parseDom
+}
+
+// isEmptyEquivalentAttr reports whether writing an empty value for one
+// attribute on a freshly created element is the same as writing nothing. Only
+// class and style qualify; value="", boolean, and ARIA attributes carry meaning
+// when empty and are never dropped.
+func isEmptyEquivalentAttr(parseName string, parseValue string) bool {
+	return parseValue == "" && (parseName == "class" || parseName == "style")
+}
+
+// getCreatedHostAttrs returns the compact attrs to write onto a freshly
+// created element: the input slice itself unless it holds an empty class or
+// style, in which case a filtered copy (the fiber's own slice is kept intact
+// because the next render diffs against it).
+func getCreatedHostAttrs(parseAttrs []HostAttr) []HostAttr {
+	isParseFiltered := false
+	for _, parseAttr := range parseAttrs {
+		if isEmptyEquivalentAttr(parseAttr.Name, parseAttr.Value) {
+			isParseFiltered = true
+			break
+		}
+	}
+	if !isParseFiltered {
+		return parseAttrs
+	}
+	parseKept := make([]HostAttr, 0, len(parseAttrs))
+	for _, parseAttr := range parseAttrs {
+		if !isEmptyEquivalentAttr(parseAttr.Name, parseAttr.Value) {
+			parseKept = append(parseKept, parseAttr)
+		}
+	}
+	return parseKept
+}
+
+// applyCreatedDomProps writes the initial props of a freshly created element,
+// skipping empty class and style strings that would only create an empty
+// attribute.
+func (parseRt *Runtime) applyCreatedDomProps(parseDom DOMNode, parseNewProps map[string]any) {
+	if IsDOMNodeNull(parseDom) || len(parseNewProps) == 0 {
+		return
+	}
+	parseRt.applyDomPropsInitial(parseDom, parseNewProps, false, true)
 }
 
 // applyCompactHostAttrs applies one pre-normalized string-attr slice without the generic prop meta walk.
@@ -252,7 +294,16 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 // write issued later, and direct writes are in encounter order by
 // construction.
 func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map[string]any, isPreserveHydrationState bool) {
+	parseRt.applyDomPropsInitial(parseDom, parseNewProps, isPreserveHydrationState, false)
+}
+
+// applyDomPropsInitial implements applyInitialDomProps; isCreate marks a
+// freshly created element, where an empty class or style string is dropped.
+func (parseRt *Runtime) applyDomPropsInitial(parseDom DOMNode, parseNewProps map[string]any, isPreserveHydrationState bool, isCreate bool) {
 	parseStoreAttr := func(parseName string, parseValue string) {
+		if isCreate && isEmptyEquivalentAttr(parseName, parseValue) {
+			return
+		}
 		parseRt.domAdapter.SetAttribute(parseDom, parseName, parseValue)
 	}
 
@@ -643,21 +694,28 @@ func parentChild(parseParent *Fiber) *Fiber {
 	return parseParent.alternate.child
 }
 
-// commitWork commits a fiber's changes to the DOM with batch optimization
+// commitWork commits a fiber's changes to the DOM with batch optimization.
+//
+// Siblings are walked in a loop and only child depth recurses, so a list of
+// tens of thousands of siblings costs one stack frame instead of one per
+// sibling (the per-sibling recursion overflowed the JS stack near 5,000 rows).
 func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
-	if parseFiber == nil {
-		return
+	for parseFiber != nil {
+		parseFiber, parseDomParent = parseRt.commitWorkFiber(parseFiber, parseDomParent)
 	}
+}
+
+// commitWorkFiber commits one fiber and its children and returns the sibling
+// (with the DOM parent to use for it) that commitWork should continue with; a
+// nil fiber ends the sibling walk.
+func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNode) (*Fiber, DOMNode) {
 	// The render/reconcile pass marks every ancestor of a placement, update,
 	// hydration claim, unresolved portal retry, or child-order repair. Outside
 	// hydration, a fiber with neither direct nor descendant work can skip its
 	// whole child subtree; its sibling remains an independent branch.
 	if parseRt.wipRoot != nil && !parseRt.hydrating && parseFiber.effectTag == effectTagNone &&
 		!parseFiber.subtreeCommit && !parseFiber.needsChildOrder && !parseFiber.portalUnresolved {
-		if parseFiber.sibling != nil {
-			parseRt.commitWork(parseFiber.sibling, parseDomParent)
-		}
-		return
+		return parseFiber.sibling, parseDomParent
 	}
 
 	// Fast path: most calls have valid domParent
@@ -788,14 +846,14 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 		} else if parseFiber.effectTag == effectTagDeletion {
 			// fmt.Printf("DEBUG: Committing deletion for %v\n", fiber.typeOf)
 			parseRt.commitDeletion(parseFiber, parseDomParent)
-			return
+			return nil, nil
 		}
 	}
 
 	if isPortal {
 		if parseFiber.effectTag == effectTagDeletion {
 			parseRt.commitDeletion(parseFiber, parsePortalParent)
-			return
+			return nil, nil
 		}
 		if isParsePortalTargetChanged {
 			parseRt.movePortalSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber.alternate), parsePortalParent)
@@ -808,10 +866,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 			// placement once the target element exists, instead of leaving
 			// the portal permanently empty.
 			parseFiber.portalUnresolved = true
-			if parseFiber.sibling != nil {
-				parseRt.commitWork(parseFiber.sibling, parseDomParent)
-			}
-			return
+			return parseFiber.sibling, parseDomParent
 		}
 		if parseFiber.alternate != nil && parseFiber.alternate.portalUnresolved {
 			// The target failed to resolve on a previous commit; the subtree
@@ -854,9 +909,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 			parseRt.applyCommittedChildOrder(parseChildDomParent, parseRt.buildCommittedChildNodes(parseFiber.child, nil))
 		}
 	}
-	if parseFiber.sibling != nil {
-		parseRt.commitWork(parseFiber.sibling, parseDomParent)
-	}
+	return parseFiber.sibling, parseDomParent
 }
 
 // shouldRepairCommittedChildOrder reports whether one fiber subtree needs a post-commit DOM order repair pass.
@@ -1673,7 +1726,14 @@ func (parseRt *Runtime) deleteFiberSubtree(parseFiber *Fiber, parseDomParent DOM
 	}
 
 	// Continue across sibling branches so DOM-less parents remove their full subtree.
-	parseRt.deleteFiberSubtree(parseFiber.sibling, parseDomParent)
+	// Looping instead of recursing keeps wide lists off the call stack.
+	for parseSibling := parseFiber.sibling; parseSibling != nil; parseSibling = parseSibling.sibling {
+		if !IsDOMNodeNull(parseSibling.dom) {
+			parseRt.domAdapter.RemoveChild(parseDomParent, parseSibling.dom)
+		} else {
+			parseRt.deleteFiberSubtree(parseSibling.child, parseDomParent)
+		}
+	}
 }
 
 // isPortalFiber is an internal reconciler helper.
@@ -1732,7 +1792,15 @@ func (parseRt *Runtime) movePortalSubtree(parseFiber *Fiber, parseOldParent, par
 		parseRt.movePortalSubtree(parseFiber.child, parseOldParent, parseNewParent)
 	}
 
-	parseRt.movePortalSubtree(parseFiber.sibling, parseOldParent, parseNewParent)
+	// Siblings are moved in a loop so wide lists do not recurse per sibling.
+	for parseSibling := parseFiber.sibling; parseSibling != nil && !parseRt.isPortalFiber(parseSibling); parseSibling = parseSibling.sibling {
+		if !IsDOMNodeNull(parseSibling.dom) {
+			parseRt.domAdapter.RemoveChild(parseOldParent, parseSibling.dom)
+			parseRt.domAdapter.AppendChild(parseNewParent, parseSibling.dom)
+		} else {
+			parseRt.movePortalSubtree(parseSibling.child, parseOldParent, parseNewParent)
+		}
+	}
 }
 
 // runCleanups runs all cleanup functions for a fiber and its child subtree.
@@ -1815,8 +1883,12 @@ func bumpEffectEpochs(parseFiber *Fiber) {
 	if parseFiber.child != nil {
 		bumpEffectEpochs(parseFiber.child)
 	}
-	if parseFiber.sibling != nil {
-		bumpEffectEpochs(parseFiber.sibling)
+	// Siblings loop instead of recursing so wide lists do not grow the stack.
+	for parseSibling := parseFiber.sibling; parseSibling != nil; parseSibling = parseSibling.sibling {
+		if parseSibling.hooks != nil {
+			parseSibling.hooks.effectEpoch++
+		}
+		bumpEffectEpochs(parseSibling.child)
 	}
 }
 
@@ -2197,8 +2269,10 @@ func (parseRt *Runtime) runEffectsTier(parseFiber *Fiber, parseTier effectTier) 
 	if parseFiber.child != nil {
 		parseRt.runEffectsTier(parseFiber.child, parseTier)
 	}
-	if parseFiber.sibling != nil {
-		parseRt.runEffectsTier(parseFiber.sibling, parseTier)
+	// Siblings loop instead of recursing so wide lists do not grow the stack.
+	for parseSibling := parseFiber.sibling; parseSibling != nil; parseSibling = parseSibling.sibling {
+		parseRt.runFiberEffectsTier(parseSibling, parseTier)
+		parseRt.runEffectsTier(parseSibling.child, parseTier)
 	}
 }
 

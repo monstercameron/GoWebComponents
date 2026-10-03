@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -193,4 +195,150 @@ func clipBenchSuiteWarnings(parseWarnings []string, parseDir string, parseLane s
 	parseKept = append(parseKept, fmt.Sprintf("... [%d warnings omitted] ...", len(parseWarnings)-benchSuiteClipHeadLines-benchSuiteClipTailLines))
 	parseKept = append(parseKept, parseWarnings[len(parseWarnings)-benchSuiteClipTailLines:]...)
 	return parseKept, parsePath
+}
+
+// benchSuiteTagPattern accepts one go build tag: letters, digits, and the punctuation build tags use.
+var benchSuiteTagPattern = regexp.MustCompile(`^!?[A-Za-z0-9_.]+$`)
+
+// splitBenchSuiteList splits a comma-separated flag value and drops empty items.
+func splitBenchSuiteList(parseText string) []string {
+	parseItems := []string{}
+	for _, parseItem := range strings.Split(parseText, ",") {
+		if parseTrimmed := strings.TrimSpace(parseItem); parseTrimmed != "" {
+			parseItems = append(parseItems, parseTrimmed)
+		}
+	}
+	return parseItems
+}
+
+// normalizeBenchSuiteTags validates a comma (or space) separated tag list and returns it sorted,
+// deduplicated and comma-joined so equal tag sets hash and compare equal.
+func normalizeBenchSuiteTags(parseText string) (string, error) {
+	parseSeen := map[string]bool{}
+	parseTags := []string{}
+	for _, parseTag := range splitBenchSuiteList(strings.ReplaceAll(parseText, " ", ",")) {
+		if !benchSuiteTagPattern.MatchString(parseTag) {
+			return "", fmt.Errorf("bench suite tag %q is not a build tag (use letters, digits, _ and . in a comma list such as production,foo)", parseTag)
+		}
+		if !parseSeen[parseTag] {
+			parseSeen[parseTag] = true
+			parseTags = append(parseTags, parseTag)
+		}
+	}
+	sort.Strings(parseTags)
+	return strings.Join(parseTags, ","), nil
+}
+
+// normalizeBenchSuitePackageList puts every -packages entry in the ./pkg form and drops repeats.
+func normalizeBenchSuitePackageList(parseItems []string) []string {
+	var parseResult []string
+	parseSeen := map[string]bool{}
+	for _, parseItem := range parseItems {
+		if strings.TrimSpace(parseItem) == "" {
+			continue
+		}
+		parseKey := normalizeBenchSuitePackageKey(parseItem)
+		if !parseSeen[parseKey] {
+			parseSeen[parseKey] = true
+			parseResult = append(parseResult, parseKey)
+		}
+	}
+	return parseResult
+}
+
+// isBenchSuitePackageMatch reports whether one discovered package path matches a -packages entry:
+// an exact path, a path.Match glob (* does not cross a slash), or a prefix ending in /...
+func isBenchSuitePackageMatch(parsePattern string, parsePackagePath string) bool {
+	if parsePattern == parsePackagePath {
+		return true
+	}
+	if parsePrefix, isTree := strings.CutSuffix(parsePattern, "/..."); isTree {
+		return parsePackagePath == parsePrefix || strings.HasPrefix(parsePackagePath, parsePrefix+"/")
+	}
+	if !strings.ContainsAny(parsePattern, "*?[") {
+		return false
+	}
+	parseMatched, parseErr := path.Match(parsePattern, parsePackagePath)
+	return parseErr == nil && parseMatched
+}
+
+// filterBenchSuitePackages keeps only the discovered packages selected by parsePatterns. An empty
+// pattern list keeps everything. A pattern that matches no package of the selected lanes is an
+// error that lists the valid package paths.
+func filterBenchSuitePackages(parseNative []string, parseWasm []string, parseLanes []string, parsePatterns []string) ([]string, []string, error) {
+	if len(parsePatterns) == 0 {
+		return parseNative, parseWasm, nil
+	}
+	parseKnown := map[string]bool{}
+	if hasBenchSuiteLane(parseLanes, benchSuiteLaneNative) {
+		for _, parsePackage := range parseNative {
+			parseKnown[parsePackage] = true
+		}
+	}
+	if hasBenchSuiteLane(parseLanes, benchSuiteLaneWasm) {
+		for _, parsePackage := range parseWasm {
+			parseKnown[parsePackage] = true
+		}
+	}
+	parseValid := make([]string, 0, len(parseKnown))
+	for parsePackage := range parseKnown {
+		parseValid = append(parseValid, parsePackage)
+	}
+	sort.Strings(parseValid)
+	parseUnknown := []string{}
+	for _, parsePattern := range parsePatterns {
+		isMatched := false
+		for _, parsePackage := range parseValid {
+			if isBenchSuitePackageMatch(parsePattern, parsePackage) {
+				isMatched = true
+				break
+			}
+		}
+		if !isMatched {
+			parseUnknown = append(parseUnknown, parsePattern)
+		}
+	}
+	if len(parseUnknown) > 0 {
+		return nil, nil, fmt.Errorf("bench suite -packages entries match no benchmark package: %s; valid packages: %s", strings.Join(parseUnknown, ", "), strings.Join(parseValid, ", "))
+	}
+	parseKeep := func(parsePackages []string) []string {
+		parseKept := []string{}
+		for _, parsePackage := range parsePackages {
+			for _, parsePattern := range parsePatterns {
+				if isBenchSuitePackageMatch(parsePattern, parsePackage) {
+					parseKept = append(parseKept, parsePackage)
+					break
+				}
+			}
+		}
+		return parseKept
+	}
+	return parseKeep(parseNative), parseKeep(parseWasm), nil
+}
+
+// runBenchSuiteWithBuildTags runs parseRun with GOFLAGS carrying -tags=<parseTags> so the size and
+// build lanes (whose go build argument lists live in other files) compile the same tagged variant
+// as the micro lanes. An empty tag list calls parseRun unchanged. The previous GOFLAGS value is
+// restored afterwards and any -tags already in it is replaced.
+func runBenchSuiteWithBuildTags[T any](parseTags string, parseRun func() (T, error)) (T, error) {
+	if parseTags == "" {
+		return parseRun()
+	}
+	parseOld, hasOld := os.LookupEnv("GOFLAGS")
+	parseKept := []string{}
+	for _, parseField := range strings.Fields(parseOld) {
+		if !strings.HasPrefix(parseField, "-tags=") {
+			parseKept = append(parseKept, parseField)
+		}
+	}
+	parseKept = append(parseKept, "-tags="+parseTags)
+	_ = os.Setenv("GOFLAGS", strings.Join(parseKept, " "))
+	defer func() {
+		if hasOld {
+			_ = os.Setenv("GOFLAGS", parseOld)
+		} else {
+			_ = os.Unsetenv("GOFLAGS")
+		}
+	}()
+	return parseRun()
 }

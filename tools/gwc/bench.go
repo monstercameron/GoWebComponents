@@ -33,6 +33,8 @@ type benchmarkConfig struct {
 	rootPath      string
 	lanes         []string
 	bench         string
+	// skip is passed to go test -skip so a known-broken benchmark can be excluded from both sides of a comparison.
+	skip          string
 	benchtime     string
 	count         int
 	parallel      int
@@ -47,6 +49,8 @@ type benchmarkConfig struct {
 	targetTimeoutFor map[string]time.Duration
 	// goarch is passed explicitly as GOARCH to native-lane children; empty keeps the child default.
 	goarch string
+	// tags is a normalized comma list passed as `go test -tags` to every micro-lane child; empty adds no flag.
+	tags string
 	// isQuiet suppresses console progress lines; the log file is still written.
 	isQuiet bool
 	// progress is the shared run logger; nil disables progress lines.
@@ -838,6 +842,13 @@ func (parseL launcher) runBenchmarkPackage(parseConfig benchmarkConfig, parseLan
 			parseArgs = append(parseArgs[:len(parseArgs)-1], "-benchtime", parseConfig.benchtime, ".")
 		}
 		parseEnv = buildWasmGoEnv()
+	}
+	if parseConfig.skip != "" {
+		parseArgs = append(parseArgs[:len(parseArgs)-1], "-skip", parseConfig.skip, ".")
+	}
+	if parseConfig.tags != "" {
+		// -tags sits right after the test verb so it precedes the -exec and package arguments.
+		parseArgs = append([]string{"test", "-tags", parseConfig.tags}, parseArgs[1:]...)
 	}
 	var parseOutput string
 	var parseErr2 error

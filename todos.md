@@ -66,6 +66,9 @@ Integrated check after wave 2: `go build ./...`, `go vet ./...`, wasm `go vet` o
 - [ ] **[impl]** BUG (core runtime, found by the ideas lane, not fixed): lists with more than about 5,000 siblings overflow the JS stack in `commitWork` recursion (5k works, 10k crashes) in the wasm build. Fix in `internal/runtime/reconciler_commit.go` by iterating siblings instead of recursing per sibling; add a regression test with 10k siblings under wasm.
 - [ ] **[impl]** BUG (core runtime reconciler): `class=""` is written on freshly created elements (1000 in the table1000 trace); skip empty-string attribute values on create.
 
+- [x] Core fixes ported to main (2026-10-03): iterative sibling commit/deletion/effect walks (10k and 20k siblings no longer overflow the stack; test crashed at 10k before the fix) and empty `class`/`style` skipped on create; changelog updated (200 fixes).
+- [ ] **[impl]** Wide-list scaling: the test DOM adapter (`testDOMAdapter` in `internal/runtime/reconciler_test.go`) scans the parent child slice in `InsertBefore`, `RemoveChild` and `GetNextSibling` (O(n) per op) so wide-list tests are quadratic (2k..16k keyed list update: 49, 144, 714, 1921 ms); index it. Possible production hotspot to check against a real DOM: the greedy repair branch of `applyCommittedChildOrder` does one O(n) memmove per displaced node via `parseFindObservedChildNodeIndex`/`parseRemoveObservedChildNode`/`parseInsertObservedChildNode`; derive moves from fiber order instead of reading the DOM back (see the `buildCommittedChildOrderMatch` comment).
+
 ### V7 bug-hunt candidates (adversarial read-only review, 2026-10-03; each needs a failing test first, lanes running)
 
 - [ ] **[impl]** `fetch/cache.go:884`: failed revalidation of a Ready cached resource retries forever (effect deps include Loading, `Stale` stays true on error; no-retry guard at :878 covers only !Ready).
