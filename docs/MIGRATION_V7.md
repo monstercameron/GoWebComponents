@@ -29,11 +29,11 @@ test, or dependency-heavy example graph. Those areas are nested modules:
 
 From the repository root, run the CLI through its module. Arguments are resolved
 relative to `tools/`, so an application in the repository examples directory is
-written as `../examples/my-app`:
+written with `../examples` paths:
 
 ```powershell
-go -C tools run ./gwc verify --app ../examples/my-app
-go -C tools run ./gwc build --app ../examples/my-app
+go -C tools run ./gwc verify -app ../examples/public/counter/main.go -root ../examples/public/counter
+go -C tools run ./gwc build -app ../examples/public/counter/main.go -root ../examples/public/counter
 ```
 
 For a consumer project, install or invoke the v7 CLI according to the project's
