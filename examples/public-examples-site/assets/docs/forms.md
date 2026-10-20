@@ -45,8 +45,8 @@ The current recommended shape is: typed form state in `ui.UseForm[T]`, synchrono
 package signup
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type signupForm struct {

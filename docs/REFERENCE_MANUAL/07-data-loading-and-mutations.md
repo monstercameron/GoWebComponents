@@ -63,9 +63,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderStatusProbe owns one typed async read local to the current component.
@@ -128,9 +128,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type deployPreview struct {
@@ -208,8 +208,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 type workspaceSummary struct {
@@ -254,10 +254,10 @@ package workspaceview
 import (
 	"context"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type workspaceSummary struct {
@@ -310,7 +310,7 @@ package mutationflow
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
 )
 
 // buildMutationQueue opens the durable browser-backed replay queue for writes that must survive reloads.
@@ -677,23 +677,23 @@ Use the smallest examples that prove the ownership layer you are adopting.
 Raw fetch and typed local resources:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\use-fetch\main.go
-go run ./tools/gwc dev -app .\examples\public\use-resource\main.go
-go run ./tools/gwc dev -app .\examples\public\fetch-imperative\main.go
+go -C tools run ./gwc dev -app .\examples\public\use-fetch\main.go
+go -C tools run ./gwc dev -app .\examples\public\use-resource\main.go
+go -C tools run ./gwc dev -app .\examples\public\fetch-imperative\main.go
 ```
 
 Shared cache and route-loader reuse:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\use-cached-resource\main.go
-go run ./tools/gwc dev -app .\examples\public\protected-routes\main.go
-go run ./tools/gwc dev -app .\examples\public\server-side-rendering-cache-bootstrap\main.go
+go -C tools run ./gwc dev -app .\examples\public\use-cached-resource\main.go
+go -C tools run ./gwc dev -app .\examples\public\protected-routes\main.go
+go -C tools run ./gwc dev -app .\examples\public\server-side-rendering-cache-bootstrap\main.go
 ```
 
 Offline replay boundary:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\progressive-web-app-offline-cache\main.go
+go -C tools run ./gwc dev -app .\examples\public\progressive-web-app-offline-cache\main.go
 ```
 
 ## Topic Pagination

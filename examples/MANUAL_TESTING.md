@@ -16,19 +16,19 @@ Use it when you are:
 The authoritative example coverage is the Playwright-Go browser suite, not a hand-kept list:
 
 ```powershell
-go test -tags playwrightgo ./test/playwrightgo/examples -run TestExamplesAll -v
+go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExamplesAll -v
 ```
 
 Focused suites: `TestCatalog`, `TestLinks`, `TestSSRServerRouting`, `TestAtlasSSR`, `TestStartup`, `TestVirtualization`, `TestAtlasStartup`, `TestBrowserCompat`, and `TestChatWizard`.
 
-The example set itself is the generated catalog at `examples/public-examples-site/assets/data/catalog.json` (browse with `go run ./tools/gwc examples`). Feature-isolated examples live at `examples/public/<slug>/`; the larger SSR servers live under `examples/server/<slug>/`. There is intentionally no numbered (`NN-slug`) checklist here anymore: it drifted every time an example was renamed. Verify against the slugs the catalog reports.
+The example set itself is the generated catalog at `examples/public-examples-site/assets/data/catalog.json` (browse with `go -C tools run ./gwc examples`). Feature-isolated examples live at `examples/public/<slug>/`; the larger SSR servers live under `examples/server/<slug>/`. There is intentionally no numbered (`NN-slug`) checklist here anymore: it drifted every time an example was renamed. Verify against the slugs the catalog reports.
 
 ## Environment
 
 From the repo root:
 
 ```powershell
-go run ./tools/gwc examples
+go -C tools run ./gwc examples
 ```
 
 Main catalog URLs:

@@ -3,7 +3,7 @@ package desktop
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v6/kvstate"
+	"github.com/monstercameron/GoWebComponents/v7/kvstate"
 )
 
 // SubscribeStorage reloads all existing kvstate bindings under a logical database

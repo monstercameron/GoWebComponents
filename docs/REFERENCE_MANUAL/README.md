@@ -261,9 +261,9 @@ This manual does not claim:
 Use this quick entry-point validation before you follow the deeper chapter paths:
 
 ```powershell
-go run ./tools/gwc doctor
-go run ./tools/gwc examples
-go run ./tools/gwc test -lane unit
+go -C tools run ./gwc doctor
+go -C tools run ./gwc examples
+go -C tools run ./gwc test -lane unit
 ```
 
 Why these are the right manual-index checks:

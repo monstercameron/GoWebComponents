@@ -23,11 +23,11 @@ import (
 	"syscall"
 	"time"
 
-	"agenthub"
+	"github.com/monstercameron/GoWebComponents/v7/tools/agenthub"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
-	"github.com/monstercameron/GoWebComponents/v6/tools/runnerconfig"
+	"github.com/monstercameron/GoWebComponents/v7/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v7/tools/runnerconfig"
 )
 
 const (

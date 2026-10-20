@@ -14,8 +14,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/diagnostics"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // buildMetricsBridge installs a Bridge on an in-memory SDK and returns the reader.

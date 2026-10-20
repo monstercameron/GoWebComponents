@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v6/agentbridge"
+	"github.com/monstercameron/GoWebComponents/v7/agentbridge"
 )
 
 // dialAgentSession is a test helper that dials /gwc-agent with the correct

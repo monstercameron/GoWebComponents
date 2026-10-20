@@ -34,7 +34,7 @@ jobs:
       - name: Build Example WASM Files
         shell: pwsh
         run: |
-          go run ./tools/gwc examples build-public-site -profile ci
+          go -C tools run ./gwc examples build-public-site -profile ci
 
       - name: Prepare Pages Artifact
         shell: pwsh
@@ -57,7 +57,7 @@ jobs:
       - name: Generate Static Docs Site
         shell: pwsh
         run: |
-          go run ./tools/sitegen -root . -out .pages
+          go -C tools run ./sitegen -root .. -out ../.pages
           if ($LASTEXITCODE -ne 0) { throw "sitegen failed" }
 
       - name: Upload Pages Artifact

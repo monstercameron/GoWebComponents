@@ -63,10 +63,10 @@ printing PASS. No root-wide test matrix was substituted for nested-module checks
 | Command | Result |
 | --- | --- |
 | `go test ./desktop ./kvstate -count=1` | Pass. Includes payload validation, native unavailability, lifecycle, external invalidation and tombstone/version regression tests. |
-| `go test ./tools/gwc -run 'TestDesktop\|TestValidateScaffoldDesktop\|TestNormalizeScaffoldMetadataPreservesWeb\|TestNormalizeTestLanesDesktop\|TestAcquireDesktopDev' -count=1` | Pass; symlink-creation test explicitly skipped because Windows lacks the required privilege. |
-| `go test ./tools/gwc -run TestDesktop -count=1 -v` | Pass. Actual controlled child processes prove restart/cancel/rebuild-failure reaping, normal host exit observation, and bounded process deadline. |
+| `go -C tools/gwc test ./... -run 'TestDesktop\|TestValidateScaffoldDesktop\|TestNormalizeScaffoldMetadataPreservesWeb\|TestNormalizeTestLanesDesktop\|TestAcquireDesktopDev' -count=1` | Pass; symlink-creation test explicitly skipped because Windows lacks the required privilege. |
+| `go -C tools/gwc test ./... -run TestDesktop -count=1 -v` | Pass. Actual controlled child processes prove restart/cancel/rebuild-failure reaping, normal host exit observation, and bounded process deadline. |
 | `go vet ./desktop ./kvstate ./tools/gwc` | Pass. |
-| `go test ./tools/gwc -run 'TestNormalizeScaffoldMetadata\|TestLoadScaffoldMetadata\|TestScaffoldMetadata\|TestResolveBuildConfig\|TestResolveDevConfig\|TestResolveReleaseConfig\|TestRunBuild\|TestRunDevAgentDryRun' -count=1` | Pass; targeted existing web metadata/build/dev/release regression tests. |
+| `go -C tools/gwc test ./... -run 'TestNormalizeScaffoldMetadata\|TestLoadScaffoldMetadata\|TestScaffoldMetadata\|TestResolveBuildConfig\|TestResolveDevConfig\|TestResolveReleaseConfig\|TestRunBuild\|TestRunDevAgentDryRun' -count=1` | Pass; targeted existing web metadata/build/dev/release regression tests. |
 | `node --test desktop/desktop.test.mjs` | All 5 tests pass after fixture correction. |
 | `GOOS=js GOARCH=wasm CGO_ENABLED=0 go test -exec C:/Users/mreca/Desktop/GoWebComponents/tools/go_js_wasm_exec.bat ./desktop ./kvstate -count=1` | Pass in the real Wasm runtime. Executor must be absolute. Env notation here denotes process-scoped PowerShell variables. |
 | Same Wasm environment: `go vet ./desktop ./kvstate` | Pass. |
@@ -234,9 +234,9 @@ A fresh contributor-linked scaffold was created and built without changing the
 frozen example executable. Each root command exited zero with successful JSON:
 
 ```powershell
-go run ./tools/gwc desktop init -root bin/desktop-api-final-verify-20260908 -json
-go run ./tools/gwc desktop doctor -root bin/desktop-api-final-verify-20260908 -json
-go run ./tools/gwc desktop build -root bin/desktop-api-final-verify-20260908 -json
+go -C tools run ./gwc desktop init -root bin/desktop-api-final-verify-20260908 -json
+go -C tools run ./gwc desktop doctor -root bin/desktop-api-final-verify-20260908 -json
+go -C tools run ./gwc desktop build -root bin/desktop-api-final-verify-20260908 -json
 ```
 
 Running that scaffold's `bin/wails-counter.exe --smoke-test` also exited zero with

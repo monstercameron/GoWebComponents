@@ -24,16 +24,16 @@ From the repo root:
 
 ```powershell
 # Go microbenchmarks -> docs/benchmarks/latest.json
-go run ./tools/gwc bench -root .
+go -C tools run ./gwc bench -root .
 
 # Compare a candidate run against the checked-in reference
-go run ./tools/gwc bench compare -baseline .\docs\benchmarks\reference.json -candidate .\docs\benchmarks\latest.json
+go -C tools run ./gwc bench compare -baseline .\docs\benchmarks\reference.json -candidate .\docs\benchmarks\latest.json
 
 # WASM size + startup for a package
-go run ./tools/gwc wasm measure -package .\examples\public\ui-render
+go -C tools run ./gwc wasm measure -package .\examples\public\ui-render
 
 # Browser render comparison vs React (Playwright)
-go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReport -v
+go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExample201BrowserBenchmarkReport -v
 ```
 
 The canonical machine-readable outputs are:

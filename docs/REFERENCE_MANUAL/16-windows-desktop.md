@@ -11,9 +11,9 @@ build and test the desktop target:
 
 ```powershell
 git -c core.longpaths=true submodule update --init third_party/wails
-go run ./tools/gwc desktop doctor -root ./examples/desktop/wails-counter -json
-go run ./tools/gwc desktop build -root ./examples/desktop/wails-counter -json
-go run ./tools/gwc test -lane desktop -root ./examples/desktop/wails-counter -json
+go -C tools run ./gwc desktop doctor -root ./examples/desktop/wails-counter -json
+go -C tools run ./gwc desktop build -root ./examples/desktop/wails-counter -json
+go -C tools run ./gwc test -lane desktop -root ./examples/desktop/wails-counter -json
 .\examples\desktop\wails-counter\bin\wails-counter.exe --two-windows
 ```
 
@@ -26,8 +26,8 @@ are local. ARM64 binaries are not part of the tested initial target.
 ## Create and develop a project
 
 ```powershell
-go run ./tools/gwc desktop init -root ./bin/my-desktop-app -json
-go run ./tools/gwc desktop dev -root ./bin/my-desktop-app
+go -C tools run ./gwc desktop init -root ./bin/my-desktop-app -json
+go -C tools run ./gwc desktop dev -root ./bin/my-desktop-app
 ```
 
 Init refuses an existing target directory and copies allowlisted source only,
@@ -100,7 +100,7 @@ failure behavior for missing bindings/Wasm. Unsupported native platforms fail
 explicitly rather than counting as successful desktop tests.
 
 ```powershell
-go run ./tools/gwc desktop package -root ./examples/desktop/wails-counter -json
+go -C tools run ./gwc desktop package -root ./examples/desktop/wails-counter -json
 ```
 
 Packaging produces an **unsigned** ZIP and an artifact manifest with hashes and

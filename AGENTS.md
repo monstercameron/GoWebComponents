@@ -40,7 +40,7 @@ hasExactCost
 
 GWC
 Run from repo root:
-go run ./tools/gwc
+go -C tools run ./gwc
 
 Main commands
 doctor bootstrap start examples dev serve build release test verify files import tailwind bench wasm dashboard seed
@@ -53,11 +53,11 @@ docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md
 tools/README.md
 
 Help
-go run ./tools/gwc -h
-go run ./tools/gwc <command> -h
-go run ./tools/gwc wasm measure -h
-go run ./tools/gwc wasm compare -h
-go run ./tools/gwc bench -h
+go -C tools run ./gwc -h
+go -C tools run ./gwc <command> -h
+go -C tools run ./gwc wasm measure -h
+go -C tools run ./gwc wasm compare -h
+go -C tools run ./gwc bench -h
 
 Flags (terse)
 doctor: -json -host -port -audit(-policy/-baseline/-suppress/-write-baseline)
@@ -72,16 +72,16 @@ files/import/tailwind: files(-root,-ext,-exclude-dir,-json) import(-src,-out,-js
 bench/wasm/dashboard/seed: bench(-root,-lane,-bench,-count,-parallel,-out,-reference,-json) wasm(measure|compare|compare-compression|compare-cache|compare-toolchain; use subcommand -h) dashboard(-root,-status-url,-json) seed(-root,-command,-db-path,-json)
 
 Typical usage
-go run ./tools/gwc doctor
-go run ./tools/gwc test -lane unit -lane wasm -lane hydration -lane browser
-go run ./tools/gwc build -app .\examples\public\counter\main.go -root .\examples\public\counter
-go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
-go run ./tools/gwc examples
-go run ./tools/gwc .\examples\server\ai-chat-wizard\cmd\server start -json
-go run ./tools/gwc .\examples\server\ai-chat-wizard\cmd\server restart -json
-go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
-go run ./tools/gwc serve -root .\examples -port 8090
-go run ./tools/gwc release -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc doctor
+go -C tools run ./gwc test -lane unit -lane wasm -lane hydration -lane browser
+go -C tools run ./gwc build -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc examples
+go -C tools run ./gwc .\examples\server\ai-chat-wizard\cmd\server start -json
+go -C tools run ./gwc .\examples\server\ai-chat-wizard\cmd\server restart -json
+go -C tools run ./gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
+go -C tools run ./gwc serve -root .\examples -port 8090
+go -C tools run ./gwc release -app .\examples\public\counter\main.go -root .\examples\public\counter
 
 Todo execution
 Do one todo at a time.
@@ -170,9 +170,9 @@ apply at once.
 Module path
 github.com/monstercameron/GoWebComponents
 Import public packages by that path, e.g.
-  "github.com/monstercameron/GoWebComponents/v6/ui"
-  "github.com/monstercameron/GoWebComponents/v6/html"
-  . "github.com/monstercameron/GoWebComponents/v6/html/shorthand"   // dot-import sugar
+  "github.com/monstercameron/GoWebComponents/v7/ui"
+  "github.com/monstercameron/GoWebComponents/v7/html"
+  . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"   // dot-import sugar
 
 Mental model
 React-style components + hooks on a fiber runtime, written in Go, compiled to
@@ -199,8 +199,8 @@ Minimal app (entry file MUST be js/wasm - see build constraint)
   package main
 
   import (
-    . "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-    "github.com/monstercameron/GoWebComponents/v6/ui"
+    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v7/ui"
   )
 
   // App renders the root component.
@@ -315,14 +315,14 @@ SSR / hydration (server-side rendering)
   `ui.Await`; SSR renders the fallback, the client retries on resolve.
 
 Run / build / verify an app (from repo root)
-  go run ./tools/gwc dev    -app .\path\to\main.go             # build+serve+livereload
-  go run ./tools/gwc build  -app .\path\to\main.go -root .\path
-  go run ./tools/gwc verify -app .\path\to\main.go -root .\path  # tests + CI wasm build
-  go run ./tools/gwc release -app .\path\to\main.go -root .\path
-  go run ./tools/gwc test -lane unit -lane wasm -lane hydration -lane browser
-  go run ./tools/gwc lint                                       # golangci-lint + gwc-hooks
+  go -C tools run ./gwc dev    -app .\path\to\main.go             # build+serve+livereload
+  go -C tools run ./gwc build  -app .\path\to\main.go -root .\path
+  go -C tools run ./gwc verify -app .\path\to\main.go -root .\path  # tests + CI wasm build
+  go -C tools run ./gwc release -app .\path\to\main.go -root .\path
+  go -C tools run ./gwc test -lane unit -lane wasm -lane hydration -lane browser
+  go -C tools run ./gwc lint                                       # golangci-lint + gwc-hooks
 Browser tests live under test/playwrightgo/ (build tag `playwrightgo`); run with
-  go test -tags playwrightgo ./test/playwrightgo/...
+  go -C test/playwrightgo test -tags playwrightgo ./...
 
 Hard rules (these cause real bugs if broken)
 - Hooks at the top level of the component only - never conditional/loop/goroutine/closure.
@@ -345,7 +345,7 @@ More docs
 ================================================================
 THE AGENTIC SDLC WITH GWC
 ================================================================
-`gwc` (go run ./tools/gwc <command>) is the toolchain. Treat building an app as
+`gwc` (go -C tools run ./gwc <command>) is the toolchain. Treat building an app as
 a loop, not a line: orient -> plan -> scaffold -> implement -> build -> verify
 -> review -> diagnose -> release -> observe -> back to plan. Below, each phase
 maps to the command to reach for. "Today" = available now. "Planned" = speced
@@ -431,7 +431,7 @@ Today's commands (one line each)
   dashboard monitor livereload clients + AI provider config
   env       print launcher-relevant environment variables
 Every command supports `-h`; many support `-json` (see the Flags section above).
-Run from repo root: `go run ./tools/gwc <command> -h`.
+Run from repo root: `go -C tools run ./gwc <command> -h`.
 
 Recommended loop for building an app (with today's tools)
 1. orient   - `inspect` the target area; read the nearest example + docs. Do not

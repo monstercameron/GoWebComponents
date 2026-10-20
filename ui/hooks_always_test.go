@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // TestAlwaysIsRuntimeSentinel pins ui.Always to the runtime sentinel so the

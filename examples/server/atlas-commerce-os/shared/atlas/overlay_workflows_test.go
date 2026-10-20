@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v7/html"
 )
 
 // TestInventoryThresholdHistoryPanelRendersRouteOverlay verifies the SKU threshold workflow renders as a route-owned overlay sheet.

@@ -5,7 +5,7 @@ package pwa
 import (
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // ObserveInstallability is a non-browser stub that always returns an unavailable error.

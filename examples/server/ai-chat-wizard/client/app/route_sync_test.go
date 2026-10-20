@@ -5,7 +5,7 @@ package app
 import (
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 )
 
 func TestShouldRedirectUnauthenticatedRouteToLanding(parseT *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	internaldiagnostics "github.com/monstercameron/GoWebComponents/v6/internal/diagnostics"
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	internaldiagnostics "github.com/monstercameron/GoWebComponents/v7/internal/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 const frameworkModulePath = "github.com/monstercameron/GoWebComponents"
@@ -377,10 +377,10 @@ func parsePanicFrames(parseStack []byte) []panicFrame {
 			continue
 		}
 		if strings.Contains(parseFunction, "runtime/debug.Stack") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v6/internal/runtime.parsePanicFrames") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v6/internal/runtime.buildPanicReportContext") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v6/internal/runtime.ReportUnhandledPanicContext") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v6/internal/runtime.reportUnhandledPanic") {
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v7/internal/runtime.parsePanicFrames") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v7/internal/runtime.buildPanicReportContext") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v7/internal/runtime.ReportUnhandledPanicContext") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v7/internal/runtime.reportUnhandledPanic") {
 			continue
 		}
 

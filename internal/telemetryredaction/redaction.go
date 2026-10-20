@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v7/diagnostics"
 )
 
 const RedactedValue = "[redacted]"

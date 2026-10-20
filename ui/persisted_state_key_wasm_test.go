@@ -5,7 +5,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // TestUsePersistedStateReReadsStoredValueWhenKeyChanges proves the stored value for the NEW key

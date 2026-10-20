@@ -3,9 +3,9 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderNotFoundPageCompact renders the portfolio 404 route in the shared example shell.

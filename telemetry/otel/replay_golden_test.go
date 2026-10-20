@@ -12,9 +12,9 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/telemetryredaction"
-	"github.com/monstercameron/GoWebComponents/v6/telemetry"
-	gwctrace "github.com/monstercameron/GoWebComponents/v6/trace"
+	"github.com/monstercameron/GoWebComponents/v7/internal/telemetryredaction"
+	"github.com/monstercameron/GoWebComponents/v7/telemetry"
+	gwctrace "github.com/monstercameron/GoWebComponents/v7/trace"
 )
 
 // getStubAttrs flattens a recorded span's attributes to strings.

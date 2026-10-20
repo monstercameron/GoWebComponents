@@ -5,7 +5,7 @@ Use this chapter when you need repeatable test harnesses, in-app diagnostics, st
 It is the right chapter for:
 
 - public testing helpers under `test/render`, `test/hooks`, `test/router`, `test/ssr`, and `test/browser`
-- launcher-driven test lanes through `go run ./tools/gwc test -lane ...`
+- launcher-driven test lanes through `go -C tools run ./gwc test -lane ...`
 - in-browser diagnostics through `devtools.Panel(...)`, `devtools.UseSnapshot(...)`, and `devtools.SnapshotNow()`
 - error overlays, trace capture, bug bundles, support bundles, and snapshot comparison
 - structured logging through `logging.New(...)`, `logging.NewContext(...)`, and browser lifecycle logging through `logging.AttachBrowserConsole(...)`
@@ -90,9 +90,9 @@ import (
 	"fmt"
 	"testing"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	render "github.com/monstercameron/GoWebComponents/v6/test/render"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	render "github.com/monstercameron/GoWebComponents/v7/test/render"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderSaveSettingsButton renders one small stateful control for a consumer-facing fixture test.
@@ -138,10 +138,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/devtools"
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/logging"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/devtools"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/logging"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderDiagnosticsShell embeds a small summary, the full panel, and the focused error overlay.
@@ -200,7 +200,7 @@ When a team needs reproducible troubleshooting, capture a local bug bundle, deri
 ```go gwc:build
 package support
 
-import "github.com/monstercameron/GoWebComponents/v6/devtools"
+import "github.com/monstercameron/GoWebComponents/v7/devtools"
 
 type supportArtifacts struct {
 	BugJSON           []byte
@@ -381,8 +381,8 @@ The bridge follows a CRUD-on-inputs rule: agents should drive user-observable in
 Headless dogfood recipe:
 
 ```powershell
-go run ./tools/gwc test -lane agent -json
-go run ./tools/gwc test -lane agent-browser -json
+go -C tools run ./gwc test -lane agent -json
+go -C tools run ./gwc test -lane agent-browser -json
 ```
 
 The `agent` lane covers native bridge, runtime, hub, and livereload integration. The `agent-browser` lane runs the ai-chat-wizard Playwright-Go dogfood test when present. The dogfood flow should launch the app through `gwc dev`, open it with `?gwc-dev=agent`, connect through a real hub token, query the composer, set the model atom, emit send, wait, snapshot the thread, and assert the message appears. It must also prove that the same app without the query parameter opens no socket and that reload links a successor session.
@@ -530,15 +530,15 @@ Limits: hook-order detection runs for function components that call hooks on the
 Use the smallest relevant slices first:
 
 ```powershell
-go run ./tools/gwc test -lane unit -lane wasm
-go run ./tools/gwc test -lane hydration
-go run ./tools/gwc test -lane browser
-go run ./tools/gwc lint -root .
+go -C tools run ./gwc test -lane unit -lane wasm
+go -C tools run ./gwc test -lane hydration
+go -C tools run ./gwc test -lane browser
+go -C tools run ./gwc lint -root .
 go test ./devtools ./logging ./test/render ./test/hooks ./test/router ./test/ssr ./test/browser
-go run ./tools/gwc build -app .\examples\public\devtools-panel\main.go -root .\examples\public\devtools-panel
-go run ./tools/gwc build -app .\examples\public\use-snapshot\main.go -root .\examples\public\use-snapshot
-go run ./tools/gwc build -app .\examples\public\snapshot-now\main.go -root .\examples\public\snapshot-now
-go run ./tools/gwc build -app .\examples\public\devtools-diagnostics\main.go -root .\examples\public\devtools-diagnostics
+go -C tools run ./gwc build -app .\examples\public\devtools-panel\main.go -root .\examples\public\devtools-panel
+go -C tools run ./gwc build -app .\examples\public\use-snapshot\main.go -root .\examples\public\use-snapshot
+go -C tools run ./gwc build -app .\examples\public\snapshot-now\main.go -root .\examples\public\snapshot-now
+go -C tools run ./gwc build -app .\examples\public\devtools-diagnostics\main.go -root .\examples\public\devtools-diagnostics
 go test -tags playwrightgo ./test/playwrightgo/kernelplugindevtools -timeout 5m -v
 ```
 

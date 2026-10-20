@@ -5,7 +5,7 @@ package html
 import (
 	"reflect"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // formatBoolAttr renders a bool as the "true" or "false" string used by

@@ -110,8 +110,8 @@ bounds, snapshot isolation and disabled direct-call tests remain covered.
 Actual CLI checks:
 
 ```powershell
-go run ./tools/gwc dev -target desktop -root examples/desktop/wails-counter -features 'screens, clipboard' -dry-run -json
-go run ./tools/gwc build -target desktop -root examples/desktop/wails-counter -profile tinygo -json
+go -C tools run ./gwc dev -target desktop -root examples/desktop/wails-counter -features 'screens, clipboard' -dry-run -json
+go -C tools run ./gwc build -target desktop -root examples/desktop/wails-counter -profile tinygo -json
 ```
 
 The first exited zero with `dryRun:true` and canonical `clipboard,screens`, without
@@ -211,9 +211,9 @@ Final independent command sequence, after all code changes, with process-local
 Windows/amd64 and CGO disabled:
 
 ```powershell
-go test ./tools/gwc -count=1
+go -C tools/gwc test ./... -count=1
 go vet ./tools/gwc
-go test -tags desktopintegration ./tools/gwc -run '^Test(DesktopWebDevIntegration|AgentDevWebSocketRemainsIdleAndCancels)$' -count=1 -v
+go -C tools/gwc test -tags desktopintegration ./... -run '^Test(DesktopWebDevIntegration|AgentDevWebSocketRemainsIdleAndCancels)$' -count=1 -v
 ```
 
 The entire sequential command exited 0. Full CLI tests passed in 100.528 seconds;

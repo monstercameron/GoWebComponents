@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	templatelowering "github.com/monstercameron/GoWebComponents/v6/examples/public/browser-compiler/template_lowering"
+	templatelowering "github.com/monstercameron/GoWebComponents/v7/examples/public/browser-compiler/template_lowering"
 )
 
 func main() {

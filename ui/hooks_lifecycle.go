@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 
 // Always is the dependency sentinel that says "run on every render". Passing it
 // as the only dependency documents intent that omitting the dependency list

@@ -272,7 +272,7 @@ func applyAgenticAppScaffold(parseL launcher, parseConfig agenticScaffoldConfig,
 		{Path: filepath.ToSlash(filepath.Join(parseConfig.dir, "gwc-start.json")), Operation: "create"},
 	}
 	parseSummary.Next = []string{
-		fmt.Sprintf("go run ./tools/gwc build -app %s -root %s", filepath.ToSlash(filepath.Join(parseTargetDir, "main.go")), filepath.ToSlash(parseTargetDir)),
+		fmt.Sprintf("go -C tools run ./gwc build -app %s -root %s", filepath.ToSlash(filepath.Join(parseTargetDir, "main.go")), filepath.ToSlash(parseTargetDir)),
 	}
 	if parseConfig.dryRun {
 		return parseSummary, nil
@@ -336,8 +336,8 @@ func renderAgenticComponentScaffold(parseConfig agenticScaffoldConfig) string {
 	return fmt.Sprintf(`package %s
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // %s renders a starter component scaffold.
@@ -356,7 +356,7 @@ func renderAgenticHookScaffold(parseConfig agenticScaffoldConfig) string {
 	}
 	return fmt.Sprintf(`package %s
 
-import "github.com/monstercameron/GoWebComponents/v6/ui"
+import "github.com/monstercameron/GoWebComponents/v7/ui"
 
 // Use%sState returns scaffolded component-local state for %s.
 func Use%sState(parseInitial %s) ui.State[%s] {
@@ -372,9 +372,9 @@ func renderAgenticExampleScaffold(parseConfig agenticScaffoldConfig) string {
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // App renders the %s example.

@@ -52,15 +52,15 @@ Surfaces you should usually delay until you need them:
 
 From the repo root, the shortest practical path is:
 
-1. confirm the toolchain with `go run ./tools/gwc doctor`
-2. browse the examples with `go run ./tools/gwc examples`
+1. confirm the toolchain with `go -C tools run ./gwc doctor`
+2. browse the examples with `go -C tools run ./gwc examples`
 3. start from the smallest app shape that fits the work
-4. use `go run ./tools/gwc dev -app .\main.go` for the inner loop
-5. use `go run ./tools/gwc build`, `test`, and `verify` once the app stabilizes
+4. use `go -C tools run ./gwc dev -app .\main.go` for the inner loop
+5. use `go -C tools run ./gwc build`, `test`, and `verify` once the app stabilizes
 
 If you are evaluating from the examples catalog instead of building a new app immediately, start with [examples/public/counter](../../examples/public/counter), [examples/public/ui-render](../../examples/public/ui-render), [examples/public/use-state](../../examples/public/use-state), and [examples/public/use-effect](../../examples/public/use-effect).
 
-For a generated app, run `go run ./tools/gwc start` and choose the smallest
+For a generated app, run `go -C tools run ./gwc start` and choose the smallest
 starter that matches the product shape. The maintained starter gallery is
 [docs/STARTERS.md](../STARTERS.md); it covers minimal client apps, routed SPAs,
 SSR apps, dashboards, marketing sites, content blogs, authed app shells, and the
@@ -76,8 +76,8 @@ The smallest useful GWC app is one browser-mounted component plus one stateful e
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderHelloApp renders the smallest useful interactive app for a first-run check.
@@ -126,7 +126,7 @@ func main() {
 Run it with:
 
 ```powershell
-go run ./tools/gwc dev -app .\main.go
+go -C tools run ./gwc dev -app .\main.go
 ```
 
 Why this is the right minimal path:
@@ -147,8 +147,8 @@ package main
 import (
 	"fmt"
 
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type counterPanelProps struct {
@@ -246,8 +246,8 @@ package main
 import (
 	"my-app/internal/app"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // main mounts the application entrypoint owned by the app package.
@@ -263,8 +263,8 @@ func main() {
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 
 	"my-app/internal/feature/counter"
 )
@@ -338,23 +338,23 @@ Use the smallest commands that prove the starter path is working.
 Environment and workflow:
 
 ```powershell
-go run ./tools/gwc doctor
-go run ./tools/gwc examples
+go -C tools run ./gwc doctor
+go -C tools run ./gwc examples
 ```
 
 Standalone app inner loop:
 
 ```powershell
-go run ./tools/gwc dev -app .\main.go
-go run ./tools/gwc build -app .\main.go -profile development
-go run ./tools/gwc verify -app .\main.go -root .
+go -C tools run ./gwc dev -app .\main.go
+go -C tools run ./gwc build -app .\main.go -profile development
+go -C tools run ./gwc verify -app .\main.go -root .
 ```
 
 If you are validating from the repo examples first:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\counter\main.go
-go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc dev -app .\examples\public\counter\main.go
+go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
 ```
 
 ## Topic Pagination

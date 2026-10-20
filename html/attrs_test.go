@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html/internal/attrtable"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html/internal/attrtable"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderAttrMarkup renders one element carrying parseProps and returns its markup.

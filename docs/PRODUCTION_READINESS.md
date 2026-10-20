@@ -205,8 +205,8 @@ several of them merge gates. Their local status:
 | public-API baseline | `go test ./serverfn/ ./query/ … -run APIBaseline` | pass |
 | doc samples compile | `go test -tags doccompile ./docs/doclint` | pass, **was broken** |
 | doclint commands | `go test -tags doclintcmd ./docs/doclint` | pass |
-| doctor parity | `go test ./tools/gwc/ -run "Doctor\|…"` | pass |
-| starter templates | `go test ./tools/gwc -run TestDefaultStarterTemplates…` | pass |
+| doctor parity | `go -C tools/gwc test ./.../ -run "Doctor\|…"` | pass |
+| starter templates | `go -C tools/gwc test ./... -run TestDefaultStarterTemplates…` | pass |
 | examples build | `go build ./examples/public/...` | pass |
 | changelog release gate | `go test ./tools/changelogcheck/` | pass |
 | **race** | `go test -race ./...` | **CANNOT RUN — see below** |

@@ -66,9 +66,9 @@ If you want the safest default style, start with typed builders and explicit pro
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // renderProfileCard renders a small DOM tree with typed builders and explicit props.
@@ -116,8 +116,8 @@ When callsites become noisy, use `PropsOf(...)` and the shorthand package delibe
 package formview
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type teamFormProps struct {
@@ -170,7 +170,7 @@ In a larger codebase, pick one host-authoring style per package and centralize r
 package sharedview
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
+	"github.com/monstercameron/GoWebComponents/v7/html"
 )
 
 // BuildPanelProps returns one shared panel treatment for host containers.
@@ -192,8 +192,8 @@ func BuildFieldLabelProps() html.Props {
 package accountview
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 
 	"my-app/internal/sharedview"
 )
@@ -316,7 +316,7 @@ Keep the boundary clear:
 
 Use `RenderMarkdown(...)` when markdown is a real content source and it is useful to keep the rendering path inside the current tree composition model.
 
-Markdown is opt-in. `html.RenderMarkdown` and `html.Markdown` dispatch to an engine registered with `html.RegisterMarkdownEngine` (type `html.MarkdownEngine`; the last registration wins). The goldmark engine lives in the separate package `html/markdown`, so apps that never render markdown do not link goldmark or `regexp`. Register it with a blank import, `import _ "github.com/monstercameron/GoWebComponents/v6/html/markdown"`, or call `markdown.Enable()`. Without an engine the source renders as escaped text inside `<div data-gwc-markdown-unavailable>` and one development warning, `GWC-UI-MARKDOWN-ENGINE-MISSING`, is reported.
+Markdown is opt-in. `html.RenderMarkdown` and `html.Markdown` dispatch to an engine registered with `html.RegisterMarkdownEngine` (type `html.MarkdownEngine`; the last registration wins). The goldmark engine lives in the separate package `html/markdown`, so apps that never render markdown do not link goldmark or `regexp`. Register it with a blank import, `import _ "github.com/monstercameron/GoWebComponents/v7/html/markdown"`, or call `markdown.Enable()`. Without an engine the source renders as escaped text inside `<div data-gwc-markdown-unavailable>` and one development warning, `GWC-UI-MARKDOWN-ENGINE-MISSING`, is reported.
 
 Do not use it as a default content strategy when:
 
@@ -343,9 +343,9 @@ like bare utilities next to `html/shorthand` elements.
 
 ```go
 import (
-    "github.com/monstercameron/GoWebComponents/v6/css"
-    . "github.com/monstercameron/GoWebComponents/v6/css/u"
-    . "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v7/css"
+    . "github.com/monstercameron/GoWebComponents/v7/css/u"
+    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
 )
 
 func Badge() ui.Node {
@@ -506,20 +506,20 @@ Use the smallest focused examples for the HTML authoring surface you are adoptin
 Semantic and typed host structure:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\semantic-html\main.go
-go run ./tools/gwc dev -app .\examples\public\html-forms\main.go
+go -C tools run ./gwc dev -app .\examples\public\semantic-html\main.go
+go -C tools run ./gwc dev -app .\examples\public\html-forms\main.go
 ```
 
 Generic tags and escape hatches:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\html-tag\main.go
+go -C tools run ./gwc dev -app .\examples\public\html-tag\main.go
 ```
 
 Browser custom-element consumption:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\web-components\main.go
+go -C tools run ./gwc dev -app .\examples\public\web-components\main.go
 ```
 
 ## Named Slots / Snippets

@@ -3,8 +3,8 @@ package u_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
-	"github.com/monstercameron/GoWebComponents/v6/css/u"
+	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v7/css/u"
 )
 
 // TestMissingBreakpointIsNoOp pins that a responsive variant whose breakpoint is

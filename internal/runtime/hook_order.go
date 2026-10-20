@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 // hookOrderTracker keeps the previous render's hook-kind sequence so a render

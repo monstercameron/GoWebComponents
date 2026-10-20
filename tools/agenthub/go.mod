@@ -1,12 +1,12 @@
-module agenthub
+module github.com/monstercameron/GoWebComponents/v7/tools/agenthub
 
 go 1.27.0
 
-replace github.com/monstercameron/GoWebComponents/v6 => ../..
+replace github.com/monstercameron/GoWebComponents/v7 => ../..
 
 require (
 	github.com/gorilla/websocket v1.5.3
-	github.com/monstercameron/GoWebComponents/v6 v6.0.0
+	github.com/monstercameron/GoWebComponents/v7 v7.0.0
 )
 
 require (

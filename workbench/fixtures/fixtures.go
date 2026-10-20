@@ -7,9 +7,9 @@ package fixtures
 import (
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/workbench"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/workbench"
 )
 
 // AllStories returns every boundary fixture — async/suspense, error, suspense-boundary, and

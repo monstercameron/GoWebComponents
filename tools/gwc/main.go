@@ -1308,7 +1308,7 @@ func printUsage() {
 	fmt.Println("GWC launcher")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  go run ./tools/gwc <command> [flags]")
+	fmt.Println("  go -C tools run ./gwc <command> [flags]")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")

@@ -12,11 +12,11 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/monstercameron/GoWebComponents/v6/css/u"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/css/u"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // --- shared (global) state: theme + roundUp, keyed atoms shared across components ---

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/localfirst"
+	"github.com/monstercameron/GoWebComponents/v7/localfirst"
 )
 
 // TestTextBasicEditing proves local insert/delete behave like an ordinary mutable string.

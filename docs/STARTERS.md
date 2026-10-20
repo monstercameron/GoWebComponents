@@ -7,7 +7,7 @@ the result like normal application code.
 Run the interactive generator from the repo root:
 
 ```powershell
-go run ./tools/gwc start
+go -C tools run ./gwc start
 ```
 
 For an existing project that only needs launcher metadata, `gwc init -preset

@@ -3,7 +3,7 @@ package u
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v7/css"
 )
 
 // TestNegateLengthProducesValidCSS pins that negating a spacing value never emits

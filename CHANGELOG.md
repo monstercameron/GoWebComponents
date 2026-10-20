@@ -495,7 +495,7 @@ package name says wasm.
   `func(string)` or `func(ui.Event)`, or wrap a `ui.Handler` with
   `OnInputHandler`. Do the same for `OnChange` and `OnChangeHandler`.
 - Markdown engine: an app that renders markdown must now register an engine, with
-  `import _ "github.com/monstercameron/GoWebComponents/v6/html/markdown"` or
+  `import _ "github.com/monstercameron/GoWebComponents/v7/html/markdown"` or
   `markdown.Enable()`. Without it, `Markdown` and `RenderMarkdown` show the source
   as escaped text and report `GWC-UI-MARKDOWN-ENGINE-MISSING` in development.
 - Markdown: call `Markdown(src, html.WithURLSchemes(...))`. A single
@@ -563,7 +563,7 @@ are now fixed were removed; the rest stay.
 
 ### Migration
 
-The module path is now `github.com/monstercameron/GoWebComponents/v6`.
+The module path is now `github.com/monstercameron/GoWebComponents/v7`.
 Update application imports and `go.mod` requirements from `/v5` to `/v6`,
 including local `replace` directives, then run `go mod tidy` and rebuild both
 native and Wasm targets. Do not mix the two major versions in one component tree.

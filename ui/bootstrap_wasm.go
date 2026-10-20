@@ -4,9 +4,9 @@ package ui
 
 import (
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 	"syscall/js"
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 // ReadBootstrapScript reads an inline bootstrap script from the browser document.

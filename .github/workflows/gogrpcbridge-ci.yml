@@ -106,7 +106,7 @@ jobs:
       - name: Run API compatibility and migration-policy guard
         run: |
           cd ./third_party/GoGRPCBridge
-          go run ./tools/api_compat_guard check
+          go -C tools run ./api_compat_guard check
 
   gogrpcbridge-unit:
     name: Unit Lane
@@ -192,8 +192,8 @@ jobs:
 
       - name: Run root consumer smoke tests
         run: |
-          go test ./examples/server/ai-chat-wizard/client/app -run TestDoesNotExist -count=1
-          go test ./examples/server/ai-chat-wizard/server/app -run TestTransportHelpersCoverTunnelAndWasmResolution -count=1
+          go -C examples/server/ai-chat-wizard test ./client/app -run TestDoesNotExist -count=1
+          go -C examples/server/ai-chat-wizard test ./server/app -run TestTransportHelpersCoverTunnelAndWasmResolution -count=1
 
   gogrpcbridge-go-get-smoke:
     name: Go Get Smoke

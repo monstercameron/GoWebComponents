@@ -3,7 +3,7 @@ package ui
 import (
 	"encoding/json"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // PersistStorageArea identifies which browser storage area to use.

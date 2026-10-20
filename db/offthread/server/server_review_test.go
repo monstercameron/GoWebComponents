@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/db/offthread"
+	"github.com/monstercameron/GoWebComponents/v7/db/offthread"
 )
 
 // TestAutocommitStatementIsRefusedWhileTransactionOpen pins that a statement

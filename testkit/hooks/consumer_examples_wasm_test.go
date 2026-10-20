@@ -5,8 +5,8 @@ package hooks_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/testkit/hooks"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/testkit/hooks"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type counterHookValue struct {

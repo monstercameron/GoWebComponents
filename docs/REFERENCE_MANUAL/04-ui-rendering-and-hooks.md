@@ -69,9 +69,9 @@ The normal `ui` shape is one function component, one local state owner, and one 
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // renderCounterApp renders one small interactive component using the default ui model.
@@ -112,8 +112,8 @@ Once one feature owns several fields and named transitions, keep the render tree
 package dashboard
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type dashboardFilterState struct {
@@ -194,8 +194,8 @@ In a larger app, scale `ui` by separating global composition, feature hooks, and
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 
 	"my-app/internal/feature/search"
 	"my-app/internal/feature/workspace"
@@ -215,8 +215,8 @@ func RenderRootApp() ui.Node {
 package search
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // RenderSearchToolbar keeps the feature surface local until the app has a real reason to widen ownership.
@@ -412,29 +412,29 @@ Use the smallest examples that prove the `ui` family you are adopting.
 Core render and local hooks:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\ui-render\main.go
-go run ./tools/gwc dev -app .\examples\public\use-reducer\main.go
-go run ./tools/gwc lint -root . -path .\examples\public\use-state
+go -C tools run ./gwc dev -app .\examples\public\ui-render\main.go
+go -C tools run ./gwc dev -app .\examples\public\use-reducer\main.go
+go -C tools run ./gwc lint -root . -path .\examples\public\use-state
 ```
 
 Transitions and deferred values:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\transition-hooks\main.go
-go run ./tools/gwc dev -app .\examples\public\use-deferred-value\main.go
+go -C tools run ./gwc dev -app .\examples\public\transition-hooks\main.go
+go -C tools run ./gwc dev -app .\examples\public\use-deferred-value\main.go
 ```
 
 Overlay and accessibility helpers:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\accessible-overlay\main.go
-go run ./tools/gwc dev -app .\examples\public\overlay-stack\main.go
+go -C tools run ./gwc dev -app .\examples\public\accessible-overlay\main.go
+go -C tools run ./gwc dev -app .\examples\public\overlay-stack\main.go
 ```
 
 Worker helpers:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\worker-text-index\main.go
+go -C tools run ./gwc dev -app .\examples\public\worker-text-index\main.go
 ```
 
 > **Removed in v5.** `ui.ParallelRegion` and the runtime2 worker-rendering

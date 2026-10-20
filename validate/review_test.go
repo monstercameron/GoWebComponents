@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/validate"
+	"github.com/monstercameron/GoWebComponents/v7/validate"
 )
 
 // TestStringRulesApplyThroughPointers pins that a *string field is validated by

@@ -2,7 +2,7 @@
 
 package shorthand
 
-import "github.com/monstercameron/GoWebComponents/v6/html"
+import "github.com/monstercameron/GoWebComponents/v7/html"
 
 // Draggable delegates to [html.Draggable].
 func Draggable(isParseEnabled bool) PropOption { return html.Draggable(isParseEnabled) }

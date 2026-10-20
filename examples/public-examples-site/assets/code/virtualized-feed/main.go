@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
-	"github.com/monstercameron/GoWebComponents/v6/virtualization"
+	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
+	"github.com/monstercameron/GoWebComponents/v7/virtualization"
 )
 
 type feedItem struct {

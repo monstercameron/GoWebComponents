@@ -192,7 +192,7 @@ Recommend prototyping behind the existing `Owned` fast path and A/B-ing before c
 ## How to reproduce
 
 ```
-go run ./tools/gwc bench --lane all --out docs/benchmarks/run-arm64.json
+go -C tools run ./gwc bench --lane all --out docs/benchmarks/run-arm64.json
 # focused profiling:
 go test ./internal/runtime -run ^$ -bench BenchmarkProfilingRepresentativeScenarios \
   -benchmem -cpuprofile cpu.prof -memprofile mem.prof

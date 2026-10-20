@@ -96,7 +96,7 @@ var devStatusProgramRunner = func(model tea.Model) (tea.Model, error) {
 
 func runDevStatusTUI(parsePlan devPlanSummary, parseStatusURL string, parseCmd *exec.Cmd) error {
 	if !isInteractiveFile(os.Stdin) || !isInteractiveFile(os.Stdout) {
-		return errors.New("dev -tui requires an interactive terminal with TUI support; run `go run ./tools/gwc dev` without -tui from non-interactive shells")
+		return errors.New("dev -tui requires an interactive terminal with TUI support; run `go -C tools run ./gwc dev` without -tui from non-interactive shells")
 	}
 
 	parseTail := &tailBuffer{limit: 16 * 1024}

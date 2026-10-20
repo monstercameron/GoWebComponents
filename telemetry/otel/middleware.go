@@ -14,9 +14,9 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
-	"github.com/monstercameron/GoWebComponents/v6/internal/gwcattrs"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/gwcattrs"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // SSRSpanName is the name of the server span started around an SSR request.

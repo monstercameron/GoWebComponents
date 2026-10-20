@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	render "github.com/monstercameron/GoWebComponents/v6/test/render"
-	base "github.com/monstercameron/GoWebComponents/v6/testkit/render"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	render "github.com/monstercameron/GoWebComponents/v7/test/render"
+	base "github.com/monstercameron/GoWebComponents/v7/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func parityCounterApp() ui.Node {

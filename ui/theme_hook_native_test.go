@@ -5,7 +5,7 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // TestSetAndCurrentThemeRoundTrip proves the non-hook theme accessors read and

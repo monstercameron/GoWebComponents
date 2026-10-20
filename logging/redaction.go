@@ -3,7 +3,7 @@ package logging
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/telemetryredaction"
+	"github.com/monstercameron/GoWebComponents/v7/internal/telemetryredaction"
 )
 
 const redactedInteractionValue = telemetryredaction.RedactedValue

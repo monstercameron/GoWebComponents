@@ -5,7 +5,7 @@ import (
 	"maps"
 	"math"
 
-	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v7/state"
 )
 
 const defaultRegistryAtomID = "gwc:flags:registry"

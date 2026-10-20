@@ -13,8 +13,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/gwcattrs"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/gwcattrs"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // Metric instrument names, exactly as exported.

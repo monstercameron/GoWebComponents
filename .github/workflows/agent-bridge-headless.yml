@@ -61,7 +61,7 @@ jobs:
         run: go run github.com/mxschmitt/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
 
       - name: Run native agent bridge lane
-        run: go run ./tools/gwc test -lane agent -json
+        run: go -C tools run ./gwc test -lane agent -json
 
       - name: Prebuild agent dogfood client
         run: |
@@ -84,4 +84,4 @@ jobs:
           done &
           keepalive_pid="$!"
           trap 'kill "$keepalive_pid" 2>/dev/null || true' EXIT
-          go test -tags playwrightgo -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout=5m -v ./test/playwrightgo/examples
+          go -C test/playwrightgo test -tags playwrightgo -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout=5m -v ./examples

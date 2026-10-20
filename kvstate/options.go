@@ -5,7 +5,7 @@ import (
 	"hash/fnv"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v7/db/sqlite"
 )
 
 // Durability selects the db/sqlite persistence backend. Its zero value

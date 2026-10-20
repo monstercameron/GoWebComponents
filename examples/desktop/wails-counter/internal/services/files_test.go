@@ -2,8 +2,8 @@ package services
 
 import (
 	"context"
-	"github.com/monstercameron/GoWebComponents/v6/desktop"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 	"testing"
 )
 

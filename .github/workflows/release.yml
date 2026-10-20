@@ -60,7 +60,7 @@ jobs:
         # wasm builds), so run it explicitly on the release path — provenance attestation is only
         # meaningful if builds are actually reproducible. Not -short, scoped to the one package.
         run: |
-          go test -run TestReproducibleWasmBuild -count=1 ./tools/reprobuild
+          go -C tools test -run TestReproducibleWasmBuild -count=1 ./reprobuild
         shell: pwsh
 
       - name: Vulnerability Scan (govulncheck)
@@ -76,7 +76,7 @@ jobs:
         # Emits a dependency SBOM whose component list is derived from the
         # resolved module graph (go list -m -json all), attachable to the release.
         run: |
-          go run ./tools/sbom/cmd/sbom bin/sbom.cyclonedx.json
+          go -C tools run ./sbom/cmd/sbom ../bin/sbom.cyclonedx.json
         shell: pwsh
 
       - name: Upload CycloneDX SBOM
@@ -91,22 +91,22 @@ jobs:
         # blocking release gate so tags do not ship with generated notes only.
         run: |
           $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ github.event.inputs.release_tag }}" } else { $env:GITHUB_REF_NAME }
-          go run ./tools/changelogcheck/cmd/changelogcheck CHANGELOG.md $tag
+          go -C tools run ./changelogcheck/cmd/changelogcheck ../CHANGELOG.md $tag
         shell: pwsh
 
       - name: Run Golden-Path Verify Audit
         run: |
-          go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter -skip-tests -audit -audit-min-severity error
+          go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter -skip-tests -audit -audit-min-severity error
         shell: pwsh
 
       - name: Run Browser Smoke Suite (Playwright-Go)
         run: |
-          go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v
+          go -C test/playwrightgo test -tags playwrightgo . -run TestMainSuite -v
         shell: pwsh
 
       - name: Run Browser Benchmark Suite (Playwright-Go)
         run: |
-          go test -tags playwrightgo ./test/playwrightgo -run TestBenchmark -v
+          go -C test/playwrightgo test -tags playwrightgo . -run TestBenchmark -v
         shell: pwsh
 
       - name: Run Canonical Go Get Smoke (Release Guard)
@@ -129,16 +129,16 @@ jobs:
             # Manual releases have no tag yet, so validate the checked-out candidate.
             $main = @(
               'package main',
-              'import "github.com/monstercameron/GoWebComponents/v6/ui"',
+              'import "github.com/monstercameron/GoWebComponents/v7/ui"',
               'var _ = ui.Text("release-smoke")',
               'func main() {}'
             ) -join "`n"
             Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
             if ($env:RELEASE_EVENT -eq 'workflow_dispatch') {
-              go mod edit "-require=github.com/monstercameron/GoWebComponents/v6@$($env:RELEASE_TAG)" "-replace=github.com/monstercameron/GoWebComponents/v6=$parseCandidateRoot"
+              go mod edit "-require=github.com/monstercameron/GoWebComponents/v7@$($env:RELEASE_TAG)" "-replace=github.com/monstercameron/GoWebComponents/v7=$parseCandidateRoot"
               if ($LASTEXITCODE -ne 0) { throw 'Configure candidate consumer failed' }
             } else {
-              go get "github.com/monstercameron/GoWebComponents/v6@$($env:RELEASE_TAG)"
+              go get "github.com/monstercameron/GoWebComponents/v7@$($env:RELEASE_TAG)"
               if ($LASTEXITCODE -ne 0) { throw 'Fetch exact release candidate failed' }
             }
             # Populate go.sum for the full transitive closure so the consumer build resolves every
@@ -246,7 +246,7 @@ jobs:
             out="gwc_${release_tag}_${os}_${arch}"
             ext=""; [ "$os" = "windows" ] && ext=".exe"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-              go build -trimpath -ldflags "-s -w" -o "dist/${out}${ext}" ./tools/gwc
+              go -C tools build -trimpath -ldflags "-s -w" -o "../dist/${out}${ext}" ./gwc
           done
           ( cd dist && sha256sum gwc_* > SHA256SUMS )
           ls -l dist

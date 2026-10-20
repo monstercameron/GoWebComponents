@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 // Suspension describes render-time async work that should be retried after Done closes.

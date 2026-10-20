@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v6/desktop"
+	"github.com/monstercameron/GoWebComponents/v7/desktop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 

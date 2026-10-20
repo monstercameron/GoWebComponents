@@ -38,10 +38,10 @@ jobs:
           go-version: "1.27.x"
 
       - name: Build gwc
-        run: go build -o gwc ./tools/gwc
+        run: go -C tools build -o ../gwc ./gwc
 
       - name: Doctor + check fixer unit tests (cross-OS)
-        run: go test ./tools/gwc/ -run "Doctor|ScaffoldMetadata|CheckFix|ServerLeak|Vuln" -count=1
+        run: go -C tools/gwc test ./.../ -run "Doctor|ScaffoldMetadata|CheckFix|ServerLeak|Vuln" -count=1
 
       - name: gwc doctor smoke (self-repo)
-        run: go run ./tools/gwc doctor -json
+        run: go -C tools run ./gwc doctor -json

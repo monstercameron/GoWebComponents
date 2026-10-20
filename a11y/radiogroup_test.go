@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/a11y"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/a11y"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func renderRadioGroup(t *testing.T, parseProps a11y.RadioGroupProps) string {

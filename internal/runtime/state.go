@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 // AtomRegistry manages global state atoms with fine-grained reactivity.

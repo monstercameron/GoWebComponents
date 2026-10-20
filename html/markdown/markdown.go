@@ -2,7 +2,7 @@
 // html.RenderMarkdown. It is a separate package so apps that never render markdown
 // do not pay for goldmark, regexp and the unicode tables it drags in. Import it once:
 //
-//	import _ "github.com/monstercameron/GoWebComponents/v6/html/markdown"
+//	import _ "github.com/monstercameron/GoWebComponents/v7/html/markdown"
 //
 // or call [Enable] for readers who dislike blank imports.
 package markdown
@@ -10,8 +10,8 @@ package markdown
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"

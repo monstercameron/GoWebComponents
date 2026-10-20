@@ -56,7 +56,7 @@ and uses a local replacement rather than assuming root replacements propagate.
 Build command from the repository root:
 
 ```text
-go run ./tools/gwc build -app .\examples\public\counter\main.go \
+go -C tools run ./gwc build -app .\examples\public\counter\main.go \
   -root .\examples\public\counter -json
 ```
 
@@ -70,7 +70,7 @@ Wasm build in `861.8094ms` (raw artifact 6.34 MB, gzip transfer 2.07 MB).
 Browser behavior was exercised with the repository's Playwright-Go tests:
 
 ```text
-go run ./tools/gwc test -lane browser -json
+go -C tools run ./gwc test -lane browser -json
 ```
 
 Result: pass, `TestMainSuite` in 20.614s (components, integration, and state

@@ -1,16 +1,19 @@
-module livereload
+module github.com/monstercameron/GoWebComponents/v7/tools/livereload
 
 go 1.27.0
 
-replace agenthub => ../agenthub
+replace github.com/monstercameron/GoWebComponents/v7/tools/agenthub => ../agenthub
 
-replace github.com/monstercameron/GoWebComponents/v6 => ../..
+replace github.com/monstercameron/GoWebComponents/v7/tools => ..
+
+replace github.com/monstercameron/GoWebComponents/v7 => ../..
 
 require (
-	agenthub v0.0.0
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/monstercameron/GoWebComponents/v6 v6.0.0
+	github.com/monstercameron/GoWebComponents/v7 v7.0.0
+	github.com/monstercameron/GoWebComponents/v7/tools v0.0.0
+	github.com/monstercameron/GoWebComponents/v7/tools/agenthub v0.0.0
 )
 
 require (

@@ -13,7 +13,7 @@ package u
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v7/css"
 )
 
 // --- display & layout (static utilities) --------------------------------------

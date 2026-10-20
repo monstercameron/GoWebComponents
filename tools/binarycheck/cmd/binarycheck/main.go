@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/tools/binarycheck"
+	"github.com/monstercameron/GoWebComponents/v7/tools/binarycheck"
 )
 
 // main lists tracked files from git and reports any disallowed binaries.

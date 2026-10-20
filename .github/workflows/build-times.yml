@@ -33,7 +33,7 @@ jobs:
           go-version: "1.27.x"
 
       - name: Build gwc
-        run: go build -o gwc ./tools/gwc
+        run: go -C tools build -o ../gwc ./gwc
 
       - name: Cold/warm WASM build-time gate
         # Cold wasm build (CI cache is empty) then an immediate warm rebuild of the counter app;

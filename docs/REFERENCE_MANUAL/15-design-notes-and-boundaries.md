@@ -126,8 +126,8 @@ When you choose to use an experimental API, keep it behind one app-owned wrapper
 package search
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type searchModel struct {
@@ -192,7 +192,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 type routeRecord struct {
@@ -452,13 +452,13 @@ Release discipline also requires:
 Use the smallest commands that prove the boundary you changed or are relying on:
 
 - scheduling and deferred-value examples:
-  `go run ./tools/gwc serve -root .\\examples\\27-transition-hooks -port 8027`
+  `go -C tools run ./gwc serve -root .\\examples\\27-transition-hooks -port 8027`
 - lagging derived-value behavior:
-  `go run ./tools/gwc serve -root .\\examples\\26-use-deferred-value -port 8026`
+  `go -C tools run ./gwc serve -root .\\examples\\26-use-deferred-value -port 8026`
 - route, SSR, and deployment contract verification in a production-shaped app:
-  `go run ./tools/gwc verify -app .\\examples\\86-atlas-commerce-os\\client\\main.go -root .\\examples\\86-atlas-commerce-os`
+  `go -C tools run ./gwc verify -app .\\examples\\86-atlas-commerce-os\\client\\main.go -root .\\examples\\86-atlas-commerce-os`
 - migration and behavior-sensitive release lane:
-  `go run ./tools/gwc test -lane unit -lane wasm -lane hydration`
+  `go -C tools run ./gwc test -lane unit -lane wasm -lane hydration`
 
 When a change affects stability tier, deprecation status, or extension ownership, update the owning docs in the same change instead of leaving the policy only in code comments or PR discussion.
 

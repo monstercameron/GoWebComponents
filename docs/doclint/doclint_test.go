@@ -100,9 +100,9 @@ func TestGuardCatchesPlantedBreakage(t *testing.T) {
 	mustWrite(t, filepath.Join(root, "examples", "public", "counter", "main.go"), "package main\n")
 
 	dead := "# Doc\n\n```powershell\n" +
-		"go run ./tools/gwc dev -app .\\examples\\public\\counter\\main.go\n" + // live
-		"go run ./tools/gwc dev -app .\\examples\\01-counter\\main.go\n" + // dead
-		"go run ./tools/gwc build -app .\\main.go -out .\\bin\\x.wasm\n" + // placeholder + output, both skipped
+		"go -C tools run ./gwc dev -app .\\examples\\public\\counter\\main.go\n" + // live
+		"go -C tools run ./gwc dev -app .\\examples\\01-counter\\main.go\n" + // dead
+		"go -C tools run ./gwc build -app .\\main.go -out .\\bin\\x.wasm\n" + // placeholder + output, both skipped
 		"```\n"
 	mustWrite(t, filepath.Join(root, "README.md"), dead)
 
@@ -134,7 +134,7 @@ func TestSnapshotDocsAreExempt(t *testing.T) {
 	snapDir := filepath.Join(root, filepath.FromSlash(snapshotDocDir))
 	mustMkdir(t, snapDir)
 	mustWrite(t, filepath.Join(snapDir, "history.md"),
-		"```powershell\ngo run ./tools/gwc dev -app .\\examples\\01-counter\\main.go\n```\n")
+		"```powershell\ngo -C tools run ./gwc dev -app .\\examples\\01-counter\\main.go\n```\n")
 
 	refs, err := ScanRepo(root)
 	if err != nil {

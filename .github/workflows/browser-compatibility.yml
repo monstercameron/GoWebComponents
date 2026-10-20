@@ -27,4 +27,4 @@ jobs:
 
       - name: Run Browser Compatibility Smoke (Playwright-Go)
         run: |
-          go test -tags playwrightgo ./test/playwrightgo/examples -run TestBrowserCompat -v
+          go -C test/playwrightgo test -tags playwrightgo ./examples -run TestBrowserCompat -v

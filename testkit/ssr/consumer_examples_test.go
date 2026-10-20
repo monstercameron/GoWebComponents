@@ -3,9 +3,9 @@ package ssr_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/testkit/ssr"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/testkit/ssr"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func TestConsumerSSRPattern_SnapshotAndPayload(parseT *testing.T) {

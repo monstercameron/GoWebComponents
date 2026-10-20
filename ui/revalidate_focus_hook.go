@@ -3,7 +3,7 @@ package ui
 import (
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/query"
+	"github.com/monstercameron/GoWebComponents/v7/query"
 )
 
 // queryRevalidators holds, per cache, the refetch callbacks of every mounted UseQuery. Marking

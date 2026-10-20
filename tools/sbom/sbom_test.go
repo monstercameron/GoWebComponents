@@ -12,7 +12,7 @@ func repoRoot(parseT *testing.T) string {
 	parseT.Helper()
 	parseDir, _ := os.Getwd()
 	for range 8 {
-		if _, parseErr := os.Stat(filepath.Join(parseDir, "go.mod")); parseErr == nil {
+		if parseModuleRaw, parseReadErr := os.ReadFile(filepath.Join(parseDir, "go.mod")); parseReadErr == nil && strings.Contains(string(parseModuleRaw), "module github.com/monstercameron/GoWebComponents/v7\n") {
 			return parseDir
 		}
 		parseDir = filepath.Dir(parseDir)

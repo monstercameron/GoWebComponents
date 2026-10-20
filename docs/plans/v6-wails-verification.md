@@ -68,8 +68,8 @@ root Wails dependency, upstream submodule edits, commits or pushes were made.
 | `go vet ./...` | Exit 0. |
 | `GOOS=js GOARCH=wasm CGO_ENABLED=0 go vet ./frontend` (process-only PowerShell env) | Exit 0. |
 | `GOOS=js GOARCH=wasm CGO_ENABLED=0 go test ./contracts` | Exit 0, no contract test files; compilation only, not Wasm test execution. |
-| Repository-root `go run ./tools/gwc verify -app ./examples/desktop/wails-counter/frontend/main.go -root ./examples/desktop/wails-counter -json` | Exit 0: isolated native tests plus CI-profile frontend Wasm build, 7,167,689 bytes. |
-| Repository-root `go run ./tools/gwc lint -root ./examples/desktop/wails-counter -path ./internal/services -path ./tools/build -path ./cmd/desktop -timeout 60s -json` | Equivalent prebuilt gwc executable invocation passed, zero issues; golangci-lint 1.64.8 and hook rules enabled. |
+| Repository-root `go -C tools run ./gwc verify -app ./examples/desktop/wails-counter/frontend/main.go -root ./examples/desktop/wails-counter -json` | Exit 0: isolated native tests plus CI-profile frontend Wasm build, 7,167,689 bytes. |
+| Repository-root `go -C tools run ./gwc lint -root ./examples/desktop/wails-counter -path ./internal/services -path ./tools/build -path ./cmd/desktop -timeout 60s -json` | Equivalent prebuilt gwc executable invocation passed, zero issues; golangci-lint 1.64.8 and hook rules enabled. |
 | `GOOS=js GOARCH=wasm CGO_ENABLED=0 golangci-lint run --timeout 60s ./frontend` | Exit 0, direct installed linter used because gwc lint forces native env. |
 | `bin/wails-counter.exe --smoke-test` | Repeated actual hidden WebView2 launches exit 0. Button-driven Go local increment, typed native increment, native rejection text, native event/render, three route unmount/remount cycles and CSP checked. |
 | `bin/wails-counter.exe --smoke-test --smoke-fault streaming` | Exit 0, same checks plus deliberately forced buffered Wasm instantiation. |
@@ -77,7 +77,7 @@ root Wails dependency, upstream submodule edits, commits or pushes were made.
 | `bin/wails-counter.exe --smoke-test --smoke-fault missing-wasm` | Expected exit 1: Wasm fetch failed (404); same visible error/readiness evidence. |
 | wasm_exec.js SHA-256 comparison | Packaged and active toolchain files both `0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14`. |
 | Repository-root browser counter build with normal gwc build flags | Exit 0; 6,647,102 bytes; SHA-256 unchanged at `7b312e1724b217a72d75617f844567a26bb086333f3288083330d9b4d4acb627`. |
-| Repository-root `go run ./tools/gwc test -lane browser -json` | Exit 0; cached TestMainSuite result retained as cached evidence. |
+| Repository-root `go -C tools run ./gwc test -lane browser -json` | Exit 0; cached TestMainSuite result retained as cached evidence. |
 | Repository-root `go test -tags playwrightgo ./test/playwrightgo/examples -run '^TestCrossBrowserConformance$/(chromium\|firefox\|webkit)/rendering_state/counter$' -count=1 -v` | Fresh exit 0, counter cases Chromium 0.79s, Firefox 1.74s, WebKit 0.74s. Full unrelated matrix was not rerun. |
 | Root module / upstream checks | `git diff -- go.mod go.sum` empty; Wails submodule working tree clean. |
 

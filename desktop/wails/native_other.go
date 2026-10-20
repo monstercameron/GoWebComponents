@@ -2,7 +2,7 @@
 
 package wails
 
-import "github.com/monstercameron/GoWebComponents/v6/desktop"
+import "github.com/monstercameron/GoWebComponents/v7/desktop"
 
 // NewNativeBackend returns no backend on unverified platforms.
 func NewNativeBackend() desktop.NativeBackend { return nil }

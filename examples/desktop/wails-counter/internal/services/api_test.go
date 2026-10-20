@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"example.com/gwc-wails-counter/contracts"
-	"github.com/monstercameron/GoWebComponents/v6/desktop"
+	"github.com/monstercameron/GoWebComponents/v7/desktop"
 )
 
 // TestAPIServiceFixtureAndActionValidation verifies fixture files and action bounds.

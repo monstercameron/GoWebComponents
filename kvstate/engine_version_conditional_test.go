@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v7/db/sqlite"
 )
 
 // TestSqliteBackendSaveIsVersionConditional pins that the sqlite backend's Save

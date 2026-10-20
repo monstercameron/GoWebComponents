@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // MarkdownClasses configures optional class names applied to rendered markdown nodes.
@@ -222,7 +222,7 @@ func renderMarkdownConfig(parseMarkdown string, parseConfig MarkdownRenderOption
 	}
 	markdownMissingOnce.Do(func() {
 		runtime.ReportDiagnostic("html", runtime.DiagnosticWarning, errcode.New(errcode.UIMarkdownEngineMissing,
-			"html.Markdown has no engine; import _ \"github.com/monstercameron/GoWebComponents/v6/html/markdown\"").Error())
+			"html.Markdown has no engine; import _ \"github.com/monstercameron/GoWebComponents/v7/html/markdown\"").Error())
 	})
 	// Escaped text node only: the unregistered path must never interpret markup.
 	return []ui.Node{Div(Props{Data: map[string]string{"gwc-markdown-unavailable": ""}}, Text(parseMarkdown))}

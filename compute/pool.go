@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/services"
+	"github.com/monstercameron/GoWebComponents/v7/internal/services"
 )
 
 // WorkerID identifies one pool worker.

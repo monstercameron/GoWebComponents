@@ -5,7 +5,7 @@ package routertest
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v7/testkit/render"
 )
 
 func TestNativeRouterFixtureStubMethods(parseT *testing.T) {

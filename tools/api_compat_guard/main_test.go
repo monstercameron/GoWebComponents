@@ -523,7 +523,7 @@ func findRepoRoot() (string, error) {
 	}
 
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		if moduleRaw, readErr := os.ReadFile(filepath.Join(dir, "go.mod")); readErr == nil && strings.Contains(string(moduleRaw), "module github.com/monstercameron/GoWebComponents/v7\n") {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)

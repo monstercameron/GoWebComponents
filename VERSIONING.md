@@ -12,7 +12,7 @@ commits the actual rules so a release's number is predictable, not a judgment ca
 | **Minor** (`x.Y.0`) | A backward-compatible **addition**. | New exported function/type/method; a new package; a new optional field with a zero-value default. |
 | **Patch** (`x.y.Z`) | A backward-compatible **fix** with no API change. | Bug fixes, performance, docs, internal refactors, new tests. |
 
-The module is currently **`github.com/monstercameron/GoWebComponents/v6`**. v6.0.0
+The module is currently **`github.com/monstercameron/GoWebComponents/v7`**. v6.0.0
 introduces the Windows-first desktop integration and an explicit major-version
 import migration. Update `/v5` imports and requirements to `/v6` as documented
 in the changelog.

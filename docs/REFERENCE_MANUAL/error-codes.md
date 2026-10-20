@@ -651,7 +651,7 @@ html.Markdown was called but no markdown engine is registered
 - **Family:** ui
 - **Severity:** warning
 - **Docs:** `docs/REFERENCE_MANUAL/error-codes.md#gwc-ui-markdown-engine-missing`
-- **next:** Import the engine once in your app: import _ "github.com/monstercameron/GoWebComponents/v6/html/markdown" (or call markdown.Enable()). Until then the source renders as escaped plain text inside a div with data-gwc-markdown-unavailable.
+- **next:** Import the engine once in your app: import _ "github.com/monstercameron/GoWebComponents/v7/html/markdown" (or call markdown.Enable()). Until then the source renders as escaped plain text inside a div with data-gwc-markdown-unavailable.
 
 ## GWC-UI-SSR-BOOTSTRAP-VERSION
 

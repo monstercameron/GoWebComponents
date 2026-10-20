@@ -22,5 +22,5 @@ jobs:
 
       - name: Fail on tracked binaries
         run: |
-          go test ./tools/binarycheck/...
-          go run ./tools/binarycheck/cmd/binarycheck
+          go -C tools test ./binarycheck/...
+          go -C tools run ./binarycheck/cmd/binarycheck

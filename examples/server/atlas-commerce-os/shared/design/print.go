@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v6/css"
+import "github.com/monstercameron/GoWebComponents/v7/css"
 
 // PRINT — the most on-brand thing in this package, and it was missing.
 //

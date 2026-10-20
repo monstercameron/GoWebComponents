@@ -3,7 +3,7 @@ package design
 import (
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v7/css"
 )
 
 // This file is the global layer: the only place the design system emits rules that

@@ -1,6 +1,6 @@
 package html
 
-import "github.com/monstercameron/GoWebComponents/v6/ui"
+import "github.com/monstercameron/GoWebComponents/v7/ui"
 
 // denyAllMarkdownSchemes is an allowlist no real URL scheme can match; it makes an
 // explicit empty WithURLSchemes list reject every schemed destination.

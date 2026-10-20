@@ -5,7 +5,7 @@ package interop
 import (
 	"context"
 	"errors"
-	"github.com/monstercameron/GoWebComponents/v6/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 	"sort"
 	"strings"
 	"syscall/js"

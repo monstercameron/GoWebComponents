@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/prerender"
+	"github.com/monstercameron/GoWebComponents/v7/prerender"
 )
 
 var runPrerenderCommand = func(l launcher, args []string) error {

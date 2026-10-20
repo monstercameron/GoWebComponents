@@ -304,7 +304,7 @@ func validateStartTerminal(isStdinIsTerminal bool, isStdoutIsTerminal bool) erro
 	if isStdinIsTerminal && isStdoutIsTerminal {
 		return nil
 	}
-	return errors.New("start requires an interactive terminal with TUI support; run `go run ./tools/gwc start` from a normal shell session")
+	return errors.New("start requires an interactive terminal with TUI support; run `go -C tools run ./gwc start` from a normal shell session")
 }
 
 func isInteractiveFile(parseFile *os.File) bool {

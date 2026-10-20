@@ -3,7 +3,7 @@ package hotreload_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/hotreload"
+	"github.com/monstercameron/GoWebComponents/v7/hotreload"
 )
 
 // TestSchemaChangedDistinguishesKeysThatEmbedSeparators verifies a key that

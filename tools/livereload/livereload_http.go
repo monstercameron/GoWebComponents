@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"agenthub"
+	"github.com/monstercameron/GoWebComponents/v7/tools/agenthub"
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v7/diagnostics"
 )
 
 func (parseLrs *LiveReloadServer) newHTTPHandler() http.Handler {

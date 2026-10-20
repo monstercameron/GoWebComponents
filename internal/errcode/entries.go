@@ -403,7 +403,7 @@ var registryEntries = []Entry{
 		Code:        UIMarkdownEngineMissing,
 		Family:      FamilyUI,
 		Headline:    "html.Markdown was called but no markdown engine is registered",
-		Remediation: "Import the engine once in your app: import _ \"github.com/monstercameron/GoWebComponents/v6/html/markdown\" (or call markdown.Enable()). Until then the source renders as escaped plain text inside a div with data-gwc-markdown-unavailable.",
+		Remediation: "Import the engine once in your app: import _ \"github.com/monstercameron/GoWebComponents/v7/html/markdown\" (or call markdown.Enable()). Until then the source renders as escaped plain text inside a div with data-gwc-markdown-unavailable.",
 		Severity:    SeverityWarning,
 	},
 	{

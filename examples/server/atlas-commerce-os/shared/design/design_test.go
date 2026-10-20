@@ -17,9 +17,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // reset gives each test a clean process-wide registry and sink.

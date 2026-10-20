@@ -27,7 +27,7 @@ jobs:
           go-version: "1.27.x"
 
       - name: Build gwc
-        run: go build -o gwc ./tools/gwc
+        run: go -C tools build -o ../gwc ./gwc
 
       - name: Supply-chain audit (zero-npm + dependency budget + checksums)
         # Hard gate: a new npm artifact or a dependency-budget breach fails the build.
@@ -81,7 +81,7 @@ jobs:
         with:
           go-version: "1.27.x"
       - name: Build gwc
-        run: go build -o gwc ./tools/gwc
+        run: go -C tools build -o ../gwc ./gwc
       - name: Routes codegen up to date
         run: ./gwc routes check -pkg examples/public/typed-routes-demo
       - name: CSS token codegen up to date

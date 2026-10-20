@@ -65,7 +65,7 @@ jobs:
           go test -exec "$PWD/tools/go_js_wasm_exec.bat" ./desktop
           exit $LASTEXITCODE
       - name: Desktop prerequisites (missing runtime is a failure, not a pass)
-        run: go run ./tools/gwc desktop doctor -root ./examples/desktop/wails-counter -json
+        run: go -C tools run ./gwc desktop doctor -root ../examples/desktop/wails-counter -json
       - name: Native example tests and embedded build
         working-directory: examples/desktop/wails-counter
         run: |
@@ -88,7 +88,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($parseDependencies -match 'github.com/wailsapp/') { throw 'Wails leaked into portable SDK' }
       - name: Real Chromium web artifact regression
-        run: go test -tags playwrightgo ./test/playwrightgo -run '^TestDesktopLabWebE2E$' -count=1
+        run: go -C test/playwrightgo test -tags playwrightgo . -run '^TestDesktopLabWebE2E$' -count=1
       - name: Actual WebView smoke and startup failures
         working-directory: examples/desktop/wails-counter
         run: |
@@ -104,11 +104,11 @@ jobs:
           }
       - name: Fresh CLI scaffold and unsigned package
         run: |
-          go run ./tools/gwc desktop init -root ./bin/desktop-ci -json
+          go -C tools run ./gwc desktop init -root ./bin/desktop-ci -json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          go run ./tools/gwc desktop doctor -root ./bin/desktop-ci -json
+          go -C tools run ./gwc desktop doctor -root ./bin/desktop-ci -json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          go run ./tools/gwc desktop package -root ./bin/desktop-ci -json
+          go -C tools run ./gwc desktop package -root ./bin/desktop-ci -json
           exit $LASTEXITCODE
       # macOS/Linux native hosts are deliberately not claimed by this Windows template.
       # Add native-engine jobs only alongside working platform build/packaging targets.
