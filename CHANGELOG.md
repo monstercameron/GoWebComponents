@@ -160,6 +160,13 @@ not.
   server script test creates a local wasm fixture. The release workflow's
   counter `gwc verify -audit` command passed with the corrected tools-relative
   path. Nested-module and browser release lanes are still being checked.
+- Nested v7 module checks now pass for OTel integration tests, example tests,
+  the tool agent hub, and the Windows desktop adapter and counter; the site
+  builds for js/wasm. The v5 two-artifact size test uses `nojsonv2`, matching
+  `gwc`'s wasm CI profile, and passes at 1,617,303 B gzipped against its
+  1,800,000 B ratchet. The AI chat wizard rejects parent traversal in asset
+  paths; its `server/app` test suite passes. Release CI now checks the split
+  modules and recognizes RC tags. Full tools and browser lanes remain open.
 
 #### Fixed
 
