@@ -38,7 +38,8 @@ func buildWasm(parseT *testing.T, parsePackage string) (int64, int64) {
 
 	parseOutput := filepath.Join(parseT.TempDir(), "out.wasm")
 	parseCommand := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", parseOutput, parsePackage)
-	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm")
+	// Keep the size ratchet on the same wasm experiment profile as gwc's CI build.
+	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm", "GOEXPERIMENT=nojsonv2")
 	if parseCombined, parseErr := parseCommand.CombinedOutput(); parseErr != nil {
 		parseT.Fatalf("building %s:\n%s", parsePackage, parseCombined)
 	}
@@ -89,7 +90,7 @@ func buildAndRead(parseT *testing.T, parsePackage string) []byte {
 	}
 	parseOutput := filepath.Join(parseT.TempDir(), "out.wasm")
 	parseCommand := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", parseOutput, parsePackage)
-	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm")
+	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm", "GOEXPERIMENT=nojsonv2")
 	if parseCombined, parseErr := parseCommand.CombinedOutput(); parseErr != nil {
 		parseT.Fatalf("building %s: %s", parsePackage, parseCombined)
 	}
