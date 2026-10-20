@@ -2562,7 +2562,7 @@ func TestRunDevExecutesForwardedCommandAndSurfacesFailure(parseT *testing.T) {
 		parseT.Fatalf("read forwarded args: %v", parseErr8)
 	}
 	parseArgsText := string(parseArgsBytes)
-	for _, parseExpected := range []string{"run tools/livereload/client_script.go tools/livereload/livereload.go tools/livereload/livereload_http.go tools/livereload/livereload_paths.go tools/livereload/livereload_support.go", "-app " + parseAppPath, "-root " + parseAppDir, "-html " + parseHtmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot=false", "-client-script custom-client.js"} {
+	for _, parseExpected := range []string{"-C tools/livereload run .", "-app " + parseAppPath, "-root " + parseAppDir, "-html " + parseHtmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot=false", "-client-script custom-client.js"} {
 		if !strings.Contains(parseArgsText, parseExpected) {
 			parseT.Fatalf("expected forwarded args to contain %q, got %q", parseExpected, parseArgsText)
 		}
@@ -3166,7 +3166,7 @@ func TestGeneratedScaffoldServesOverDevServer(parseT *testing.T) {
 
 	parseCtx, parseCancel := context.WithCancel(context.Background())
 	parseT.Cleanup(parseCancel)
-	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"run", "./tools/gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
+	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"-C", "tools", "run", "./gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
 	parseCmd.Dir = parseRepoRoot
 	var parseOutput bytes.Buffer
 	parseCmd.Stdout = &parseOutput
@@ -3351,7 +3351,7 @@ func ensureScaffoldUsesLocalRepoModule(parseT *testing.T, parseRepoRoot string, 
 		parseT.Fatalf("read scaffold go.mod: %v", parseErr)
 	}
 	parseGoModText := strings.TrimSpace(string(parseGoModBytes)) + "\n\n" +
-		"require " + parseModulePath + " v6.0.0\n\n" +
+		"require " + parseModulePath + " " + scaffoldModuleMajorSuffix(parseModulePath) + ".0.0\n\n" +
 		"replace " + parseModulePath + " => " + filepath.ToSlash(parseRepoRoot) + "\n"
 	if parseErr2 := os.WriteFile(parseGoModPath, []byte(parseGoModText), 0644); parseErr2 != nil {
 		parseT.Fatalf("write scaffold go.mod: %v", parseErr2)

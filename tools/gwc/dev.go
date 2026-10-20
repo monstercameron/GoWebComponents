@@ -287,16 +287,16 @@ func formatEnvironmentDiagnosis(parseReport doctorReport) (parseSummary string, 
 	return parseBuilder.String(), true
 }
 
-// buildLivereloadRunArgs returns the repo-root go run argument list for the
-// nested livereload module, including every non-test source file it needs.
+// buildLivereloadRunArgs returns the repo-root go command argument list for the
+// nested livereload module. The module split means the child must run from its
+// own module directory; listing source files from the repo root makes Go resolve
+// imports against the root module and fails to find tools-only dependencies.
 func buildLivereloadRunArgs() ([]string, error) {
 	return []string{
+		"-C",
+		"tools/livereload",
 		"run",
-		"tools/livereload/client_script.go",
-		"tools/livereload/livereload.go",
-		"tools/livereload/livereload_http.go",
-		"tools/livereload/livereload_paths.go",
-		"tools/livereload/livereload_support.go",
+		".",
 	}, nil
 }
 
