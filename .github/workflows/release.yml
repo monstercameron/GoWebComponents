@@ -96,7 +96,7 @@ jobs:
 
       - name: Run Golden-Path Verify Audit
         run: |
-          go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter -skip-tests -audit -audit-min-severity error
+          go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter -skip-tests -audit -audit-min-severity error
         shell: pwsh
 
       - name: Run Browser Smoke Suite (Playwright-Go)
