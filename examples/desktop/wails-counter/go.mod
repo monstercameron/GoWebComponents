@@ -1,9 +1,9 @@
 module example.com/gwc-wails-counter
 
-go 1.26.0
+go 1.27.0
 
 require (
-	github.com/monstercameron/GoWebComponents/v7 v6.1.0
+	github.com/monstercameron/GoWebComponents/v7 v7.0.0
 	github.com/monstercameron/GoWebComponents/v7/desktop/wails v0.0.0
 	github.com/wailsapp/wails/v3 v3.0.0-beta.17
 	golang.org/x/sys v0.46.0

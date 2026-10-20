@@ -3,7 +3,7 @@ module github.com/monstercameron/GoWebComponents/v7/desktop/wails
 go 1.27.0
 
 require (
-	github.com/monstercameron/GoWebComponents/v7 v6.1.0
+	github.com/monstercameron/GoWebComponents/v7 v7.0.0
 	github.com/wailsapp/wails/v3 v3.0.0-beta.17
 )
 
