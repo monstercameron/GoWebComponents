@@ -165,8 +165,10 @@ not.
   builds for js/wasm. The v5 two-artifact size test uses `nojsonv2`, matching
   `gwc`'s wasm CI profile, and passes at 1,617,303 B gzipped against its
   1,800,000 B ratchet. The AI chat wizard rejects parent traversal in asset
-  paths; its `server/app` test suite passes. Release CI now checks the split
-  modules and recognizes RC tags. Full tools and browser lanes remain open.
+  paths; its `server/app` test suite passes. The full tools module suite now
+  passes after updating Windows root discovery and split-module fixtures.
+  Release CI checks the split modules and recognizes RC tags. Browser lanes
+  remain open.
 
 #### Fixed
 
