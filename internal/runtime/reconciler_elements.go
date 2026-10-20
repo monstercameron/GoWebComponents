@@ -128,7 +128,7 @@ const hostAttrSlabSize = 512
 // A fresh backing array is used whenever a slab fills; no slot is ever reused,
 // so retaining a Node remains safe.
 func acquireRenderHostElement() *Element {
-	parseFiber := GetCurrentFiber()
+	parseFiber := activeSlabFiber()
 	if parseFiber == nil {
 		return new(Element)
 	}
@@ -146,7 +146,7 @@ func acquireRenderHostElement() *Element {
 }
 
 func acquireRenderComponentProps(parseValue any) *componentPropsBox {
-	parseFiber := GetCurrentFiber()
+	parseFiber := activeSlabFiber()
 	if parseFiber == nil {
 		return &componentPropsBox{value: parseValue}
 	}
@@ -173,7 +173,7 @@ func AcquireRenderHostAttrs(parseCapacity int) []HostAttr {
 	if parseCapacity <= 0 {
 		return nil
 	}
-	parseFiber := GetCurrentFiber()
+	parseFiber := activeSlabFiber()
 	if parseFiber == nil {
 		return make([]HostAttr, 0, parseCapacity)
 	}

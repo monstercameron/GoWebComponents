@@ -79,3 +79,23 @@ func TestSSRHookFiberRestoresNestedAndPanickingScopes(parseT *testing.T) {
 		parseT.Error("top-level fiber not removed")
 	}
 }
+
+// TestSSRSlabLookupSkipsHookOwner verifies that host construction during SSR
+// cannot consult the goroutine-indexed hook map just to reject client slabs.
+func TestSSRSlabLookupSkipsHookOwner(parseT *testing.T) {
+	parsePrevious := currentFiber
+	parseClient := &Fiber{}
+	currentFiber = parseClient
+	defer func() { currentFiber = parsePrevious }()
+	if activeSlabFiber() != parseClient {
+		parseT.Fatal("client slab fiber missing before SSR")
+	}
+	parseRestore := setSSRHookFiber(&Fiber{}, 0)
+	if activeSlabFiber() != nil {
+		parseT.Error("SSR host construction attempted to use a client slab")
+	}
+	parseRestore()
+	if activeSlabFiber() != parseClient {
+		parseT.Error("client slab fiber not restored after SSR")
+	}
+}

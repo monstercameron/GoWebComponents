@@ -85,10 +85,7 @@ const ssrHookOwnerContextKey int64 = -1 << 62
 // render, stream shell, stream boundary chunk) must seed its own map; the id
 // is only valid on the call stack that computed it.
 func ssrHookOwnerContext(parseParent map[int64]any) map[int64]any {
-	if !hookThreadingGuardEnabled {
-		return parseParent
-	}
-	parseOwner := computeHookGoroutineID()
+	parseOwner := getSSRHookOwner()
 	if parseOwner == 0 {
 		return parseParent
 	}
@@ -953,6 +950,7 @@ func isSafeSSRStyleValue(parseValue string) bool {
 	}
 	return parseQuote == 0 && parseDepth == 0
 }
+
 // isVoidElement is a core package helper.
 func isVoidElement(parseTag string) bool {
 	switch strings.ToLower(parseTag) {
