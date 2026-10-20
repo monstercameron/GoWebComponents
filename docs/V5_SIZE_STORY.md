@@ -127,8 +127,8 @@ Measured on the v7/dev branch, not part of the v5 numbers above. Go 1.27 turns
 every wasm build. The counter app grows from 6,448,987 raw bytes (v6, go1.26.3) to
 7,424,798 (go1.27.1), about +976 KB raw and +248 KB gzip. Building with
 `GOEXPERIMENT=nojsonv2` brings it back to 6,514,048 raw / 1,725,225 gzip. Setting
-`nojsonv2` for wasm builds is recommended; it is not yet applied by the `gwc`
-build environment, so set it yourself for now. The experiment opt-out is
+`nojsonv2` for wasm builds is recommended; `gwc` now applies it for wasm builds,
+while direct `go build` commands must set it themselves. The experiment opt-out is
 documented as temporary, so re-check it on each Go release. Separately, `validate`
 no longer imports `regexp` and the markdown engine (goldmark) is opt-in, so
 neither is in the default wasm dependency graph.

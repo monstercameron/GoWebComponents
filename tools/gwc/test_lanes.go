@@ -861,7 +861,22 @@ func buildNativeGoEnv() []string {
 
 func buildWasmGoEnv() []string {
 	parseEnv := buildNativeGoEnv()
-	parseEnv = append(parseEnv, "GOOS=js", "GOARCH=wasm")
+	parseFilteredEnv := parseEnv[:0]
+	parseExperiments := []string{}
+	for _, parseEntry := range parseEnv {
+		if !strings.HasPrefix(parseEntry, "GOEXPERIMENT=") {
+			parseFilteredEnv = append(parseFilteredEnv, parseEntry)
+			continue
+		}
+		for _, parseExperiment := range strings.Split(strings.TrimPrefix(parseEntry, "GOEXPERIMENT="), ",") {
+			if parseExperiment != "" && parseExperiment != "jsonv2" && parseExperiment != "nojsonv2" {
+				parseExperiments = append(parseExperiments, parseExperiment)
+			}
+		}
+	}
+	// Go 1.27's default JSON v2 engine adds about 240 KB gzip to the counter wasm.
+	parseExperiments = append(parseExperiments, "nojsonv2")
+	parseEnv = append(parseFilteredEnv, "GOOS=js", "GOARCH=wasm", "GOEXPERIMENT="+strings.Join(parseExperiments, ","))
 	return parseEnv
 }
 
