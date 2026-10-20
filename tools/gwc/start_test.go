@@ -559,8 +559,8 @@ func TestStartHelperDefaultsAndUtilities(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("pipe: %v", parseErr)
 	}
-	defer parseReader.Close()
-	defer parseWriter.Close()
+	defer func() { _ = parseReader.Close() }()
+	defer func() { _ = parseWriter.Close() }()
 	if isInteractiveFile(parseReader) {
 		parseT.Fatal("expected pipe file to be non-interactive")
 	}
@@ -2562,7 +2562,7 @@ func TestRunDevExecutesForwardedCommandAndSurfacesFailure(parseT *testing.T) {
 		parseT.Fatalf("read forwarded args: %v", parseErr8)
 	}
 	parseArgsText := string(parseArgsBytes)
-	for _, parseExpected := range []string{"run tools/livereload/client_script.go tools/livereload/livereload.go tools/livereload/livereload_http.go tools/livereload/livereload_paths.go tools/livereload/livereload_support.go", "-app " + parseAppPath, "-root " + parseAppDir, "-html " + parseHtmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot false", "-client-script custom-client.js"} {
+	for _, parseExpected := range []string{"run tools/livereload/client_script.go tools/livereload/livereload.go tools/livereload/livereload_http.go tools/livereload/livereload_paths.go tools/livereload/livereload_support.go", "-app " + parseAppPath, "-root " + parseAppDir, "-html " + parseHtmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot=false", "-client-script custom-client.js"} {
 		if !strings.Contains(parseArgsText, parseExpected) {
 			parseT.Fatalf("expected forwarded args to contain %q, got %q", parseExpected, parseArgsText)
 		}

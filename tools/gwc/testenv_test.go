@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"os/exec"
@@ -86,24 +85,6 @@ func runChildGoCommand(parseT *testing.T, parseCmd *exec.Cmd) (string, error) {
 	parseT.Helper()
 	parseOutput, parseErr := parseCmd.CombinedOutput()
 	return string(parseOutput), tolerateGoCleanupError(parseT, parseErr, string(parseOutput))
-}
-
-// runChildGoCommandSplit runs parseCmd capturing stdout and stderr apart; a non-zero exit is
-// tolerated only when stderr is solely benign cleanup lines. Stdout is returned unchanged.
-func runChildGoCommandSplit(parseT *testing.T, parseCmd *exec.Cmd) (string, error) {
-	parseT.Helper()
-	var parseStdout, parseStderr bytes.Buffer
-	parseCmd.Stdout = &parseStdout
-	parseCmd.Stderr = &parseStderr
-	parseErr := parseCmd.Run()
-	if parseErr != nil && isCleanupOnlyStderr(parseStderr.String()) {
-		parseT.Logf("tolerating benign Windows exe cleanup failure: %s", strings.TrimSpace(parseStderr.String()))
-		parseErr = nil
-	}
-	if parseErr != nil {
-		return parseStdout.String() + parseStderr.String(), parseErr
-	}
-	return parseStdout.String(), nil
 }
 
 // useBenignTolerantGoTests wraps verifyRunGoTests for one test so the in-process verify

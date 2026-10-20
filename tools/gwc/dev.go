@@ -184,7 +184,7 @@ func (parseL launcher) runDev(parseArgs []string) error {
 	if parseConfig.wasmPath != "" {
 		parseForwarded = append(parseForwarded, "-wasm", parseConfig.wasmPath)
 	}
-	parseForwarded = append(parseForwarded, "-host", parseConfig.host, "-port", parseConfig.port, "-hot", fmt.Sprintf("%t", parseConfig.hot))
+	parseForwarded = append(parseForwarded, "-host", parseConfig.host, "-port", parseConfig.port, fmt.Sprintf("-hot=%t", parseConfig.hot))
 	parseResolvedClientScript := strings.TrimSpace(*parseClientScript)
 	if parseResolvedClientScript == "" {
 		if parseAutoClientScript, parseOk, parseResolveErr := resolveLauncherLivereloadClientScript(parseConfig.rootPath); parseResolveErr != nil {
@@ -255,8 +255,8 @@ func (parseL launcher) diagnoseEnvironmentOnFailure() {
 	if !parseShow {
 		return
 	}
-	fmt.Fprint(os.Stdout, "\n"+parseSummary)
-	fmt.Fprintln(os.Stdout, "(Re-run with -no-doctor to skip this automatic check.)")
+	_, _ = fmt.Fprint(os.Stdout, "\n"+parseSummary)
+	_, _ = fmt.Fprintln(os.Stdout, "(Re-run with -no-doctor to skip this automatic check.)")
 }
 
 // formatEnvironmentDiagnosis renders the failing doctor checks as an actionable

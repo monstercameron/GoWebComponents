@@ -615,10 +615,6 @@ func getBenchmarkStatMetrics(parseBenchmark benchmarkResultReport, parseStat str
 	return parseBenchmark.AverageMetrics
 }
 
-func benchmarkMetricIndex(parseReport benchmarkReport) map[benchmarkMetricKey]float64 {
-	return benchmarkMetricIndexByStat(parseReport, benchmarkStatMean)
-}
-
 // benchmarkMetricIndexByStat indexes comparable metrics using the mean or median statistic.
 func benchmarkMetricIndexByStat(parseReport benchmarkReport, parseStat string) map[benchmarkMetricKey]float64 {
 	parseIndex := map[benchmarkMetricKey]float64{}

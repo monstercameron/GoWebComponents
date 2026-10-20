@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -299,9 +298,4 @@ func levenshteinDistance(parseA string, parseB string) int {
 		parsePrevious = parseCurrent
 	}
 	return parsePrevious[len(parseBRunes)]
-}
-
-// marshalGwcHelpCommands returns a JSON copy of the registry for tests and MCP.
-func marshalGwcHelpCommands(parseCommands []gwcHelpCommand) ([]byte, error) {
-	return json.Marshal(parseCommands)
 }
