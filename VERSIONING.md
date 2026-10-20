@@ -12,14 +12,12 @@ commits the actual rules so a release's number is predictable, not a judgment ca
 | **Minor** (`x.Y.0`) | A backward-compatible **addition**. | New exported function/type/method; a new package; a new optional field with a zero-value default. |
 | **Patch** (`x.y.Z`) | A backward-compatible **fix** with no API change. | Bug fixes, performance, docs, internal refactors, new tests. |
 
-The module is currently **`github.com/monstercameron/GoWebComponents/v7`**. v6.0.0
-introduces the Windows-first desktop integration and an explicit major-version
-import migration. Update `/v5` imports and requirements to `/v6` as documented
-in the changelog.
+The v7 development branch uses **`github.com/monstercameron/GoWebComponents/v7`**;
+the latest published major remains v6 until v7 is tagged. A v6 consumer must
+change its module requirement and imports from `/v6` to `/v7` to upgrade.
 
-**v7 development targets Go 1.27.** The v7 line requires Go 1.27 (`go 1.27.0` in
-`go.mod`, toolchain `go1.27.1`), so raising the Go floor is part of the v7 major bump rather than a
-minor or patch change. Until the module-path rename lands, the module path stays `/v6`.
+**v7 requires Go 1.27.** Its `go.mod` declares `go 1.27.0`, with toolchain
+`go1.27.1`. Raising the Go floor ships with the v7 major bump.
 
 It previously moved to `/v5` in v5.0.0 because retiring runtime2 as a renderer removed `ui.ParallelRegion`
 and the surrounding public API, and changed the `ui.Hydrate`/`ui.HydrateInto`
@@ -43,23 +41,20 @@ act that should be reviewed against this table before release.
 
 Every release's breaking changes and additions are recorded in `CHANGELOG.md` under the
 version heading. A major release's entry must include the **migration steps** (old → new) for
-each breaking change. There is no separate migration guide to fall out of date; the changelog
-entry is the migration guide.
+each breaking change. A longer generated guide may accompany a major release, but the
+changelog remains the authoritative migration summary and links to that guide.
 
-## Module split (the open module-boundary decision)
+## Module split in v7
 
-The plan's F9 item proposes moving heavy tool-only dependencies (`playwright-go`,
-`bubbletea`, `charmbracelet/*`, the AI SDKs) into a separate **`tools` module** so the
-library module retains only runtime deps. Whether that lands as a major or a minor is decided
-by this rule:
-
-- If any **library-consumer** `require`/`go.sum` line changes (it will, because transitive
-  tool deps disappear from consumers' graphs), the split is a **breaking** change to the
-  module graph and **must** ship as a major (the next import-path bump is `/v7`).
-- If it is a pure internal reorg with **no** change to any public import path or consumer
-  `go.sum`, it can ship as a **minor**.
-
-That decision is the gate for doing the split; it is intentionally **not** made unilaterally.
+The v7 development branch has moved the CLI and tool-only dependencies into
+`tools/`, the browser suite into `test/playwrightgo/`, SDK-backed telemetry tests
+into `telemetry/otel/`, and dependency-heavy examples into their own modules.
+The root library module retains runtime dependencies. A fresh external consumer
+of `/v7/ui` builds natively and for js/wasm with a six-line `go.sum`; it does not
+pull in Playwright, Bubble Tea, AI SDK, or Chroma. From the repository root,
+invoke the CLI with `go -C tools run ./gwc` and use paths relative to `tools/`
+for its arguments. The module-path change and consumer dependency-graph change
+ship together as v7.
 
 ## Support window & deprecation
 
