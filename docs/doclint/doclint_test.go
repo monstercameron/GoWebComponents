@@ -88,6 +88,27 @@ func TestDocsHaveNoBrokenRepoPaths(t *testing.T) {
 	}
 }
 
+// TestGeneratedArtifactPathsAreIgnored confirms that clean-checkout docs may
+// mention build outputs that are intentionally absent until a command runs.
+func TestGeneratedArtifactPathsAreIgnored(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "go.mod"), "module example.com/fixture\n")
+	mustMkdir(t, filepath.Join(root, "examples", "static"))
+	mustMkdir(t, filepath.Join(root, "examples", "testing", "v5-load-harness"))
+	mustWrite(t, filepath.Join(root, "README.md"), "```powershell\n"+
+		"New-Item -ItemType Directory -Path .\\examples\\static\\bin -Force\n"+
+		"Get-FileHash ./examples/testing/v5-load-harness/v5harness.wasm\n"+
+		"```\n")
+
+	refs, err := ScanRepo(root)
+	if err != nil {
+		t.Fatalf("scan fixture: %v", err)
+	}
+	if len(refs) != 0 {
+		t.Fatalf("generated artifact paths should be ignored, got %+v", refs)
+	}
+}
+
 // TestGuardCatchesPlantedBreakage proves the guard itself works: a fixture doc
 // with a known-dead repo path must be reported, and a fixture with a live path
 // must not. Without this, a green guard could mean "nothing broken" or "scanner

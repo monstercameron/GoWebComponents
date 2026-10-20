@@ -153,24 +153,8 @@ func parseDocGwcFlagArgs(parseLine string) ([]string, bool) {
 	if parseExecutable == "gwc" || parseExecutable == "gwc.exe" {
 		return parseFields[1:], true
 	}
-	if parseExecutable != "go" || len(parseFields) < 3 || parseFields[1] != "run" {
+	if parseExecutable != "go" {
 		return nil, false
 	}
-	for parseIndex := 2; parseIndex < len(parseFields); parseIndex++ {
-		parseToken := parseFields[parseIndex]
-		if strings.HasPrefix(parseToken, "-") {
-			// Go's value-bearing build flags precede the package, and belong to Go.
-			switch parseToken {
-			case "-tags", "-ldflags", "-gcflags", "-asmflags", "-mod", "-modfile", "-overlay", "-p", "-exec", "-C", "-compiler", "-buildmode", "-toolexec", "-pkgdir", "-installsuffix", "-coverpkg":
-				parseIndex++
-			}
-			continue
-		}
-		parsePackage := strings.TrimPrefix(strings.ReplaceAll(parseToken, `\`, "/"), "./")
-		if parsePackage != "tools/gwc" {
-			return nil, false
-		}
-		return parseFields[parseIndex+1:], true
-	}
-	return nil, false
+	return parseGoGwcArgs(parseFields)
 }
