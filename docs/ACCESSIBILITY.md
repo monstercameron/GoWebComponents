@@ -37,10 +37,10 @@ for the full surface.
   focus trapping, Escape/outside dismissal, scroll lock, and focus restoration.
 - The docs-site search and filters use `ui.UseAnnouncer` plus polite live
   regions so result-count changes are exposed to assistive technology.
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestAccessibilityAudit`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestAccessibilityAudit`
   injects vendored axe-core and fails on serious or critical WCAG 2A/2AA
   violations for the docs-site shell and representative public examples.
-- `go test ./examples/public-examples-site` (run as `js/wasm`) checks the
+- `go test ../examples/public-examples-site` (run as `js/wasm`) checks the
   search dialog overlay contract, labelled search input, live result summary,
   and source/preview interaction states.
 

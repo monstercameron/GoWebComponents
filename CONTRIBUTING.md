@@ -79,7 +79,7 @@ tag and run real Chromium:
 
 ```powershell
 go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v
-go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExamplesAll -v
+go -C test/playwrightgo test -tags playwrightgo ../examples -run TestExamplesAll -v
 ```
 
 ### Nested modules

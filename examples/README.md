@@ -90,7 +90,7 @@ The catalog is generated from the example sources, so it never drifts from the o
 For a single app surface, enable the public `hotreload` package in that app and run the dev server:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\hot-reload\main.go -root .\examples\public\hot-reload
+go -C tools run ./gwc dev -app ..\examples\public\hot-reload\main.go -root ..\examples\public\hot-reload
 ```
 
 Use `gwc examples` when you want to browse many examples. Use `gwc dev` when you want rebuild-on-save and state-preserving reload for one specific app.
@@ -112,14 +112,14 @@ The `examples/` directory has dedicated browser smoke suites for example-oriente
 
 If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use these commands from the repo root:
 
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExamplesAll -v`
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestCatalog -v`
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestSSRServerRouting -v`
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestAtlasSSR -v`
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestStartup -v`
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestAtlasStartup -v`
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestChatWizard -v`
-- `go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExample201BrowserBenchmarkReport -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestExamplesAll -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestCatalog -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestSSRServerRouting -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestAtlasSSR -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestStartup -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestAtlasStartup -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestChatWizard -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestExample201BrowserBenchmarkReport -v`
 
 From the repo root, `go -C tools run ./gwc test -lane browser` now runs the main browser lane.
 

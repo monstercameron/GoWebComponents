@@ -17,10 +17,10 @@ go -C tools run ./gwc doctor
 go -C tools run ./gwc bootstrap
 go -C tools run ./gwc examples
 go -C tools run ./gwc examples build-public-site
-go -C tools run ./gwc dev -app .\examples\public\counter\main.go
-go -C tools run ./gwc build -app .\examples\public\counter\main.go -profile development
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
+go -C tools run ./gwc build -app ..\examples\public\counter\main.go -profile development
 go -C tools run ./gwc test -lane unit -lane wasm
-go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter
 go -C tools run ./gwc lint -root . -out .\bin\lint-report.txt
 ```
 
@@ -79,9 +79,9 @@ go -C tools run ./gwc examples start
 go -C tools run ./gwc examples restart
 go -C tools run ./gwc examples status
 go -C tools run ./gwc examples stop
-go -C tools run ./gwc .\examples\server\ai-chat-wizard\cmd\server start -json
-go -C tools run ./gwc .\examples\server\ai-chat-wizard\cmd\server restart -json
-go -C tools run ./gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
+go -C tools run ./gwc ..\examples\server\ai-chat-wizard\cmd\server start -json
+go -C tools run ./gwc ..\examples\server\ai-chat-wizard\cmd\server restart -json
+go -C tools run ./gwc examples ..\examples\server\ai-chat-wizard\cmd\server status -json
 go -C tools run ./gwc dev -app .\path\to\main.go
 go -C tools run ./gwc serve -root .\static -wasm-file .\bin\app\main.wasm
 go -C tools run ./gwc build -app .\path\to\main.go -profile release
@@ -98,11 +98,11 @@ go -C tools run ./gwc files -root . -ext go -exclude-dir .git
 go -C tools run ./gwc import -src .\design\landing.html -out .\bin\landing\main.go
 go -C tools run ./gwc bench -root .
 go -C tools run ./gwc bench compare -baseline .\docs\benchmarks\reference.json -candidate .\docs\benchmarks\latest.json
-go -C tools run ./gwc wasm measure -package .\examples\public\ui-render -out-dir .\bin\wasm-build-experiment
+go -C tools run ./gwc wasm measure -package ..\examples\public\ui-render -out-dir .\bin\wasm-build-experiment
 go -C tools run ./gwc wasm compare -baseline .\bin\wasm-build-experiment\baseline.json -candidate .\bin\wasm-build-experiment\candidate.json
-go -C tools run ./gwc wasm compare-compression -package .\examples\public\ui-render
-go -C tools run ./gwc wasm compare-cache -package .\examples\public\ui-render
-go -C tools run ./gwc wasm compare-toolchain -package .\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0
+go -C tools run ./gwc wasm compare-compression -package ..\examples\public\ui-render
+go -C tools run ./gwc wasm compare-cache -package ..\examples\public\ui-render
+go -C tools run ./gwc wasm compare-toolchain -package ..\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0
 ```
 
 Use `go -C tools run ./gwc <command> -h` for the exact flag surface of a command.

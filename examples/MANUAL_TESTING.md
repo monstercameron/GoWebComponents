@@ -16,7 +16,7 @@ Use it when you are:
 The authoritative example coverage is the Playwright-Go browser suite, not a hand-kept list:
 
 ```powershell
-go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExamplesAll -v
+go -C test/playwrightgo test -tags playwrightgo ../examples -run TestExamplesAll -v
 ```
 
 Focused suites: `TestCatalog`, `TestLinks`, `TestSSRServerRouting`, `TestAtlasSSR`, `TestStartup`, `TestVirtualization`, `TestAtlasStartup`, `TestBrowserCompat`, and `TestChatWizard`.
@@ -39,7 +39,7 @@ Main catalog URLs:
 Standalone SSR routing server (`examples/server/server-side-rendering-routing`):
 
 ```powershell
-go run ./examples/server/server-side-rendering-routing
+go run ../examples/server/server-side-rendering-routing
 ```
 
 Standalone SSR server URLs:
@@ -53,7 +53,7 @@ Standalone SSR server URLs:
 Standalone Atlas commerce-OS SSR server (`examples/server/atlas-commerce-os`):
 
 ```powershell
-go run ./examples/server/atlas-commerce-os/server
+go run ../examples/server/atlas-commerce-os/server
 ```
 
 Standalone Atlas SSR URLs:
