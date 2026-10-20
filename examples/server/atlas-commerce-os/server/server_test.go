@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -1503,6 +1504,13 @@ func newTestAtlasServer(parseT *testing.T) (*atlasServer, func()) {
 	parseCfg, parseErr := loadConfig()
 	if parseErr != nil {
 		parseT.Fatalf("load config: %v", parseErr)
+	}
+	// The served-document tests exercise the module-present boot path. Keep the
+	// fixture self-contained: a clean checkout does not carry generated wasm
+	// artifacts, and the root native test lane should not depend on a prior build.
+	parseCfg.AtlasWASM = filepath.Join(parseT.TempDir(), "atlas-commerce-os.wasm")
+	if parseWriteErr := os.WriteFile(parseCfg.AtlasWASM, []byte("stub"), 0o600); parseWriteErr != nil {
+		parseT.Fatalf("write stub wasm: %v", parseWriteErr)
 	}
 	parseCfg.SQLitePath = filepath.Join(parseT.TempDir(), "atlas-commerce-os-test.db")
 
