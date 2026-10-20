@@ -37,8 +37,8 @@ See `docs/plans/v6.1-windows-api-parity.md` and its manual evidence record.
 200 fixes across 34 areas; 22 security.
 
 Running notes for the unreleased v7 line, taken from the verified wave logs in
-`todos.md`. Nothing here is tagged or committed yet, the module path is still
-`/v6` until the rename lands, and these notes will be folded into the v7.0.0
+`todos.md`. This work is not tagged or released yet; the module path is now
+`/v7`, and these notes will be folded into the v7.0.0
 entry. Each item below passed its own tests; the Known issues list says what did
 not.
 
@@ -108,6 +108,11 @@ not.
   go1.27.1 did not change component identity, vet or unit-test results on the 27
   core packages that were compared with go1.26.3. `strings.CutLast` is used at 9
   sites.
+- The module path is now `/v7`. The CLI and tooling, Playwright browser suite,
+  SDK-backed OTel tests, and dependency-heavy examples have nested modules;
+  the root `go.sum` dropped from 213 to 112 lines. A fresh external `/v7/ui`
+  consumer builds natively and for wasm with a six-line `go.sum`. Full release
+  validation remains open.
 - `fetch` resilience: a zero `RetryPolicy.MaxDelay`, `RetryPolicy.Multiplier`,
   `BreakerConfig.FailureThreshold` and `BreakerConfig.HalfOpenMaxCalls` now means
   the documented default instead of a trap (see Migration notes).
@@ -127,10 +132,34 @@ not.
   (differential-tested against the old patterns), so goldmark and `regexp` are out
   of the default wasm dependency graph. Go 1.27 enables `GOEXPERIMENT=jsonv2` by
   default, which added about 976 KB raw (248 KB gzip) to the counter wasm;
-  `GOEXPERIMENT=nojsonv2` is recommended for wasm builds. It is not yet applied in
-  the wasm build environment of `gwc`. See `docs/V5_SIZE_STORY.md`.
+  `gwc` now sets `GOEXPERIMENT=nojsonv2` for wasm builds while preserving other
+  caller-selected experiments (test: `TestBuildWasmGoEnvDisablesJSONV2`). Direct
+  `go build` commands still need the setting. See `docs/V5_SIZE_STORY.md`.
 - `internal/apidump.Check` skips under `js` (`os.ReadDir` cannot open directories
   there on Windows).
+- Native SSR host construction skips goroutine-indexed hook lookup for the three
+  client-only slab helpers. SSR entry captures the owner once and component
+  scopes reuse it; concurrent request isolation remains covered by
+  `TestSSRConcurrentHookFibersIsolateRequests` and the new
+  `TestSSRSlabLookupSkipsHookOwner`. Focused default and production tests, full
+  `internal/runtime` and `ui` tests, vet, and wasm compilation pass. The planned
+  A/B benchmark and CPU-profile acceptance are pending an idle host.
+- The experimental `gwcworker` SharedArrayBuffer transport clears padding bytes
+  before publishing a JSON record; reused ring slots could otherwise append
+  stale bytes and strand a commit. Focused worker tests and a browser run at
+  10,000 rows pass. Worker RPC commands now use the discrete lane so synchronous
+  commits apply immediately; a short 20-action diagnostic fell from about
+  164 ms to 31 ms. The full interop performance verdict remains open.
+- The interop experiment now has an opt-in phase profile lane that reports
+  action-to-commit, encoder, flush, applier, and separately forced layout times
+  for legacy/buffered/template comparisons. Its focused builds and browser
+  semantics pass; controlled measurements and a CPU profile remain pending.
+- The `/v7` root-module test rerun passes (`go test -p 2 ./... -count=1`).
+  Documentation lint now parses `go -C tools run ./gwc` and recognizes generated
+  Atlas/v5 harness paths; Atlas table CSS preserves compound selectors, and its
+  server script test creates a local wasm fixture. The release workflow's
+  counter `gwc verify -audit` command passed with the corrected tools-relative
+  path. Nested-module and browser release lanes are still being checked.
 
 #### Fixed
 
@@ -554,10 +583,10 @@ are now fixed were removed; the rest stay.
 - `//go:fix inline` is not applied to deprecated wrappers: the inliner skips wrappers whose body calls `deprecation.Warn` first, which the `gwc-deprecations` lint requires. Decision: exempt `//go:fix inline` wrappers from the lint, or keep as is. Deprecation replacements are mostly not named in earlier entries; the v7.0.0 entry must name each before anything is removed.
 - `gwc bench suite`: the browser, heap and goroutine lanes are placeholders (`not-run`); the build lane's `coldMs` is not a true cold build; the first pilot run is not a valid baseline because the tree changed during the run.
 - The Windows host cannot always delete freshly built `*.test.exe` ("Access is denied"). `gwc bench` and `bench suite` treat a PASS with only that cleanup error as ok and record a warning; `bench capture` still fails on it. `go test` on the whole `tools/gwc` package still exits non-zero from the same lock even when every test passes.
-- Binary size: Go 1.27 enables `GOEXPERIMENT=jsonv2` by default (+976 KB raw on the counter wasm); `nojsonv2` is recommended but not yet applied by `gwc`.
+- Binary size: Go 1.27 enables `GOEXPERIMENT=jsonv2` by default (+976 KB raw on the counter wasm); `gwc` wasm builds now force `nojsonv2`, while direct Go wasm commands still need an audit.
 - The dev machine has `GOARCH=amd64` set through `go env -w`, so native tests run emulated; timings from it are not representative.
 - Examples are being migrated after the core work: they have not yet been updated for the v7 API changes (the markdown engine import in `examples/site/pages.go`, `examples/public-examples-site/markdown.go`; `Slot` to `SlotAttr`; router options; typed `OnInput` still accepts `ui.Handler`).
-- Interop rethink (staged plan in `todos.md`: cheap adapter fixes, buffered `gwcbuf` adapter, integer node ids, delegated events) is not started; `template.innerHTML` use in `CreatePreparedElement` should be reconciled with the no-raw-HTML-sink guard.
+- Interop rethink is an experiment on `v7/interop-exp`, with a browser verdict still pending. Its wide-sibling wasm fixture now isolates each container and keeps component identity stable; `TestBufWasmWideSiblingListsSurvive10kAnd20k` passes at 20,000 nodes with one text update per row and no reorder ops. The focused `TestBufWasm` suite passes with and without `gwctemplates`. `template.innerHTML` use in `CreatePreparedElement` still needs reconciliation with the no-raw-HTML-sink guard.
 
 ## v6.0.0 - 2026-09-08
 
