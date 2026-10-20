@@ -70,8 +70,15 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 	}
 
 	parseWasmPath := filepath.Join(parseOutDir, "site.wasm")
-	parseCmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", parseWasmPath, "./examples/site")
-	parseCmd.Dir = parseRepoRoot
+	parseWasmPathAbsolute, parseAbsErr := filepath.Abs(parseWasmPath)
+	if parseAbsErr != nil {
+		return fmt.Errorf("resolve site wasm path: %w", parseAbsErr)
+	}
+	// examples/site is a nested module so its site-specific dependencies do not
+	// inflate the root module graph. Build from that module and use an absolute
+	// output path so changing the command directory does not change -out semantics.
+	parseCmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", parseWasmPathAbsolute, ".")
+	parseCmd.Dir = filepath.Join(parseRepoRoot, "examples", "site")
 	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOutput, parseErr := parseCmd.CombinedOutput(); parseErr != nil {
 		return fmt.Errorf("build site wasm: %w\n%s", parseErr, parseOutput)

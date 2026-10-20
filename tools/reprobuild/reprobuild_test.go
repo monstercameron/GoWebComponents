@@ -18,13 +18,24 @@ func repoRoot(parseT *testing.T) string {
 		parseT.Fatalf("getwd: %v", parseErr)
 	}
 	for range 8 {
-		if parseModuleRaw, parseReadErr := os.ReadFile(filepath.Join(parseDir, "go.mod")); parseReadErr == nil && strings.Contains(string(parseModuleRaw), "module github.com/monstercameron/GoWebComponents/v7\n") {
+		if parseModuleRaw, parseReadErr := os.ReadFile(filepath.Join(parseDir, "go.mod")); parseReadErr == nil && hasV7Module(parseModuleRaw) {
 			return parseDir
 		}
 		parseDir = filepath.Dir(parseDir)
 	}
 	parseT.Fatal("module root not found")
 	return ""
+}
+
+func hasV7Module(parseRaw []byte) bool {
+	parseFirstLine := strings.SplitN(strings.ReplaceAll(string(parseRaw), "\r\n", "\n"), "\n", 2)[0]
+	return strings.TrimSpace(parseFirstLine) == "module github.com/monstercameron/GoWebComponents/v7"
+}
+
+func TestHasV7ModuleAcceptsCRLF(parseT *testing.T) {
+	if !hasV7Module([]byte("module github.com/monstercameron/GoWebComponents/v7\r\ngo 1.27\r\n")) {
+		parseT.Fatal("CRLF go.mod module declaration was not recognized")
+	}
 }
 
 // TestReproducibleWasmBuild builds the counter example to js/wasm twice in
