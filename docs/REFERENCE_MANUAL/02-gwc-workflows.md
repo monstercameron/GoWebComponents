@@ -58,8 +58,8 @@ If you only need the shortest path from repo checkout to a running example, use 
 ```powershell
 go -C tools run ./gwc doctor
 go -C tools run ./gwc examples
-go -C tools run ./gwc dev -app .\examples\public\counter\main.go
-go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
+go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter
 ```
 
 What each command proves:
@@ -117,7 +117,7 @@ go -C tools run ./gwc start
 go -C tools run ./gwc dev -app .\main.go
 go -C tools run ./gwc test -lane unit -lane wasm
 go -C tools run ./gwc verify -app .\main.go -root .
-go -C tools run ./gwc release -app .\main.go -out-dir .\bin\release -compression gzip+brotli
+go -C tools run ./gwc release -app .\main.go -out-dir ..\bin\release -compression gzip+brotli
 ```
 
 Why this is the normal production-shaped path:
@@ -153,9 +153,9 @@ One practical team sequence is:
 go -C tools run ./gwc doctor -audit
 go -C tools run ./gwc test -lane unit -lane wasm -lane browser
 go -C tools run ./gwc verify -app .\main.go -root . -audit
-go -C tools run ./gwc release -app .\main.go -out-dir .\bin\release -compression gzip+brotli -validate-smoke
+go -C tools run ./gwc release -app .\main.go -out-dir ..\bin\release -compression gzip+brotli -validate-smoke
 go -C tools run ./gwc bench -root .
-go -C tools run ./gwc wasm measure -package .\examples\public\ui-render
+go -C tools run ./gwc wasm measure -package ..\examples\public\ui-render
 ```
 
 Why this scales:
@@ -187,7 +187,7 @@ Practical distinction:
 | Command | Use it when | Representative call |
 | --- | --- | --- |
 | `dev` | you want rebuild, serve, livereload, and optional hot reload for one app | `go -C tools run ./gwc dev -app .\main.go` |
-| `serve` | you already have built assets and only need a narrow static server | `go -C tools run ./gwc serve -root .\static -wasm-file .\bin\app.wasm` |
+| `serve` | you already have built assets and only need a narrow static server | `go -C tools run ./gwc serve -root .\static -wasm-file ..\bin\app.wasm` |
 | `dashboard` | you want a launcher-owned view of live dev status and provider config | `go -C tools run ./gwc dashboard -root .` |
 
 Use `dev -dry-run` or `dev -json` when you want to inspect the resolved plan before you start the server.
@@ -200,7 +200,7 @@ you stop it (Ctrl-C).
 
 ```powershell
 go -C tools run ./gwc dev                                   # run from a directory with main.go
-go -C tools run ./gwc dev -app .\examples\public\counter    # or point at an app explicitly
+go -C tools run ./gwc dev -app ..\examples\public\counter    # or point at an app explicitly
 go -C tools run ./gwc dev -port 9000 -host 0.0.0.0          # bind elsewhere
 ```
 
@@ -259,7 +259,7 @@ config from the terminal.
 | Command | Use it when | Representative call |
 | --- | --- | --- |
 | `build` | you want one explicit `js/wasm` artifact | `go -C tools run ./gwc build -app .\main.go -profile development` |
-| `release` | you want a packaged release directory plus manifest and compression sidecars | `go -C tools run ./gwc release -app .\main.go -out-dir .\bin\release` |
+| `release` | you want a packaged release directory plus manifest and compression sidecars | `go -C tools run ./gwc release -app .\main.go -out-dir ..\bin\release` |
 | `test` | you want explicit launcher-owned lanes such as `unit`, `wasm`, `hydration`, `browser`, or `release` | `go -C tools run ./gwc test -lane unit -lane wasm` |
 | `verify` | you want the higher-signal pre-commit or CI path for one app | `go -C tools run ./gwc verify -app .\main.go -root . -audit` |
 | `lint` | you want launcher-owned lint reporting instead of a raw tool invocation | `go -C tools run ./gwc lint -root . -json` |
@@ -308,14 +308,14 @@ build) or imported-only (passes unless `-strict`).
 Use the debug profile when a browser issue needs source-oriented inspection instead of a normal fast dev-loop artifact:
 
 ```powershell
-go -C tools run ./gwc build -app .\main.go -root . -out .\bin\debug\app.wasm -profile debug -json
-go -C tools run ./gwc serve -root .\static -wasm-file .\bin\debug\app.wasm
+go -C tools run ./gwc build -app .\main.go -root . -out ..\bin\debug\app.wasm -profile debug -json
+go -C tools run ./gwc serve -root .\static -wasm-file ..\bin\debug\app.wasm
 ```
 
 If the issue reproduces only in packaged output, keep the same profile visible in the release manifest:
 
 ```powershell
-go -C tools run ./gwc release -app .\main.go -root . -out-dir .\bin\debug-release -profile debug -compression none -json
+go -C tools run ./gwc release -app .\main.go -root . -out-dir ..\bin\debug-release -profile debug -compression none -json
 ```
 
 The debug profile keeps local source paths untrimmed and disables compiler optimization and inlining with `-gcflags=all=-N -l`. That makes wasm stack frames and DevTools' generated wasm view less surprising when you correlate a browser pause, crash report, or console stack back to Go source.
@@ -327,7 +327,7 @@ Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWA
 | Command | Use it when | Representative call |
 | --- | --- | --- |
 | `files` | you need a repeatable file inventory | `go -C tools run ./gwc files -root . -ext go -exclude-dir .git` |
-| `import` | you want to convert static HTML or JSX into an inspectable GWC `main.go` | `go -C tools run ./gwc import -src .\design\landing.html -out .\bin\landing\main.go` |
+| `import` | you want to convert static HTML or JSX into an inspectable GWC `main.go` | `go -C tools run ./gwc import -src .\design\landing.html -out ..\bin\landing\main.go` |
 | `upgrade` | you need to backfill lifecycle metadata, feature matrix defaults, and runtime assets | `go -C tools run ./gwc upgrade -root . -skip-runtime-assets` |
 | `migrate` | you need an upgrade report and safe compatibility API rewrites between framework versions | `go -C tools run ./gwc migrate -root . -apply -json` |
 | `seed` | the project exposes a seed package for local identities or fixture data | `go -C tools run ./gwc seed -root .` |
@@ -342,8 +342,8 @@ Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWA
 | --- | --- | --- |
 | `bench` | you want repeatable benchmark discovery, JSON output, or normalized scoring against a saved reference report | `go -C tools run ./gwc bench -root . -reference .\docs\benchmarks\reference.json` |
 | `bench suite` and `bench suite compare` | you want one versioned report (schema `gwc.bench.suite/v1`) across native, wasm, size, and build lanes, and a significance-aware comparison of two reports | `go -C tools run ./gwc bench suite -lane native -count 5 -out bin/bench-suite.json` |
-| `wasm measure` | you want a wasm artifact measurement pass with manifest output | `go -C tools run ./gwc wasm measure -package .\examples\public\ui-render` |
-| `wasm compare` and related subcommands | you want wasm-specific diffing, compression, cache, or toolchain comparisons | `go -C tools run ./gwc wasm compare-toolchain -package .\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0` |
+| `wasm measure` | you want a wasm artifact measurement pass with manifest output | `go -C tools run ./gwc wasm measure -package ..\examples\public\ui-render` |
+| `wasm compare` and related subcommands | you want wasm-specific diffing, compression, cache, or toolchain comparisons | `go -C tools run ./gwc wasm compare-toolchain -package ..\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0` |
 | `buildreport` | you want a "what rebuilt and why" report (rebuilt vs cached packages, ranked by compile time) from the build action graph | `go -C tools run ./gwc buildreport -pattern ./... -json` |
 
 Use the subcommand help directly for the wasm tools:

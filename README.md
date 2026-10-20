@@ -52,7 +52,7 @@ Clone the repo and run a real example with rebuild-on-save:
 
 ```powershell
 go -C tools run ./gwc doctor
-go -C tools run ./gwc dev -app .\examples\public\counter\main.go
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
 ```
 
 `gwc dev` builds the app to wasm, serves it, and live-reloads on every save.
@@ -67,8 +67,8 @@ launch the Windows API Lab:
 
 ```powershell
 git -c core.longpaths=true submodule update --init third_party/wails
-go -C tools run ./gwc desktop doctor -root ./examples/desktop/wails-counter
-go -C tools run ./gwc desktop dev -root ./examples/desktop/wails-counter
+go -C tools run ./gwc desktop doctor -root ../examples/desktop/wails-counter
+go -C tools run ./gwc desktop dev -root ../examples/desktop/wails-counter
 ```
 
 Requires Windows, Go 1.27.1 or newer and the WebView2 runtime. The native host embeds the GWC
@@ -121,11 +121,11 @@ Useful entrypoints:
 ```powershell
 go -C tools run ./gwc doctor
 go -C tools run ./gwc examples
-go -C tools run ./gwc dev -app .\examples\public\counter\main.go
-go -C tools run ./gwc build -app .\examples\public\counter\main.go -profile development
-go -C tools run ./gwc build -app .\examples\public\counter\main.go -profile debug -out .\bin\debug\counter.wasm
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
+go -C tools run ./gwc build -app ..\examples\public\counter\main.go -profile development
+go -C tools run ./gwc build -app ..\examples\public\counter\main.go -profile debug -out ..\bin\debug\counter.wasm
 go -C tools run ./gwc test -lane unit -lane wasm
-go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter
 ```
 
 For standalone wasm apps that want state-preserving reload, enable `hotreload.Enable()` in your app and use `gwc dev`.
@@ -376,7 +376,7 @@ The preferred public surface is:
 ### Tooling and Validation
 
 - Public `devtools` package for in-app inspection and diagnostics
-- `go -C tools run ./gwc import -src .\path\to\layout.html -out .\bin\converter\layout\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from current public `html` builders
+- `go -C tools run ./gwc import -src .\path\to\layout.html -out ..\bin\converter\layout\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from current public `html` builders
 - `go -C tools run ./gwc examples` serves the example catalog through the repo-standard Go runner
 - `go -C tools run ./gwc dev -app .\path\to\main.go` starts the standalone wasm inner loop with rebuild-on-save and hotreload support
 - `gwc build` / `gwc release` support a guarded `tinygo` profile (`-target=wasm -opt=z`) for smaller leaf-app binaries and a `source-debug` profile (`-gcflags=all=-N -l`, untrimmed paths) for browser stack correlation
@@ -440,7 +440,7 @@ Runner-owned validation lanes:
 ```powershell
 go -C tools run ./gwc test -lane unit -lane wasm
 go -C tools run ./gwc test -lane browser
-go -C tools run ./gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
+go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter
 ```
 
 Wasm-only runtime tests on Windows:
@@ -599,10 +599,10 @@ Use the `gwc` runner as the repo-standard entrypoint for local workflows.
 ```powershell
 go -C tools run ./gwc doctor
 go -C tools run ./gwc examples
-go -C tools run ./gwc dev -app .\examples\public\counter\main.go
-go -C tools run ./gwc build -app .\examples\public\counter\main.go -profile ci
-go -C tools run ./gwc build -app .\examples\public\counter\main.go -profile tinygo
-go -C tools run ./gwc release -app .\examples\public\counter\main.go -out-dir .\bin\gwc-release
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
+go -C tools run ./gwc build -app ..\examples\public\counter\main.go -profile ci
+go -C tools run ./gwc build -app ..\examples\public\counter\main.go -profile tinygo
+go -C tools run ./gwc release -app ..\examples\public\counter\main.go -out-dir ..\bin\gwc-release
 ```
 
 Relevant directories:

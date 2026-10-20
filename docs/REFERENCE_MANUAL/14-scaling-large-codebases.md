@@ -380,9 +380,9 @@ Recommended command baseline:
 
 ```powershell
 go -C tools run ./gwc test -lane unit -lane wasm -lane hydration
-go -C tools run ./gwc test -lane browser -root .\examples\server\atlas-commerce-os
-go -C tools run ./gwc verify -app .\examples\server\atlas-commerce-os\client\main.go -root .\examples\server\atlas-commerce-os
-go -C tools run ./gwc release -app .\examples\server\atlas-commerce-os\client\main.go -root .\examples\server\atlas-commerce-os -out-dir .\bin\atlas-release -validate-smoke
+go -C tools run ./gwc test -lane browser -root ..\examples\server\atlas-commerce-os
+go -C tools run ./gwc verify -app ..\examples\server\atlas-commerce-os\client\main.go -root ..\examples\server\atlas-commerce-os
+go -C tools run ./gwc release -app ..\examples\server\atlas-commerce-os\client\main.go -root ..\examples\server\atlas-commerce-os -out-dir ..\bin\atlas-release -validate-smoke
 ```
 
 For example-scale product apps, keep one browser journey set per route family or role:
@@ -478,13 +478,13 @@ Onboarding checklist:
 Use the smallest commands that prove the scaled boundary you changed:
 
 - route, reducer, and SSR medium-size app checks:
-  `go -C tools run ./gwc test -lane unit -lane wasm -lane hydration -root .\examples\server\atlas-commerce-os`
+  `go -C tools run ./gwc test -lane unit -lane wasm -lane hydration -root ..\examples\server\atlas-commerce-os`
 - large single-shell product app browser journeys:
   `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100AuthenticatedHappyPath -v`
 - route-family release verification:
-  `go -C tools run ./gwc verify -app .\examples\server\ai-chat-wizard\client\main.go -root .\examples\server\ai-chat-wizard\client`
+  `go -C tools run ./gwc verify -app ..\examples\server\ai-chat-wizard\client\main.go -root ..\examples\server\ai-chat-wizard\client`
 - deployable artifact smoke:
-  `go -C tools run ./gwc release -app .\examples\server\ai-chat-wizard\client\main.go -root .\examples\server\ai-chat-wizard\client -out-dir .\bin\chat-wizard-release -validate-smoke`
+  `go -C tools run ./gwc release -app ..\examples\server\ai-chat-wizard\client\main.go -root ..\examples\server\ai-chat-wizard\client -out-dir ..\bin\chat-wizard-release -validate-smoke`
 
 When the change affects ownership or release process itself, update the app-local route map, runbook, or changelog in the same PR.
 

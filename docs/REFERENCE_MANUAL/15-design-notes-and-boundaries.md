@@ -452,11 +452,11 @@ Release discipline also requires:
 Use the smallest commands that prove the boundary you changed or are relying on:
 
 - scheduling and deferred-value examples:
-  `go -C tools run ./gwc serve -root .\\examples\\27-transition-hooks -port 8027`
+  `go -C tools run ./gwc serve -root ...\\examplesexamples\\27-transition-hooks -port 8027`
 - lagging derived-value behavior:
-  `go -C tools run ./gwc serve -root .\\examples\\26-use-deferred-value -port 8026`
+  `go -C tools run ./gwc serve -root ...\\examplesexamples\\26-use-deferred-value -port 8026`
 - route, SSR, and deployment contract verification in a production-shaped app:
-  `go -C tools run ./gwc verify -app .\\examples\\86-atlas-commerce-os\\client\\main.go -root .\\examples\\86-atlas-commerce-os`
+  `go -C tools run ./gwc verify -app ...\\examplesexamples\\86-atlas-commerce-os\\client\\main.go -root ...\\examplesexamples\\86-atlas-commerce-os`
 - migration and behavior-sensitive release lane:
   `go -C tools run ./gwc test -lane unit -lane wasm -lane hydration`
 

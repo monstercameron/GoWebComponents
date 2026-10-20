@@ -506,20 +506,20 @@ Use the smallest focused examples for the HTML authoring surface you are adoptin
 Semantic and typed host structure:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\semantic-html\main.go
-go -C tools run ./gwc dev -app .\examples\public\html-forms\main.go
+go -C tools run ./gwc dev -app ..\examples\public\semantic-html\main.go
+go -C tools run ./gwc dev -app ..\examples\public\html-forms\main.go
 ```
 
 Generic tags and escape hatches:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\html-tag\main.go
+go -C tools run ./gwc dev -app ..\examples\public\html-tag\main.go
 ```
 
 Browser custom-element consumption:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\web-components\main.go
+go -C tools run ./gwc dev -app ..\examples\public\web-components\main.go
 ```
 
 ## Named Slots / Snippets

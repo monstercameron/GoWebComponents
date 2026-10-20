@@ -546,9 +546,9 @@ go run .\examples\server\server-side-rendering-bootstrap
 Hydration and route-data reuse:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\hydration\main.go
-go -C tools run ./gwc dev -app .\examples\public\server-side-rendering-route-data-reuse\main.go
-go -C tools run ./gwc dev -app .\examples\public\router-hydrate-mount\main.go
+go -C tools run ./gwc dev -app ..\examples\public\hydration\main.go
+go -C tools run ./gwc dev -app ..\examples\public\server-side-rendering-route-data-reuse\main.go
+go -C tools run ./gwc dev -app ..\examples\public\router-hydrate-mount\main.go
 ```
 
 Production-shaped server integration:

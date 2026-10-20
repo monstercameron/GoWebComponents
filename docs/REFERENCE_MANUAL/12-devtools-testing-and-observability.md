@@ -535,10 +535,10 @@ go -C tools run ./gwc test -lane hydration
 go -C tools run ./gwc test -lane browser
 go -C tools run ./gwc lint -root .
 go test ./devtools ./logging ./test/render ./test/hooks ./test/router ./test/ssr ./test/browser
-go -C tools run ./gwc build -app .\examples\public\devtools-panel\main.go -root .\examples\public\devtools-panel
-go -C tools run ./gwc build -app .\examples\public\use-snapshot\main.go -root .\examples\public\use-snapshot
-go -C tools run ./gwc build -app .\examples\public\snapshot-now\main.go -root .\examples\public\snapshot-now
-go -C tools run ./gwc build -app .\examples\public\devtools-diagnostics\main.go -root .\examples\public\devtools-diagnostics
+go -C tools run ./gwc build -app ..\examples\public\devtools-panel\main.go -root ..\examples\public\devtools-panel
+go -C tools run ./gwc build -app ..\examples\public\use-snapshot\main.go -root ..\examples\public\use-snapshot
+go -C tools run ./gwc build -app ..\examples\public\snapshot-now\main.go -root ..\examples\public\snapshot-now
+go -C tools run ./gwc build -app ..\examples\public\devtools-diagnostics\main.go -root ..\examples\public\devtools-diagnostics
 go test -tags playwrightgo ./test/playwrightgo/kernelplugindevtools -timeout 5m -v
 ```
 

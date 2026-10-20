@@ -357,20 +357,20 @@ Use the smallest commands that prove the chosen shape.
 Client-only:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\counter\main.go
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
 ```
 
 Routed SPA:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\browser-router\main.go
-go -C tools run ./gwc verify -app .\examples\public\browser-router\main.go -root .\examples\public\browser-router
+go -C tools run ./gwc dev -app ..\examples\public\browser-router\main.go
+go -C tools run ./gwc verify -app ..\examples\public\browser-router\main.go -root ..\examples\public\browser-router
 ```
 
 SSR and hydration:
 
 ```powershell
-go -C tools run ./gwc verify -app .\examples\server\server-side-rendering-routing\main.go -root .\examples\server\server-side-rendering-routing
+go -C tools run ./gwc verify -app ..\examples\server\server-side-rendering-routing\main.go -root ..\examples\server\server-side-rendering-routing
 ```
 
 Forms-heavy:
@@ -382,7 +382,7 @@ go run ./examples/server/server-side-rendering-secure-forms
 Static/PWA-oriented:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\progressive-web-app-installability\main.go
+go -C tools run ./gwc dev -app ..\examples\public\progressive-web-app-installability\main.go
 ```
 
 ## Topic Pagination

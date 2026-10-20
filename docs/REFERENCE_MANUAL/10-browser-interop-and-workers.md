@@ -473,10 +473,10 @@ Use the smallest shape that works. Most features should start with one direct wo
 Use the smallest relevant checks for the interop slice you touched:
 
 ```powershell
-go -C tools run ./gwc build -app .\examples\public\browser-interop\main.go -root .\examples\public\browser-interop
-go -C tools run ./gwc build -app .\examples\public\worker-text-index\main.go -root .\examples\public\worker-text-index
-go -C tools run ./gwc build -app .\examples\public\cross-tab-sync\main.go -root .\examples\public\cross-tab-sync
-go -C tools run ./gwc build -app .\examples\public\multi-window-console\main.go -root .\examples\public\multi-window-console
+go -C tools run ./gwc build -app ..\examples\public\browser-interop\main.go -root ..\examples\public\browser-interop
+go -C tools run ./gwc build -app ..\examples\public\worker-text-index\main.go -root ..\examples\public\worker-text-index
+go -C tools run ./gwc build -app ..\examples\public\cross-tab-sync\main.go -root ..\examples\public\cross-tab-sync
+go -C tools run ./gwc build -app ..\examples\public\multi-window-console\main.go -root ..\examples\public\multi-window-console
 go test ./interop ./ui
 ```
 

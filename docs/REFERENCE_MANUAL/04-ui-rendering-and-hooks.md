@@ -412,29 +412,29 @@ Use the smallest examples that prove the `ui` family you are adopting.
 Core render and local hooks:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\ui-render\main.go
-go -C tools run ./gwc dev -app .\examples\public\use-reducer\main.go
-go -C tools run ./gwc lint -root . -path .\examples\public\use-state
+go -C tools run ./gwc dev -app ..\examples\public\ui-render\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-reducer\main.go
+go -C tools run ./gwc lint -root . -path ..\examples\public\use-state
 ```
 
 Transitions and deferred values:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\transition-hooks\main.go
-go -C tools run ./gwc dev -app .\examples\public\use-deferred-value\main.go
+go -C tools run ./gwc dev -app ..\examples\public\transition-hooks\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-deferred-value\main.go
 ```
 
 Overlay and accessibility helpers:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\accessible-overlay\main.go
-go -C tools run ./gwc dev -app .\examples\public\overlay-stack\main.go
+go -C tools run ./gwc dev -app ..\examples\public\accessible-overlay\main.go
+go -C tools run ./gwc dev -app ..\examples\public\overlay-stack\main.go
 ```
 
 Worker helpers:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\worker-text-index\main.go
+go -C tools run ./gwc dev -app ..\examples\public\worker-text-index\main.go
 ```
 
 > **Removed in v5.** `ui.ParallelRegion` and the runtime2 worker-rendering

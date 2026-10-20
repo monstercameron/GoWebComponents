@@ -603,30 +603,30 @@ Use the smallest examples that prove the ownership layer you are adopting.
 Local state, reducers, and context:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\use-state\main.go
-go -C tools run ./gwc dev -app .\examples\public\scaling-local-state-with-use-reducer\main.go
-go -C tools run ./gwc dev -app .\examples\public\context-api\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-state\main.go
+go -C tools run ./gwc dev -app ..\examples\public\scaling-local-state-with-use-reducer\main.go
+go -C tools run ./gwc dev -app ..\examples\public\context-api\main.go
 ```
 
 Shared atoms and derived values:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\use-atom\main.go
-go -C tools run ./gwc dev -app .\examples\public\use-computed\main.go
-go -C tools run ./gwc dev -app .\examples\public\use-derived\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-atom\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-computed\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-derived\main.go
 ```
 
 Snapshot export and persistence:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\snapshot-export-import\main.go
-go -C tools run ./gwc dev -app .\examples\public\snapshot-storage\main.go
+go -C tools run ./gwc dev -app ..\examples\public\snapshot-export-import\main.go
+go -C tools run ./gwc dev -app ..\examples\public\snapshot-storage\main.go
 ```
 
 Fine-grained reactivity design boundary:
 
 ```powershell
-go -C tools run ./gwc dev -app .\examples\public\state-atoms\main.go
+go -C tools run ./gwc dev -app ..\examples\public\state-atoms\main.go
 ```
 
 ## Local-First Sync (`localfirst`)
