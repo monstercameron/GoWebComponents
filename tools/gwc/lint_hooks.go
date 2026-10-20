@@ -141,7 +141,10 @@ func collectLintHookRuleRecursiveFiles(parseRootPath string) ([]string, error) {
 			}
 			return nil
 		}
-		if filepath.Ext(parseEntry.Name()) == ".go" {
+		// Test files commonly contain deliberately invalid hook call shapes to
+		// exercise the renderer. The hook rule is a production-source check, so
+		// keep those fixtures out while retaining all non-test examples.
+		if filepath.Ext(parseEntry.Name()) == ".go" && !strings.HasSuffix(parseEntry.Name(), "_test.go") {
 			parseFiles = append(parseFiles, parsePath)
 		}
 		return nil

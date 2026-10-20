@@ -45,9 +45,15 @@ func collectLintHTMLFiles(parseRootPath string) ([]string, error) {
 			return nil
 		}
 		if parseEntry.IsDir() {
-			if shouldSkipMutateDir(parseEntry.Name()) && parsePath != parseRootPath {
+			if shouldSkipLintHTMLDir(parseEntry.Name()) && parsePath != parseRootPath {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		// classes.html is a Tailwind class-scan input, not a document shell. It
+		// intentionally contains unlabeled fragments and must not be treated as
+		// an application page by the static accessibility pass.
+		if strings.EqualFold(parseEntry.Name(), "classes.html") {
 			return nil
 		}
 		if strings.EqualFold(filepath.Ext(parseEntry.Name()), ".html") {
@@ -56,6 +62,18 @@ func collectLintHTMLFiles(parseRootPath string) ([]string, error) {
 		return nil
 	})
 	return parseFiles, parseErr
+}
+
+// shouldSkipLintHTMLDir reports vendored and generated trees that are outside
+// the project's document surface. Keep this narrower than shouldSkipMutateDir:
+// adding third_party here must not change source mutation commands.
+func shouldSkipLintHTMLDir(parseName string) bool {
+	switch strings.TrimSpace(parseName) {
+	case ".git", ".hg", ".svn", "bin", "build", "dist", "node_modules", "testdata", "third_party", "tmp", "vendor":
+		return true
+	default:
+		return false
+	}
 }
 
 // collectA11yFileIssues parses one HTML file and applies the accessibility rules.

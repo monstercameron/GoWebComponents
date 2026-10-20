@@ -156,6 +156,43 @@ func Component() {
 	}
 }
 
+// TestCollectLintHookRuleIssuesSkipsTestFixtures ensures deliberate hook
+// misuse in *_test.go files does not fail the production-source lint pass.
+func TestCollectLintHookRuleIssuesSkipsTestFixtures(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseProductionPath := filepath.Join(parseRoot, "component.go")
+	parseFixturePath := filepath.Join(parseRoot, "component_test.go")
+	parseSource := `package app
+
+import "github.com/monstercameron/GoWebComponents/v7/ui"
+
+func Component() {
+	if true {
+		_ = ui.UseState(0)
+	}
+}
+`
+	for _, parseEntry := range []struct {
+		path   string
+		source string
+	}{
+		{parseProductionPath, parseSource},
+		{parseFixturePath, parseSource},
+	} {
+		if parseErr := os.WriteFile(parseEntry.path, []byte(parseEntry.source), 0644); parseErr != nil {
+			parseT.Fatalf("write %s: %v", parseEntry.path, parseErr)
+		}
+	}
+
+	parseIssues, parseErr := collectLintHookRuleIssues(parseRoot, []string{"./..."})
+	if parseErr != nil {
+		parseT.Fatalf("collect hook rule issues: %v", parseErr)
+	}
+	if len(parseIssues) != 1 || parseIssues[0].Path != "component.go" {
+		parseT.Fatalf("expected only production hook issue, got %#v", parseIssues)
+	}
+}
+
 // TestBuildLintSummaryIncludesHookRuleIssues verifies built-in hook findings join the lint report.
 func TestBuildLintSummaryIncludesHookRuleIssues(parseT *testing.T) {
 	parseRoot := parseT.TempDir()

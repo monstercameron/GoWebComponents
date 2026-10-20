@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 )
 
@@ -83,5 +84,28 @@ func TestA11yLintCarriesSymbolAndLocation(parseT *testing.T) {
 	}
 	if parseIssue.Path != "page.html" {
 		parseT.Fatalf("expected relative path page.html, got %q", parseIssue.Path)
+	}
+}
+
+// TestA11yLintSkipsVendoredAndClassScanHTML keeps the static pass focused on
+// application shells. Vendored pages and the Tailwind class inventory are not
+// owned document surfaces and may intentionally contain incomplete fragments.
+func TestA11yLintSkipsVendoredAndClassScanHTML(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	mustWrite(parseT, parseDir, "page.html", "<html>\n<body><img src=\"x.png\"></body>\n</html>")
+	mustWrite(parseT, parseDir, filepath.Join("third_party", "vendor.html"), "<html>\n<body><img src=\"x.png\"></body>\n</html>")
+	mustWrite(parseT, parseDir, filepath.Join("examples", "static", "classes.html"), "<html>\n<body><button></button></body>\n</html>")
+
+	parseIssues, parseErr := collectLintA11yRuleIssues(parseDir, []string{"./..."})
+	if parseErr != nil {
+		parseT.Fatalf("collectLintA11yRuleIssues: %v", parseErr)
+	}
+	if len(parseIssues) != 2 {
+		parseT.Fatalf("expected only the owned page's img-alt and html-lang findings, got %#v", parseIssues)
+	}
+	for _, parseIssue := range parseIssues {
+		if parseIssue.Path != "page.html" {
+			parseT.Fatalf("expected vendored/class-scan files to be skipped, got %#v", parseIssue)
+		}
 	}
 }
