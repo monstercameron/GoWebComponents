@@ -523,8 +523,14 @@ func findRepoRoot() (string, error) {
 	}
 
 	for {
-		if moduleRaw, readErr := os.ReadFile(filepath.Join(dir, "go.mod")); readErr == nil && strings.Contains(string(moduleRaw), "module github.com/monstercameron/GoWebComponents/v7\n") {
-			return dir, nil
+		if moduleRaw, readErr := os.ReadFile(filepath.Join(dir, "go.mod")); readErr == nil {
+			// go.mod files may use CRLF on Windows; inspect the module
+			// directive by line instead of relying on a LF-terminated substring.
+			for _, line := range strings.Split(string(moduleRaw), "\n") {
+				if strings.TrimSpace(line) == "module github.com/monstercameron/GoWebComponents/v7" {
+					return dir, nil
+				}
+			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
