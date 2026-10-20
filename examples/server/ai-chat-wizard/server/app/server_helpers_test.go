@@ -109,6 +109,9 @@ func TestCapabilityStatusAndAssetHelpers(parseT *testing.T) {
 	if _, parseOk2 := parseResolveRelativeAssetPath("/../secret"); parseOk2 {
 		parseT.Fatal("expected parent traversal path to be rejected")
 	}
+	if _, parseOk3 := parseResolveRelativeAssetPath(`\\..\\secret`); parseOk3 {
+		parseT.Fatal("expected backslash parent traversal path to be rejected")
+	}
 }
 
 func TestBrotliServingAndShellEndpoints(parseT *testing.T) {
