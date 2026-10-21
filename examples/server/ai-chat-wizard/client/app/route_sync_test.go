@@ -239,6 +239,15 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 	}
 }
 
+func TestShouldDeferPendingRootRouteReset(t *testing.T) {
+	if !shouldDeferPendingRootRouteReset(chatRouteRoot, "", 42, "thread-public-id", 42) {
+		t.Fatal("pending marker should survive while root navigation is outstanding")
+	}
+	if shouldDeferPendingRootRouteReset("/app/thread/thread-public-id", "thread-public-id", 42, "thread-public-id", 42) {
+		t.Fatal("pending marker should clear after thread route commits")
+	}
+}
+
 func TestShouldWarnPendingRootRoute(parseT *testing.T) {
 	parseTests := []struct {
 		name                string

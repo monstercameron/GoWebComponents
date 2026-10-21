@@ -310,6 +310,9 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 			parsePendingThreadRouteResolution.Set(parseThreadRoutePublicID)
 			parsePendingRootRouteWarningConvID.Set(0)
 			parseConversationList.ResolveRoute(parseThreadRoutePublicID)
+		case shouldDeferPendingRootRouteReset(parseCurrentPath, parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID, parsePendingRootRouteWarningConvID.Get()):
+			// Keep the marker until the normalization effect commits the thread
+			// route; clearing it here would reopen the root-reset race.
 		case shouldResetDraftForRootRoute(parseCurrentPath, parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
 			parsePendingThreadRouteResolution.Set("")
 			parseLastRouteMismatchWarning.Set("")

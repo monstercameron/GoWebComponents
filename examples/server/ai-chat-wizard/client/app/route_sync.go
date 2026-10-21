@@ -54,6 +54,17 @@ func shouldResetDraftForRootRoute(parseCurrentPath string, parseThreadRoutePubli
 	return strings.TrimSpace(parseActiveConvPublicID) != ""
 }
 
+// shouldDeferPendingRootRouteReset keeps the pending marker alive until route
+// normalization leaves the root path, preventing an intermediate render from
+// clearing the new conversation before navigation commits.
+func shouldDeferPendingRootRouteReset(parseCurrentPath string, parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string, parsePendingConvID int64) bool {
+	return strings.TrimSpace(parseCurrentPath) == chatRouteRoot &&
+		strings.TrimSpace(parseThreadRoutePublicID) == "" &&
+		parseActiveConvID > 0 &&
+		strings.TrimSpace(parseActiveConvPublicID) != "" &&
+		parsePendingConvID == parseActiveConvID
+}
+
 // shouldWarnPendingRootRoute reports whether one true chat-root route should warn about an unresolved conversation public id.
 func shouldWarnPendingRootRoute(parseCurrentPath string, parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string) bool {
 	if !shouldSyncConvRoute(parseCurrentPath) || strings.TrimSpace(parseCurrentPath) != chatRouteRoot {
