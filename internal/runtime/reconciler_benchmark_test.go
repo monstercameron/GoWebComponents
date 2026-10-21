@@ -150,6 +150,26 @@ func BenchmarkReconcileChildrenWithFragments16(parseB *testing.B) {
 	}
 }
 
+// BenchmarkReconcileChildrenNestedFragments16 measures flattening a 16-child
+// list wrapped in eight nested fragments before reconciliation.
+func BenchmarkReconcileChildrenNestedFragments16(parseB *testing.B) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+	parseOldFirst, parseFlat := benchmarkBuildHostChain(parseAdapter, 16)
+	parseChildren := []any(parseFlat)
+	for range 8 {
+		parseChildren = []any{&Element{Type: "FRAGMENT", Props: map[string]any{"children": parseChildren}}}
+	}
+	parseParent := &Fiber{alternate: &Fiber{child: parseOldFirst}}
+
+	parseB.ReportAllocs()
+	for parseB.Loop() {
+		parseParent.child = nil
+		parseRt.deletions = parseRt.deletions[:0]
+		parseRt.reconcileChildren(parseParent, parseChildren)
+	}
+}
+
 func BenchmarkReconcileChildrenKeyedStableList16(parseB *testing.B) {
 	parseAdapter := newTestDOMAdapter()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
