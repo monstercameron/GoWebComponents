@@ -3,6 +3,30 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
+## v7.0.6 — performance patch
+
+`ComputedSignal.Text` no longer copies its private source-ID slice before
+reactive text construction filters and joins the IDs. A focused two-source
+benchmark fell from 9 allocations and 648 B to 8 allocations and 616 B per
+operation. The public defensive-copy behavior of
+`ReactiveRegionSourceIDs`, rendered text, API, and Go 1.27 requirement are
+unchanged.
+
+The [native drift rerun](https://github.com/monstercameron/GoWebComponents/actions/runs/39668432879)
+passed across 164 shared benchmarks with a 0.13% slower geometric mean; its
+previously flagged, unchanged hydration entry was 0.77% slower, within noise.
+The [same-runner native comparison](https://github.com/monstercameron/GoWebComponents/actions/runs/39667994389)
+passed across 185 shared entries with a 0.68% slower geometric mean.
+The [direct v7.0.5 browser rerun](https://github.com/monstercameron/GoWebComponents/actions/runs/39668858776)
+passed all 19 scenarios with a 0.41% faster geometric mean. An earlier
+[browser capture](https://github.com/monstercameron/GoWebComponents/actions/runs/39668036316)
+was 1.21% slower in aggregate without any scenario beyond its noise limit.
+The [same-runner Wasm comparison](https://github.com/monstercameron/GoWebComponents/actions/runs/39667999519)
+was 0.03% slower across 154 shared entries. Its strict per-entry gate flagged
+an unchanged legacy child-placement benchmark at +18.26% against a 15% limit;
+that benchmark does not call the changed state code. A repeat measurement was
+scheduled to investigate the outlier.
+
 ## v7.0.5 — performance patch
 
 Child-order repair now sizes its observed-node scratch slice from the expected
