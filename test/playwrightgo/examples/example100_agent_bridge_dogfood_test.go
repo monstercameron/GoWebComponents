@@ -156,8 +156,9 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 			}
 		}
 		parseWaitForExample100PromptInThread(parseT, parsePage, parsePrompt)
-		parseWaitForExample100SnapshotContaining(parseT, parseBaseURL, parseToken, parseSession.ID, parsePrompt, "after send")
-		traceExample100AgentDogfood("prompt sent and snapshotted")
+		parseWaitForExample100AgentTextMatch(parseT, parseBaseURL, parseToken, parseSession.ID, parsePrompt, "after send")
+		parseCheckExample100AgentSnapshot(parseT, parseBaseURL, parseToken, parseSession.ID, "after send")
+		traceExample100AgentDogfood("prompt sent and observed through bridge query")
 
 		parseThreadPath := parseReadExample100Pathname(parseT, parsePage)
 		if _, parseErr := parsePage.Evaluate(fmt.Sprintf(`() => history.replaceState(null, "", %q)`, parseThreadPath+"?gwc-dev=agent&br=false")); parseErr != nil {
@@ -170,8 +171,9 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 			parseT.Fatalf("wait for chat input after agent reload: %v", parseErr)
 		}
 		parseReloadedSession := parseWaitForExample100NewActiveAgentSession(parseT, parseBaseURL, parseToken, parseSession.ID)
-		parseWaitForExample100SnapshotContaining(parseT, parseBaseURL, parseToken, parseReloadedSession.ID, parsePrompt, "after reload")
-		traceExample100AgentDogfood("reload snapshot verified")
+		parseWaitForExample100AgentTextMatch(parseT, parseBaseURL, parseToken, parseReloadedSession.ID, parsePrompt, "after reload")
+		parseCheckExample100AgentSnapshot(parseT, parseBaseURL, parseToken, parseReloadedSession.ID, "after reload")
+		traceExample100AgentDogfood("reload prompt observed through bridge query")
 	})
 }
 
@@ -301,11 +303,13 @@ func parseLoginExample100AgentUser(parseT *testing.T, parsePage playwright.Page)
 // assistant response are visible in the chat thread.
 func parseWaitForExample100PromptInThread(parseT *testing.T, parsePage playwright.Page, parsePrompt string) {
 	parseT.Helper()
-	if _, parseErr := parsePage.WaitForFunction(fmt.Sprintf(`() => document.body && document.body.innerText.includes(%q)`, parsePrompt), nil); parseErr != nil {
-		parseT.Fatalf("wait for sent prompt text: %v", parseErr)
-	}
-	if _, parseErr := parsePage.WaitForFunction(`() => document.querySelectorAll("#message-list .msg-bubble-user").length >= 1 && document.querySelectorAll("#message-list .msg-bubble-assistant").length >= 1`, nil); parseErr != nil {
-		parseT.Fatalf("wait for user+assistant message bubbles: %v", parseErr)
+	parsePromptCheck := fmt.Sprintf(`() => {
+		const userBubbles = Array.from(document.querySelectorAll("#message-list .msg-bubble-user"));
+		const assistantBubbles = document.querySelectorAll("#message-list .msg-bubble-assistant");
+		return userBubbles.some((node) => (node.textContent || "").includes(%q)) && assistantBubbles.length >= 1;
+	}`, parsePrompt)
+	if _, parseErr := parsePage.WaitForFunction(parsePromptCheck, nil); parseErr != nil {
+		parseT.Fatalf("wait for sent prompt and assistant bubble: %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForFunction(`() => window.location.pathname.startsWith("/app/thread/") && window.location.pathname.length > "/app/thread/".length`, nil); parseErr != nil {
 		parseT.Fatalf("wait for thread route after send: %v", parseErr)
@@ -469,9 +473,9 @@ func parseQueryExample100Agent(parseT *testing.T, parseBaseURL string, parseToke
 	return parseResult.Matches
 }
 
-// parseSnapshotExample100Agent runs bridge.snapshot and returns the raw payload
-// text for broad thread assertions.
-func parseSnapshotExample100Agent(parseT *testing.T, parseBaseURL string, parseToken string, parseSession string) string {
+// parseCheckExample100AgentSnapshot keeps real-browser snapshot coverage without
+// treating a budgeted tree as a complete text search result.
+func parseCheckExample100AgentSnapshot(parseT *testing.T, parseBaseURL string, parseToken string, parseSession string, parseLabel string) {
 	parseT.Helper()
 	parseAck := parsePostExample100AgentCommand(parseT, parseBaseURL, parseToken, example100AgentCommandRequest{
 		Session:   parseSession,
@@ -479,30 +483,36 @@ func parseSnapshotExample100Agent(parseT *testing.T, parseBaseURL string, parseT
 		Payload:   parseRawExample100AgentJSON(parseT, map[string]any{"maxDepth": 32, "maxNodes": 2000}),
 		TimeoutMs: 5000,
 	})
-	parseRequireExample100AgentAckOK(parseT, "snapshot", parseAck)
-	return string(parseAck.Payload)
+	parseRequireExample100AgentAckOK(parseT, "snapshot "+parseLabel, parseAck)
+	var parseResult struct {
+		Snapshot struct {
+			Root json.RawMessage `json:"root"`
+		} `json:"snapshot"`
+	}
+	if parseErr := json.Unmarshal(parseAck.Payload, &parseResult); parseErr != nil {
+		parseT.Fatalf("decode snapshot %s: %v payload=%s", parseLabel, parseErr, string(parseAck.Payload))
+	}
+	if len(parseResult.Snapshot.Root) == 0 || string(parseResult.Snapshot.Root) == "null" {
+		parseT.Fatalf("snapshot %s returned a null root", parseLabel)
+	}
 }
 
-func parseWaitForExample100SnapshotContaining(parseT *testing.T, parseBaseURL string, parseToken string, parseSession string, parseNeedle string, parseLabel string) string {
+// parseWaitForExample100AgentTextMatch waits for the bridge's semantic text
+// query to observe one rendered prompt. Snapshot responses are intentionally
+// budgeted and may omit a deep text node even while the live query can find it.
+func parseWaitForExample100AgentTextMatch(parseT *testing.T, parseBaseURL string, parseToken string, parseSession string, parseNeedle string, parseLabel string) []example100AgentQueryMatch {
 	parseT.Helper()
 	parseDeadline := time.Now().Add(5 * time.Second)
-	var parseLastSnapshot string
+	var parseLastMatches []example100AgentQueryMatch
 	for time.Now().Before(parseDeadline) {
-		parseLastSnapshot = parseSnapshotExample100Agent(parseT, parseBaseURL, parseToken, parseSession)
-		if strings.Contains(parseLastSnapshot, parseNeedle) {
-			return parseLastSnapshot
+		parseLastMatches = parseQueryExample100Agent(parseT, parseBaseURL, parseToken, parseSession, map[string]any{"text": parseNeedle})
+		if len(parseLastMatches) > 0 {
+			return parseLastMatches
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	parseT.Fatalf("agent snapshot %s did not contain %q: %s", parseLabel, parseNeedle, truncateExample100AgentSnapshot(parseLastSnapshot, 2000))
-	return ""
-}
-
-func truncateExample100AgentSnapshot(parseSnapshot string, parseLimit int) string {
-	if parseLimit <= 0 || len(parseSnapshot) <= parseLimit {
-		return parseSnapshot
-	}
-	return parseSnapshot[:parseLimit] + "...(truncated)"
+	parseT.Fatalf("agent text query %s did not contain %q: matches=%+v", parseLabel, parseNeedle, parseLastMatches)
+	return nil
 }
 
 // parseRawExample100AgentJSON marshals one value into a raw JSON payload.

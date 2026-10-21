@@ -495,6 +495,7 @@ package name says wasm.
 
 #### Repairs to tests and tooling
 
+- The Example 100 agent dogfood test now checks prompt text with `bridge.query` and verifies it in the user message bubble; it still exercises `bridge.snapshot` after send and reload, but no longer treats its 2,000-node budget as a complete text search. The focused browser test passes.
 - Windows WebView CI now exits successfully after validating both intentionally failing startup fault runs. All three normal smoke variants passed on the hosted runner, and both injected faults returned their expected exit code 1.
 - The composed hydration correctness test now disables the scheduler's wall-clock slice budget while draining one task; its state setter no longer remains unset on slow WASM runners (20 focused WASM repeats, full WASM runtime package). The bridge Root Integration Smoke now checks module replacement wiring in the Example 100 module that actually requires the bridge.
 - Bridge CI: the nested WASM client now has dependency metadata aligned with the patched bridge module, fixing read-only Go 1.26/1.27 builds. Server keepalive has an independent pong watchdog because the HTTP/2 server can replace the WebSocket read deadline (test: `TestKeepaliveWatchdogSurvivesReadDeadlineReset`, 20 repeats). The browser compatibility workflow builds public example and Atlas WASM assets before `TestExamplesAll` and installs Playwright system dependencies for WebKit; the release workflow builds the public example assets before its browser suite.
