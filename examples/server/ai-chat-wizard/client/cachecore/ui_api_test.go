@@ -191,11 +191,21 @@ func TestReadCachedResourceSnapshotGuardrail(parseT *testing.T) {
 	case <-time.After(2 * time.Second):
 		parseT.Fatal("timed out waiting for snapshot-first background refresh")
 	}
-	parseRefreshedRecord, isParseFound, parseErr := parseStorage.Get(parseCtx, BuildScopedResourceKey(parseScopeKey, parseResourceKey))
-	if parseErr != nil || !isParseFound {
-		parseT.Fatalf("Get(refreshed): found=%t err=%v", isParseFound, parseErr)
-	}
-	if !strings.EqualFold(parseRefreshedRecord.Version, "v2") {
-		parseT.Fatalf("expected refreshed storage version v2, got %+v", parseRefreshedRecord)
+	parseDeadline := time.Now().Add(2 * time.Second)
+	for {
+		parseRefreshedRecord, isParseFound, parseErr := parseStorage.Get(parseCtx, BuildScopedResourceKey(parseScopeKey, parseResourceKey))
+		if parseErr != nil {
+			parseT.Fatalf("Get(refreshed): %v", parseErr)
+		}
+		if isParseFound {
+			if !strings.EqualFold(parseRefreshedRecord.Version, "v2") {
+				parseT.Fatalf("expected refreshed storage version v2, got %+v", parseRefreshedRecord)
+			}
+			break
+		}
+		if time.Now().After(parseDeadline) {
+			parseT.Fatal("timed out waiting for refreshed storage record")
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
