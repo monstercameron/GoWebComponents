@@ -550,8 +550,9 @@ func buildElementHostProps(parseTyp any, parseProps map[string]any) ([]HostAttr,
 	// reaching here, and the DOM differ skips propKindSkip entries (including
 	// "children"), so the copy only added one map allocation per host element
 	// per render â€” the single largest allocation site in component updates.
-	getHostAttrs := AcquireRenderHostAttrs(len(parseProps))
-	isCompactHostProps := true
+	// Non-string and special props require the regular DOM path. Reserve the
+	// compact attribute view only after finding an attribute it can retain.
+	var getHostAttrs []HostAttr
 	for parseName, parseValue := range parseProps {
 		if parseName == "children" {
 			continue
@@ -563,33 +564,23 @@ func buildElementHostProps(parseTyp any, parseProps map[string]any) ([]HostAttr,
 		if parseMeta.kind == propKindSkip {
 			continue
 		}
+		if parseMeta.kind == propKindSpecialProperty {
+			return nil, false
+		}
 		parseAttrName := parseMeta.attrName
 		if parseAttrName == "" {
 			parseAttrName = parseName
 		}
-		switch parseMeta.kind {
-		case propKindSpecialProperty:
-			isCompactHostProps = false
-		case propKindStyle:
-			parseTextValue, parseTextOk := parseValue.(string)
-			if !parseTextOk {
-				isCompactHostProps = false
-				continue
-			}
-			getHostAttrs = append(getHostAttrs, HostAttr{Name: parseAttrName, Value: parseTextValue})
-		default:
-			parseTextValue, parseTextOk := parseValue.(string)
-			if !parseTextOk {
-				isCompactHostProps = false
-				continue
-			}
-			getHostAttrs = append(getHostAttrs, HostAttr{Name: parseAttrName, Value: parseTextValue})
+		parseTextValue, parseTextOk := parseValue.(string)
+		if !parseTextOk {
+			return nil, false
 		}
+		if getHostAttrs == nil {
+			getHostAttrs = AcquireRenderHostAttrs(len(parseProps))
+		}
+		getHostAttrs = append(getHostAttrs, HostAttr{Name: parseAttrName, Value: parseTextValue})
 	}
-	if !isCompactHostProps {
-		getHostAttrs = nil
-	}
-	return getHostAttrs, isCompactHostProps
+	return getHostAttrs, true
 }
 
 // cloneElementProps clones one props map so callers can safely retain and reuse their original input.
