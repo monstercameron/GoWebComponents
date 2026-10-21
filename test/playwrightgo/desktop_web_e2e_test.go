@@ -17,7 +17,7 @@ import (
 
 // TestDesktopLabWebE2E proves the real lab's web artifact has no native bootstrap.
 func TestDesktopLabWebE2E(parseTest *testing.T) {
-	parseRoot := repoRootFromTest(parseTest)
+	parseRoot := filepath.Clean(filepath.Join(repoRootFromTest(parseTest), "..", ".."))
 	// A fresh scaffold prevents old helper-generated assets from masking a broken CLI build.
 	parseExample := filepath.Join(parseTest.TempDir(), "lab")
 	parseCommand := exec.Command("go", "-C", "tools", "run", "./gwc", "build", "-target", "web", "-root", parseExample, "-json")
