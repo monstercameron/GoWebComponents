@@ -41,7 +41,9 @@ func (parsePoster *envelopePoster) Post(parseRequestID uint64, parseName string,
 		if parseReplyErr != nil {
 			return
 		}
-		parsePoster.client.DeliverEncodedReply(parseReplyBytes)
+		if _, parseDeliverErr := parsePoster.client.DeliverEncodedReply(parseReplyBytes); parseDeliverErr != nil {
+			return
+		}
 	}()
 	return nil
 }

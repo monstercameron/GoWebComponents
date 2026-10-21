@@ -39,8 +39,8 @@ func TestFlushSerializesWithOpenTransaction(parseT *testing.T) {
 
 	// Flush must NOT complete while the tx holds the only connection.
 	select {
-	case <-parseFlushDone:
-		parseT.Fatal("Flush completed while a transaction held the connection (torn-write window)")
+	case parseFlushErr := <-parseFlushDone:
+		parseT.Fatalf("Flush completed while a transaction held the connection (torn-write window), err=%v", parseFlushErr)
 	case <-time.After(100 * time.Millisecond):
 	}
 	if atomic.LoadInt32(&parseFlushed) != 0 {

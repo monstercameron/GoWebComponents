@@ -195,8 +195,12 @@ func TestCustomBackendCRUD(t *testing.T) {
 func TestExportImportRoundTripAcrossBackends(t *testing.T) {
 	parseCtx := context.Background()
 	parseSource := newMemBackend()
-	parseSource.Save(parseCtx, Record{Key: "a", Value: []byte("1"), Version: 1, UpdatedAt: 10})
-	parseSource.Save(parseCtx, Record{Key: "b", Value: []byte("2"), Version: 1, UpdatedAt: 20})
+	if parseErr := parseSource.Save(parseCtx, Record{Key: "a", Value: []byte("1"), Version: 1, UpdatedAt: 10}); parseErr != nil {
+		t.Fatalf("save a: %v", parseErr)
+	}
+	if parseErr := parseSource.Save(parseCtx, Record{Key: "b", Value: []byte("2"), Version: 1, UpdatedAt: 20}); parseErr != nil {
+		t.Fatalf("save b: %v", parseErr)
+	}
 
 	// Egress: read every record out (the bytes you'd POST to another origin).
 	parseSnapshot, parseErr := Export(parseCtx, parseSource)
@@ -222,7 +226,9 @@ func TestExportImportRoundTripAcrossBackends(t *testing.T) {
 func TestImportRejectsStaleWithVersionedResolver(t *testing.T) {
 	parseCtx := context.Background()
 	parseDest := newMemBackend()
-	parseDest.Save(parseCtx, Record{Key: "k", Value: []byte("local-v5"), Version: 5})
+	if parseErr := parseDest.Save(parseCtx, Record{Key: "k", Value: []byte("local-v5"), Version: 5}); parseErr != nil {
+		t.Fatalf("seed destination: %v", parseErr)
+	}
 
 	// Incoming stale (v3) must be rejected; newer (v7) must win.
 	if parseErr := Import(parseCtx, parseDest, []Record{

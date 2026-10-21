@@ -193,7 +193,7 @@ func TestHandleRejectsNonPost(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("GET failed: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() { _ = parseResp.Body.Close() }()
 	if parseResp.StatusCode != http.StatusMethodNotAllowed {
 		parseT.Fatalf("expected 405 for GET, got %d", parseResp.StatusCode)
 	}

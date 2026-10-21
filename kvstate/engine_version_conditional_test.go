@@ -19,7 +19,11 @@ func TestSqliteBackendSaveIsVersionConditional(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("sqlite.Open: %v", parseErr)
 	}
-	defer parseDB.Close()
+	defer func() {
+		if parseCloseErr := parseDB.Close(); parseCloseErr != nil {
+			parseT.Errorf("close: %v", parseCloseErr)
+		}
+	}()
 
 	parseTable := "kv_verscond"
 	if _, parseErr := parseDB.Exec(parseCtx,

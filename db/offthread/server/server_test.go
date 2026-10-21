@@ -365,7 +365,11 @@ func TestMixedAppUsesBothModelsSideBySide(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("open local: %v", parseErr)
 	}
-	defer parseLocalDB.Close()
+	defer func() {
+		if parseCloseErr := parseLocalDB.Close(); parseCloseErr != nil {
+			parseT.Errorf("close local: %v", parseCloseErr)
+		}
+	}()
 
 	if _, parseErr := parseLocalDB.Exec(parseCtx, "CREATE TABLE local_only (v TEXT)"); parseErr != nil {
 		parseT.Fatalf("create local: %v", parseErr)
@@ -416,7 +420,11 @@ func TestBothModelsRunTransactionsIndependently(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("open local: %v", parseErr)
 	}
-	defer parseLocalDB.Close()
+	defer func() {
+		if parseCloseErr := parseLocalDB.Close(); parseCloseErr != nil {
+			parseT.Errorf("close local: %v", parseCloseErr)
+		}
+	}()
 	if _, parseErr := parseLocalDB.Exec(parseCtx, "CREATE TABLE t (v INTEGER)"); parseErr != nil {
 		parseT.Fatalf("create: %v", parseErr)
 	}

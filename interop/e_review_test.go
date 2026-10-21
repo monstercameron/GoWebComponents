@@ -76,7 +76,10 @@ func TestWorkerPoolDrainDoesNotHangWhenWorkerDisposedMidDrain(parseT *testing.T)
 	time.Sleep(50 * time.Millisecond)
 	close(parseRelease)
 	select {
-	case <-parseDrainErr:
+	case parseDrainErr := <-parseDrainErr:
+		if parseDrainErr != nil {
+			parseT.Fatalf("Drain: %v", parseDrainErr)
+		}
 	case <-time.After(3 * time.Second):
 		parseT.Fatal("Drain hung: queued request never completed after worker disposal")
 	}

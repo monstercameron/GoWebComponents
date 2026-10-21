@@ -72,7 +72,9 @@ func acquireEngine(parseCtx context.Context, parseOptions Options) (*engine, err
 			" (k TEXT PRIMARY KEY, v BLOB NOT NULL, version INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 	); parseErr != nil {
 		if len(parseEntry.engines) == 0 {
-			parseEntry.db.Close()
+			if parseCloseErr := parseEntry.db.Close(); parseCloseErr != nil {
+				return nil, fmt.Errorf("%w (close sqlite: %v)", parseErr, parseCloseErr)
+			}
 			delete(engines, parseOptions.Name)
 		}
 		return nil, parseErr
@@ -134,7 +136,7 @@ func (parseB *sqliteBackend) Keys(parseCtx context.Context) ([]string, error) {
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	var parseKeys []string
 	for parseRows.Next() {
 		var parseKey string

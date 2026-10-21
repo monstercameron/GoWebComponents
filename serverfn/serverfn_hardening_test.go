@@ -26,7 +26,11 @@ func TestHandleRejectsOversizedBody(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("post: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() {
+		if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response: %v", parseCloseErr)
+		}
+	}()
 	if parseResp.StatusCode != http.StatusRequestEntityTooLarge {
 		parseT.Fatalf("status = %d, want 413", parseResp.StatusCode)
 	}
@@ -82,7 +86,11 @@ func TestHandleRejectsNonJSONContentType(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("post: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() {
+		if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response: %v", parseCloseErr)
+		}
+	}()
 	if parseResp.StatusCode != http.StatusUnsupportedMediaType {
 		parseT.Fatalf("text/plain must be rejected with 415, got %d", parseResp.StatusCode)
 	}
@@ -94,7 +102,11 @@ func TestHandleRejectsNonJSONContentType(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("blank-ct post: %v", parseErr)
 	}
-	defer parseBlank.Body.Close()
+	defer func() {
+		if parseCloseErr := parseBlank.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response: %v", parseCloseErr)
+		}
+	}()
 	if parseBlank.StatusCode != http.StatusUnsupportedMediaType {
 		parseT.Fatalf("missing Content-Type must be rejected with 415, got %d", parseBlank.StatusCode)
 	}
@@ -108,7 +120,11 @@ func TestHandleAcceptsJSONContentTypeWithCharset(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("post: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() {
+		if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response: %v", parseCloseErr)
+		}
+	}()
 	if parseResp.StatusCode != http.StatusOK {
 		parseT.Fatalf("application/json;charset=utf-8 must be accepted, got %d", parseResp.StatusCode)
 	}
@@ -126,7 +142,7 @@ func TestHandleRejectsCrossSiteFetch(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("post: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() { _ = parseResp.Body.Close() }()
 	if parseResp.StatusCode != http.StatusForbidden {
 		parseT.Fatalf("cross-site fetch must be rejected with 403, got %d", parseResp.StatusCode)
 	}
@@ -139,7 +155,11 @@ func TestHandleRejectsCrossSiteFetch(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("same-origin post: %v", parseErr)
 	}
-	defer parseResp2.Body.Close()
+	defer func() {
+		if parseCloseErr := parseResp2.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response: %v", parseCloseErr)
+		}
+	}()
 	if parseResp2.StatusCode != http.StatusOK {
 		parseT.Fatalf("same-origin fetch must be accepted, got %d", parseResp2.StatusCode)
 	}
@@ -156,7 +176,7 @@ func TestCSRFProtectionToggle(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("post: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() { _ = parseResp.Body.Close() }()
 	if parseResp.StatusCode != http.StatusOK {
 		parseT.Fatalf("with CSRF protection off, text/plain must be accepted, got %d", parseResp.StatusCode)
 	}

@@ -26,7 +26,10 @@ func TestResourceControllerRecordsCancelOfSupersededAttempt(parseT *testing.T) {
 
 	parseCancel1()
 	select {
-	case <-parseDone1:
+	case parseDoneErr := <-parseDone1:
+		if parseDoneErr == nil {
+			parseT.Errorf("first attempt returned nil error after cancellation")
+		}
 	case <-time.After(2 * time.Second):
 		parseT.Fatal("first attempt did not return after its context was canceled")
 	}

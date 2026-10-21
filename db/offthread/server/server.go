@@ -204,7 +204,7 @@ func (parseServer *Server) handleQuery(parseCtx context.Context, parseRequest of
 	if parseErr != nil {
 		return offthread.Response{Err: parseErr.Error()}
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 
 	return materializeRows(parseRows, parseRequest.MaxRows)
 }

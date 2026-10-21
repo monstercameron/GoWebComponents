@@ -11,7 +11,9 @@ func registerUnloadFlush(parseFlush func()) {
 		return
 	}
 	// "pagehide" is the reliable lifecycle signal for bfcache + close + navigation.
-	parseEvents.Listen("pagehide", func(parseEvent interop.BrowserEvent) {
+	if _, parseListenErr := parseEvents.Listen("pagehide", func(parseEvent interop.BrowserEvent) {
 		parseFlush()
-	})
+	}); parseListenErr != nil {
+		return
+	}
 }

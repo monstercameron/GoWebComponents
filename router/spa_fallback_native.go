@@ -80,7 +80,11 @@ func serveSPAFile(parseW http.ResponseWriter, parseR *http.Request, parseFile st
 		http.NotFound(parseW, parseR)
 		return
 	}
-	defer parseHandle.Close()
+	defer func() {
+		if parseCloseErr := parseHandle.Close(); parseCloseErr != nil {
+			// The response is already in progress and cannot change status now.
+		}
+	}()
 	parseInfo, parseErr := parseHandle.Stat()
 	if parseErr != nil {
 		http.NotFound(parseW, parseR)
