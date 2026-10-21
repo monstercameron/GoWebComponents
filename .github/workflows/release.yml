@@ -133,6 +133,12 @@ jobs:
           go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter -skip-tests -audit -audit-min-severity error
         shell: pwsh
 
+      - name: Build Browser WASM Artifacts
+        run: |
+          go -C tools run ./gwc examples build-public-site -profile ci
+          if ($LASTEXITCODE -ne 0) { throw "public example wasm build failed" }
+        shell: pwsh
+
       - name: Run Browser Smoke Suite (Playwright-Go)
         run: |
           go -C test/playwrightgo test -tags playwrightgo . -run TestMainSuite -v

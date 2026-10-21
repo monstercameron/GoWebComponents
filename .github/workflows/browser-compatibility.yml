@@ -25,6 +25,15 @@ jobs:
         with:
           go-version: "1.27.x"
 
+      - name: Build Browser WASM Artifacts
+        run: |
+          go -C tools run ./gwc examples build-public-site -profile ci
+          mkdir -p examples/static/bin
+          GOOS=js GOARCH=wasm go build -o examples/static/bin/atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client
+
+      - name: Install Playwright browsers and system dependencies
+        run: go -C test/playwrightgo run github.com/mxschmitt/playwright-go/cmd/playwright install --with-deps chromium firefox webkit
+
       - name: Run Browser Compatibility Smoke (Playwright-Go)
         run: |
           go -C test/playwrightgo test -tags playwrightgo ./examples -run TestBrowserCompat -v
