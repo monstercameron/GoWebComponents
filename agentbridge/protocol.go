@@ -3,6 +3,8 @@ package agentbridge
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
 )
 
 // ProtocolName identifies the agent bridge wire protocol in every envelope.
@@ -157,6 +159,7 @@ func NewEventEnvelope(parseSeq uint64, parseSession string, parseName string, pa
 //
 // Deprecated: use NewHelloEnvelope (New* matches the module-wide constructor convention).
 func BuildHelloEnvelope(parseSeq uint64, parsePayload json.RawMessage) Envelope {
+	deprecation.Warn("agentbridge.BuildHelloEnvelope", "agentbridge.NewHelloEnvelope")
 	return NewHelloEnvelope(parseSeq, parsePayload)
 }
 
@@ -164,6 +167,7 @@ func BuildHelloEnvelope(parseSeq uint64, parsePayload json.RawMessage) Envelope 
 //
 // Deprecated: use NewCommandEnvelope.
 func BuildCommandEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
+	deprecation.Warn("agentbridge.BuildCommandEnvelope", "agentbridge.NewCommandEnvelope")
 	return NewCommandEnvelope(parseSeq, parseSession, parseName, parsePayload)
 }
 
@@ -171,6 +175,7 @@ func BuildCommandEnvelope(parseSeq uint64, parseSession string, parseName string
 //
 // Deprecated: use NewAckEnvelope.
 func BuildAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseStateVersion uint64, parsePayload json.RawMessage) Envelope {
+	deprecation.Warn("agentbridge.BuildAckEnvelope", "agentbridge.NewAckEnvelope")
 	return NewAckEnvelope(parseSeq, parseSession, parseAckSeq, parseStateVersion, parsePayload)
 }
 
@@ -178,6 +183,7 @@ func BuildAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, 
 //
 // Deprecated: use NewErrorAckEnvelope.
 func BuildErrorAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseCode string, parseMessage string) Envelope {
+	deprecation.Warn("agentbridge.BuildErrorAckEnvelope", "agentbridge.NewErrorAckEnvelope")
 	return NewErrorAckEnvelope(parseSeq, parseSession, parseAckSeq, parseCode, parseMessage)
 }
 
@@ -185,6 +191,7 @@ func BuildErrorAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uin
 //
 // Deprecated: use NewEventEnvelope.
 func BuildEventEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
+	deprecation.Warn("agentbridge.BuildEventEnvelope", "agentbridge.NewEventEnvelope")
 	return NewEventEnvelope(parseSeq, parseSession, parseName, parsePayload)
 }
 

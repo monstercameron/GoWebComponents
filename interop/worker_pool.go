@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
 )
 
 // WorkerRequester defines the request-capable worker surface shared by single
@@ -147,13 +149,19 @@ func (parseP WorkerPool) QueueLimit() int {
 // GetSize returns the configured worker count for the pool.
 //
 // Deprecated: use Size (the Get prefix is inconsistent with the package's other accessors).
-func (parseP WorkerPool) GetSize() int { return parseP.Size() }
+func (parseP WorkerPool) GetSize() int {
+	deprecation.Warn("interop.WorkerPool.GetSize", "interop.WorkerPool.Size")
+	return parseP.Size()
+}
 
 // GetQueueLimit returns the configured number of queued requests allowed in addition to the running
 // worker count.
 //
 // Deprecated: use QueueLimit.
-func (parseP WorkerPool) GetQueueLimit() int { return parseP.QueueLimit() }
+func (parseP WorkerPool) GetQueueLimit() int {
+	deprecation.Warn("interop.WorkerPool.GetQueueLimit", "interop.WorkerPool.QueueLimit")
+	return parseP.QueueLimit()
+}
 
 // request schedules one request onto the next available pooled worker.
 func (parseS *workerPoolState) request(parseCtx context.Context, parseName string, parsePayload any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error) {

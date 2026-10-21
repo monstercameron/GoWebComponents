@@ -1171,6 +1171,7 @@ func (parseR *Router) GetCurrentPath() string {
 //
 // Deprecated: use GetCurrentPath, which mirrors the package-level GetCurrentPath name.
 func (parseR *Router) GetCurrentRouterPath() string {
+	deprecation.Warn("router.Router.GetCurrentRouterPath", "router.Router.GetCurrentPath")
 	parseLoc := getLocationValue()
 	if !parseLoc.Truthy() {
 		return rootRoutePath

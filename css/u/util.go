@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
 )
 
 // --- display & layout (static utilities) --------------------------------------
@@ -135,6 +136,7 @@ func BorderC(c ColorToken) css.Rule { return css.Border(css.Px(1), resolveColor(
 // is a compile error instead of a runtime transparent fallback. These string forms
 // remain for arbitrary/runtime-computed token names.
 func BgToken(name string) css.Rule {
+	deprecation.Warn("css/u.BgToken", "css/u.BgC")
 	c, ok := css.ColorValue(name)
 	if !ok {
 		c = css.Transparent
@@ -144,6 +146,7 @@ func BgToken(name string) css.Rule {
 
 // Deprecated: prefer the typed u.TextC(u.ColorSlate900). See BgToken.
 func TextToken(name string) css.Rule {
+	deprecation.Warn("css/u.TextToken", "css/u.TextC")
 	c, ok := css.ColorValue(name)
 	if !ok {
 		c = css.Transparent

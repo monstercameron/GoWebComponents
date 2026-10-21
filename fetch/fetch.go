@@ -144,6 +144,7 @@ type resourceCancelRef interface {
 // Deprecated: prefer the typed UseResource[T] (a Go loader returning a typed value) or ui.UseQuery
 // (cache + dedupe + stale-while-revalidate). UseFetch remains for a quick untyped URL GET.
 func UseFetch(parseUrl string, parseOptions ...Options) Resource {
+	deprecation.Warn("fetch.UseFetch", "fetch.UseResource")
 	parseArgs := make([]any, len(parseOptions))
 	for parseI, parseOpt := range parseOptions {
 		parseArgs[parseI] = parseOpt

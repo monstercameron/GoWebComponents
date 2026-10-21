@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall/js"
 
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
 	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 	"github.com/monstercameron/GoWebComponents/v7/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
@@ -114,6 +115,7 @@ func UseOutlet() *Element {
 //
 // Deprecated: use UseOutlet, which follows the package's Use* accessor convention.
 func GetOutlet() *Element {
+	deprecation.Warn("router.GetOutlet", "router.UseOutlet")
 	return UseOutlet()
 }
 
