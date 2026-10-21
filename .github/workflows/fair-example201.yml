@@ -109,7 +109,7 @@ jobs:
           set +e
           v6_overall=0
           v7_overall=0
-          for run in 1 2 3; do
+          run_baseline() {
             cd "$V6_DIR"
             if [ -f test/playwrightgo/go.mod ]; then
               go -C test/playwrightgo test -tags playwrightgo ./examples \
@@ -124,6 +124,8 @@ jobs:
             [ -f "$report" ] && cp "$report" "$FAIR_DIR/v6-browser-benchmark-report-$run.json"
             [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v6-browser-benchmark-report-$run.md"
             cd "$GITHUB_WORKSPACE"
+          }
+          run_candidate() {
             go -C test/playwrightgo test -tags playwrightgo ./examples \
               -run '^TestExample201BrowserBenchmarkReport$' -count=1 -v -timeout 15m \
               2>&1 | tee "$FAIR_DIR/v7-console-$run.txt"
@@ -132,6 +134,18 @@ jobs:
             report="bin/test-results/example-201-browser-benchmark/browser-benchmark-report.json"
             [ -f "$report" ] && cp "$report" "$FAIR_DIR/v7-browser-benchmark-report-$run.json"
             [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v7-browser-benchmark-report-$run.md"
+          }
+          # The same-source control (run 39615256234) failed the gate with
+          # baseline always first. Balance order while retaining the same
+          # scenario threshold and median-based comparison.
+          for run in 1 2 3 4; do
+            if (( run % 2 )); then
+              run_baseline
+              run_candidate
+            else
+              run_candidate
+              run_baseline
+            fi
           done
           echo "v6_status=$v6_overall" >> "$GITHUB_OUTPUT"
           echo "v7_status=$v7_overall" >> "$GITHUB_OUTPUT"
@@ -146,9 +160,11 @@ jobs:
             --baseline "$FAIR_DIR/v6-browser-benchmark-report-1.json" \
             --baseline "$FAIR_DIR/v6-browser-benchmark-report-2.json" \
             --baseline "$FAIR_DIR/v6-browser-benchmark-report-3.json" \
+            --baseline "$FAIR_DIR/v6-browser-benchmark-report-4.json" \
             --candidate "$FAIR_DIR/v7-browser-benchmark-report-1.json" \
             --candidate "$FAIR_DIR/v7-browser-benchmark-report-2.json" \
             --candidate "$FAIR_DIR/v7-browser-benchmark-report-3.json" \
+            --candidate "$FAIR_DIR/v7-browser-benchmark-report-4.json" \
             --json "$FAIR_DIR/example201-comparison.json" \
             --markdown "$FAIR_DIR/example201-comparison.md"
           test "${{ steps.bench.outputs.v6_status }}" = 0
