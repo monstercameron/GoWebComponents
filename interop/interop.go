@@ -86,6 +86,9 @@ func Decode(parseValue any, parseTarget any) error {
 	if parseTarget == nil {
 		return wrapError("Decode", "", CodeInvalid, errors.New("target is nil"))
 	}
+	if parseHandled, parseErr := decodeSimpleMapToStruct(parseValue, parseTarget); parseHandled {
+		return parseErr
+	}
 	parseData, parseErr := json.Marshal(parseValue)
 	if parseErr != nil {
 		return wrapError("Decode", "", CodeEncode, parseErr)

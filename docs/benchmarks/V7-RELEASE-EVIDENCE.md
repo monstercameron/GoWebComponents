@@ -12,8 +12,12 @@ the raw suites and runner identity.
 | --- | --- | --- | --- |
 | Native amd64 | [39561403780](https://github.com/monstercameron/GoWebComponents/actions/runs/39561403780) | `a1d6455f` | Passed; reviewed below |
 | Wasm | [39563464806](https://github.com/monstercameron/GoWebComponents/actions/runs/39563464806) | `d00ee361` | Failed one 15% gate entry; follow-up in progress |
+| Native amd64 rerun | [39570105448](https://github.com/monstercameron/GoWebComponents/actions/runs/39570105448) | `a531cc12` | Passed; 179 matched entries, 2.55% faster geomean |
+| Wasm rerun | [39570012196](https://github.com/monstercameron/GoWebComponents/actions/runs/39570012196) | `a531cc12` | Failed two 15% gate entries; follow-up in progress |
 
-The native benchmark packages did not change between those v7 commits.
+The commit-helper optimization at `a531cc12` changes a runtime benchmark
+path, so both lanes were rerun on that exact source. A later interop fix and
+any runtime change require a fresh Wasm comparison before release.
 The Wasm run uses the corrected sub-benchmark name parser, which preserves
 numeric labels such as `keys-16` and accounts for duplicate IDs by occurrence.
 
@@ -49,3 +53,22 @@ from 1,235,680 to 1,549,813 ns/op (+25.4%). The five samples on each side
 were tightly grouped, and an earlier run showed the same direction. This is a
 release blocker pending a focused fix and a new dedicated runner comparison.
 The artifact and full comparison are attached to the [Wasm run](https://github.com/monstercameron/GoWebComponents/actions/runs/39563464806).
+
+## Exact-head rerun at `a531cc12`
+
+The dedicated [native rerun](https://github.com/monstercameron/GoWebComponents/actions/runs/39570105448)
+passed with 179 matched entries and a 2.55% faster v7 geometric mean. Its
+runtime and diagnostic outliers are similar to those documented above.
+
+The dedicated [Wasm rerun](https://github.com/monstercameron/GoWebComponents/actions/runs/39570012196)
+completed both suites with 148 matched entries and a 0.89% slower v7 geometric
+mean. It failed the 15% per-entry gate on two measurements:
+
+| Benchmark | v6 → v7 median | Change |
+| --- | ---: | ---: |
+| `internal/runtime/BenchmarkTransitionListRefresh250` | 1,291,877 → 1,562,174 ns | +20.92% |
+| `interop/BenchmarkDecodeMapToStruct` | 17,314 → 20,205 ns | +16.70% |
+
+The interop entry was also +14.35% in the earlier corrected Wasm run. Both
+entries remain release blockers until an exact-source dedicated run passes or
+the measured costs receive an explicit release disposition.
