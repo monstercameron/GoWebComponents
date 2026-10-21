@@ -137,7 +137,7 @@ func scanDocGwcCommandFile(parsePath, parseDocRel string) ([]GwcCommandRef, erro
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	defer parseFile.Close()
+	defer func() { _ = parseFile.Close() }()
 
 	var parseRefs []GwcCommandRef
 	parseScanner := bufio.NewScanner(parseFile)

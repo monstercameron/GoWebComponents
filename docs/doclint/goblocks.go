@@ -85,7 +85,7 @@ func scanGoBlocksInFile(absPath, docRel string) ([]GoBlock, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var blocks []GoBlock
 	scanner := bufio.NewScanner(file)
@@ -180,7 +180,7 @@ func compileSampleInModule(repoRoot string, block GoBlock, index int) string {
 	if err != nil {
 		return "mktemp: " + err.Error()
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	if err := os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(block.Source), 0o644); err != nil {
 		return "write sample: " + err.Error()

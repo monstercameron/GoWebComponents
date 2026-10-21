@@ -87,7 +87,7 @@ func (parseR *gzipBufferingProxyRecorder) DecompressedBody(parseT *testing.T) st
 	if parseErr2 != nil {
 		parseT.Fatalf("new gzip reader: %v", parseErr2)
 	}
-	defer parseReader.Close()
+	defer func() { _ = parseReader.Close() }()
 	parseData, parseErr2 := io.ReadAll(parseReader)
 	if parseErr2 != nil {
 		parseT.Fatalf("read gzip body: %v", parseErr2)

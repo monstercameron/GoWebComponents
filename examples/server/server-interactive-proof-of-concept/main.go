@@ -156,7 +156,7 @@ func (handleHub *serverInteractiveHub) handleServerInteractiveEvents(handleWrite
 
 	handleSnapshot, handleSnapshotErr := handleHub.buildServerInteractiveSnapshot()
 	if handleSnapshotErr == nil {
-		fmt.Fprintf(handleWriter, "data: %s\n\n", handleSnapshot)
+		_, _ = fmt.Fprintf(handleWriter, "data: %s\n\n", handleSnapshot)
 		handleFlusher.Flush()
 	}
 
@@ -169,7 +169,7 @@ func (handleHub *serverInteractiveHub) handleServerInteractiveEvents(handleWrite
 			if !hasPayload {
 				return
 			}
-			fmt.Fprintf(handleWriter, "data: %s\n\n", handlePayload)
+			_, _ = fmt.Fprintf(handleWriter, "data: %s\n\n", handlePayload)
 			handleFlusher.Flush()
 		}
 	}

@@ -180,7 +180,7 @@ func scanFile(absPath, docRel string, topLevel map[string]bool) ([]PathRef, erro
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var refs []PathRef
 	scanner := bufio.NewScanner(file)

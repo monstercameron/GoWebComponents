@@ -46,7 +46,7 @@ func fetchAtlasJSON[T any](parseCtx context.Context, parseRequestURL string) (T,
 	if parseErr != nil {
 		return parseZero, parseErr
 	}
-	defer parseResponse.Body.Close()
+	defer func() { _ = parseResponse.Body.Close() }()
 
 	if parseResponse.StatusCode < http.StatusOK || parseResponse.StatusCode >= http.StatusMultipleChoices {
 		return parseZero, fmt.Errorf("request %s returned status %d", parseRequestURL, parseResponse.StatusCode)

@@ -31,7 +31,6 @@ func driveCachedEffectUntilQuiet(parseKey string, parseEntry *cachedResourceEntr
 			}
 			continue
 		}
-		parseLast = &parseNow
 		parseRuns++
 		if parseRuns >= parseMaxRuns {
 			return parseRuns
