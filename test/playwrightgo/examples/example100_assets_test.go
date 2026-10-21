@@ -19,14 +19,14 @@ func buildExample100IsolatedAssets(parseT *testing.T, parseRoot string, isAgent 
 		parseTags = "gwcagent"
 	}
 	for _, parseTarget := range []struct{ parsePackage, parseOutput string }{
-		{"./examples/server/ai-chat-wizard/client", "app/chat.wasm"},
-		{"./examples/server/ai-chat-wizard/client/backgroundworker", "worker/background-worker.wasm"},
+		{"./client", "app/chat.wasm"},
+		{"./client/backgroundworker", "worker/background-worker.wasm"},
 	} {
 		parseOutput := filepath.Join(parseDir, filepath.FromSlash(parseTarget.parseOutput))
 		if parseErr := os.MkdirAll(filepath.Dir(parseOutput), 0o755); parseErr != nil {
 			parseT.Fatal(parseErr)
 		}
-		parseCommand := exec.Command("go", "build", "-tags", parseTags, "-o", parseOutput, parseTarget.parsePackage)
+		parseCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "build", "-tags", parseTags, "-o", parseOutput, parseTarget.parsePackage)
 		parseCommand.Dir = parseRoot
 		for _, parseEntry := range os.Environ() {
 			parseKey, _, _ := strings.Cut(parseEntry, "=")

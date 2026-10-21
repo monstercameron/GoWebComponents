@@ -37,13 +37,13 @@ type example100HappyPathArtifact struct {
 // seedExample100HappyPathDatabase seeds one sqlite file with deterministic QA credentials and conversations.
 func seedExample100HappyPathDatabase(parseT *testing.T, parseRepoRoot string, parseDBPath string) {
 	parseT.Helper()
-	parseCommand := exec.Command("go", "run", "./examples/server/ai-chat-wizard/cmd/seed-test-db")
+	parseCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "run", "./cmd/seed-test-db")
 	parseCommand.Dir = parseRepoRoot
 	parseCommand.Env = append(os.Environ(), "CHAT_DB_PATH="+parseDBPath)
 	if parseOutput, parseErr := parseCommand.CombinedOutput(); parseErr == nil {
 		return
 	} else {
-		parseFixtureDBPath := filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
+		parseFixtureDBPath := filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "testdata", "test_chat.db")
 		parseFixtureBytes, parseReadErr := os.ReadFile(parseFixtureDBPath)
 		if parseReadErr != nil {
 			parseT.Fatalf("seed example 100 test db failed: %v\n%s\nfixture read failed: %v", parseErr, strings.TrimSpace(string(parseOutput)), parseReadErr)
@@ -57,7 +57,7 @@ func seedExample100HappyPathDatabase(parseT *testing.T, parseRepoRoot string, pa
 // buildExample100HappyPathServerBinary builds one local server executable for stable startup timing in browser tests.
 func buildExample100HappyPathServerBinary(parseT *testing.T, parseRepoRoot string, parseBinaryPath string) {
 	parseT.Helper()
-	parseBuildCommand := exec.Command("go", "build", "-o", parseBinaryPath, "./examples/server/ai-chat-wizard/cmd/server")
+	parseBuildCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "build", "-o", parseBinaryPath, "./cmd/server")
 	parseBuildCommand.Dir = parseRepoRoot
 	if parseBuildOutput, parseBuildErr := parseBuildCommand.CombinedOutput(); parseBuildErr != nil {
 		parseT.Fatalf("build example 100 server binary: %v\n%s", parseBuildErr, strings.TrimSpace(string(parseBuildOutput)))

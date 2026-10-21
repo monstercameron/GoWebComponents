@@ -195,7 +195,7 @@ func buildExample100AgentDogfoodClient(parseT *testing.T, parseRepoRoot string) 
 	if parseErr := os.MkdirAll(filepath.Dir(parseWASMPath), 0o755); parseErr != nil {
 		parseT.Fatalf("create client wasm output dir: %v", parseErr)
 	}
-	parseBuildCommand := exec.Command("go", "build", "-tags", "gwcagent", "-o", parseWASMPath, "./examples/server/ai-chat-wizard/client")
+	parseBuildCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "build", "-tags", "gwcagent", "-o", parseWASMPath, "./client")
 	parseBuildCommand.Dir = parseRepoRoot
 	parseBuildCommand.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOutput, parseErr := parseBuildCommand.CombinedOutput(); parseErr != nil {
