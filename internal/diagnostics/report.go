@@ -190,7 +190,9 @@ func parseFrames(parseStack []byte, parseExtraSkip []string) []frame {
 		if isParseSkip {
 			continue
 		}
-		parseLocation = strings.TrimSpace(strings.SplitN(parseLocation, " +", 2)[0])
+		if parseBefore, _, isOffsetFound := strings.Cut(parseLocation, " +"); isOffsetFound {
+			parseLocation = strings.TrimSpace(parseBefore)
+		}
 		parseLine := 0
 		if parseBefore, parseAfter, isColonFound := strings.CutLast(parseLocation, ":"); isColonFound && parseBefore != "" {
 			if parseParsed, parseErr := strconv.Atoi(parseAfter); parseErr == nil {
