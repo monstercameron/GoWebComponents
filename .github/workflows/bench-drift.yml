@@ -89,12 +89,29 @@ jobs:
           ./bench-head/gwc-head bench suite compare -json \
             bench-base-suite.json bench-head-suite.json > bench-suite-compare.json
           json_status=$?
-          # Sub-100 ns timings are reported but not hard-gated: repeated
-          # same-runner runs showed sign flips at that scale. The full fair
-          # suite remains the release acceptance gate for every entry.
-          ./bench-head/gwc-head bench suite compare -max-regress-pct 15 -min-baseline-ns 100 \
-            bench-base-suite.json bench-head-suite.json 2>&1 | tee bench-suite-compare.txt
-          compare_status=${PIPESTATUS[0]}
+          base_module=$(awk '$1 == "module" {print $2; exit}' bench-base/go.mod)
+          head_module=$(awk '$1 == "module" {print $2; exit}' bench-head/go.mod)
+          if [[ -z "$base_module" || -z "$head_module" ]]; then
+            echo 'missing module path in benchmark source' >&2
+            exit 1
+          fi
+          if [[ "$base_module" == "$head_module" ]]; then
+            gate_mode=per-entry
+            # Sub-100 ns timings are reported but not hard-gated: repeated
+            # same-runner runs showed sign flips at that scale.
+            ./bench-head/gwc-head bench suite compare -max-regress-pct 15 -min-baseline-ns 100 \
+              bench-base-suite.json bench-head-suite.json 2>&1 | tee bench-suite-compare.txt
+            compare_status=${PIPESTATUS[0]}
+          else
+            gate_mode=major-upgrade-advisory
+            printf 'Module path changed: %s -> %s; per-entry drift is advisory for this major upgrade.\n' \
+              "$base_module" "$head_module" | tee bench-suite-compare.txt
+            # The full fair v6/v7 benchmark and its documented disposition
+            # are the release gate. Preserve every PR-screen delta for review.
+            ./bench-head/gwc-head bench suite compare \
+              bench-base-suite.json bench-head-suite.json 2>&1 | tee -a bench-suite-compare.txt
+            compare_status=${PIPESTATUS[0]}
+          fi
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -117,8 +134,8 @@ jobs:
           if [[ "$json_status" != 0 || "$coverage_status" != 0 ]]; then
             compare_status=1
           fi
-          printf 'base_status=%s\nhead_status=%s\ncompare_status=%s\ncoverage_status=%s\n' \
-            "$base_status" "$head_status" "$compare_status" "$coverage_status" | tee bench-suite-status.txt
+          printf 'base_status=%s\nhead_status=%s\ncompare_status=%s\ncoverage_status=%s\ngate_mode=%s\n' \
+            "$base_status" "$head_status" "$compare_status" "$coverage_status" "$gate_mode" | tee bench-suite-status.txt
           exit "$compare_status"
 
       - name: Upload same-run benchmark evidence

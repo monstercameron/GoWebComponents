@@ -7,12 +7,20 @@ GitHub runner. The suite tool is built from the head revision because the v6 bas
 representative production packages. It then runs the bounded native suite against both roots in
 sequence. Each side uses five samples, one warm-up, a fixed shuffle seed, and production tags.
 
-The gate runs `gwc bench suite compare -max-regress-pct 15 -min-baseline-ns 100`.
-Suite comparison uses medians and MAD-derived significance thresholds. It reports every
-entry, but hard-gates only significant regressions above 15% whose baseline timing is at
-least 100 ns/op (plus any non-timing metric). Repeated same-runner runs showed sign
-flips among the shorter nanosecond microbenchmarks. This is a fast regression screen;
-the full fair v6/v7 benchmark remains the release acceptance gate for all entries.
+When the base and head use the same module path, the gate runs
+`gwc bench suite compare -max-regress-pct 15 -min-baseline-ns 100`. Suite
+comparison uses medians and MAD-derived significance thresholds. It reports
+every entry, but hard-gates only significant regressions above 15% whose
+baseline timing is at least 100 ns/op (plus any non-timing metric). Repeated
+same-runner runs showed sign flips among the shorter nanosecond microbenchmarks.
+
+For a major upgrade that changes the module path, the PR screen reports all
+deltas and verifies both suites and matched coverage, but its per-entry drift
+is advisory. The dedicated full fair v6/v7 production comparison and a
+documented disposition of its material outliers are the release acceptance
+gate. The PR screen's fixed base-then-head order can move a cluster of timings
+together as runner state changes during a long comparison; such clusters must
+be checked against the full fair run before attributing them to source changes.
 
 The workflow uploads the two suite reports and comparison output as an artifact named
 `bench-drift-<run id>`. Reviewers can use those reports to inspect the machine block, matched

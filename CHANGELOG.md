@@ -537,6 +537,8 @@ package name says wasm.
 
 #### Repairs to tests and tooling
 
+- Wasm keyed-list transition commits no longer return an unchanged DOM parent from every sibling commit helper call. The iterative sibling walk remains stack-safe; focused native commit/portal tests and the Wasm wide-sibling, portal-retry, and keyed-order tests pass. The dedicated fair Wasm benchmark is being rerun before release disposition.
+- The PR benchmark screen now treats a module-path-changing major upgrade as advisory per entry while still requiring both suites and matched coverage. Same-module PRs retain the 15% per-entry gate; the full fair production comparison remains the v7 release gate.
 - Both strict hydration mismatch tests now disable the scheduler wall-clock slice budget, matching the single-task hydration helper contract; the focused WASM cases passed 20 repeats and the full WASM runtime package passed.
 - The Example 100 agent dogfood test now checks prompt text with `bridge.query` and verifies it in the user message bubble; it still exercises `bridge.snapshot` after send and reload, but no longer treats its 2,000-node budget as a complete text search. The focused browser test passes.
 - Windows WebView CI now exits successfully after validating both intentionally failing startup fault runs. All three normal smoke variants passed on the hosted runner, and both injected faults returned their expected exit code 1.

@@ -1,0 +1,12 @@
+Linux runnervm8k3b6 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+x86_64
+4
+go version go1.27.3 linux/amd64
+linux
+amd64
+v1
+v7_ref=a1d6455fba8149d1dce58c3322d83c77956266a8
+v7_commit=a1d6455fba8149d1dce58c3322d83c77956266a8 Allow deferred router renders to settle in Wasm tests
+v6_ref=1e61695cda00a659faf8215d6a496342f75e8298
+v6_commit=1e61695cda00a659faf8215d6a496342f75e8298 feat(desktop): expand Windows APIs and pin reviewed Wails fork
+v6_archive_marker=1e61695cda00a659faf8215d6a496342f75e8298

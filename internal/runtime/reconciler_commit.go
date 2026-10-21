@@ -701,21 +701,22 @@ func parentChild(parseParent *Fiber) *Fiber {
 // sibling (the per-sibling recursion overflowed the JS stack near 5,000 rows).
 func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 	for parseFiber != nil {
-		parseFiber, parseDomParent = parseRt.commitWorkFiber(parseFiber, parseDomParent)
+		parseFiber = parseRt.commitWorkFiber(parseFiber, parseDomParent)
 	}
 }
 
 // commitWorkFiber commits one fiber and its children and returns the sibling
-// (with the DOM parent to use for it) that commitWork should continue with; a
-// nil fiber ends the sibling walk.
-func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNode) (*Fiber, DOMNode) {
+// that commitWork should continue with; a nil fiber ends the sibling walk. The
+// DOM parent is unchanged while walking siblings, so returning it alongside
+// the fiber only adds a Wasm multi-value return on the hottest commit path.
+func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNode) *Fiber {
 	// The render/reconcile pass marks every ancestor of a placement, update,
 	// hydration claim, unresolved portal retry, or child-order repair. Outside
 	// hydration, a fiber with neither direct nor descendant work can skip its
 	// whole child subtree; its sibling remains an independent branch.
 	if parseRt.wipRoot != nil && !parseRt.hydrating && parseFiber.effectTag == effectTagNone &&
 		!parseFiber.subtreeCommit && !parseFiber.needsChildOrder && !parseFiber.portalUnresolved {
-		return parseFiber.sibling, parseDomParent
+		return parseFiber.sibling
 	}
 
 	// Fast path: most calls have valid domParent
@@ -846,14 +847,14 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 		} else if parseFiber.effectTag == effectTagDeletion {
 			// fmt.Printf("DEBUG: Committing deletion for %v\n", fiber.typeOf)
 			parseRt.commitDeletion(parseFiber, parseDomParent)
-			return nil, nil
+			return nil
 		}
 	}
 
 	if isPortal {
 		if parseFiber.effectTag == effectTagDeletion {
 			parseRt.commitDeletion(parseFiber, parsePortalParent)
-			return nil, nil
+			return nil
 		}
 		if isParsePortalTargetChanged {
 			parseRt.movePortalSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber.alternate), parsePortalParent)
@@ -866,7 +867,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 			// placement once the target element exists, instead of leaving
 			// the portal permanently empty.
 			parseFiber.portalUnresolved = true
-			return parseFiber.sibling, parseDomParent
+			return parseFiber.sibling
 		}
 		if parseFiber.alternate != nil && parseFiber.alternate.portalUnresolved {
 			// The target failed to resolve on a previous commit; the subtree
@@ -909,7 +910,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 			parseRt.applyCommittedChildOrder(parseChildDomParent, parseRt.buildCommittedChildNodes(parseFiber.child, nil))
 		}
 	}
-	return parseFiber.sibling, parseDomParent
+	return parseFiber.sibling
 }
 
 // shouldRepairCommittedChildOrder reports whether one fiber subtree needs a post-commit DOM order repair pass.
