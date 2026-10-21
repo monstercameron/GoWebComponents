@@ -4,6 +4,11 @@ name: P0 Browser and Runtime Health
 # tag, or deployment step; it only builds the selected source, runs the existing
 # Playwright probes, and retains their machine-readable output.
 on:
+  push:
+    branches:
+      - v7/dev
+    paths:
+      - .github/workflows/p0-browser-health.yml
   workflow_dispatch:
     inputs:
       ref:
