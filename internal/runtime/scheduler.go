@@ -180,7 +180,9 @@ func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecor
 	// previous commit's passive effects are queued in that list, and clearing it
 	// with a drain still pending drops them silently. Outside the lock because a
 	// passive effect may schedule an update of its own, which would re-enter.
-	parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	if parseRt.passiveDrainScheduled && len(parseRt.pendingEffectFibers) != 0 {
+		parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	}
 
 	schedulerMu.Lock()
 	parseRt.profiling.scheduledRootUpdates++
@@ -401,7 +403,9 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	)
 	// The previous commit's deferred passive effects are queued in
 	// pendingEffectFibers, which this call truncates below; settle them first.
-	parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	if parseRt.passiveDrainScheduled && len(parseRt.pendingEffectFibers) != 0 {
+		parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	}
 	schedulerMu.Lock()
 	if parseRt.currentRoot == nil {
 		parseRt.beginStartupProfilingLocked("render")
@@ -479,7 +483,9 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 		parseScheduler    Scheduler
 	)
 	// See Render: pending passive effects would be truncated away below.
-	parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	if parseRt.passiveDrainScheduled && len(parseRt.pendingEffectFibers) != 0 {
+		parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	}
 	schedulerMu.Lock()
 	if parseRt.currentRoot == nil {
 		parseRt.beginStartupProfilingLocked("hydrate")
