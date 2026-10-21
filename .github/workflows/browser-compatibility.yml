@@ -28,3 +28,11 @@ jobs:
       - name: Run Browser Compatibility Smoke (Playwright-Go)
         run: |
           go -C test/playwrightgo test -tags playwrightgo ./examples -run TestBrowserCompat -v
+
+      - name: Run Main Browser Suite (Playwright-Go)
+        run: |
+          go -C test/playwrightgo test -tags playwrightgo . -run '^TestMainSuite$' -count=1 -v
+
+      - name: Run Examples Browser Suite (Playwright-Go)
+        run: |
+          go -C test/playwrightgo test -tags playwrightgo ./examples -run '^TestExamplesAll$' -count=1 -v

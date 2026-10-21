@@ -169,6 +169,13 @@ not.
   passes after updating Windows root discovery and split-module fixtures.
   Release CI checks the split modules and recognizes RC tags. Browser lanes
   remain open.
+- Browser test servers now launch the CLI from the nested `tools` module and
+  preserve startup errors in test output. The release workflow runs
+  `TestExamplesAll`, and the PR browser workflow runs both `TestMainSuite` and
+  `TestExamplesAll`. On the local v7 tree, the full root and tools tests,
+  `TestMainSuite`, `TestBenchmark`, `TestExamplesAll` (Chromium, Firefox,
+  WebKit), and `gwc lint` (zero findings) pass. Performance acceptance and the
+  v6.1 prerequisite remain open.
 
 #### Fixed
 
