@@ -116,9 +116,7 @@ func Prop(parseName string) TransitionProperty { return TransitionProperty(parse
 func TransitionProps(parseProps ...TransitionProperty) TransitionProperty {
 	parts := make([]string, 0, len(parseProps))
 	for _, p := range parseProps {
-		for _, name := range splitCommaList(string(p)) {
-			parts = append(parts, name)
-		}
+		parts = append(parts, splitCommaList(string(p))...)
 	}
 	return TransitionProperty(strings.Join(parts, ", "))
 }

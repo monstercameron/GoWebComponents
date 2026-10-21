@@ -20,7 +20,7 @@ func ParseErrorCode(parseMessage string) string {
 	}
 	parseCode := parseMessage[1:parseEnd]
 	for _, parseRune := range parseCode {
-		if !(parseRune >= 'A' && parseRune <= 'Z' || parseRune >= '0' && parseRune <= '9' || parseRune == '-') {
+		if (parseRune < 'A' || parseRune > 'Z') && (parseRune < '0' || parseRune > '9') && parseRune != '-' {
 			return ""
 		}
 	}

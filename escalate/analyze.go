@@ -291,7 +291,7 @@ func containsWriteKeyword(parseSQL string) bool {
 	// followed by a newline, tab or parenthesis is still seen. REPLACE counts
 	// only as "REPLACE INTO": elsewhere it is the string function.
 	parseTokens := strings.FieldsFunc(strings.ToUpper(parseSQL), func(parseRune rune) bool {
-		return !(parseRune == '_' || (parseRune >= 'A' && parseRune <= 'Z') || (parseRune >= '0' && parseRune <= '9'))
+		return parseRune != '_' && (parseRune < 'A' || parseRune > 'Z') && (parseRune < '0' || parseRune > '9')
 	})
 	for parseIndex, parseToken := range parseTokens {
 		switch parseToken {

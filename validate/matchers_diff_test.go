@@ -24,7 +24,7 @@ func buildMatcherCorpus() []string {
 		"a b@c.d", "a@b c.d", "a@b.c ", " a@b.c", "a@b.c\n", "a@b.c\t", "a\n@b.c", "a@b.c\v", "a@b\v.c",
 		"a@b .c", "a@b.c ", "a@b.c\u0085", "a@b.c　",
 		"user+tag@example.co.uk", "a.b@c.d.e", "é@ü.ö", "a@b.ĉ", "ａ@ｂ.ｃ", "a@b.́", "́@́.́",
-		"أ@ب.ج", "a@ب.ج", "‮a@b.c", "a@b.c‏", "a@b.�", "�@�.�",
+		"أ@ب.ج", "a@ب.ج", "\u202ea@b.c", "a@b.c\u200f", "a@b.�", "�@�.�",
 		"a@b.\xff", "\xff@\xff.\xff", "a@\xff.b", "\xc3@b.c", "a@b.\xc3", "\xed\xa0\x80@b.c", "a@b.\xed\xa0\x80",
 		"\U0001F600@\U0001F600.\U0001F600", "a@b.\U0001F600", "퟿@퟿.퟿", "@.",
 		"http://", "https://", "http://a", "https://a", "http://a b", "https://a\n", "https:// a", "http:/a", "http//a",
@@ -34,7 +34,7 @@ func buildMatcherCorpus() []string {
 		"http://a\f", "http://a\r", "https://example.com/a b",
 		"abc", "ABC", "abcXYZ", "abc1", "123", "abc 1", "abc_", "abc-", "ab\ncd", "ab\x00", "é", "ñandú", "٣", "１２３", "ａｂｃ",
 		"abć", "á", "́", "שלום", "abc\xff", "\xff", "Z", "z", "@", "[", "`", "{", "/", ":", "0123456789",
-		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", "abc​", "\U0001F600",
+		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", "abc\u200b", "\U0001F600",
 		"٠١", "٠١٢", "123\n", "\n123", "123 ", "1e5", "-1", "+1", "1.5", "1,5",
 	}
 	for _, parseN := range []int{1, 2, 3, 63, 64, 255, 1000, 4999, 5000} {
@@ -62,7 +62,7 @@ func buildMatcherCorpus() []string {
 	}
 	parseAtoms := []string{
 		"a", "Z", "m", "0", "5", "9", "@", "@", ".", ".", ":", "/", "http://", "https://", "http", "s", " ", "\t", "\n",
-		"\r", "\f", "\v", "\x00", "-", "_", "é", "٣", "１", "́", "‏", "　", " ", "\U0001F600",
+		"\r", "\f", "\v", "\x00", "-", "_", "é", "٣", "１", "́", "\u200f", "　", " ", "\U0001F600",
 		"\xff", "\xc3", "\xed\xa0\x80", "�", "x.y", "a@b.c",
 	}
 	for parseI := 0; parseI < 20000; parseI++ {
@@ -120,11 +120,11 @@ func TestHandWrittenMatchersMatchRegexpOracle(t *testing.T) {
 func TestHandWrittenMatchersDoNotAllocate(t *testing.T) {
 	parseIn := "someone@example.com"
 	parseAllocs := testing.AllocsPerRun(100, func() {
-		isEmailString(parseIn)
-		isURLString("https://example.com/x")
-		isAlphaString("abc")
-		isAlphanumString("abc123")
-		isNumericString("123")
+		_ = isEmailString(parseIn)
+		_ = isURLString("https://example.com/x")
+		_ = isAlphaString("abc")
+		_ = isAlphanumString("abc123")
+		_ = isNumericString("123")
 	})
 	if parseAllocs != 0 {
 		t.Fatalf("matchers allocate: %v allocs/run", parseAllocs)

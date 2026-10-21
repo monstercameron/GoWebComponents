@@ -1014,7 +1014,8 @@ func internPrefixedAttrName(parseCache *attrNameCache, parsePrefix, parseKey str
 	// largest named renderer cost in the production wasm profile. Resolve the
 	// common immutable spellings directly; arbitrary author-defined suffixes
 	// still use the bounded interning table below.
-	if parsePrefix == "data-" {
+	switch parsePrefix {
+	case "data-":
 		switch parseKey {
 		case "id":
 			return "data-id"
@@ -1045,7 +1046,7 @@ func internPrefixedAttrName(parseCache *attrNameCache, parsePrefix, parseKey str
 		case "enterprise-revision":
 			return "data-enterprise-revision"
 		}
-	} else if parsePrefix == "aria-" {
+	case "aria-":
 		switch parseKey {
 		case "label":
 			return "aria-label"

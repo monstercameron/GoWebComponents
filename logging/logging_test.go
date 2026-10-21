@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"testing"
@@ -57,7 +58,7 @@ func TestLoggerWithAccumulatesAndPerCallOverrides(parseT *testing.T) {
 		parseT.Fatalf("per-call field must override the With field, got %v", parseMerged["v"])
 	}
 	// WithContext preserves accumulated base args.
-	if len(parseChained.WithContext(nil).baseArgs) != 6 {
+	if len(parseChained.WithContext(context.TODO()).baseArgs) != 6 {
 		parseT.Fatal("WithContext must carry the accumulated base args")
 	}
 }

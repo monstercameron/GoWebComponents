@@ -28,7 +28,7 @@ func isValidSSRAttrName(parseName string) bool {
 			}
 			continue
 		}
-		if !parseIsAlpha && !(parseC >= '0' && parseC <= '9') && parseC != '_' && parseC != '.' && parseC != ':' && parseC != '-' {
+		if !parseIsAlpha && (parseC < '0' || parseC > '9') && parseC != '_' && parseC != '.' && parseC != ':' && parseC != '-' {
 			return false
 		}
 	}
@@ -888,7 +888,7 @@ func formatSSRStyleName(parseKey string) (string, bool) {
 	}
 	for parseIdx := 0; parseIdx < len(parseKey); parseIdx++ {
 		parseC := parseKey[parseIdx]
-		if !(parseC >= 'a' && parseC <= 'z') && !(parseC >= 'A' && parseC <= 'Z') && !(parseC >= '0' && parseC <= '9') && parseC != '-' && parseC != '_' {
+		if (parseC < 'a' || parseC > 'z') && (parseC < 'A' || parseC > 'Z') && (parseC < '0' || parseC > '9') && parseC != '-' && parseC != '_' {
 			return "", false
 		}
 	}
@@ -923,9 +923,13 @@ func isSafeSSRStyleValue(parseValue string) bool {
 	for parseIdx := 0; parseIdx < len(parseValue); parseIdx++ {
 		parseC := parseValue[parseIdx]
 		if parseQuote != 0 {
-			if parseC == '\\' {
+			switch parseC {
+			case '\\':
 				parseIdx++
-			} else if parseC == parseQuote {
+			default:
+				if parseC != parseQuote {
+					break
+				}
 				parseQuote = 0
 			}
 			continue

@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"errors"
 	"testing"
 )
@@ -22,7 +23,7 @@ func TestTelemetryRedactionScrubsConfiguredLogFields(parseT *testing.T) {
 	ConfigureTelemetryRedaction(RedactionPolicy{Fields: []string{"email", "token"}})
 	parseT.Cleanup(func() { ConfigureTelemetryRedaction(parsePrevious) })
 
-	parseRecord := buildLogRecord(nil, "info", "auth", "login", map[string]any{
+	parseRecord := buildLogRecord(context.TODO(), "info", "auth", "login", map[string]any{
 		"email": "cam@example.com",
 		"profile": map[string]any{
 			"token": "secret-token",
@@ -53,7 +54,7 @@ func TestBuildLogRecordRedactsWalkedStructFields(parseT *testing.T) {
 		User     string
 		Password string `json:"password"`
 	}
-	parseRecord := buildLogRecord(nil, "info", "auth", "login", map[string]any{
+	parseRecord := buildLogRecord(context.TODO(), "info", "auth", "login", map[string]any{
 		"account": parseCreds{User: "bob", Password: "s3cret"},
 	})
 	parseAttrs := parseRecord["attributes"].(map[string]any)

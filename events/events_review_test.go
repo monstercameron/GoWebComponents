@@ -76,8 +76,7 @@ func TestPanickingHandlerDoesNotSkipSiblingsAndFanOutIsExactlyOnce(parseT *testi
 func TestReentrantPublishAndDoubleUnsubscribe(parseT *testing.T) {
 	const parseTopic = "review.reentrant"
 	var parseCalls []int
-	var parseUnsub func()
-	parseUnsub = Subscribe[int](parseTopic, func(parseValue int) {
+	parseUnsub := Subscribe[int](parseTopic, func(parseValue int) {
 		parseCalls = append(parseCalls, parseValue)
 		if parseValue < 3 {
 			Publish(parseTopic, parseValue+1)

@@ -151,9 +151,13 @@ func splitStyleDeclarations(parseValue string) []string {
 		parseByte := parseValue[parseIndex]
 		switch {
 		case parseQuote != 0:
-			if parseByte == '\\' {
+			switch parseByte {
+			case '\\':
 				parseIndex++
-			} else if parseByte == parseQuote {
+			default:
+				if parseByte != parseQuote {
+					break
+				}
 				parseQuote = 0
 			}
 		case parseByte == '"' || parseByte == '\'':

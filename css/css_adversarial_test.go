@@ -369,8 +369,7 @@ func TestAdversarial_DeterminismConflictingVariants(t *testing.T) {
 	c2 := css.New(set2...)
 
 	if string(c1) == string(c2) {
-		// Both win with Slate900 vs Red500 respectively — classes differ (that's fine)
-		// but each call on its own should be stable
+		t.Fatalf("distinct rule sets unexpectedly share class %q", c1)
 	}
 
 	// Re-running same set must give same class
@@ -471,7 +470,7 @@ func TestAdversarial_DeepVariantNesting(t *testing.T) {
 
 	// Build 50 layers of Hover nesting
 	rules := []css.Rule{css.Display.Flex}
-	var wrapped []css.Rule = rules
+	wrapped := rules
 	for i := 0; i < 50; i++ {
 		wrapped = css.Hover(wrapped...)
 	}
@@ -491,7 +490,7 @@ func TestAdversarial_DeepSelectorNesting(t *testing.T) {
 
 	// Build 50 layers of Child/Descendant nesting
 	rules := []css.Rule{css.Display.Flex}
-	var wrapped []css.Rule = rules
+	wrapped := rules
 	for i := 0; i < 50; i++ {
 		if i%2 == 0 {
 			wrapped = css.Child(css.El("div"), wrapped...)

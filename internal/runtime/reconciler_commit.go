@@ -720,7 +720,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 
 	// Fast path: most calls have valid domParent
 	if IsDOMNodeNull(parseDomParent) {
-		var parseDomParentFiber *Fiber = parseFiber.parent
+		parseDomParentFiber := parseFiber.parent
 		for parseDomParentFiber != nil && IsDOMNodeNull(parseDomParentFiber.dom) {
 			parseDomParentFiber = parseDomParentFiber.parent
 		}

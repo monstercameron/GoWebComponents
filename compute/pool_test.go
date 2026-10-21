@@ -307,7 +307,7 @@ func TestRequeuedJobsGoToTheFront(parseT *testing.T) {
 		}
 	}
 
-	var parseVictimWorker compute.WorkerID = parseFirstBatch[0].WorkerID
+	parseVictimWorker := parseFirstBatch[0].WorkerID
 	parseVictimJob := parseFirstBatch[0].Job.ID
 	parseReplacement := compute.WorkerID("w9")
 	if _, parseErr := parsePool.RestartWorker(parseVictimWorker, parseReplacement); parseErr != nil {

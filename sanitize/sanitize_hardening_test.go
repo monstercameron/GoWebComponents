@@ -34,8 +34,8 @@ func TestSanitizeValidatesSpanAttributes(parseT *testing.T) {
 // control-char-stripped string that passed scheme validation, not the raw value.
 func TestSanitizeEmitsCleanedURL(parseT *testing.T) {
 	// Embedded zero-width space inside the scheme.
-	parseOut := sanitize.Sanitize("<a href=\"ht​tps://example.test/x\">link</a>")
-	if strings.Contains(parseOut, "​") {
+	parseOut := sanitize.Sanitize("<a href=\"ht\u200btps://example.test/x\">link</a>")
+	if strings.Contains(parseOut, "\u200b") {
 		parseT.Fatalf("raw (uncleaned) URL was emitted: %q", parseOut)
 	}
 	// A javascript: scheme disguised with a control char must still be dropped.
