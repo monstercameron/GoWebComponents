@@ -45,3 +45,23 @@ func TestDirtyOwnerUpdatesRetainInflightReplay(parseT *testing.T) {
 		}
 	}
 }
+
+// TestUpdateAfterCommitTreePublicationSchedulesFollowUp covers a write between tree publication and clearing updateScheduled.
+func TestUpdateAfterCommitTreePublicationSchedulesFollowUp(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler:       parseScheduler,
+		currentRoot:     &Fiber{typeOf: "ROOT", props: map[string]any{}},
+		updateScheduled: true,
+	}
+	// commitRoot has published currentRoot and cleared wipRoot, but has not yet
+	// cleared updateScheduled. The next state write must receive its own pass.
+	schedulerMu.Lock()
+	parseRt.coalesceScheduledUpdateLocked(UpdateLaneDefault)
+	schedulerMu.Unlock()
+	parseRt.updateScheduled = false
+	parseRt.scheduleFollowUpForInFlightUpdate()
+	if !parseRt.updateScheduled || parseRt.wipRoot == nil || parseScheduler.getPendingTimeoutCount() != 1 {
+		parseT.Fatalf("late update lost: scheduled=%t wip=%t callbacks=%d", parseRt.updateScheduled, parseRt.wipRoot != nil, parseScheduler.getPendingTimeoutCount())
+	}
+}

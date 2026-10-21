@@ -228,6 +228,9 @@ func parseAssertExample100AdminDetailRoutes(parseT *testing.T, parsePage playwri
 		if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
 			parseT.Fatalf("wait chat input on admin detail route %s: %v", parseRoute, parseErr)
 		}
+		if _, parseErr := parsePage.WaitForFunction(`() => !document.getElementById("boot-shell")`, nil); parseErr != nil {
+			parseT.Fatalf("wait for completed boot on admin detail route %s: %v", parseRoute, parseErr)
+		}
 	}
 	parseAssertExample100AdminListURLStateNavigation(parseT, parsePage, parseBaseURL, parseRoutes)
 }

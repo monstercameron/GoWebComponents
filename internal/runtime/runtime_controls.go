@@ -199,7 +199,11 @@ func (parseRt *Runtime) coalesceScheduledUpdateLocked(parseLane UpdateLane) {
 	// that window as an interrupt is what made the old rebuild look harmless
 	// most of the time while being destructive in the narrow case that matters.
 	isPassInFlight := parseRt.nextUnitOfWork != nil && parseRt.nextUnitOfWork != parseRt.wipRoot
-	if isPassInFlight {
+	// commitRoot briefly publishes the new currentRoot and clears wipRoot
+	// before it clears updateScheduled. A write in that gap cannot be handled
+	// by the committed pass, so it also needs a follow-up.
+	isCommitFinishing := parseRt.wipRoot == nil && parseRt.updateScheduled
+	if isPassInFlight || isCommitFinishing {
 		// Owed regardless of lane. The interrupt branch below handles the case
 		// where the new work is MORE urgent than the running pass; this handles
 		// every case, including the common one where it is the same lane and the

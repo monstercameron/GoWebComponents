@@ -302,7 +302,12 @@ func parseUseAuthSession(
 	}
 
 	ui.UseEffect(func() func() {
-		if !parseApp.Get().GRPCReady {
+		parseBootstrapState := parseApp.Get()
+		chatLog.Info("auth session bootstrap effect", logging.Fields{
+			"grpc_ready":    parseBootstrapState.GRPCReady,
+			"auth_resolved": parseBootstrapState.AuthResolved,
+		})
+		if !parseBootstrapState.GRPCReady {
 			return nil
 		}
 		parseToken2 := parseLoadPersistedAuthToken()
@@ -310,6 +315,7 @@ func parseUseAuthSession(
 			parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
 			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
+			chatLog.Info("auth session bootstrap resolved anonymous", logging.Fields{})
 			return nil
 		}
 		parseClient2 := parseChatClientRef.Get()
@@ -317,6 +323,7 @@ func parseUseAuthSession(
 			return nil
 		}
 		go func() {
+			chatLog.Info("auth session bootstrap checking token", logging.Fields{})
 			parseSession, parseErr2 := parseClient2.GetSession(context.Background(), &emptypb.Empty{})
 			if parseErr2 != nil {
 				if handleUnauthenticatedRPC(parseApp, parseUserNameState, parseErr2) {
@@ -341,7 +348,6 @@ func parseUseAuthSession(
 			}
 			parseUserNameState.Set(parseSession.GetDisplayName())
 			parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: true})
-			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
 			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseSession.GetEmail()})
@@ -355,6 +361,9 @@ func parseUseAuthSession(
 			if parseOnAuthenticated != nil {
 				parseOnAuthenticated(parseSession)
 			}
+			// Resolve the admin role before route guards may evaluate this session.
+			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
+			chatLog.Info("auth session bootstrap resolved authenticated", logging.Fields{"can_access_admin": parseCanAccessAdminFromRoleSummary(parseSession.GetRoleSummary())})
 		}()
 		return nil
 	}, parseApp.Get().GRPCReady)
@@ -499,8 +508,8 @@ func parseUseAuthSession(
 			}
 			parseUserNameState.Set(parseResp2.GetDisplayName())
 			parseApp.Dispatch(appAction{Type: appActionResetWorkspace})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: false})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: true})
-			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
 			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseResp2.GetEmail()})
@@ -516,6 +525,8 @@ func parseUseAuthSession(
 			if parseOnAuthenticated != nil {
 				parseOnAuthenticated(parseSession)
 			}
+			// Keep deep links pending until the session role has been applied.
+			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
 			chatLog.Info("auth success", logging.Fields{"mode": parseMode, "email": parseResp2.GetEmail()})
 		}(parseCurrentState.AuthMode)
 	}

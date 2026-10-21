@@ -4,14 +4,54 @@
 package playwrightgoexamples_test
 
 import (
+	"database/sql"
 	"fmt"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	playwright "github.com/mxschmitt/playwright-go"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
+
+// storeExample100BillingSummaryFixture assigns the seeded customer a paid plan so the billing panel has a platform fee.
+func storeExample100BillingSummaryFixture(parseT *testing.T, parseDBPath string) {
+	parseT.Helper()
+	parseDB, parseErr := sql.Open("sqlite3", "file:"+parseDBPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	if parseErr != nil {
+		parseT.Fatalf("open billing summary fixture db: %v", parseErr)
+	}
+	defer parseDB.Close()
+	parseDB.SetMaxOpenConns(1)
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseDB.Exec(`INSERT INTO billing_subscriptions (
+		customer_id, provider_id, provider_subscription_id, plan_code, status, billing_interval, created_at, updated_at
+	) SELECT bc.id, 'seed', 'billing-summary-pro', 'pro', 'active', 'month', ?, ?
+	FROM billing_customers bc JOIN users u ON u.id = bc.user_id
+	WHERE u.email = 'customer@email.com'`, parseNow, parseNow)
+	if parseErr != nil {
+		parseT.Fatalf("seed billing summary paid subscription: %v", parseErr)
+	}
+	parseRows, parseErr := parseResult.RowsAffected()
+	if parseErr != nil || parseRows != 1 {
+		parseT.Fatalf("seed billing summary paid subscription: rows=%d error=%v", parseRows, parseErr)
+	}
+}
+
+// parseExample100BillingNumber converts a browser-evaluated JavaScript number to float64.
+func parseExample100BillingNumber(parseValue any) float64 {
+	switch parseNumber := parseValue.(type) {
+	case int:
+		return float64(parseNumber)
+	case float64:
+		return parseNumber
+	default:
+		return 0
+	}
+}
 
 type example100BillingSummaryRegressionArtifact struct {
 	GetSettingsStatus      int
@@ -175,11 +215,11 @@ func captureExample100BillingSummaryRegressionArtifact(parseT *testing.T, parseP
 	parseArtifact.HasBillingLabels, _ = parseBillingMap["hasLabels"].(bool)
 	parseArtifact.HasBillingFormula, _ = parseBillingMap["hasFormula"].(bool)
 	parseArtifact.HasBillingModelValues, _ = parseBillingMap["hasModelValues"].(bool)
-	parseArtifact.GetPlatformFeeUSD, _ = parseBillingMap["platform"].(float64)
-	parseArtifact.GetUsageCostUSD, _ = parseBillingMap["usage"].(float64)
-	parseArtifact.GetServicePremiumUSD, _ = parseBillingMap["premium"].(float64)
-	parseArtifact.GetTotalUSD, _ = parseBillingMap["total"].(float64)
-	parseArtifact.GetPremiumPercent, _ = parseBillingMap["premiumPct"].(float64)
+	parseArtifact.GetPlatformFeeUSD = parseExample100BillingNumber(parseBillingMap["platform"])
+	parseArtifact.GetUsageCostUSD = parseExample100BillingNumber(parseBillingMap["usage"])
+	parseArtifact.GetServicePremiumUSD = parseExample100BillingNumber(parseBillingMap["premium"])
+	parseArtifact.GetTotalUSD = parseExample100BillingNumber(parseBillingMap["total"])
+	parseArtifact.GetPremiumPercent = parseExample100BillingNumber(parseBillingMap["premiumPct"])
 
 	parseMu.Lock()
 	parseArtifact.GetConsoleSampleText = strings.Join(parseConsoleSamples, " || ")
@@ -192,13 +232,21 @@ func captureExample100BillingSummaryRegressionArtifact(parseT *testing.T, parseP
 func TestExample100BillingSummaryRegression(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
-	parseBaseURL := startExample100HappyPathServer(parseT, parseRepoRoot, "18108")
+	parseBaseURL := startExample100HappyPathServer(parseT, parseRepoRoot, "18108", func(parseDBPath string) {
+		storeExample100BillingSummaryFixture(parseT, parseDBPath)
+	})
 
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		parseArtifact := captureExample100BillingSummaryRegressionArtifact(parseT, parsePage, parseBaseURL)
 		parseT.Logf("example 100 billing summary regression: %s", formatExample100BillingSummaryRegressionSummary(parseArtifact))
 
 		if parseArtifact.GetSettingsStatus >= 400 || !parseArtifact.HasBillingSection || !parseArtifact.HasBillingLabels || !parseArtifact.HasBillingFormula || !parseArtifact.HasBillingModelValues {
+			parseBootConfig, parseBootErr := parsePage.Evaluate(`async () => ({
+				windowPremium: window.__relaydesk_usage_premium_percent,
+				windowPlatform: window.__relaydesk_platform_fee_usd,
+				bootstrap: (await (await fetch('/chat-bootstrap.js', {cache: 'no-store'})).text()).slice(0, 180),
+			})`)
+			parseT.Logf("billing bootstrap diagnostic: config=%#v error=%v", parseBootConfig, parseBootErr)
 			parseT.Fatalf("billing summary regression failed: %s", formatExample100BillingSummaryRegressionSummary(parseArtifact))
 		}
 		if parseArtifact.GetConsoleErrorCount != 0 {

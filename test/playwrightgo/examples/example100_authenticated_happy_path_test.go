@@ -65,7 +65,7 @@ func buildExample100HappyPathServerBinary(parseT *testing.T, parseRepoRoot strin
 }
 
 // startExample100HappyPathServer starts the example-100 server with one seeded test database.
-func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, parsePort string) string {
+func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, parsePort string, parseAfterSeed ...func(string)) string {
 	parseT.Helper()
 	parseRuntimeDir := parseT.TempDir()
 	parseDBPath := filepath.Join(parseRuntimeDir, "happy_path.db")
@@ -76,6 +76,9 @@ func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, par
 	}
 	parseAddress := "127.0.0.1:" + strings.TrimSpace(parsePort)
 	seedExample100HappyPathDatabase(parseT, parseRepoRoot, parseDBPath)
+	for _, parseSeedFixture := range parseAfterSeed {
+		parseSeedFixture(parseDBPath)
+	}
 	buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
 	parsePreviousPlatformFee, parseHadPlatformFee := os.LookupEnv("CHAT_PLATFORM_FEE_USD")
 	parsePreviousPremium, parseHadPremium := os.LookupEnv("CHAT_USAGE_PREMIUM_PERCENT")

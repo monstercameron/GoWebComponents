@@ -211,6 +211,7 @@ package name says wasm.
 
 ##### Hooks and effects
 
+- internal/runtime: a state update arriving after commit published the new tree but before it cleared `updateScheduled` was coalesced without a follow-up render, leaving effects such as Example 100 auth bootstrap at a 0% loading shell -> that commit window now records an owed pass (test: TestUpdateAfterCommitTreePublicationSchedulesFollowUp; TestExample100AdminJourneyRegression browser rerun twice)
 - internal/runtime: a panicking effect cleanup was not recovered, skipped the remaining effects (whose deps were already stored) and bypassed the error boundary -> the panic is contained and reported to the boundary (test: TestP7EffectCleanupPanicIsContained)
 - internal/runtime: a second panic in the same error boundary during one commit escaped it -> it is handled (test: TestP7SecondPanicInSameBoundaryIsHandled)
 - internal/runtime: typed `GoUseEffectOf` ran the previous cleanup during render, even for a discarded render -> cleanup runs at commit only (test: TestP7TypedEffectCleanupNotRunDuringDiscardedRender)
@@ -493,6 +494,7 @@ package name says wasm.
 
 #### Repairs to tests and tooling
 
+- Example 100: auth route resolution now waits until the admin role is applied; emergency pricing/FAQ copy covers first paint; the billing regression seeds a paid plan; browser helpers wait for Wasm boot completion between hard navigations and log bounded failure diagnostics. Focused Admin Journey, Chats, Ops, Billing Summary and Pricing First Paint checks pass. The grouped browser suite remains open.
 - Flaky wasm hydration tests (`TestHydrationRoundTripFuzz`, `TestHydrateEffectStateUpdatesScheduleAfterCommit` and a third): the runtime's default 5 ms wall-clock slice budget made the first pass yield before commit on slow wasm -> the tests build their runtimes with `FrameBudgetMs: -1` (300 green runs); `BenchmarkHydrateMediumTreeFirstUpdate` now drains continuations instead of assuming one scheduler slice.
 - `state` wasm tests lacked `Reset: true`, so atoms leaked between runs -> they reset.
 - jsdom benchmark mock nodes lacked `setAttribute`, `removeAttribute` and `listeners` -> the mock implements them, and benchmarks use `B.Loop`.

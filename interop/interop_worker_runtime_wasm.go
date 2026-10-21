@@ -503,7 +503,9 @@ func waitWorkerReady(parseCtx context.Context, parseRaw js.Value, parseTarget st
 		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q reported an error during startup: %v", parseTarget, parseErr2))
 		return parseErr2
 	case <-parseCtx.Done():
-		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q startup timed out - if this runs on the main goroutine inside a synchronous effect, the JS event loop is starved and the worker ready message can never arrive; wrap the call in a goroutine", parseTarget))
+		if errors.Is(parseCtx.Err(), context.DeadlineExceeded) {
+			consoleError(fmt.Sprintf("[interop/NewWorker] worker %q startup timed out - if this runs on the main goroutine inside a synchronous effect, the JS event loop is starved and the worker ready message can never arrive; wrap the call in a goroutine", parseTarget))
+		}
 		return workerContextError("NewWorker", parseTarget, parseCtx.Err())
 	}
 }

@@ -16,9 +16,9 @@ import (
 
 	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
 	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	playwright "github.com/mxschmitt/playwright-go"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
-	playwright "github.com/mxschmitt/playwright-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -375,8 +375,8 @@ func captureExample100AdminJourneyArtifact(parseT *testing.T, parsePage playwrig
 	}); parseErr != nil {
 		parseT.Fatalf("goto /app/dashboard admin home route: %v", parseErr)
 	}
-	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
-		parseT.Fatalf("wait for chat input on /app/dashboard: %v", parseErr)
+	if _, parseErr := parsePage.WaitForSelector("text=Admin view"); parseErr != nil {
+		parseT.Fatalf("wait for admin role banner on /app/dashboard: %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForFunction(`() => window.location.pathname === "/app/dashboard"`, nil); parseErr != nil {
 		parseT.Fatalf("wait for /app/dashboard path after admin deep link: %v", parseErr)

@@ -13,9 +13,9 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	playwright "github.com/mxschmitt/playwright-go"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
-	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // TestExample100AdminListMechanicsRegression validates admin list-query mechanics and list-state navigation stability.
@@ -431,6 +431,16 @@ func parseAssertExample100AdminListURLStateNavigation(parseT *testing.T, parsePa
 	if len(parseRelativeURLs) == 0 {
 		parseT.Fatalf("list URL-state navigation requires at least one route")
 	}
+	// parseWaitMounted completes each Wasm boot before navigating again so the next route does not abort its download.
+	parseWaitMounted := func(parseRoute string) {
+		parseT.Helper()
+		if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
+			parseT.Fatalf("wait chat input on list route %s: %v", parseRoute, parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction(`() => !document.getElementById("boot-shell")`, nil); parseErr != nil {
+			parseT.Fatalf("wait for completed boot on list route %s: %v", parseRoute, parseErr)
+		}
+	}
 	for _, parseRelativeURL := range parseRelativeURLs {
 		if _, parseErr := parsePage.Goto(parseBaseURL+parseRelativeURL, playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
@@ -441,6 +451,7 @@ func parseAssertExample100AdminListURLStateNavigation(parseT *testing.T, parsePa
 		if _, parseErr := parsePage.WaitForFunction(parseWaitJS, nil); parseErr != nil {
 			parseT.Fatalf("wait exact route state %s: %v", parseRelativeURL, parseErr)
 		}
+		parseWaitMounted(parseRelativeURL)
 		if _, parseErr := parsePage.Reload(playwright.PageReloadOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 		}); parseErr != nil {
@@ -449,6 +460,7 @@ func parseAssertExample100AdminListURLStateNavigation(parseT *testing.T, parsePa
 		if _, parseErr := parsePage.WaitForFunction(parseWaitJS, nil); parseErr != nil {
 			parseT.Fatalf("wait exact route state after reload %s: %v", parseRelativeURL, parseErr)
 		}
+		parseWaitMounted(parseRelativeURL)
 	}
 	for parseIndex := len(parseRelativeURLs) - 2; parseIndex >= 0; parseIndex-- {
 		if _, parseErr := parsePage.GoBack(playwright.PageGoBackOptions{
@@ -461,6 +473,7 @@ func parseAssertExample100AdminListURLStateNavigation(parseT *testing.T, parsePa
 		if _, parseErr := parsePage.WaitForFunction(parseWaitJS, nil); parseErr != nil {
 			parseT.Fatalf("wait exact route state after back %s: %v", parseRelativeURL, parseErr)
 		}
+		parseWaitMounted(parseRelativeURL)
 	}
 	for parseIndex := 1; parseIndex < len(parseRelativeURLs); parseIndex++ {
 		if _, parseErr := parsePage.GoForward(playwright.PageGoForwardOptions{
@@ -473,5 +486,6 @@ func parseAssertExample100AdminListURLStateNavigation(parseT *testing.T, parsePa
 		if _, parseErr := parsePage.WaitForFunction(parseWaitJS, nil); parseErr != nil {
 			parseT.Fatalf("wait exact route state after forward %s: %v", parseRelativeURL, parseErr)
 		}
+		parseWaitMounted(parseRelativeURL)
 	}
 }
