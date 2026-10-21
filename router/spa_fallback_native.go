@@ -82,7 +82,7 @@ func serveSPAFile(parseW http.ResponseWriter, parseR *http.Request, parseFile st
 	}
 	defer func() {
 		if parseCloseErr := parseHandle.Close(); parseCloseErr != nil {
-			// The response is already in progress and cannot change status now.
+			return
 		}
 	}()
 	parseInfo, parseErr := parseHandle.Stat()

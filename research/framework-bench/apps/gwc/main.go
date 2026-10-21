@@ -14,6 +14,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/v7/css/u"
 	"github.com/monstercameron/GoWebComponents/v7/html"
+	//nolint:staticcheck // shorthand is the benchmark's intentionally compact view syntax.
 	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/v7/state"
 	"github.com/monstercameron/GoWebComponents/v7/ui"

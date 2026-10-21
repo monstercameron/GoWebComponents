@@ -366,7 +366,7 @@ func Call[Req, Resp any](parseCtx context.Context, parseName string, parseReq Re
 	}
 	defer func() {
 		if parseCloseErr := parseHTTPResp.Body.Close(); parseCloseErr != nil {
-			// The response body is consumed below; callers receive decode/status errors.
+			return
 		}
 	}()
 

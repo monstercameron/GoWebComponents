@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/monstercameron/GoWebComponents/v7/css"
 	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/design"
 	"github.com/monstercameron/GoWebComponents/v7/html"
@@ -4846,7 +4849,7 @@ func preferenceDensityPreviewCard(parseValue string, isPending bool) ui.Node {
 		html.Div(html.Props{Class: parseClassName},
 			// The chip uppercases in CSS, so the TEXT stays human-cased — the DOM keeps a
 			// readable string for tests and assistive tech either way.
-			html.Span(html.Props{Class: consoleStatusChipClass(design.TonePending)}, html.Text(strings.Title(parseDensity))),
+			html.Span(html.Props{Class: consoleStatusChipClass(design.TonePending)}, html.Text(cases.Title(language.English).String(parseDensity))),
 			html.Span(html.Props{Class: consoleStatusChipClass(design.ToneNeutral)}, html.Text("Warehouse shell")),
 			html.Span(html.Props{Class: consoleStatusChipClass(design.ToneNeutral)}, html.Text("Inventory rail")),
 		),
