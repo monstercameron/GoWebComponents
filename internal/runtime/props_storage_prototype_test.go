@@ -24,11 +24,6 @@ type propPair struct {
 	Value any
 }
 
-// smallPropsMax is the occupancy below which a slice beats a map. Chosen from
-// PA.1's finding that a 1-key map costs the same 336 B / 2 allocs as a 4-key
-// one, so everything up to 4 keys is paying almost entirely for structure.
-const smallPropsMax = 4
-
 var (
 	propsMapSink   map[string]any
 	propsSliceSink []propPair

@@ -88,6 +88,7 @@ func Seed(parseClasses ...string) {
 // HarvestedClasses() with the same shape as the native buffer sink (which keeps its
 // own ordered list); the shared registry is the cross-target source of truth for
 // "which classes are present".
+//nolint:unused // called by sink_wasm.go, which is excluded from native lint.
 func registeredClasses() []string {
 	registryMu.Lock()
 	defer registryMu.Unlock()

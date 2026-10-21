@@ -115,6 +115,7 @@ func buildEventResultValues(parseFnType reflect.Type) []reflect.Value {
 //
 // Costs one reflect.MakeFunc per WRAP, not per dispatch, and only when async
 // ingress is on; otherwise the callback is returned untouched.
+//nolint:unused // called by shim.go, which is js/wasm-only.
 func (parseRuntime *Runtime) markFrameLoopHandler(parseFn any) any {
 	if parseRuntime == nil || parseFn == nil || !parseRuntime.asyncIngress {
 		return parseFn

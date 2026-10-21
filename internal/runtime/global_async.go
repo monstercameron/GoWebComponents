@@ -34,6 +34,8 @@ package runtime
 // An owner of a second runtime posts to it directly with rt.PostAsync, which is
 // exact and needs no inference. §7 of the v5 plan already scopes the public
 // surface to a single global runtime.
+//
+//nolint:unused // called by shim.go, which is js/wasm-only.
 func postAsyncGlobal(parseWork func()) {
 	GetGlobalRuntime().PostAsync(parseWork)
 }
@@ -45,6 +47,8 @@ func postAsyncGlobal(parseWork func()) {
 // "will my off-loop write be queued?" is off-loop, so resolving through
 // currentFiber would answer for a runtime other than the one it is about to
 // post to.
+//
+//nolint:unused // called by shim.go, which is js/wasm-only.
 func asyncIngressEnabledGlobal() bool {
 	return GetGlobalRuntime().AsyncIngressEnabled()
 }

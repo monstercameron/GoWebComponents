@@ -16,6 +16,8 @@ var multiRootActive atomic.Bool
 // schedule its updates on. A state slot bound to the global runtime while its
 // fiber lives in an isolated root would mark the wrong tree dirty, so once any
 // isolated root exists the owner is resolved from the current fiber.
+//
+//nolint:unused // called by shim.go and hooks, which are js/wasm-only.
 func getHookRuntime() *Runtime {
 	if multiRootActive.Load() {
 		return ResolveRuntime()

@@ -230,7 +230,7 @@ type fetchValue struct {
 	state FetchState
 	url   string
 	// fiber stores the fiber that owns this fetch, updated on every render
-	fiber *Fiber
+	fiber *Fiber //nolint:unused // read by hooks_fetch.go, which is js/wasm-only.
 }
 
 // funcHandlerValue stores a wrapped event handler function

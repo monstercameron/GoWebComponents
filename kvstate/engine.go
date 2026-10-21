@@ -87,19 +87,6 @@ func acquireEngine(parseCtx context.Context, parseOptions Options) (*engine, err
 	return parseEngine, nil
 }
 
-// resetEnginesForTest drops the shared engine cache (closing databases). Used by
-// tests to start clean; not part of the public API.
-func resetEnginesForTest() {
-	enginesMu.Lock()
-	defer enginesMu.Unlock()
-	for parseName, parseEntry := range engines {
-		if parseEntry.db != nil {
-			parseEntry.db.Close()
-		}
-		delete(engines, parseName)
-	}
-}
-
 // sqliteBackend is the default PersistenceBackend, storing each value as a row
 // in the KV table.
 type sqliteBackend struct {

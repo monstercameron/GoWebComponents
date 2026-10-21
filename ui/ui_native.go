@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 const propsKey = "__ui_props"
@@ -476,10 +476,6 @@ func (parseS State[T]) Update(parseFn func(T) T) {
 	if parseS.set != nil && parseFn != nil {
 		parseS.set(parseFn)
 	}
-}
-
-func (parseS State[T]) valid() bool {
-	return parseS.get != nil
 }
 
 // UseRef creates a stable mutable reference across renders.

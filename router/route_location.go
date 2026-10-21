@@ -15,7 +15,7 @@ type Location struct {
 
 	// revision bumps when loader data changes without a path change, so
 	// subscribers of UseRouteData re-render on revalidation.
-	revision int
+	revision int //nolint:unused // read by use_route_wasm.go.
 }
 
 // Param returns the captured route param for key, or "" if absent.

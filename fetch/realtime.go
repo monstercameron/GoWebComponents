@@ -661,12 +661,6 @@ func (parseC *realtimeConnectionController) settleReconnectAttemptsLocked() int 
 	return 0
 }
 
-// currentReconnectAttempts reads the current consecutive reconnect count.
-func (parseC *realtimeConnectionController) currentReconnectAttempts() int {
-	parseState := parseC.state.Get()
-	return parseState.ReconnectAttempts
-}
-
 // finishClosedLocked records a non-reconnecting closed state.
 func (parseC *realtimeConnectionController) finishClosedLocked(parseErr error) {
 	if parseC == nil {
@@ -857,16 +851,6 @@ func (parseC *realtimeConnectionController) stop(isManual bool) {
 	parseC.stopLocked(isManual)
 }
 
-// open serializes lifecycle transitions with transport and timer callbacks.
-func (parseC *realtimeConnectionController) open() {
-	if parseC == nil {
-		return
-	}
-	parseC.lifecycleMu.Lock()
-	defer parseC.lifecycleMu.Unlock()
-	parseC.openLocked()
-}
-
 // send serializes lifecycle transitions with transport and timer callbacks.
 func (parseC *realtimeConnectionController) send(parseMessage string) error {
 	if parseC == nil {
@@ -925,36 +909,6 @@ func (parseC *realtimeConnectionController) scheduleReconnect(parseErr error) {
 	parseC.lifecycleMu.Lock()
 	defer parseC.lifecycleMu.Unlock()
 	parseC.scheduleReconnectLocked(parseErr)
-}
-
-// finishClosed serializes lifecycle transitions with transport and timer callbacks.
-func (parseC *realtimeConnectionController) finishClosed(parseErr error) {
-	if parseC == nil {
-		return
-	}
-	parseC.lifecycleMu.Lock()
-	defer parseC.lifecycleMu.Unlock()
-	parseC.finishClosedLocked(parseErr)
-}
-
-// recordError serializes lifecycle transitions with transport and timer callbacks.
-func (parseC *realtimeConnectionController) recordError(parseErr error) {
-	if parseC == nil {
-		return
-	}
-	parseC.lifecycleMu.Lock()
-	defer parseC.lifecycleMu.Unlock()
-	parseC.recordErrorLocked(parseErr)
-}
-
-// startHeartbeat serializes lifecycle transitions with transport and timer callbacks.
-func (parseC *realtimeConnectionController) startHeartbeat() {
-	if parseC == nil {
-		return
-	}
-	parseC.lifecycleMu.Lock()
-	defer parseC.lifecycleMu.Unlock()
-	parseC.startHeartbeatLocked()
 }
 
 // handleHeartbeat serializes lifecycle transitions with transport and timer callbacks.

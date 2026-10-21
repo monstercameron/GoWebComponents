@@ -512,12 +512,6 @@ func (parseRt *Runtime) replayEventsLocked() []ReplayEvent {
 	return parseEvents
 }
 
-func (parseRt *Runtime) recordReplayUpdate(parseKind replayUpdateKind, parsePath []int, parseOrigin string, parseLane UpdateLane) {
-	schedulerMu.Lock()
-	defer schedulerMu.Unlock()
-	parseRt.recordReplayUpdateLocked(parseKind, parsePath, parseOrigin, parseLane)
-}
-
 // recordReplayFiberUpdate avoids constructing a fiber path unless replay is
 // actually recording. State setters call this on every write, while recording
 // is normally off, so building the path at the call site was pure allocation

@@ -682,41 +682,6 @@ func growTypedEffectSlots(parseHooks *Hooks, parseCleanupIdx int) {
 	}
 }
 
-// growEffectSlots extends the deps/cleanups/effectEpochs stores to cover one
-// effect slot; shared by the variadic and typed effect entry points.
-func growEffectSlots(parseHooks *Hooks, parseDepIdx, parseCleanupIdx int) {
-	if len(parseHooks.deps) <= parseDepIdx {
-		parseNeeded := parseDepIdx + 1
-		if parseNeeded <= cap(parseHooks.deps) {
-			parseHooks.deps = parseHooks.deps[:parseNeeded]
-		} else {
-			parseNewDeps := make([][]any, parseNeeded, hookBackingCapacity(parseNeeded, initialHookSlotCapacity))
-			copy(parseNewDeps, parseHooks.deps)
-			parseHooks.deps = parseNewDeps
-		}
-	}
-	if len(parseHooks.cleanups) <= parseCleanupIdx {
-		parseNeeded2 := parseCleanupIdx + 1
-		if parseNeeded2 <= cap(parseHooks.cleanups) {
-			parseHooks.cleanups = parseHooks.cleanups[:parseNeeded2]
-		} else {
-			parseNewCleanups := make([]func(), parseNeeded2, hookBackingCapacity(parseNeeded2, initialHookSlotCapacity))
-			copy(parseNewCleanups, parseHooks.cleanups)
-			parseHooks.cleanups = parseNewCleanups
-		}
-	}
-	if len(parseHooks.effectEpochs) <= parseCleanupIdx {
-		parseNeeded3 := parseCleanupIdx + 1
-		if parseNeeded3 <= cap(parseHooks.effectEpochs) {
-			parseHooks.effectEpochs = parseHooks.effectEpochs[:parseNeeded3]
-		} else {
-			parseNewEpochs := make([]int, parseNeeded3, hookBackingCapacity(parseNeeded3, initialHookSlotCapacity))
-			copy(parseNewEpochs, parseHooks.effectEpochs)
-			parseHooks.effectEpochs = parseNewEpochs
-		}
-	}
-}
-
 // GoUseMemoTyped memoizes expensive computations and coerces restored hot reload
 // values to the caller's expected type when possible.
 func GoUseMemoTyped(parseCompute func() any, parseTargetType reflect.Type, parseDeps ...any) any {

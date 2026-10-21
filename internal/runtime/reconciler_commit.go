@@ -1697,20 +1697,6 @@ func (parseRt *Runtime) detachDeletedPortalDOM(parseFiber *Fiber) {
 	parseRt.deleteFiberSubtree(parseFiber.child, parsePortalParent)
 }
 
-// cleanupAtomSubscriptionsSubtree is an internal reconciler helper.
-func (parseRt *Runtime) cleanupAtomSubscriptionsSubtree(parseFiber *Fiber) {
-	if parseFiber == nil {
-		return
-	}
-	parseRt.CleanupAtomSubscriptions(parseFiber)
-	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
-		parseRt.cleanupAtomSubscriptionsSubtree(parseChild)
-	}
-	if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
-		parseRt.CleanupAtomSubscriptions(parseFiber.alternate)
-	}
-}
-
 // deleteFiberSubtree recursively removes all DOM nodes in a fiber's subtree
 func (parseRt *Runtime) deleteFiberSubtree(parseFiber *Fiber, parseDomParent DOMNode) {
 	if parseFiber == nil {
