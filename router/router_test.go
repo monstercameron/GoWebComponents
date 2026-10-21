@@ -16,7 +16,10 @@ import (
 
 func waitForCondition(parseT *testing.T, parseCondition func() bool) {
 	parseT.Helper()
-	parseDeadline := time.Now().Add(250 * time.Millisecond)
+	// A wasm test binary shares Node's event loop with scheduler callbacks. On
+	// loaded CI runners a deferred render can legitimately take longer than a
+	// single 250 ms slice, even though the loader is progressing normally.
+	parseDeadline := time.Now().Add(time.Second)
 	for time.Now().Before(parseDeadline) {
 		if parseCondition() {
 			return
