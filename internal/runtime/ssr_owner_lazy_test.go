@@ -27,7 +27,10 @@ func TestSSRHookOwnerIsLazyUntilComponentRender(t *testing.T) {
 	withSSRHookFiber("component", nil, parseCtx, func() *Element {
 		return &Element{Type: "TEXT_ELEMENT", TextContent: "component"}
 	})
-	if parseOwner, isOwner := parseCtx[ssrHookOwnerContextKey].(uint64); !isOwner || parseOwner == 0 {
+	// Native builds cache a non-zero goroutine owner here. JS/Wasm has no
+	// goroutine identity, so getSSRHookOwner intentionally resolves to zero;
+	// both platforms must still replace the lazy sentinel with a uint64 value.
+	if _, isOwner := parseCtx[ssrHookOwnerContextKey].(uint64); !isOwner {
 		t.Fatalf("component render did not resolve owner: %#v", parseCtx[ssrHookOwnerContextKey])
 	}
 }
