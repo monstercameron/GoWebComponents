@@ -137,6 +137,11 @@ jobs:
           go -C test/playwrightgo test -tags playwrightgo . -run TestMainSuite -v
         shell: pwsh
 
+      - name: Run Examples Browser Suite (Playwright-Go)
+        run: |
+          go -C test/playwrightgo test -tags playwrightgo ./examples -run '^TestExamplesAll$' -count=1 -v
+        shell: pwsh
+
       - name: Run Browser Benchmark Suite (Playwright-Go)
         run: |
           go -C test/playwrightgo test -tags playwrightgo . -run TestBenchmark -v
