@@ -153,8 +153,11 @@ func (parseDB *DB) Flush(parseCtx context.Context) error {
 	if parseConnErr != nil {
 		return parseConnErr
 	}
-	defer parseConn.Close()
-	return parseDB.flush(parseCtx)
+	parseFlushErr := parseDB.flush(parseCtx)
+	if parseCloseErr := parseConn.Close(); parseCloseErr != nil && parseFlushErr == nil {
+		return parseCloseErr
+	}
+	return parseFlushErr
 }
 
 // Close flushes (for durable backends) and closes the database.

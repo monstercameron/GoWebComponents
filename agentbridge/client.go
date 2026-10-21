@@ -89,7 +89,12 @@ func (parseC *BridgeClient) buildHelloJSON() (string, error) {
 // WriteFrame returns an error. RunLoop blocks; run it in a goroutine. The
 // socket is closed before RunLoop returns.
 func (parseC *BridgeClient) RunLoop(parseSock AgentSocket) {
-	defer parseSock.Close()
+	defer func() {
+		if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+			runtime.ReportDiagnostic("agentbridge", runtime.DiagnosticWarning,
+				"bridge client: close socket: "+parseCloseErr.Error())
+		}
+	}()
 
 	defer func() {
 		parseC.eventMu.Lock()

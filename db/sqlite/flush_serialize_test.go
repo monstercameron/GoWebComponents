@@ -16,7 +16,11 @@ func TestFlushSerializesWithOpenTransaction(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("open: %v", parseErr)
 	}
-	defer parseDB.Close()
+	parseT.Cleanup(func() {
+		if parseCloseErr := parseDB.Close(); parseCloseErr != nil {
+			parseT.Errorf("close: %v", parseCloseErr)
+		}
+	})
 
 	var parseFlushed int32
 	parseDB.flush = func(context.Context) error {

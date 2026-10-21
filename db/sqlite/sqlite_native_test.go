@@ -35,7 +35,11 @@ func TestDurableReopenNative(t *testing.T) {
 	if parseErr != nil {
 		t.Fatalf("reopen: %v", parseErr)
 	}
-	defer parseDB2.Close()
+	defer func() {
+		if parseCloseErr := parseDB2.Close(); parseCloseErr != nil {
+			t.Errorf("close reopened db: %v", parseCloseErr)
+		}
+	}()
 
 	var parseV string
 	if parseErr := parseDB2.QueryRow(parseCtx, `SELECT v FROM kv WHERE k='greeting'`).Scan(&parseV); parseErr != nil {
@@ -49,6 +53,8 @@ func TestDurableReopenNative(t *testing.T) {
 func cleanupNativeFile(parseName string) {
 	parsePath := filepath.Join(os.TempDir(), "gwc-sqlite", sanitizeName(parseName)+".db")
 	for _, parseSuffix := range []string{"", "-journal", "-wal", "-shm"} {
-		os.Remove(parsePath + parseSuffix)
+		if parseErr := os.Remove(parsePath + parseSuffix); parseErr != nil && !os.IsNotExist(parseErr) {
+			panic(parseErr)
+		}
 	}
 }
