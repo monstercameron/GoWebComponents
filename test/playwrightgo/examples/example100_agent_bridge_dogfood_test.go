@@ -156,7 +156,7 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 			}
 		}
 		parseWaitForExample100PromptInThread(parseT, parsePage, parsePrompt)
-		parseWaitForExample100AgentTextMatch(parseT, parseBaseURL, parseToken, parseSession.ID, parsePrompt, "after send")
+		parseWaitForExample100AgentTextMatch(parseT, parsePage, parseBaseURL, parseToken, parseSession.ID, parsePrompt, "after send")
 		parseCheckExample100AgentSnapshot(parseT, parseBaseURL, parseToken, parseSession.ID, "after send")
 		traceExample100AgentDogfood("prompt sent and observed through bridge query")
 
@@ -171,7 +171,7 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 			parseT.Fatalf("wait for chat input after agent reload: %v", parseErr)
 		}
 		parseReloadedSession := parseWaitForExample100NewActiveAgentSession(parseT, parseBaseURL, parseToken, parseSession.ID)
-		parseWaitForExample100AgentTextMatch(parseT, parseBaseURL, parseToken, parseReloadedSession.ID, parsePrompt, "after reload")
+		parseWaitForExample100AgentTextMatch(parseT, parsePage, parseBaseURL, parseToken, parseReloadedSession.ID, parsePrompt, "after reload")
 		parseCheckExample100AgentSnapshot(parseT, parseBaseURL, parseToken, parseReloadedSession.ID, "after reload")
 		traceExample100AgentDogfood("reload prompt observed through bridge query")
 	})
@@ -500,11 +500,22 @@ func parseCheckExample100AgentSnapshot(parseT *testing.T, parseBaseURL string, p
 // parseWaitForExample100AgentTextMatch waits for the bridge's semantic text
 // query to observe one rendered prompt. Snapshot responses are intentionally
 // budgeted and may omit a deep text node even while the live query can find it.
-func parseWaitForExample100AgentTextMatch(parseT *testing.T, parseBaseURL string, parseToken string, parseSession string, parseNeedle string, parseLabel string) []example100AgentQueryMatch {
+func parseWaitForExample100AgentTextMatch(parseT *testing.T, parsePage playwright.Page, parseBaseURL string, parseToken string, parseSession string, parseNeedle string, parseLabel string) []example100AgentQueryMatch {
 	parseT.Helper()
-	parseDeadline := time.Now().Add(5 * time.Second)
+	// A reply can complete before the conversation list resolves the new
+	// public ID; allow that route/list reconciliation to settle before failing.
+	parseDeadline := time.Now().Add(15 * time.Second)
 	var parseLastMatches []example100AgentQueryMatch
 	for time.Now().Before(parseDeadline) {
+		parseDOMReadyValue, parseDOMReadyErr := parsePage.Evaluate(fmt.Sprintf(`() => {
+			const userBubbles = Array.from(document.querySelectorAll("#message-list .msg-bubble-user"));
+			const assistantBubbles = document.querySelectorAll("#message-list .msg-bubble-assistant");
+			return window.location.pathname.startsWith("/app/thread/") && userBubbles.some((node) => (node.textContent || "").includes(%q)) && assistantBubbles.length >= 1;
+		}`, parseNeedle))
+		if parseDOMReadyErr != nil || parseDOMReadyValue != true {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
 		parseLastMatches = parseQueryExample100Agent(parseT, parseBaseURL, parseToken, parseSession, map[string]any{"text": parseNeedle})
 		if len(parseLastMatches) > 0 {
 			return parseLastMatches

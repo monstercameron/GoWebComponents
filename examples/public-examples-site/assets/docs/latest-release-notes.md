@@ -21,12 +21,14 @@ the stable `v7.0.0` tag has not been published.
 
 ### Verification and release status
 
-This is a documentation and packaging checkpoint for the RC. The fair v6/v7
-production benchmark, CashFlux consumer acceptance, the complete release
-workflow, and final `go get` verification remain release gates. Windows v6.1
-manual acceptance is deferred by the release plan; that deferral does not make
-the v7 stable tag available. No `v7.0.0-rc.1` or `v7.0.0` tag has been
-published.
+This is a documentation and packaging checkpoint for the RC. An isolated
+CashFlux `/v7` migration passed its Wasm build, native compile, vet, all-route
+browser smoke, and light-theme browser smoke. Repeated v5/v7 route timings did
+not show a consistent v7 slowdown. The fair v6/v7 production benchmark, the
+complete release workflow, and published-RC `go get` consumer verification
+remain release gates. Windows v6.1 manual acceptance is deferred; v7 may
+release before v6.1 after its own gates pass. No `v7.0.0-rc.1` or `v7.0.0`
+tag has been published.
 
 ### Documentation
 
