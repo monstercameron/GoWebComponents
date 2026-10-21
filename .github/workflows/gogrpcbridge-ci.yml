@@ -47,13 +47,20 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.27.x"
+          # The bridge module targets Go 1.25. Its lint toolchain (golangci-lint
+          # v1) cannot decode Go 1.27 export data, so keep this tooling lane on
+          # the module's supported toolchain.
+          go-version: "1.25.x"
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
+        run: |
+          cd ./third_party/GoGRPCBridge
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
 
       - name: Run bridge lint lane
-        run: go run ./third_party/GoGRPCBridge/tools/runner.go lint
+        run: |
+          cd ./third_party/GoGRPCBridge
+          go run ./tools/runner.go lint
 
   gogrpcbridge-security:
     name: Security Scan
@@ -68,10 +75,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.27.x"
+          # Keep security analyzers on the bridge module's Go 1.25 toolchain;
+          # the pinned scanner versions do not understand Go 1.27 export data.
+          go-version: "1.25.x"
 
       - name: Install security scanners
         run: |
+          cd ./third_party/GoGRPCBridge
           go install github.com/securego/gosec/v2/cmd/gosec@${{ env.GOSEC_VERSION }}
           go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }}
 

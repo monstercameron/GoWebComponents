@@ -43,4 +43,4 @@ jobs:
         # Compares the exported funcs/types of the core packages against
         # tools/api_compat_guard/api_compatibility_baseline.json on native and js/wasm.
         # Intentional changes regenerate it with: go -C tools run ./api_compat_guard -update
-        run: go -C tools run ./api_compat_guard check
+        run: go -C tools run ./api_compat_guard --module-root=..

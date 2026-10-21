@@ -47,3 +47,16 @@ func TestWasmExecReportsStartFailure(parseT *testing.T) {
 		parseT.Fatalf("exit code = %d, want 1", parseCode)
 	}
 }
+
+func TestBuildWasmExecEnvDropsLargeInheritedValues(parseT *testing.T) {
+	parseT.Setenv("GOWASMEXEC_STUB", "1")
+	parseT.Setenv("LARGE_INHERITED_VALUE", strings.Repeat("x", 10000))
+	parseEnv := buildWasmExecEnv(os.Args[0])
+	parseJoined := strings.Join(parseEnv, "\x00")
+	if strings.Contains(parseJoined, "LARGE_INHERITED_VALUE=") {
+		parseT.Fatal("expected arbitrary inherited environment values to be dropped")
+	}
+	if !strings.Contains(parseJoined, "GOWASMEXEC_STUB=1") {
+		parseT.Fatal("expected runner control environment to be preserved")
+	}
+}

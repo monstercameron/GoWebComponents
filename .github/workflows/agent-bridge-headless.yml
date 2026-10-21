@@ -61,7 +61,7 @@ jobs:
         run: go run github.com/mxschmitt/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
 
       - name: Run native agent bridge lane
-        run: go -C tools run ./gwc test -lane agent -json
+        run: go -C tools run ./gwc test -root .. -lane agent -json
 
       - name: Prebuild agent dogfood client
         run: |
