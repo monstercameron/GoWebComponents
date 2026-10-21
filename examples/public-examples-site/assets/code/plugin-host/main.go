@@ -264,14 +264,14 @@ func pluginExample() ui.Node {
 		}
 	}, parseHost2)
 
-	parseTriggerPricing := ui.UseEvent(func() { triggerPluginRoute(parseHost2, parseRouteResult, parseLogLines, "/pricing") })
-	parseTriggerAdmin := ui.UseEvent(func() { triggerPluginRoute(parseHost2, parseRouteResult, parseLogLines, "/admin") })
-	parseTriggerInventory := ui.UseEvent(func() { triggerPluginRequest(parseHost2, parseDecoratedKey, parseLogLines, "inventory:list") })
+	parseRoutePricing := ui.UseEvent(func() { pluginRouteAction(parseHost2, parseRouteResult, parseLogLines, "/pricing") })
+	parseRouteAdmin := ui.UseEvent(func() { pluginRouteAction(parseHost2, parseRouteResult, parseLogLines, "/admin") })
+	parseRequestInventory := ui.UseEvent(func() { pluginRequestAction(parseHost2, parseDecoratedKey, parseLogLines, "inventory:list") })
 	parseValidateInvalid := ui.UseEvent(func() {
-		validatePluginForm(parseHost2, parseValidation, parseLogLines, map[string]string{"quantity": "0", "workflow": ""}, "submit")
+		pluginValidateAction(parseHost2, parseValidation, parseLogLines, map[string]string{"quantity": "0", "workflow": ""}, "submit")
 	})
 	parseValidateReady := ui.UseEvent(func() {
-		validatePluginForm(parseHost2, parseValidation, parseLogLines, map[string]string{"quantity": "5", "workflow": "expedite"}, "submit")
+		pluginValidateAction(parseHost2, parseValidation, parseLogLines, map[string]string{"quantity": "5", "workflow": "expedite"}, "submit")
 	})
 
 	parseRegistered := []ui.Node{}
@@ -325,9 +325,9 @@ func pluginExample() ui.Node {
 		shared.ExamplePanel("Route and async hooks",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("One plugin guards admin routes, and another decorates async-data keys plus logs navigation or request events. The host keeps those hooks ordered and explicit.")),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Evaluate pricing route", parseTriggerPricing),
-				shared.ExampleButton("Evaluate admin route", parseTriggerAdmin),
-				shared.ExampleButton("Decorate inventory request", parseTriggerInventory),
+				shared.ExampleButton("Evaluate pricing route", parseRoutePricing),
+				shared.ExampleButton("Evaluate admin route", parseRouteAdmin),
+				shared.ExampleButton("Decorate inventory request", parseRequestInventory),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300", ID: "plugin-route-result"}, html.Text(parseRouteResult.Get())),
 			html.P(html.Props{Class: "mt-2 text-sm leading-7 text-slate-300", ID: "plugin-cache-key"}, html.Text(parseDecoratedKey.Get())),
@@ -378,27 +378,27 @@ func main() {
 	exampleboot.WaitExampleRuntime()
 }
 
-func triggerPluginRoute(parseHost *plugin.Host, parseRouteResult ui.State[string], parseLogLines ui.State[[]string], parsePath string) {
+func pluginRouteAction(parseHost *plugin.Host, parseResult ui.State[string], parseLogs ui.State[[]string], parsePath string) {
 	if parseHost == nil {
 		return
 	}
 	parseDecision := parseHost.EvaluateRoute(plugin.RouteRequest{Path: parsePath})
 	parseHost.NotifyNavigation(plugin.NavigationEvent{Path: parsePath, Source: "plugin-example"})
-	parseRouteResult.Set(formatDecision(parseDecision))
-	parseLogLines.Set(hostLogs(parseHost))
+	parseResult.Set(formatDecision(parseDecision))
+	parseLogs.Set(hostLogs(parseHost))
 }
 
-func triggerPluginRequest(parseHost *plugin.Host, parseDecoratedKey ui.State[string], parseLogLines ui.State[[]string], parseKey string) {
+func pluginRequestAction(parseHost *plugin.Host, parseDecoratedKey ui.State[string], parseLogs ui.State[[]string], parseKey string) {
 	if parseHost == nil {
 		return
 	}
 	parseDecorated := parseHost.DecorateCacheKey(parseKey)
 	parseHost.NotifyRequest(plugin.RequestEvent{Key: parseDecorated, Phase: "ready", Source: "plugin-example"})
 	parseDecoratedKey.Set(parseDecorated)
-	parseLogLines.Set(hostLogs(parseHost))
+	parseLogs.Set(hostLogs(parseHost))
 }
 
-func validatePluginForm(parseHost *plugin.Host, parseValidation ui.State[string], parseLogLines ui.State[[]string], parseValues map[string]string, parseIntent string) {
+func pluginValidateAction(parseHost *plugin.Host, parseValidation ui.State[string], parseLogs ui.State[[]string], parseValues map[string]string, parseIntent string) {
 	if parseHost == nil {
 		return
 	}
@@ -406,5 +406,5 @@ func validatePluginForm(parseHost *plugin.Host, parseValidation ui.State[string]
 	parseIssues := parseHost.ValidateForm(parseSubmission)
 	parseHost.NotifySubmit(parseSubmission)
 	parseValidation.Set(formatIssues(parseIssues))
-	parseLogLines.Set(hostLogs(parseHost))
+	parseLogs.Set(hostLogs(parseHost))
 }

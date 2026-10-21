@@ -296,11 +296,7 @@ func App() ui.Node {
 	parseQuickInsertNodes := make([]ui.Node, 0, len(quickInsertKeySpecs))
 	for _, parseSpec := range quickInsertKeySpecs {
 		parseButtonSpec := parseSpec
-		parseQuickInsertNodes = append(parseQuickInsertNodes, html.Button(html.Props{
-			Type:    "button",
-			OnClick: parseAppendTokenHandler(parseAppendToken, parseButtonSpec.Token),
-			Class:   parseQuickBtnClass,
-		}, html.Text(parseButtonSpec.Label)))
+		parseQuickInsertNodes = append(parseQuickInsertNodes, calculatorButton(parseButtonSpec.Label, parseQuickBtnClass, func() { parseAppendToken(parseButtonSpec.Token) }))
 	}
 
 	parseKeypadNodes := make([]ui.Node, 0, len(keypadSpecs))
@@ -335,11 +331,7 @@ func App() ui.Node {
 			parseBtnClass += " " + parseButtonSpec2.Class
 		}
 
-		parseKeypadNodes = append(parseKeypadNodes, html.Button(html.Props{
-			Type:    "button",
-			OnClick: parseOnPress,
-			Class:   parseBtnClass,
-		}, html.Text(parseButtonSpec2.Label)))
+		parseKeypadNodes = append(parseKeypadNodes, calculatorButton(parseButtonSpec2.Label, parseBtnClass, parseOnPress))
 	}
 
 	// Calculator Display - The LCD-style result display
@@ -452,8 +444,9 @@ func App() ui.Node {
 	)
 }
 
-func parseAppendTokenHandler(parseAppendToken func(string), parseToken string) ui.Handler {
-	return ui.UseEvent(func() { parseAppendToken(parseToken) })
+func calculatorButton(parseLabel, parseClass string, parseOnPress func()) ui.Node {
+	parseClick := ui.UseEvent(parseOnPress)
+	return html.Button(html.Props{Type: "button", OnClick: parseClick, Class: parseClass}, html.Text(parseLabel))
 }
 
 func countTokens(parseExpression string) int {

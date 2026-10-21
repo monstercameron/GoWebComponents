@@ -66,15 +66,6 @@ func ensureLocaleRoutingHash(parsePath string) {
 func localeRouteView(parseProps localeRoutePageProps) ui.Node {
 	parseNavigate := router.UseNavigate()
 	parseDirection := string(i18n.DirectionForLocale(parseProps.Locale))
-	parseGoEnglish := ui.UseEvent(func() {
-		parseNavigate.Navigate(i18n.PrefixPath("en", parseProps.BasePath, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true}))
-	})
-	parseGoFrench := ui.UseEvent(func() {
-		parseNavigate.Navigate(i18n.PrefixPath("fr", parseProps.BasePath, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true}))
-	})
-	parseGoArabic := ui.UseEvent(func() {
-		parseNavigate.Navigate(i18n.PrefixPath("ar", parseProps.BasePath, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true}))
-	})
 
 	return html.Div(html.Props{Raw: map[string]interface{}{"dir": parseDirection, "lang": parseProps.Locale, "data-route-locale": parseProps.Locale}},
 		shared.ExamplePage(
@@ -90,9 +81,9 @@ func localeRouteView(parseProps localeRoutePageProps) ui.Node {
 			),
 			shared.ExamplePanel("Switch Locale",
 				html.Div(html.Props{Class: "flex flex-wrap gap-2"},
-					shared.ExampleButton("English", parseGoEnglish),
-					shared.ExampleButton("Francais", parseGoFrench),
-					shared.ExampleButton("Arabic", parseGoArabic),
+					localeButton("English", "en", parseNavigate, parseProps.BasePath),
+					localeButton("Francais", "fr", parseNavigate, parseProps.BasePath),
+					localeButton("Arabic", "ar", parseNavigate, parseProps.BasePath),
 				),
 				html.P(html.Props{ID: "locale-routing-title", Class: "text-lg font-semibold text-white"}, html.Text(parseProps.Title)),
 				html.P(html.Props{ID: "locale-routing-summary", Class: "text-sm leading-6 text-slate-300"}, html.Text(parseProps.Summary)),
@@ -100,6 +91,13 @@ func localeRouteView(parseProps localeRoutePageProps) ui.Node {
 			),
 		),
 	)
+}
+
+func localeButton(parseLabel, parseLocale string, parseNavigate router.Navigator, parseBasePath string) ui.Node {
+	parseGoLocale := ui.UseEvent(func() {
+		parseNavigate.Navigate(i18n.PrefixPath(parseLocale, parseBasePath, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true}))
+	})
+	return shared.ExampleButton(parseLabel, parseGoLocale)
 }
 
 func localeRoutePage(parseAttrs router.Attrs) *router.Element {
