@@ -1,6 +1,9 @@
 name: Fair Example 201 v6/v7 Browser Benchmark
 
 on:
+  push:
+    branches:
+      - v7/dev
   workflow_dispatch:
     inputs:
       v6_ref:
