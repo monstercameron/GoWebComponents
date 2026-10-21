@@ -255,7 +255,7 @@ func (parseS *Store) TransferRecommendations(parseCtx context.Context, parseSku 
 	if parseErr != nil {
 		return nil, fmt.Errorf("query transfer recommendations: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	type lane struct {
 		warehouseID string
 		available   int
@@ -317,7 +317,7 @@ func (parseS *Store) TransferLines(parseCtx context.Context, parseTransferID str
 	if parseErr != nil {
 		return nil, fmt.Errorf("query transfer lines: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []TransferLineRecord{}
 	for parseRows.Next() {
 		var parseItem TransferLineRecord
@@ -346,7 +346,7 @@ func (parseS *Store) ReceivingLines(parseCtx context.Context, parseSessionID str
 	if parseErr != nil {
 		return nil, fmt.Errorf("query receiving lines: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ReceivingLineRecord{}
 	for parseRows.Next() {
 		var parseItem ReceivingLineRecord

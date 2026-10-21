@@ -139,7 +139,7 @@ func (parseS *secureFormsServer) handleUpload(parseW http.ResponseWriter, parseR
 		return
 	}
 	if parseFile != nil {
-		defer parseFile.Close()
+		defer func() { _ = parseFile.Close() }()
 	}
 
 	var (

@@ -1523,7 +1523,7 @@ func newTestAtlasServer(parseT *testing.T) (*atlasServer, func()) {
 		parseT.Fatalf("migrate sqlite: %v", parseErr2)
 	}
 	if parseErr3 := serverdb.Seed(context.Background(), parseDatabase); parseErr3 != nil {
-		parseDatabase.Close()
+		_ = parseDatabase.Close()
 		parseT.Fatalf("seed sqlite: %v", parseErr3)
 	}
 
