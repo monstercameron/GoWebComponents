@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	getBenchmarkWorkerRuntimeURL     = "/examples/testing/render-benchmark/vendor/wasm_exec.js"
+	getBenchmarkWorkerRuntimeURL     = "/static/script/wasm_exec.js"
 	getBenchmarkWorkerWASMURL        = "/static/bin/render-benchmark-worker.wasm"
 	getBenchmarkWorkerReadyTimeout   = 5 * time.Second
 	getBenchmarkWorkerRequestTimeout = 5 * time.Second
