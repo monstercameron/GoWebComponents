@@ -11,6 +11,11 @@ on:
         description: "Semver tag to release (vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N)"
         required: true
         type: string
+      validate_only:
+        description: "Run all release gates without creating a tag or GitHub release"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -207,6 +212,7 @@ jobs:
 
   release:
     needs: build-and-test
+    if: github.event_name != 'workflow_dispatch' || !inputs.validate_only
     runs-on: ubuntu-latest
     permissions:
       contents: write
