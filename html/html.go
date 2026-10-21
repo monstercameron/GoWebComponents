@@ -237,9 +237,9 @@ func Tag(parseName string, parseProps Props, parseChildren ...ui.Node) ui.Node {
 			if parseText, hasText := runtime.PlainTextContent(parseChildren[0]); hasText {
 				return runtime.CreateElementCompactHostOwnedText(parseName, parseKey, parseAttrs, parseText)
 			}
-			return runtime.CreateElementCompactHostOwned(parseName, parseKey, parseAttrs, toInterfaces(parseChildren)...)
+			return runtime.CreateElementCompactHostOwnedTyped(parseName, parseKey, parseAttrs, parseChildren...)
 		} else {
-			return runtime.CreateElementCompactHostOwned(parseName, parseKey, parseAttrs, toInterfaces(parseChildren)...)
+			return runtime.CreateElementCompactHostOwnedTyped(parseName, parseKey, parseAttrs, parseChildren...)
 		}
 	}
 	if parseProps.Text != "" && len(parseChildren) == 0 {

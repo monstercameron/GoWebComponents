@@ -304,6 +304,23 @@ func TestNativeTagAndLinkBuildersPreserveChildren(parseT *testing.T) {
 	}
 }
 
+func TestNativeTagTypedChildrenPreserveFragmentsAndInputSlice(parseT *testing.T) {
+	parseFirst := Span(Props{}, Text("first"))
+	parseChildren := []ui.Node{parseFirst, nil, Fragment(Span(Props{}, Text("nested")))}
+	parseNode := Tag("section", Props{Class: "shell"}, parseChildren...)
+	parseChildren[0] = Span(Props{}, Text("changed"))
+	if len(parseNode.Children) != 3 || parseNode.Children[0] != parseFirst {
+		parseT.Fatalf("expected copied child slots, got %#v", parseNode.Children)
+	}
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString: %v", parseErr)
+	}
+	if !strings.Contains(parseMarkup, "first") || !strings.Contains(parseMarkup, "nested") || strings.Contains(parseMarkup, "changed") {
+		parseT.Fatalf("expected original and fragment children, got %q", parseMarkup)
+	}
+}
+
 // TestNativeWithChildrenPreservesFastLaneAttrsInSSR pins the demote seam: a
 // fast-lane direct-text node that gains children afterwards must keep its
 // compact attributes in server-rendered markup.

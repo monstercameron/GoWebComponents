@@ -466,6 +466,52 @@ func CreateElementCompactHostOwned(parseTag string, parseKey string, parseAttrs 
 	return parseElem
 }
 
+// CreateElementCompactHostOwnedTyped builds a compact host element from typed
+// element children, converting them while recording the fragment hint.
+func CreateElementCompactHostOwnedTyped(parseTag string, parseKey string, parseAttrs []HostAttr, parseChildren ...*Element) *Element {
+	if parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
+		parseValues := convertTypedChildrenToValues(parseChildren)
+		parseElem := buildElement(parseTag, nil, parseValues...)
+		parseElem.Key = parseKey
+		return parseElem
+	}
+	parseValues, hasFragmentChildren := convertTypedChildrenToValuesWithFragmentHint(parseChildren)
+	parseElem := buildElementWithKnownHostChildren(boxedHostType(parseTag), nil, parseAttrs, true, true, parseValues, hasFragmentChildren, true)
+	parseElem.Key = parseKey
+	return parseElem
+}
+
+// typedChildrenToValuesWithFragmentHint converts element children and detects
+// fragment children in the same pass.
+func convertTypedChildrenToValuesWithFragmentHint(parseChildren []*Element) ([]any, bool) {
+	if len(parseChildren) == 0 {
+		return nil, false
+	}
+	parseValues := make([]any, len(parseChildren))
+	hasFragmentChildren := false
+	for parseIndex, parseChild := range parseChildren {
+		parseValues[parseIndex] = parseChild
+		if parseChild != nil {
+			if parseChildType, hasStringType := parseChild.Type.(string); hasStringType && parseChildType == "FRAGMENT" {
+				hasFragmentChildren = true
+			}
+		}
+	}
+	return parseValues, hasFragmentChildren
+}
+
+// typedChildrenToValues converts typed element children to interface values.
+func convertTypedChildrenToValues(parseChildren []*Element) []any {
+	if len(parseChildren) == 0 {
+		return nil
+	}
+	parseValues := make([]any, len(parseChildren))
+	for parseIndex, parseChild := range parseChildren {
+		parseValues[parseIndex] = parseChild
+	}
+	return parseValues
+}
+
 // CreateElementCompactHostOwnedSpecial keeps ordinary string attributes in
 // the compact slice while retaining only event/property values in parseProps.
 // This avoids rebuilding and rescanning a full map for event-bearing buttons
@@ -842,6 +888,12 @@ func buildElement(parseTyp any, parseProps map[string]any, parseChildren ...any)
 // those elements never receive a props map at construction time (cold readers
 // materialize one through EnsureElementProps).
 func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostAttrs []HostAttr, isCompactHostProps bool, isMapFree bool, parseChildren ...any) *Element {
+	return buildElementWithKnownHostChildren(parseTyp, parseProps, getHostAttrs, isCompactHostProps, isMapFree, parseChildren, false, false)
+}
+
+// buildElementWithKnownHostChildren builds an element when children were
+// already normalized and the caller can provide the fragment hint.
+func buildElementWithKnownHostChildren(parseTyp any, parseProps map[string]any, getHostAttrs []HostAttr, isCompactHostProps bool, isMapFree bool, parseChildren []any, hasFragmentChildren bool, isTypedChildren bool) *Element {
 	if len(parseChildren) == 0 {
 		parseChildren = emptyChildren
 	}
@@ -873,15 +925,16 @@ func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostA
 	// Elements.  All text elements for one parent share a single backing array
 	// so N string children cost one allocation instead of N.
 	parseTextCount := 0
-	hasFragmentChildren := false
-	for _, parseChild := range parseChildren {
-		if _, hasParseText := parseChild.(string); hasParseText {
-			parseTextCount++
-			continue
-		}
-		if parseChildElem, parseOk := parseChild.(*Element); parseOk && parseChildElem != nil {
-			if parseChildType, parseTypeOk := parseChildElem.Type.(string); parseTypeOk && parseChildType == "FRAGMENT" {
-				hasFragmentChildren = true
+	if !isTypedChildren {
+		for _, parseChild := range parseChildren {
+			if _, hasParseText := parseChild.(string); hasParseText {
+				parseTextCount++
+				continue
+			}
+			if parseChildElem, parseOk := parseChild.(*Element); parseOk && parseChildElem != nil {
+				if parseChildType, parseTypeOk := parseChildElem.Type.(string); parseTypeOk && parseChildType == "FRAGMENT" {
+					hasFragmentChildren = true
+				}
 			}
 		}
 	}
