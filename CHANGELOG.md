@@ -176,6 +176,9 @@ not.
   `TestMainSuite`, `TestBenchmark`, `TestExamplesAll` (Chromium, Firefox,
   WebKit), and `gwc lint` (zero findings) pass. Performance acceptance and the
   v6.1 prerequisite remain open.
+- The wasm test lane now passes all 28 discovered packages after the router
+  fixture shim accepted the v7 `RouterOption` interface. The counter app's
+  `gwc verify` CI wasm build also passes.
 
 #### Fixed
 
