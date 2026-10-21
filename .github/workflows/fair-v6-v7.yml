@@ -139,8 +139,9 @@ jobs:
           path: ${{ runner.temp }}/fair-v6-v7
           if-no-files-found: warn
 
-  # The Wasm lane uses the exact v6/v7 benchmark intersection discovered by
-  # bench_report.go. jsdom is excluded because plain Node has no browser DOM.
+  # The Wasm lane uses the production-compatible v6/v7 benchmark intersection.
+  # jsdom needs a browser DOM; utils benchmarks exercise debug-only APIs that
+  # intentionally become no-ops under the production tag.
   compare-wasm:
     if: ${{ inputs.lane == 'wasm' }}
     runs-on: ubuntu-latest
@@ -149,7 +150,7 @@ jobs:
       V6_REF: ${{ inputs.v6_ref || '1e61695cda00a659faf8215d6a496342f75e8298' }}
       PACKAGES: >-
         ./fetch,./internal/runtime,./interop,./router,./state,./testkit/hooks,
-        ./testkit/router,./utils
+        ./testkit/router
     steps:
       - name: Checkout clean v7 source
         uses: actions/checkout@v6
@@ -204,7 +205,7 @@ jobs:
           set -euo pipefail
           packages=(
             ./fetch ./internal/runtime ./interop ./router ./state ./testkit/hooks
-            ./testkit/router ./utils
+            ./testkit/router
           )
           for root in "$V6_DIR" "$GITHUB_WORKSPACE"; do
             for package in "${packages[@]}"; do

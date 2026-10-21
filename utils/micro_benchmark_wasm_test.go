@@ -1,5 +1,5 @@
-//go:build js && wasm
-// +build js,wasm
+//go:build js && wasm && !production
+// +build js,wasm,!production
 
 package utils
 
