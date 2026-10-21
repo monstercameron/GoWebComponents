@@ -155,12 +155,40 @@ func (parseE *Error) GWCCode() errcode.Code {
 // remediation text for the interop codes that append guidance to messages.
 func interopActionableGuidance(parseCode ErrorCode) (string, string) {
 	switch parseCode {
-	case CodeInvalid, CodeBlocked, CodeQuotaExceeded, CodeNotFunction, CodeUnauthorized:
-		if parseEntry, parseOk := errcode.Lookup(interopGWCCodes[parseCode]); parseOk {
-			return parseEntry.Docs, strings.TrimSuffix(parseEntry.Remediation, ".")
-		}
+	case CodeInvalid:
+		return cacheInteropInvalidGuidance.docs, cacheInteropInvalidGuidance.remediation
+	case CodeBlocked:
+		return cacheInteropBlockedGuidance.docs, cacheInteropBlockedGuidance.remediation
+	case CodeQuotaExceeded:
+		return cacheInteropQuotaGuidance.docs, cacheInteropQuotaGuidance.remediation
+	case CodeNotFunction:
+		return cacheInteropNotFunctionGuidance.docs, cacheInteropNotFunctionGuidance.remediation
+	case CodeUnauthorized:
+		return cacheInteropUnauthorizedGuidance.docs, cacheInteropUnauthorizedGuidance.remediation
 	}
 	return "", ""
+}
+
+type interopGuidance struct {
+	docs        string
+	remediation string
+}
+
+var (
+	cacheInteropInvalidGuidance      = buildInteropGuidance(CodeInvalid)
+	cacheInteropBlockedGuidance      = buildInteropGuidance(CodeBlocked)
+	cacheInteropQuotaGuidance        = buildInteropGuidance(CodeQuotaExceeded)
+	cacheInteropNotFunctionGuidance  = buildInteropGuidance(CodeNotFunction)
+	cacheInteropUnauthorizedGuidance = buildInteropGuidance(CodeUnauthorized)
+)
+
+// buildInteropGuidance resolves static registry text once for the hot Error path.
+func buildInteropGuidance(parseCode ErrorCode) interopGuidance {
+	parseEntry, parseOk := errcode.Lookup(interopGWCCodes[parseCode])
+	if !parseOk {
+		return interopGuidance{}
+	}
+	return interopGuidance{docs: parseEntry.Docs, remediation: strings.TrimSuffix(parseEntry.Remediation, ".")}
 }
 
 type Subscription struct {

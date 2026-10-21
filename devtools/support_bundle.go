@@ -381,10 +381,21 @@ func redactSupportString(parseValue string) string {
 	if parseTrimmed == "" {
 		return parseValue
 	}
-	if parseRedactedURL, parseOk := redactSupportURL(parseTrimmed); parseOk {
-		return parseRedactedURL
+	// Most snapshot strings are ordinary labels, IDs, and enum values. Avoid
+	// invoking the URL parser for those: URL handling is only relevant when the
+	// value has a query/fragment or an explicit authority.
+	if strings.ContainsAny(parseTrimmed, "?#") || strings.Contains(parseTrimmed, "://") {
+		if parseRedactedURL, parseOk := redactSupportURL(parseTrimmed); parseOk {
+			return parseRedactedURL
+		}
 	}
 	parseRedacted := parseValue
+	// Likewise, the regular expressions only match credential-looking values.
+	// Keep the cheap marker check outside the loop so ordinary text remains a
+	// zero-work fast path while preserving Bearer scheme matching.
+	if !strings.ContainsAny(parseRedacted, ":=") && !strings.Contains(strings.ToLower(parseRedacted), "bearer") {
+		return parseRedacted
+	}
 	for _, parsePattern := range supportInlineSecretPatterns {
 		parseRedacted = parsePattern.ReplaceAllStringFunc(parseRedacted, func(parseMatch string) string {
 			parseLower := strings.ToLower(parseMatch)
