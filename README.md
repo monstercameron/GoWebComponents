@@ -31,9 +31,10 @@ certified.
 See the [Windows API coverage matrix](docs/windows-api-coverage.md) for exact
 operations, capability gates, native-host-only boundaries and verification scope.
 
-Version 6 uses the `/v6` module path. See [migration and known limitations](CHANGELOG.md#v600---2026-09-08)
-before upgrading. The example modernization and full browser acceptance sweep
-are not complete.
+Version 7 development uses the `/v7` module path. The v6 line remains the latest
+stable major until the v7 release candidate and stable tags are published. See
+the [v7 migration guide](docs/MIGRATION_V7.md) before upgrading; the release
+candidate remains subject to the documented final acceptance gates.
 
 ## Why GoWebComponents
 
@@ -83,10 +84,10 @@ published template.
 
 ### Add to an existing module
 
-Install the module:
+After the first v7 release candidate is published, install the module:
 
 ```bash
-go get github.com/monstercameron/GoWebComponents/v7@latest
+go get github.com/monstercameron/GoWebComponents/v7@v7.0.0-rc.1
 ```
 
 Import public packages from the module path exactly as declared in `go.mod`:
@@ -563,7 +564,7 @@ go -C tools run ./gwc bench            # -> docs/benchmarks/latest.json
 Browser render comparison (Playwright vs a vendored React 19.2.4 baseline):
 
 ```bash
-go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReport -v
+go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExample201BrowserBenchmarkReport -v
 ```
 
 That test measures per-scenario DOM-ready and paint-proxy latency and writes a

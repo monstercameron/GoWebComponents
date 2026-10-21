@@ -17,7 +17,7 @@ go -C tools run ./gwc test -lane desktop -root ../examples/desktop/wails-counter
 .\examples\desktop\wails-counter\bin\wails-counter.exe --two-windows
 ```
 
-Requirements: Windows, Go 1.26.3 (the verified toolchain), installed WebView2,
+Requirements: Windows, Go 1.27.1 or newer, installed WebView2,
 and pinned Wails beta.17 source. The CLI targets Windows amd64 explicitly. No
 global Go environment changes or global Wails CLI installation are needed.
 First-time Go dependency resolution may use the network; packaged UI assets

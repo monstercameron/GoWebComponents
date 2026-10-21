@@ -2,9 +2,9 @@
 
 Experimental Windows desktop example in an isolated Go module. The existing
 GoWebComponents renderer runs as js/wasm inside native Wails WebView2 windows.
-Use Go 1.26.6 or newer and an installed WebView2 runtime. This
+Use Go 1.27.1 or newer and an installed WebView2 runtime. This
 checkout uses Wails beta.17 from `../../../third_party/wails/v3` and GWC's current
-`/v6` module from `../../..`. Initialize the pinned submodule from the repository
+`/v7` module from `../../..`. Initialize the pinned submodule from the repository
 root first:
 
 ```powershell
@@ -116,11 +116,11 @@ UI-only state remains local. See [desktop API](../../../desktop/README.md).
 From the repository root:
 
 ```powershell
-go run ./tools/gwc desktop doctor -root ./examples/desktop/wails-counter -json
-go run ./tools/gwc desktop build -root ./examples/desktop/wails-counter -json
-go run ./tools/gwc test -lane desktop -root ./examples/desktop/wails-counter -json
-go run ./tools/gwc desktop dev -root ./examples/desktop/wails-counter
-go run ./tools/gwc desktop package -root ./examples/desktop/wails-counter -json
+go -C tools run ./gwc desktop doctor -root ../examples/desktop/wails-counter -json
+go -C tools run ./gwc desktop build -root ../examples/desktop/wails-counter -json
+go -C tools run ./gwc test -lane desktop -root ../examples/desktop/wails-counter -json
+go -C tools run ./gwc desktop dev -root ../examples/desktop/wails-counter
+go -C tools run ./gwc desktop package -root ../examples/desktop/wails-counter -json
 ```
 
 `desktop init -root <new-directory>` creates a contributor-linked source template

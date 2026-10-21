@@ -64,7 +64,7 @@ The report also separates the worker-relevant overall headline from the full-sur
 Build the shared wasm subject:
 
 ```powershell
-go run ./tools/gwc build -app .\examples\testing\render-benchmark\main.go -root .\examples\testing\render-benchmark -out .\bin\examples\render-benchmark.wasm
+go -C tools run ./gwc build -app ../examples/testing/render-benchmark/main.go -root ../examples/testing/render-benchmark -out ../bin/examples/render-benchmark.wasm
 ```
 
 Build the worker wasm used by the runtime2 subjects:
@@ -78,7 +78,7 @@ go build -o .\bin\examples\render-benchmark-worker.wasm .\examples\testing\rende
 Serve the examples catalog:
 
 ```powershell
-go run ./tools/gwc examples
+go -C tools run ./gwc examples
 ```
 
 Then open:
@@ -96,7 +96,7 @@ Then open:
 ## Run The Automated Benchmark And Report
 
 ```powershell
-go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReport -v
+go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExample201BrowserBenchmarkReport -v
 ```
 
 That test:
@@ -110,7 +110,7 @@ That test:
 Run the dispatch A/B benchmark route:
 
 ```powershell
-go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkDispatchCompare -v
+go -C test/playwrightgo test -tags playwrightgo ./examples -run TestExample201BrowserBenchmarkDispatchCompare -v
 ```
 
 ## Important Boundary

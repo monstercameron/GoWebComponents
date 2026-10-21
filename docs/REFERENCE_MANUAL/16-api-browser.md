@@ -95,7 +95,6 @@ Source anchors:
 | `MarshalSSRBootstrap`, `MarshalSSRBootstrapObserved`, `MarshalSSRBootstrapBinary`, `MarshalSSRBootstrapBinaryObserved`, `UnmarshalSSRBootstrap`, `UnmarshalSSRBootstrapBinary`, `RenderBootstrapScript`, `RenderBootstrapScriptObserved`, `RenderBootstrapReferenceScript`, `ReadBootstrapScript`, `ReadBootstrapReferenceScript`, `ReadBootstrapReference`, `UnmarshalSSRBootstrapReference` | SSR bootstrap encoding and script emission | [`SSRBootstrap`](../../ui/ssr_bootstrap.go), [`SSRBootstrapReference`](../../ui/ssr_bootstrap.go), [`SSRI18nBootstrap`](../../ui/ssr_bootstrap.go), [`SSRRouteBootstrap`](../../ui/ssr_bootstrap.go) | `scriptHTML, err := ui.RenderBootstrapScript(bootstrap, ui.DefaultBootstrapScriptID)` |
 | `RegisterBootstrapPayload`, `ReadBootstrapPayload`, `RegisterRouteBootstrapData`, `ReadRouteBootstrapData`, `RegisterFormBootstrapDefaults`, `ReadFormBootstrapDefaults`, `RegisterCacheBootstrapSeed`, `ReadCacheBootstrapSeed`, `RegisterSessionBootstrapHint`, `ReadSessionBootstrapHint`, `InspectBootstrapPayloads`, `RegisterStateUpdatePayload`, `MarshalSSRStateUpdateText`, `UnmarshalSSRStateUpdateText`, `MarshalSSRStateUpdateBinary`, `UnmarshalSSRStateUpdateBinary`, `ApplySSRStateUpdate`, `NewSSRBootstrapBudget`, `InspectSSRBootstrapSize` | typed payload registration, scoped bootstrap reads, state update envelopes, size budgeting | [`SSRPayloadOptions`](../../ui/ssr_transfer.go), [`SSRPayloadValue[T]`](../../ui/ssr_transfer.go), [`SSRPayloadFilter`](../../ui/ssr_transfer.go), [`SSRPayloadMetadata`](../../ui/ssr_transfer.go), [`SSRStateUpdate`](../../ui/ssr_transfer.go), [`SSRBootstrapBudget`](../../ui/ssr_transfer.go), [`SSRBootstrapSizeReport`](../../ui/ssr_transfer.go) | `err := ui.RegisterBootstrapPayload(&bootstrap, "session", sessionValue)` |
 | `RegisterSSRObserver`, `SSRObservabilityOptionsFromContext`, `WithCorrelationID`, `CorrelationIDFromContext`, `WithW3CTraceContext`, `TraceContextFromContext`, `ConfigureBootstrapCorrelation`, `GetSSRObservationAttributes`, `WrapSSRCorrelation` | SSR and hydration correlation, tracing, observability subscriptions | [`SSRObservation`](../../ui/ssr_observability.go), [`SSRObserverSubscription`](../../ui/ssr_observability.go), [`W3CTraceContext`](../../ui/correlation_native.go) | `subscription := ui.RegisterSSRObserver(func(observation ui.SSRObservation) {})` |
-| `RegisterParallelRegion`, `ParallelRegion`, `BuildParallelRegionSourceIDs`, `GetParallelRegionRuntimeStatus`, `UnsupportedOnServer` | parallel region registration, runtime bridge status, explicit server-only guardrails | [`ParallelRegionSpec[Props]`](../../ui/parallel_region.go), [`ParallelRegionStatus`](../../ui/parallel_region.go) | `return ui.ParallelRegion(ui.ParallelRegionSpec[props]{RendererID: "search-grid", Props: props})` |
 
 Key `ui` handles and objects:
 
@@ -718,23 +717,23 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/ui/erroroverla
 Use quick package-level checks rather than a full suite when you are validating this browser chapter:
 
 ```powershell
-go doc github.com/monstercameron/GoWebComponents/ui
-go doc github.com/monstercameron/GoWebComponents/html
-go doc github.com/monstercameron/GoWebComponents/fetch
-go doc github.com/monstercameron/GoWebComponents/state
-go doc github.com/monstercameron/GoWebComponents/router
-go doc github.com/monstercameron/GoWebComponents/interop
+go doc github.com/monstercameron/GoWebComponents/v7/ui
+go doc github.com/monstercameron/GoWebComponents/v7/html
+go doc github.com/monstercameron/GoWebComponents/v7/fetch
+go doc github.com/monstercameron/GoWebComponents/v7/state
+go doc github.com/monstercameron/GoWebComponents/v7/router
+go doc github.com/monstercameron/GoWebComponents/v7/interop
 ```
 
 For test support and companion packages:
 
 ```powershell
-go doc github.com/monstercameron/GoWebComponents/devtools
-go doc github.com/monstercameron/GoWebComponents/head
-go doc github.com/monstercameron/GoWebComponents/pwa
-go doc github.com/monstercameron/GoWebComponents/plugin
-go doc github.com/monstercameron/GoWebComponents/i18n
-go doc github.com/monstercameron/GoWebComponents/testkit/render
+go doc github.com/monstercameron/GoWebComponents/v7/devtools
+go doc github.com/monstercameron/GoWebComponents/v7/head
+go doc github.com/monstercameron/GoWebComponents/v7/pwa
+go doc github.com/monstercameron/GoWebComponents/v7/plugin
+go doc github.com/monstercameron/GoWebComponents/v7/i18n
+go doc github.com/monstercameron/GoWebComponents/v7/testkit/render
 ```
 
 ## Topic Pagination

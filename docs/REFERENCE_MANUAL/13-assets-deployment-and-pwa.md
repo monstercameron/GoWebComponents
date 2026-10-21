@@ -443,11 +443,11 @@ That split is what keeps the PWA helpers useful at scale:
 Use the smallest commands that prove the deployment slice you changed:
 
 - installability and service-worker wiring:
-  `go -C tools run ./gwc serve -root ...\\examplesexamples\\public\\pwa-installability -port 8097`
+  `go -C tools run ./gwc serve -root ../examples/public/progressive-web-app-installability -port 8097`
 - offline cache, queue, and diagnostics helpers:
-  `go -C tools run ./gwc serve -root ...\\examplesexamples\\public\\pwa-offline-cache -port 8098`
+  `go -C tools run ./gwc serve -root ../examples/public/progressive-web-app-offline-cache -port 8098`
 - release artifact and manifest emission:
-  `go -C tools run ./gwc release -app ...\\examplesexamples\\public\\pwa-offline-cache\\main.go -root ...\\examplesexamples\\public\\pwa-offline-cache -out-dir ...\\binbin\\pwa-offline-cache -validate-smoke`
+  `go -C tools run ./gwc release -app ../examples/public/progressive-web-app-offline-cache/main.go -root ../examples/public/progressive-web-app-offline-cache -out-dir ../bin/pwa-offline-cache -validate-smoke`
 - static export output shape:
   `go run ./examples/server/static-export-site`
 
