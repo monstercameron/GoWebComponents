@@ -142,6 +142,73 @@ func TestBenchSuiteCompareGateAndUnmatched(parseT *testing.T) {
 	}
 }
 
+func TestBenchSuiteComparePairsDuplicateIDsByOccurrence(parseT *testing.T) {
+	parseBase := makeBenchSuiteFixture(100, 0, "amd64", 400)
+	parseBase.Lanes[0].Entries = append(parseBase.Lanes[0].Entries,
+		benchSuiteEntry{ID: "native/./a/BenchmarkPropsCloneBySize/keys", Unit: "ns/op", Median: 100, N: 1},
+		benchSuiteEntry{ID: "native/./a/BenchmarkPropsCloneBySize/keys", Unit: "ns/op", Median: 200, N: 1},
+	)
+	// Keep the candidate order the same: the two rows must not overwrite each other.
+	parseCand := makeBenchSuiteFixture(100, 0, "amd64", 400)
+	parseCand.Lanes[0].Entries = append(parseCand.Lanes[0].Entries,
+		benchSuiteEntry{ID: "native/./a/BenchmarkPropsCloneBySize/keys", Unit: "ns/op", Median: 110, N: 1},
+		benchSuiteEntry{ID: "native/./a/BenchmarkPropsCloneBySize/keys", Unit: "ns/op", Median: 180, N: 1},
+	)
+	parseComparison := compareBenchSuiteReports(parseBase, parseCand)
+	if len(parseComparison.Deltas) != 5 || len(parseComparison.OnlyBaseline) != 0 || len(parseComparison.OnlyCandidate) != 0 {
+		parseT.Fatalf("duplicate rows were dropped or unmatched: %+v", parseComparison)
+	}
+	parseIDs := []string{}
+	for _, parseDelta := range parseComparison.Deltas {
+		if strings.Contains(parseDelta.ID, "BenchmarkPropsCloneBySize/keys") {
+			parseIDs = append(parseIDs, parseDelta.ID)
+		}
+	}
+	if !reflect.DeepEqual(parseIDs, []string{
+		"native/./a/BenchmarkPropsCloneBySize/keys#1",
+		"native/./a/BenchmarkPropsCloneBySize/keys#2",
+	}) {
+		parseT.Fatalf("duplicate IDs not made unambiguous: %v", parseIDs)
+	}
+	parseValues := map[string]float64{}
+	for _, parseDelta := range parseComparison.Deltas {
+		parseValues[parseDelta.ID] = parseDelta.Baseline
+	}
+	if parseValues["native/./a/BenchmarkPropsCloneBySize/keys#1"] != 100 || parseValues["native/./a/BenchmarkPropsCloneBySize/keys#2"] != 200 {
+		parseT.Fatalf("duplicate occurrence pairing lost row values: %+v", parseValues)
+	}
+}
+
+func TestBenchSuiteCompareDuplicateUnmatchedAccounting(parseT *testing.T) {
+	parseBase := makeBenchSuiteFixture(100, 0, "amd64", 400)
+	parseBase.Lanes[0].Entries = append(parseBase.Lanes[0].Entries,
+		benchSuiteEntry{ID: "native/./a/BenchmarkRepeat", Unit: "ns/op", Median: 10, N: 1},
+		benchSuiteEntry{ID: "native/./a/BenchmarkRepeat", Unit: "ns/op", Median: 20, N: 1},
+	)
+	parseCand := makeBenchSuiteFixture(100, 0, "amd64", 400)
+	parseCand.Lanes[0].Entries = append(parseCand.Lanes[0].Entries,
+		benchSuiteEntry{ID: "native/./a/BenchmarkRepeat", Unit: "ns/op", Median: 11, N: 1},
+	)
+	parseComparison := compareBenchSuiteReports(parseBase, parseCand)
+	if !reflect.DeepEqual(parseComparison.OnlyBaseline, []string{"native/./a/BenchmarkRepeat#2"}) {
+		parseT.Fatalf("expected second duplicate to be baseline-only: %+v", parseComparison.OnlyBaseline)
+	}
+	if len(parseComparison.Deltas) != 4 {
+		parseT.Fatalf("expected unique row plus first duplicate to compare: %+v", parseComparison)
+	}
+}
+
+func TestBuildBenchSuiteEntryLaneSpecificNameNormalization(parseT *testing.T) {
+	parseNative := buildBenchSuiteEntry(benchSuiteLaneNative, "./pkg", benchmarkResultReport{Name: "BenchmarkPropsCloneBySize/keys-8-18", Samples: []benchmarkSample{{Metrics: map[string]float64{"ns/op": 10}}}})
+	if parseNative.ID != "native/./pkg/BenchmarkPropsCloneBySize/keys-8" {
+		parseT.Fatalf("native CPU suffix not stripped: %q", parseNative.ID)
+	}
+	parseWasm := buildBenchSuiteEntry(benchSuiteLaneWasm, "./pkg", benchmarkResultReport{Name: "BenchmarkPropsCloneBySize/keys-16", Samples: []benchmarkSample{{Metrics: map[string]float64{"ns/op": 10}}}})
+	if parseWasm.ID != "wasm/./pkg/BenchmarkPropsCloneBySize/keys-16" {
+		parseT.Fatalf("wasm benchmark label was normalized as a CPU suffix: %q", parseWasm.ID)
+	}
+}
+
 func TestBenchSuiteCompareCommandMachineMismatch(parseT *testing.T) {
 	parseDir := parseT.TempDir()
 	parseA := filepath.Join(parseDir, "a.json")

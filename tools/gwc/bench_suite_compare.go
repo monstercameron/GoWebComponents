@@ -57,22 +57,40 @@ type benchSuiteComparison struct {
 
 // benchSuiteComparable is an entry flattened for comparison, including size rows.
 type benchSuiteComparable struct {
-	layer  string
-	unit   string
-	median float64
-	mad    float64
+	id      string
+	ordinal int
+	layer   string
+	unit    string
+	median  float64
+	mad     float64
+}
+
+// benchSuiteOccurrenceKey keeps repeated benchmark IDs distinct while retaining their
+// original ID for reporting. The ordinal is assigned in report order so baseline and
+// candidate entries with the same ID pair by occurrence.
+type benchSuiteOccurrenceKey struct {
+	id      string
+	ordinal int
 }
 
 // flattenBenchSuiteReport indexes every comparable value by id. Only lanes that ran contribute
 // micro entries; size rows are deterministic so they carry a zero MAD.
-func flattenBenchSuiteReport(parseReport benchSuiteReport) map[string]benchSuiteComparable {
-	parseIndex := map[string]benchSuiteComparable{}
+func flattenBenchSuiteReport(parseReport benchSuiteReport) map[benchSuiteOccurrenceKey]benchSuiteComparable {
+	parseIndex := map[benchSuiteOccurrenceKey]benchSuiteComparable{}
+	parseOrdinals := map[string]int{}
+	parseAdd := func(parseID, parseLayer, parseUnit string, parseMedian, parseMAD float64) {
+		parseOrdinal := parseOrdinals[parseID] + 1
+		parseOrdinals[parseID] = parseOrdinal
+		parseIndex[benchSuiteOccurrenceKey{id: parseID, ordinal: parseOrdinal}] = benchSuiteComparable{
+			id: parseID, ordinal: parseOrdinal, layer: parseLayer, unit: parseUnit, median: parseMedian, mad: parseMAD,
+		}
+	}
 	for _, parseLane := range parseReport.Lanes {
 		if parseLane.Status == benchSuiteStatusNotRun {
 			continue
 		}
 		for _, parseEntry := range parseLane.Entries {
-			parseIndex[parseEntry.ID] = benchSuiteComparable{layer: parseLane.Layer, unit: parseEntry.Unit, median: parseEntry.Median, mad: parseEntry.MAD}
+			parseAdd(parseEntry.ID, parseLane.Layer, parseEntry.Unit, parseEntry.Median, parseEntry.MAD)
 		}
 	}
 	for _, parseSize := range parseReport.Size {
@@ -81,7 +99,7 @@ func flattenBenchSuiteReport(parseReport benchSuiteReport) map[string]benchSuite
 			bytes int64
 		}{{"raw", parseSize.RawBytes}, {"gzip", parseSize.GzipBytes}, {"brotli", parseSize.BrotliBytes}} {
 			if parseRow.bytes > 0 {
-				parseIndex["size/"+parseSize.Artifact+"/"+parseRow.name] = benchSuiteComparable{layer: "size", unit: "bytes", median: float64(parseRow.bytes)}
+				parseAdd("size/"+parseSize.Artifact+"/"+parseRow.name, "size", "bytes", float64(parseRow.bytes), 0)
 			}
 		}
 	}
@@ -116,11 +134,28 @@ func compareBenchSuiteReports(parseBaseline benchSuiteReport, parseCandidate ben
 	parseBase := flattenBenchSuiteReport(parseBaseline)
 	parseCand := flattenBenchSuiteReport(parseCandidate)
 	parseResult := benchSuiteComparison{Deltas: []benchSuiteDelta{}, Layers: []benchSuiteLayerDelta{}}
+	parseCounts := map[string]int{}
+	for parseKey := range parseBase {
+		if parseKey.ordinal > parseCounts[parseKey.id] {
+			parseCounts[parseKey.id] = parseKey.ordinal
+		}
+	}
+	for parseKey := range parseCand {
+		if parseKey.ordinal > parseCounts[parseKey.id] {
+			parseCounts[parseKey.id] = parseKey.ordinal
+		}
+	}
+	parseDisplayID := func(parseComparable benchSuiteComparable) string {
+		if parseCounts[parseComparable.id] <= 1 {
+			return parseComparable.id
+		}
+		return fmt.Sprintf("%s#%d", parseComparable.id, parseComparable.ordinal)
+	}
 	parseLogs := map[string][]float64{}
-	for parseID, parseLeft := range parseBase {
-		parseRight, isFound := parseCand[parseID]
+	for parseKey, parseLeft := range parseBase {
+		parseRight, isFound := parseCand[parseKey]
 		if !isFound {
-			parseResult.OnlyBaseline = append(parseResult.OnlyBaseline, parseID)
+			parseResult.OnlyBaseline = append(parseResult.OnlyBaseline, parseDisplayID(parseLeft))
 			continue
 		}
 		if parseLeft.median <= 0 || parseRight.median <= 0 {
@@ -142,15 +177,15 @@ func compareBenchSuiteReports(parseBaseline benchSuiteReport, parseCandidate ben
 			parseResult.Noise++
 		}
 		parseResult.Deltas = append(parseResult.Deltas, benchSuiteDelta{
-			ID: parseID, Layer: parseLeft.layer, Unit: parseLeft.unit,
+			ID: parseDisplayID(parseLeft), Layer: parseLeft.layer, Unit: parseLeft.unit,
 			Baseline: parseLeft.median, Candidate: parseRight.median,
 			DeltaPct: parseDeltaPct, ThresholdPct: parseThreshold, Verdict: parseVerdict,
 		})
 		parseLogs[parseLeft.layer] = append(parseLogs[parseLeft.layer], parseRight.median/parseLeft.median)
 	}
-	for parseID := range parseCand {
-		if _, isFound := parseBase[parseID]; !isFound {
-			parseResult.OnlyCandidate = append(parseResult.OnlyCandidate, parseID)
+	for parseKey, parseRight := range parseCand {
+		if _, isFound := parseBase[parseKey]; !isFound {
+			parseResult.OnlyCandidate = append(parseResult.OnlyCandidate, parseDisplayID(parseRight))
 		}
 	}
 	sort.Strings(parseResult.OnlyBaseline)
@@ -166,7 +201,9 @@ func compareBenchSuiteReports(parseBaseline benchSuiteReport, parseCandidate ben
 			Layer: parseLayer, Entries: len(parseRatios), GeomeanPct: (geometricMean(parseRatios) - 1) * 100,
 		})
 	}
-	sort.Slice(parseResult.Layers, func(parseI, parseJ int) bool { return parseResult.Layers[parseI].Layer < parseResult.Layers[parseJ].Layer })
+	sort.Slice(parseResult.Layers, func(parseI, parseJ int) bool {
+		return parseResult.Layers[parseI].Layer < parseResult.Layers[parseJ].Layer
+	})
 	return parseResult
 }
 

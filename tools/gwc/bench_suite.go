@@ -844,7 +844,9 @@ func applyBenchSuiteTarget(parseLaneState *benchSuiteLane, parseTarget benchSuit
 var benchSuiteCPUSuffix = regexp.MustCompile(`-\d+$`)
 
 // buildBenchSuiteEntry converts one parsed benchmark into a suite entry with ns/op samples.
-// The GOMAXPROCS suffix is stripped from the name so ids stay stable across core counts.
+// Native go test appends a GOMAXPROCS suffix (for example -8), while the js/wasm
+// benchmark runner does not. Preserve wasm names because a trailing numeric segment
+// can be a real sub-benchmark label (for example BenchmarkFoo/keys/16).
 func buildBenchSuiteEntry(parseLane string, parsePackagePath string, parseBenchmark benchmarkResultReport) benchSuiteEntry {
 	parseSamples := []float64{}
 	parseBytes := []float64{}
@@ -861,8 +863,12 @@ func buildBenchSuiteEntry(parseLane string, parsePackagePath string, parseBenchm
 		}
 	}
 	parseMedian, parseMAD := summarizeBenchSuiteSamples(parseSamples)
+	parseName := parseBenchmark.Name
+	if parseLane == benchSuiteLaneNative {
+		parseName = benchSuiteCPUSuffix.ReplaceAllString(parseName, "")
+	}
 	parseEntry := benchSuiteEntry{
-		ID:      parseLane + "/" + parsePackagePath + "/" + benchSuiteCPUSuffix.ReplaceAllString(parseBenchmark.Name, ""),
+		ID:      parseLane + "/" + parsePackagePath + "/" + parseName,
 		Unit:    "ns/op",
 		Samples: parseSamples,
 		Median:  parseMedian,
