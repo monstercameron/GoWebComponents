@@ -193,7 +193,8 @@ func (parseC ComputedSignal[T]) Peek() T {
 // computed is no longer a silent missed-update footgun (it previously bound only the first
 // source). The node recomputes the full computed value on each flush.
 func (parseC ComputedSignal[T]) Text(render func(T) string) *Element {
-	return createReactiveTextNode(append([]string(nil), parseC.sourceIDs...), parseC.Get, render)
+	// The constructor joins sourceIDs immediately and does not retain the slice.
+	return createReactiveTextNode(parseC.sourceIDs, parseC.Get, render)
 }
 
 // TextValue is the zero-argument form of Text for a computed signal: it renders the computed
