@@ -244,7 +244,9 @@ jobs:
             "$GWC_SUITE" bench suite compare -json "$FAIR_DIR/v6-wasm.json" "$FAIR_DIR/v7-wasm.json" \
               > "$FAIR_DIR/compare-wasm.json"
             json_status=$?
-            "$GWC_SUITE" bench suite compare -max-regress-pct 15 "$FAIR_DIR/v6-wasm.json" "$FAIR_DIR/v7-wasm.json" \
+            # Match the PR drift gate's 100 ns floor: percent changes in
+            # single-digit-nanosecond controls remain reported, not blocking.
+            "$GWC_SUITE" bench suite compare -max-regress-pct 15 -min-baseline-ns 100 "$FAIR_DIR/v6-wasm.json" "$FAIR_DIR/v7-wasm.json" \
               2>&1 | tee "$FAIR_DIR/compare-wasm.txt"
             compare_status=${PIPESTATUS[0]}
             [[ "$json_status" == 0 && "$compare_status" == 0 ]] || compare_status=1
