@@ -615,10 +615,10 @@ func buildExample201BenchmarkWasmProfile(parseT *testing.T, parseRepoRoot string
 	getOutputPath := filepath.Join(parseRepoRoot, "bin", "examples", "render-benchmark.wasm")
 	getCommand := exec.Command(
 		"go",
-		"run", "./tools/gwc", "build",
-		"-app", "./examples/testing/render-benchmark/main.go",
-		"-root", "./examples/testing/render-benchmark",
-		"-out", "./bin/examples/render-benchmark.wasm",
+		"-C", "tools", "run", "./gwc", "build",
+		"-app", "../examples/testing/render-benchmark/main.go",
+		"-root", "../examples/testing/render-benchmark",
+		"-out", "../bin/examples/render-benchmark.wasm",
 		"-profile", parseProfile,
 	)
 	getCommand.Dir = parseRepoRoot

@@ -144,7 +144,7 @@ func startExamplesCatalogServer(parseT *testing.T, parseRepoRoot string, parsePo
 		parseT,
 		parseRepoRoot,
 		"go",
-		"run", "./tools/gwc", "examples",
+		"-C", "tools", "run", "./gwc", "examples",
 		"-host", "127.0.0.1",
 		"-port", parsePort,
 	)

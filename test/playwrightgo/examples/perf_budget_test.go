@@ -102,10 +102,10 @@ func TestPerfBudgetWasmSize(parseT *testing.T) {
 			parseInfo, parseStatErr := os.Stat(parseArtifactPath)
 			if parseStatErr != nil {
 				// The artifact is not present — it must be built first.
-				// The public-examples-site tree is produced by `go run ./tools/gwc examples build`.
+				// The public-examples-site tree is produced by `go -C tools run ./gwc examples build`.
 				// In CI it is always pre-built. Locally, run that command if this skips.
 				parseT.Skipf(
-					"wasm artifact not found at %s (run `go run ./tools/gwc examples build` to produce it): %v",
+					"wasm artifact not found at %s (run `go -C tools run ./gwc examples build` to produce it): %v",
 					parseArtifactPath, parseStatErr,
 				)
 				return

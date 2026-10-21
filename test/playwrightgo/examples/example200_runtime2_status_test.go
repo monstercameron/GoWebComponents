@@ -30,7 +30,7 @@ func TestExample200RetiredRuntime2RouteIsUnavailable(parseTest *testing.T) {
 	}
 	_, parsePort, _ := net.SplitHostPort(parseListener.Addr().String())
 	_ = parseListener.Close()
-	parseStop := startExamplesCommand(parseTest, parseRoot, "go", "run", "./tools/gwc", "serve", "-root", ".", "-host", "127.0.0.1", "-port", parsePort)
+	parseStop := startExamplesCommand(parseTest, parseRoot, "go", "-C", "tools", "run", "./gwc", "serve", "-root", "..", "-host", "127.0.0.1", "-port", parsePort)
 	parseTest.Cleanup(parseStop)
 	parseBaseURL := "http://127.0.0.1:" + parsePort
 	waitForHealthyExamplesURL(parseTest, parseBaseURL+"/healthz", 30*time.Second)
