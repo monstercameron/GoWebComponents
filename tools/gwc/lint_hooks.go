@@ -57,6 +57,9 @@ func collectLintHookRuleFiles(parseRootPath string, parsePaths []string) ([]stri
 			return nil, parseErr
 		}
 		for _, parsePath := range parseTargetFiles {
+			if shouldSkipLintHookRuleBenchmarkPath(parseRootPath, parsePath) {
+				continue
+			}
 			parseFilesByPath[parsePath] = struct{}{}
 		}
 	}
@@ -66,6 +69,29 @@ func collectLintHookRuleFiles(parseRootPath string, parsePaths []string) ([]stri
 	}
 	sort.Strings(parseFiles)
 	return parseFiles, nil
+}
+
+// shouldSkipLintHookRuleBenchmarkPath excludes benchmark fixtures whose hook
+// shapes intentionally stress repeated hook calls. These files are benchmark
+// targets rather than application components; changing them would invalidate
+// the measurements. Keep this list exact so production examples continue to
+// receive hook-rule diagnostics.
+func shouldSkipLintHookRuleBenchmarkPath(parseRootPath string, parsePath string) bool {
+	parseRel, parseErr := filepath.Rel(parseRootPath, parsePath)
+	if parseErr != nil {
+		return false
+	}
+	parseRel = filepath.ToSlash(parseRel)
+	for _, parsePrefix := range []string{
+		"test/benchmark/",
+		"examples/testing/render-benchmark/",
+		"research/framework-bench/",
+	} {
+		if strings.HasPrefix(parseRel, parsePrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // collectLintHookRuleTargetFiles resolves one lint path pattern into local Go files.

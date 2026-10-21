@@ -193,6 +193,44 @@ func Component() {
 	}
 }
 
+// TestCollectLintHookRuleIssuesSkipsBenchmarkFixtures keeps benchmark targets
+// stable while ensuring an ordinary production example remains checked.
+func TestCollectLintHookRuleIssuesSkipsBenchmarkFixtures(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseSource := `package fixture
+
+import "github.com/monstercameron/GoWebComponents/v7/ui"
+
+func Component() {
+	for range []int{1} {
+		_ = ui.UseState(0)
+	}
+}
+`
+	parseProductionPath := filepath.Join(parseRoot, "examples", "public", "component.go")
+	parseBenchmarkPaths := []string{
+		filepath.Join(parseRoot, "test", "benchmark", "component.go"),
+		filepath.Join(parseRoot, "examples", "testing", "render-benchmark", "component.go"),
+		filepath.Join(parseRoot, "research", "framework-bench", "apps", "component.go"),
+	}
+	for _, parsePath := range append([]string{parseProductionPath}, parseBenchmarkPaths...) {
+		if parseErr := os.MkdirAll(filepath.Dir(parsePath), 0755); parseErr != nil {
+			parseT.Fatalf("create fixture directory: %v", parseErr)
+		}
+		if parseErr := os.WriteFile(parsePath, []byte(parseSource), 0644); parseErr != nil {
+			parseT.Fatalf("write fixture source: %v", parseErr)
+		}
+	}
+
+	parseIssues, parseErr := collectLintHookRuleIssues(parseRoot, []string{"./..."})
+	if parseErr != nil {
+		parseT.Fatalf("collect hook rule issues: %v", parseErr)
+	}
+	if len(parseIssues) != 1 || parseIssues[0].Path != "examples/public/component.go" {
+		parseT.Fatalf("expected only production example finding, got %#v", parseIssues)
+	}
+}
+
 // TestBuildLintSummaryIncludesHookRuleIssues verifies built-in hook findings join the lint report.
 func TestBuildLintSummaryIncludesHookRuleIssues(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
