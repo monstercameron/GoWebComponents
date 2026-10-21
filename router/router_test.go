@@ -15,18 +15,23 @@ import (
 )
 
 func waitForCondition(parseT *testing.T, parseCondition func() bool) {
+	waitForConditionTimeout(parseT, time.Second, parseCondition)
+}
+
+// waitForConditionTimeout waits up to the given duration for a wasm test condition.
+func waitForConditionTimeout(parseT *testing.T, parseTimeout time.Duration, parseCondition func() bool) {
 	parseT.Helper()
 	// A wasm test binary shares Node's event loop with scheduler callbacks. On
 	// loaded CI runners a deferred render can legitimately take longer than a
-	// single 250 ms slice, even though the loader is progressing normally.
-	parseDeadline := time.Now().Add(time.Second)
+	// single polling interval, even though the loader is progressing normally.
+	parseDeadline := time.Now().Add(parseTimeout)
 	for time.Now().Before(parseDeadline) {
 		if parseCondition() {
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	parseT.Fatal("condition was not met before timeout")
+	parseT.Fatalf("condition was not met within %s", parseTimeout)
 }
 
 func collectElementText(parseElem *Element) string {
@@ -1253,7 +1258,7 @@ func TestRouteLoaderRevalidatesOnQueryChange(parseT *testing.T) {
 	}
 
 	js.Global().Get("location").Set("hash", "/search?q=two")
-	waitForCondition(parseT, func() bool {
+	waitForConditionTimeout(parseT, 5*time.Second, func() bool {
 		parseR.Current()
 		return parseLoadCount == 2
 	})
