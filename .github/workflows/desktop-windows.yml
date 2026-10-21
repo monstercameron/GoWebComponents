@@ -104,6 +104,7 @@ jobs:
             & ./bin/wails-counter.exe --smoke-test --smoke-fault $parseFault
             if ($LASTEXITCODE -ne 1) { throw "Expected startup failure for $parseFault" }
           }
+          exit 0
       - name: Fresh CLI scaffold and unsigned package
         run: |
           go -C tools run ./gwc desktop init -root ./bin/desktop-ci -json
