@@ -12,9 +12,12 @@ commits the actual rules so a release's number is predictable, not a judgment ca
 | **Minor** (`x.Y.0`) | A backward-compatible **addition**. | New exported function/type/method; a new package; a new optional field with a zero-value default. |
 | **Patch** (`x.y.Z`) | A backward-compatible **fix** with no API change. | Bug fixes, performance, docs, internal refactors, new tests. |
 
-The v7 development branch uses **`github.com/monstercameron/GoWebComponents/v7`**;
-the latest published major remains v6 until v7 is tagged. A v6 consumer must
-change its module requirement and imports from `/v6` to `/v7` to upgrade.
+The v7 development branch and `v7.0.0-rc.1` release candidate use
+**`github.com/monstercameron/GoWebComponents/v7`**; the latest published stable
+major remains v6 until the stable v7.0.0 tag is published. A v6 consumer must
+change its module requirement and imports from `/v6` to `/v7` to upgrade. RC
+consumers should pin the exact RC version. The stable `v7.0.0` requirement is
+available only after that tag is published.
 
 **v7 requires Go 1.27.** Its `go.mod` declares `go 1.27.0`, with toolchain
 `go1.27.1`. Raising the Go floor ships with the v7 major bump.

@@ -1,9 +1,9 @@
 # Migrating an application from GoWebComponents v6 to v7
 
 This guide covers changes that require action when upgrading a v6 application to
-the unreleased v7 development line. The v7 module path is
-`github.com/monstercameron/GoWebComponents/v7`; v7 is not released until its
-version tag is published.
+the v7 release candidate. The v7 module path is
+`github.com/monstercameron/GoWebComponents/v7`; use an explicit RC requirement
+until the stable version is published.
 
 ## Module, toolchain, and imports
 
@@ -11,10 +11,12 @@ Change the module requirement and every Go import from `/v6` to `/v7`:
 
 ```diff
 -require github.com/monstercameron/GoWebComponents/v6 v6.0.0
-+require github.com/monstercameron/GoWebComponents/v7 v7.0.0
++require github.com/monstercameron/GoWebComponents/v7 v7.0.0-rc.1
 ```
 
-Set `go 1.27.0` (and use Go 1.27.1 or newer). Run the matching `gofmt`; an older
+After the stable tag is published, replace `v7.0.0-rc.1` with `v7.0.0`.
+
+Set `go 1.27.0` (and use Go 1.27.3 or newer). Run the matching `gofmt`; an older
 `gofmt` can reject generic methods used by v7.
 
 The root library module no longer carries the CLI, Playwright, OpenTelemetry SDK
@@ -145,7 +147,7 @@ and the source-compatible-but-compile-breaking APIs above require consumer edits
 
 Before upgrading a consumer or opening the v7 release change:
 
-1. Run `go mod tidy` with Go 1.27.1 and confirm imports resolve to `/v7`.
+1. Run `go mod tidy` with Go 1.27.3 and confirm imports resolve to `/v7`.
 2. Build and test the root library, then test each nested module used by the app.
 3. Run `go -C tools run ./gwc verify` (and use `../`-relative app paths).
 4. If the app uses Markdown, execute a browser or rendered-output test with the
