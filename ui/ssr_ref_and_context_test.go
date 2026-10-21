@@ -83,7 +83,7 @@ func TestContextMultipleConsumersAllUpdate(t *testing.T) {
 			makeConsumer("a"), makeConsumer("b"), makeConsumer("c"))
 	}
 
-	rt.RenderInto(root, runtime.CreateElement(parseApp, map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement(parseApp, map[string]any{}))
 	if parseState := collect(); parseState["a"] != "v0" || parseState["b"] != "v0" || parseState["c"] != "v0" {
 		t.Fatalf("mount: consumers = %v, want all v0", parseState)
 	}

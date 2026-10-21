@@ -50,7 +50,7 @@ func TestReconcileDuplicateKeysDoNotLeak(t *testing.T) {
 		{[]string{}, 0},                   // empty
 	}
 	for _, parseStep := range steps {
-		parseRT.RenderInto(parseRoot, dupKeyUL(parseStep.keys...))
+		_ = parseRT.RenderInto(parseRoot, dupKeyUL(parseStep.keys...))
 		if parseGot := ulChildCount(parseA, parseRoot); parseGot != parseStep.want {
 			t.Errorf("keys=%v: host child count = %d, want %d (node leak/corruption)", parseStep.keys, parseGot, parseStep.want)
 		}
@@ -64,15 +64,15 @@ func TestReconcileUniqueKeysUnaffected(t *testing.T) {
 	parseRT := runtime.NewRuntime(runtime.Config{DOMAdapter: parseA, Reset: true})
 	parseRoot := parseA.CreateElement("div")
 
-	parseRT.RenderInto(parseRoot, dupKeyUL("a", "b", "c"))
+	_ = parseRT.RenderInto(parseRoot, dupKeyUL("a", "b", "c"))
 	if parseGot := ulChildCount(parseA, parseRoot); parseGot != 3 {
 		t.Fatalf("mount: got %d want 3", parseGot)
 	}
-	parseRT.RenderInto(parseRoot, dupKeyUL("c", "a", "b"))
+	_ = parseRT.RenderInto(parseRoot, dupKeyUL("c", "a", "b"))
 	if parseGot := ulChildCount(parseA, parseRoot); parseGot != 3 {
 		t.Errorf("reorder: got %d want 3", parseGot)
 	}
-	parseRT.RenderInto(parseRoot, dupKeyUL("a", "c"))
+	_ = parseRT.RenderInto(parseRoot, dupKeyUL("a", "c"))
 	if parseGot := ulChildCount(parseA, parseRoot); parseGot != 2 {
 		t.Errorf("removal: got %d want 2", parseGot)
 	}

@@ -134,7 +134,7 @@ func expectNames(parseT *testing.T, parseLabel string, parseGot []string, parseW
 // handle whose implementation had been overwritten by the last closure created.
 func TestComponentIdentitySiblingClosuresKeepTheirOwnPropsOnTheReconciler(parseT *testing.T) {
 	parseH := newIdentityHarness()
-	parseH.rt.RenderInto(parseH.root, html.Form(html.Props{},
+	_ = parseH.rt.RenderInto(parseH.root, html.Form(html.Props{},
 		identityField(parseH.rt, "email"),
 		identityField(parseH.rt, "warehouse"),
 		identityField(parseH.rt, "quantity"),
@@ -177,7 +177,7 @@ func TestComponentIdentityLoopBuiltClosuresKeepTheirOwnProps(parseT *testing.T) 
 	for _, parseName := range parseWant {
 		parseChildren = append(parseChildren, identityField(parseH.rt, parseName))
 	}
-	parseH.rt.RenderInto(parseH.root, html.Form(html.Props{}, parseChildren...))
+	_ = parseH.rt.RenderInto(parseH.root, html.Form(html.Props{}, parseChildren...))
 
 	expectNames(parseT, "loop-built fields", parseH.names(), parseWant...)
 }
@@ -269,7 +269,7 @@ func TestComponentIdentityDeliberateImplementationSwapStillApplies(parseT *testi
 		},
 	)
 
-	parseH.rt.RenderInto(parseH.root, parseElement)
+	_ = parseH.rt.RenderInto(parseH.root, parseElement)
 	if parseGot := parseH.allText(); !strings.Contains(parseGot, "hot-reloaded") {
 		parseT.Errorf("a deliberate SetImplementationRenderer swap must still render the new body; got %q", parseGot)
 	}
@@ -301,7 +301,7 @@ func TestComponentIdentityReRenderPicksUpTheCurrentElementsClosure(parseT *testi
 	var parseBumpParent func(any)
 	var parseBumpChild func(any)
 
-	parseH.rt.RenderInto(parseH.root, ui.CreateElement(func() ui.Node {
+	_ = parseH.rt.RenderInto(parseH.root, ui.CreateElement(func() ui.Node {
 		parseGet, parseSet := runtime.GoUseState(parseH.rt, "first")
 		parseBumpParent = parseSet
 		return html.Div(html.Props{}, identityLabel(parseH.rt, parseGet(), &parseBumpChild))

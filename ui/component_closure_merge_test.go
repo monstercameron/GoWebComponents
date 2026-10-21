@@ -46,7 +46,7 @@ func buildMergeProbeBeta(parseRt *runtime.Runtime, parseName string) ui.Node {
 // other, whatever names the toolchain assigns.
 func TestComponentIdentityIdenticalLiteralsAtDistinctSitesRenderOwnCaptures(parseT *testing.T) {
 	parseH := newIdentityHarness()
-	parseH.rt.RenderInto(parseH.root, html.Form(html.Props{},
+	_ = parseH.rt.RenderInto(parseH.root, html.Form(html.Props{},
 		buildMergeProbeAlpha(parseH.rt, "alpha-one"),
 		buildMergeProbeBeta(parseH.rt, "beta-one"),
 		buildMergeProbeAlpha(parseH.rt, "alpha-two"),

@@ -25,7 +25,7 @@ func TestFragmentHoistsChildren(t *testing.T) {
 		parseA := mockdom.NewMockDOMAdapter()
 		parseRT := runtime.NewRuntime(runtime.Config{DOMAdapter: parseA, Reset: true})
 		parseRoot := parseA.CreateElement("div")
-		parseRT.RenderInto(parseRoot, parseTree)
+		_ = parseRT.RenderInto(parseRoot, parseTree)
 		return len(parseA.GetChildren(parseRoot))
 	}
 
@@ -43,7 +43,7 @@ func TestFragmentHoistsChildren(t *testing.T) {
 	parseA := mockdom.NewMockDOMAdapter()
 	parseRT := runtime.NewRuntime(runtime.Config{DOMAdapter: parseA, Reset: true})
 	parseRoot := parseA.CreateElement("div")
-	parseRT.RenderInto(parseRoot, runtime.CreateElement("ul", map[string]any{},
+	_ = parseRT.RenderInto(parseRoot, runtime.CreateElement("ul", map[string]any{},
 		fragmentEl(parseSpan("x"), parseSpan("y")), parseSpan("z")))
 	parseUL := parseA.GetChildren(parseRoot)[0]
 	if parseGot := len(parseA.GetChildren(parseUL)); parseGot != 3 {
@@ -86,14 +86,14 @@ func TestFragmentKeyedChildrenPreserveStateOnReorder(t *testing.T) {
 		return parseOut
 	}
 
-	parseRT.RenderInto(parseRoot, fragmentEl(makeCounter("a"), makeCounter("b")))
+	_ = parseRT.RenderInto(parseRoot, fragmentEl(makeCounter("a"), makeCounter("b")))
 	parseSetters["a"](5) // bump a's state
 	if parseState := readState(); parseState["a"] != "5" || parseState["b"] != "0" {
 		t.Fatalf("after bump: state = %v, want a=5 b=0", parseState)
 	}
 
 	// Reorder the keyed fragment children; a's state must survive the move.
-	parseRT.RenderInto(parseRoot, fragmentEl(makeCounter("b"), makeCounter("a")))
+	_ = parseRT.RenderInto(parseRoot, fragmentEl(makeCounter("b"), makeCounter("a")))
 	if parseState := readState(); parseState["a"] != "5" || parseState["b"] != "0" {
 		t.Errorf("after reorder: state = %v, want a=5 (preserved) b=0", parseState)
 	}

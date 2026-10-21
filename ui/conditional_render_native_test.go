@@ -18,7 +18,7 @@ func TestConditionalNilRenderTogglesMount(t *testing.T) {
 	root := adapter.CreateElement("div")
 
 	var parseSetShow func(any)
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseShow, parseSetter := runtime.GoUseState(rt, true)
 		parseSetShow = parseSetter
 		if !parseShow() {

@@ -22,7 +22,7 @@ func TestRenderPhaseEffectRunsOnceStableDeps(t *testing.T) {
 
 	parseEffectRuns := 0
 	var parseSaw []int
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, parseSet := runtime.GoUseState(rt, 0)
 		if parseGet() < 3 {
 			parseSet(parseGet() + 1)
@@ -50,7 +50,7 @@ func TestRenderPhaseEffectRunsOnceChangingDeps(t *testing.T) {
 
 	parseEffectRuns := 0
 	var parseSaw []int
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, parseSet := runtime.GoUseState(rt, 0)
 		if parseGet() < 3 {
 			parseSet(parseGet() + 1)
@@ -79,7 +79,7 @@ func TestRenderPhaseMultipleEffectsEachOnce(t *testing.T) {
 	root := adapter.CreateElement("div")
 
 	var parseLog []string
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, parseSet := runtime.GoUseState(rt, 0)
 		if parseGet() < 2 {
 			parseSet(parseGet() + 1)

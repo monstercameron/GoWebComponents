@@ -43,7 +43,7 @@ func keyedUL(parseKeys ...string) *runtime.Element {
 // render commits one tree into the shared root and returns the ordered list of
 // (data-k, node-ID) pairs for the <ul>'s children.
 func (parseH *reconHarness) renderKeyed(parseKeys ...string) ([]string, map[string]int) {
-	parseH.rt.RenderInto(parseH.root, keyedUL(parseKeys...))
+	_ = parseH.rt.RenderInto(parseH.root, keyedUL(parseKeys...))
 	parseChildren := parseH.adapter.GetChildren(parseH.root)
 	if len(parseChildren) == 0 {
 		return nil, nil

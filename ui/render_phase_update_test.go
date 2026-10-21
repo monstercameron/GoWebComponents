@@ -23,7 +23,7 @@ func TestRenderPhaseUpdateConverges(t *testing.T) {
 
 	var parseSeen []int
 	parseRenders := 0
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseRenders++
 		parseGet, parseSet := runtime.GoUseState(rt, 0)
 		parseSeen = append(parseSeen, parseGet())
@@ -58,7 +58,7 @@ func TestRenderPhaseDerivedStateOneStep(t *testing.T) {
 	root := adapter.CreateElement("div")
 
 	parseRenders := 0
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseRenders++
 		parseGet, parseSet := runtime.GoUseState(rt, "init")
 		if parseGet() == "init" {
@@ -84,7 +84,7 @@ func TestRenderPhaseUnconditionalDoesNotHang(t *testing.T) {
 	root := adapter.CreateElement("div")
 
 	// Must return (not hang); we don't assert the value, only that it terminates.
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, parseSet := runtime.GoUseState(rt, 0)
 		parseSet(parseGet() + 1)
 		return runtime.CreateElement("span", map[string]any{}, fmt.Sprint(parseGet()))

@@ -22,7 +22,7 @@ func TestUseRefStableMutableAndDoesNotRerender(t *testing.T) {
 	var parseSet func(any)
 	parseRenders := 0
 
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseRenders++
 		parseRef := runtime.GoUseRef(7)
 		parseGet, parseSetter := runtime.GoUseState(rt, 0)

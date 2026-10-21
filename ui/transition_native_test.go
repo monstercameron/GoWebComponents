@@ -20,7 +20,7 @@ func TestStartTransitionAppliesUpdates(t *testing.T) {
 	root := adapter.CreateElement("div")
 
 	var parseSetA, parseSetB func(any)
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGetA, parseSA := runtime.GoUseState(rt, 0)
 		parseGetB, parseSB := runtime.GoUseState(rt, 0)
 		parseSetA = parseSA

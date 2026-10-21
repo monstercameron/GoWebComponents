@@ -71,7 +71,7 @@ func TestMultipleIndependentContexts(t *testing.T) {
 					runtime.CreateElement(parseSecondConsumer, map[string]any{}))))
 	}
 
-	rt.RenderInto(root, runtime.CreateElement(parseApp, map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement(parseApp, map[string]any{}))
 	if parseGot := textByMarker("both"); parseGot != "A|B" {
 		t.Fatalf("both-consumer = %q, want A|B", parseGot)
 	}
@@ -104,7 +104,7 @@ func TestSameContextTwoLevels(t *testing.T) {
 		return runtime.CreateElement("span", map[string]any{}, fmt.Sprint(runtime.GoUseContextValue(parseDesc)))
 	}
 
-	rt.RenderInto(root, runtime.CreateElementOwned(parseProvider, map[string]any{"value": "OUTER"},
+	_ = rt.RenderInto(root, runtime.CreateElementOwned(parseProvider, map[string]any{"value": "OUTER"},
 		runtime.CreateElement("div", map[string]any{},
 			runtime.CreateElement(parseConsumer, map[string]any{}), // sees OUTER
 			runtime.CreateElementOwned(parseProvider, map[string]any{"value": "INNER"},

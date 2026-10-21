@@ -47,7 +47,7 @@ func (parseH *stateHarness) text() string {
 func TestStateFunctionalUpdatesCompose(t *testing.T) {
 	parseH := newStateHarness()
 	var parseSet func(any)
-	parseH.rt.RenderInto(parseH.root, runtime.CreateElement(func() *runtime.Element {
+	_ = parseH.rt.RenderInto(parseH.root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, parseSetter := runtime.GoUseState(parseH.rt, 0)
 		parseSet = parseSetter
 		return runtime.CreateElement("span", map[string]any{}, fmt.Sprint(parseGet()))
@@ -76,7 +76,7 @@ func TestStateGetterIsLiveRead(t *testing.T) {
 	var parseCaptured func() int
 	var parseSet func(any)
 	parseRenders := 0
-	parseH.rt.RenderInto(parseH.root, runtime.CreateElement(func() *runtime.Element {
+	_ = parseH.rt.RenderInto(parseH.root, runtime.CreateElement(func() *runtime.Element {
 		parseRenders++
 		parseGet, parseSetter := runtime.GoUseState(parseH.rt, 0)
 		parseSet = parseSetter
@@ -104,7 +104,7 @@ func TestStateReferenceVsValueDedup(t *testing.T) {
 	parseSliceH := newStateHarness()
 	var parseSetSlice func(any)
 	parseSliceRenders := 0
-	parseSliceH.rt.RenderInto(parseSliceH.root, runtime.CreateElement(func() *runtime.Element {
+	_ = parseSliceH.rt.RenderInto(parseSliceH.root, runtime.CreateElement(func() *runtime.Element {
 		parseSliceRenders++
 		parseGet, parseSetter := runtime.GoUseState(parseSliceH.rt, []int{1, 2, 3})
 		parseSetSlice = parseSetter
@@ -120,7 +120,7 @@ func TestStateReferenceVsValueDedup(t *testing.T) {
 	parseStructH := newStateHarness()
 	var parseSetPt func(any)
 	parseStructRenders := 0
-	parseStructH.rt.RenderInto(parseStructH.root, runtime.CreateElement(func() *runtime.Element {
+	_ = parseStructH.rt.RenderInto(parseStructH.root, runtime.CreateElement(func() *runtime.Element {
 		parseStructRenders++
 		parseGet, parseSetter := runtime.GoUseState(parseStructH.rt, parsePoint{1, 2})
 		parseSetPt = parseSetter
@@ -141,7 +141,7 @@ func TestStateReferenceVsValueDedup(t *testing.T) {
 func TestStateFunctionValueStorable(t *testing.T) {
 	parseH := newStateHarness()
 	var parseSet func(any)
-	parseH.rt.RenderInto(parseH.root, runtime.CreateElement(func() *runtime.Element {
+	_ = parseH.rt.RenderInto(parseH.root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, parseSetter := runtime.GoUseState[func() string](parseH.rt, func() string { return "initial" })
 		parseSet = parseSetter
 		parseFn := parseGet()

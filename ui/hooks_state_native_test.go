@@ -30,7 +30,7 @@ func newHookHarness() *hookHarness {
 }
 
 func (parseH *hookHarness) mount(parseComponent func() *runtime.Element) {
-	parseH.rt.RenderInto(parseH.root, runtime.CreateElement(parseComponent, map[string]any{}))
+	_ = parseH.rt.RenderInto(parseH.root, runtime.CreateElement(parseComponent, map[string]any{}))
 }
 
 // text returns the deepest first-child text content under the root.
