@@ -1,0 +1,102 @@
+name: P0 Browser and Runtime Health
+
+# Manual evidence lane for the v7 P0 release review. This workflow has no release,
+# tag, or deployment step; it only builds the selected source, runs the existing
+# Playwright probes, and retains their machine-readable output.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to measure
+        required: true
+        default: v7/dev
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  atlas-browser-health:
+    name: Atlas hydration and interaction probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.x"
+
+      - name: Build Atlas client bundle
+        env:
+          GOOS: js
+          GOARCH: wasm
+          GOEXPERIMENT: nojsonv2
+        run: |
+          mkdir -p examples/static/bin
+          go build -tags production -trimpath -ldflags "-s -w" \
+            -o examples/static/bin/atlas-commerce-os.wasm \
+            ./examples/server/atlas-commerce-os/client
+
+      - name: Install Chromium and system dependencies
+        run: |
+          go -C test/playwrightgo run github.com/mxschmitt/playwright-go/cmd/playwright install --with-deps chromium
+
+      - name: Run Atlas browser hydration and interaction probes
+        working-directory: test/playwrightgo
+        run: |
+          go test -tags playwrightgo ./examples \
+            -run '^TestAtlasPerfBrowser(ColdHydration|WarmCacheHydration|HydrationCPUProfile|ShellStability|SteadyStateCPUProfile|Interactions|CommentsInboxShape)$' \
+            -count=1 -json -v -timeout 40m | tee ../../bin-p0-atlas-browser.jsonl
+
+      - name: Upload Atlas probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-atlas-browser-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            bin-p0-atlas-browser.jsonl
+            bin/test-results/**
+
+  runtime-health:
+    name: Runtime long-frame and GC probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.x"
+
+      - name: Install Chromium and system dependencies
+        run: |
+          go -C test/playwrightgo run github.com/mxschmitt/playwright-go/cmd/playwright install --with-deps chromium
+
+      - name: Run v5 load harness health probes
+        working-directory: test/playwrightgo
+        run: |
+          go test -tags playwrightgo ./examples \
+            -run '^TestV5(LoadHarnessBaseline|LongFrameAttribution|GCPauseSweep|LongFrameDoseResponse|GCPauseFloor|GCPauseVersusFrameBudget|GCPauseAcrossWindowTransitions)$' \
+            -count=1 -json -v -timeout 35m | tee ../../bin-p0-runtime-health.jsonl
+
+      - name: Upload runtime health evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-runtime-health-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            bin-p0-runtime-health.jsonl
+            bin/test-results/**
