@@ -75,26 +75,7 @@ func virtualizedFeedExample() ui.Node {
 					},
 					OnViewportChange: parseDiagnostics.Set,
 					RenderRow: func(parseRow virtualization.RowRenderProps[feedItem]) ui.Node {
-						isParseActive := parseRow.Item.ID == parseSelectedID.Get()
-						return html.Button(html.Props{
-							Type: "button",
-							Class: strings.Join([]string{
-								"flex h-full w-full items-center justify-between rounded-[1.1rem] border px-4 text-left transition-colors",
-								"border-white/8 bg-[rgba(15,23,42,0.55)] hover:border-cyan-300/35 hover:bg-[rgba(14,116,144,0.18)]",
-								when(isParseActive, "border-cyan-300/55 bg-[rgba(8,145,178,0.22)] text-white"),
-							}, " "),
-							OnClick: ui.UseEvent(func() { parseSelectedID.Set(parseRow.Item.ID) }),
-						},
-							html.Div(html.Props{Class: "min-w-0"},
-								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300/80"}, html.Text(parseRow.Item.Severity+" • "+parseRow.Item.Owner)),
-								html.P(html.Props{Class: "mt-2 truncate text-sm font-semibold text-white"}, html.Text(parseRow.Item.Title)),
-								html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text(parseRow.Item.Summary)),
-							),
-							html.Div(html.Props{Class: "ml-4 text-right"},
-								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-500"}, html.Text("Index")),
-								html.P(html.Props{Class: "mt-2 text-sm font-semibold text-slate-200"}, html.Text(fmt.Sprintf("%d", parseRow.Index))),
-							),
-						)
+						return ui.CreateElement(feedRow, feedRowProps{Row: parseRow, SelectedID: parseSelectedID})
 					},
 				}),
 				html.Div(html.Props{Class: "grid gap-4"},
@@ -279,6 +260,20 @@ func virtualizedFeedExample() ui.Node {
 			),
 		),
 	)
+}
+
+type feedRowProps struct {
+	Row        virtualization.RowRenderProps[feedItem]
+	SelectedID ui.State[string]
+}
+
+func feedRow(parseProps feedRowProps) ui.Node {
+	parseRow := parseProps.Row
+	parseClick := ui.UseEvent(func() { parseProps.SelectedID.Set(parseRow.Item.ID) })
+	isParseActive := parseRow.Item.ID == parseProps.SelectedID.Get()
+	return html.Button(html.Props{Type: "button", Class: strings.Join([]string{"flex h-full w-full items-center justify-between rounded-[1.1rem] border px-4 text-left transition-colors", "border-white/8 bg-[rgba(15,23,42,0.55)] hover:border-cyan-300/35 hover:bg-[rgba(14,116,144,0.18)]", when(isParseActive, "border-cyan-300/55 bg-[rgba(8,145,178,0.22)] text-white")}, " "), OnClick: parseClick},
+		html.Div(html.Props{Class: "min-w-0"}, html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300/80"}, html.Text(parseRow.Item.Severity+" • "+parseRow.Item.Owner)), html.P(html.Props{Class: "mt-2 truncate text-sm font-semibold text-white"}, html.Text(parseRow.Item.Title)), html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text(parseRow.Item.Summary))),
+		html.Div(html.Props{Class: "ml-4 text-right"}, html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-500"}, html.Text("Index")), html.P(html.Props{Class: "mt-2 text-sm font-semibold text-slate-200"}, html.Text(fmt.Sprintf("%d", parseRow.Index)))))
 }
 
 func selectedFeedItem(parseId string) feedItem {
