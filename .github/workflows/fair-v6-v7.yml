@@ -209,7 +209,6 @@ jobs:
           for root in "$V6_DIR" "$GITHUB_WORKSPACE"; do
             for package in "${packages[@]}"; do
               test -d "$root/${package#./}"
-              compgen -G "$root/${package#./}/*_benchmark_test.go" > /dev/null
             done
           done
           printf '%s\n' "${packages[@]}" | tee "$FAIR_DIR/wasm-packages.txt"
