@@ -2,6 +2,9 @@ package runtime
 
 import "testing"
 
+var benchmarkKeptChildren []bool
+var benchmarkKeptCount int
+
 // buildChildOrderBenchmarkFixture creates one reversed keyed child order so the child-order repair benchmark measures move-heavy work.
 func buildChildOrderBenchmarkFixture(getCount int) (*Runtime, DOMNode, []DOMNode) {
 	getAdapter := newTestDOMAdapter()
@@ -73,4 +76,17 @@ func BenchmarkApplyCommittedChildOrderCurrentVsLegacy(parseB *testing.B) {
 			applyLegacyCommittedChildOrder(getRuntime, getParent, getExpected)
 		}
 	})
+}
+
+// BenchmarkMarkCommittedChildOrderKept128 measures LIS scratch allocation for one reordered 128-child list.
+func BenchmarkMarkCommittedChildOrderKept128(parseB *testing.B) {
+	parseMatch := make([]int, 128)
+	for parseIndex := range parseMatch {
+		parseMatch[parseIndex] = len(parseMatch) - parseIndex - 1
+	}
+	parseB.ReportAllocs()
+	for parseB.Loop() {
+		benchmarkKeptChildren, benchmarkKeptCount =
+			markCommittedChildOrderKept(parseMatch, len(parseMatch))
+	}
 }
