@@ -13,7 +13,7 @@ require (
 	github.com/monstercameron/GoWebComponents/v7 v7.0.0
 	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/ncruces/go-sqlite3 v0.32.0
-	golang.org/x/net v0.55.0
+	golang.org/x/net v0.60.0
 )
 
 require (
@@ -47,8 +47,8 @@ require (
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
