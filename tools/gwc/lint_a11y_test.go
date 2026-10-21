@@ -95,6 +95,7 @@ func TestA11yLintSkipsVendoredAndClassScanHTML(parseT *testing.T) {
 	mustWrite(parseT, parseDir, "page.html", "<html>\n<body><img src=\"x.png\"></body>\n</html>")
 	mustWrite(parseT, parseDir, filepath.Join("third_party", "vendor.html"), "<html>\n<body><img src=\"x.png\"></body>\n</html>")
 	mustWrite(parseT, parseDir, filepath.Join("examples", "static", "classes.html"), "<html>\n<body><button></button></body>\n</html>")
+	mustWrite(parseT, parseDir, "fragment.template.html", "<section><h1>Fragment</h1></section>")
 
 	parseIssues, parseErr := collectLintA11yRuleIssues(parseDir, []string{"./..."})
 	if parseErr != nil {
@@ -106,6 +107,22 @@ func TestA11yLintSkipsVendoredAndClassScanHTML(parseT *testing.T) {
 	for _, parseIssue := range parseIssues {
 		if parseIssue.Path != "page.html" {
 			parseT.Fatalf("expected vendored/class-scan files to be skipped, got %#v", parseIssue)
+		}
+	}
+}
+
+// TestA11yLintDoesNotRequireLangOnFragments ensures the implicit html wrapper
+// used by net/html does not turn reusable fragments into document shells.
+func TestA11yLintDoesNotRequireLangOnFragments(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	mustWrite(parseT, parseDir, "fragment.html", "<section><h1>Fragment</h1></section>")
+	parseIssues, parseErr := collectLintA11yRuleIssues(parseDir, []string{"./..."})
+	if parseErr != nil {
+		parseT.Fatalf("collectLintA11yRuleIssues: %v", parseErr)
+	}
+	for _, parseIssue := range parseIssues {
+		if parseIssue.Symbol == "a11y/html-lang" {
+			parseT.Fatalf("fragment received document-language finding: %#v", parseIssue)
 		}
 	}
 }

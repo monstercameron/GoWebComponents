@@ -88,6 +88,7 @@ func collectA11yFileIssues(parseRootPath string, parsePath string) ([]lintIssueR
 		return nil, parseErr
 	}
 	parseRel := relativeSlashPath(parseRootPath, parsePath)
+	parseHasHTMLStartTag := hasHTMLStartTag(parseContent)
 
 	parseLabeledIDs, parseWrapped := collectA11yLabelTargets(parseDoc)
 	parseTagSeen := map[string]int{}
@@ -98,7 +99,7 @@ func collectA11yFileIssues(parseRootPath string, parsePath string) ([]lintIssueR
 		if parseNode.Type == html.ElementNode {
 			parseTagSeen[parseNode.Data]++
 			parseLine := locateNthTag(parseContent, parseNode.Data, parseTagSeen[parseNode.Data])
-			parseIssues = append(parseIssues, evaluateA11yNode(parseNode, parseRel, parseLine, parseLabeledIDs, parseWrapped)...)
+			parseIssues = append(parseIssues, evaluateA11yNode(parseNode, parseRel, parseLine, parseLabeledIDs, parseWrapped, parseHasHTMLStartTag)...)
 		}
 		for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
 			parseWalk(parseChild)
@@ -109,7 +110,7 @@ func collectA11yFileIssues(parseRootPath string, parsePath string) ([]lintIssueR
 }
 
 // evaluateA11yNode applies every rule to a single element node.
-func evaluateA11yNode(parseNode *html.Node, parseRel string, parseLine int, parseLabeledIDs map[string]bool, parseWrapped map[*html.Node]bool) []lintIssueRecord {
+func evaluateA11yNode(parseNode *html.Node, parseRel string, parseLine int, parseLabeledIDs map[string]bool, parseWrapped map[*html.Node]bool, parseHasHTMLStartTag bool) []lintIssueRecord {
 	parseIssues := []lintIssueRecord{}
 	parseMake := func(parseCode string, parseMessage string) lintIssueRecord {
 		return lintIssueRecord{
@@ -131,7 +132,9 @@ func evaluateA11yNode(parseNode *html.Node, parseRel string, parseLine int, pars
 
 	switch parseNode.DataAtom {
 	case atom.Html:
-		if strings.TrimSpace(htmlAttr(parseNode, "lang")) == "" {
+		// html.Parse creates an implicit <html> wrapper around fragments. Only
+		// enforce document language when the source contains a real <html> tag.
+		if parseHasHTMLStartTag && strings.TrimSpace(htmlAttr(parseNode, "lang")) == "" {
 			parseIssues = append(parseIssues, parseMake("a11y/html-lang",
 				"<html> is missing a lang attribute; screen readers need it to pick a voice (e.g. lang=\"en\")"))
 		}
@@ -157,6 +160,25 @@ func evaluateA11yNode(parseNode *html.Node, parseRel string, parseLine int, pars
 		}
 	}
 	return parseIssues
+}
+
+// hasHTMLStartTag reports whether sourceHTML contains an actual HTML start tag.
+// Fragments and templates are parsed with an implicit document wrapper, but
+// they are not document shells and should not receive the html-lang finding.
+func hasHTMLStartTag(sourceHTML string) bool {
+	tokenizer := html.NewTokenizer(strings.NewReader(sourceHTML))
+	for {
+		tokenType := tokenizer.Next()
+		switch tokenType {
+		case html.ErrorToken:
+			return false
+		case html.StartTagToken:
+			token := tokenizer.Token()
+			if token.DataAtom == atom.Html {
+				return true
+			}
+		}
+	}
 }
 
 // collectA11yLabelTargets gathers the ids referenced by <label for> and the set of controls
