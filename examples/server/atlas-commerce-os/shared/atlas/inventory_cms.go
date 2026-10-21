@@ -231,7 +231,7 @@ func savedViewButton(parseProps savedViewButtonProps) ui.Node {
 	return html.Button(html.Props{
 		Type:  "button",
 		Class: atlasSavedViewButtonClass(parseProps.Active),
-		OnClick: ui.UseEvent(func() {
+		OnClick: useAtlasEvent(func() {
 			if parseApply == nil {
 				return
 			}
@@ -251,7 +251,7 @@ func inventoryCMSContent(parsePayload Payload) ui.Node {
 		parseSearch := useAtlasSearchParams()
 		parseShellState := currentRouteWorkspaceState(parsePayload)
 		parseInitial := atlasMapFilterState(parsePage.Filters)
-		parseForm := ui.UseForm(parseInitial)
+		parseForm := useAtlasForm(parseInitial)
 		parseTransition := useAtlasTransition()
 		useAtlasEffect(func() func() {
 			if !atlasSameListFilterState(parseForm.Get(), parseInitial) {
@@ -260,8 +260,8 @@ func inventoryCMSContent(parsePayload Payload) ui.Node {
 			return nil
 		}, parseInitial)
 		parseValue := parseForm.Get()
-		parseDeferred := ui.UseDeferredValue(parseValue)
-		parseDebounced := ui.UseDebounced(parseValue, atlasFilterSyncDelay)
+		parseDeferred := useAtlasDeferredValue(parseValue)
+		parseDebounced := useAtlasDebounced(parseValue, atlasFilterSyncDelay)
 		useAtlasEffect(func() func() {
 			parseNext := atlasBuildListFilterQuery(parseSearch.Values(), parseDebounced.Get())
 			if parseNext.Encode() != parseSearch.Values().Encode() {
@@ -269,7 +269,7 @@ func inventoryCMSContent(parsePayload Payload) ui.Node {
 			}
 			return nil
 		}, parseDebounced.Get())
-		parseSubmit := ui.UseEvent(func(parseEvent ui.FormEvent) {
+		parseSubmit := useAtlasEvent(func(parseEvent ui.FormEvent) {
 			parseEvent.PreventDefault()
 			parseSearch.ReplaceAll(atlasBuildListFilterQuery(parseSearch.Values(), parseForm.Get()))
 		})
@@ -632,7 +632,7 @@ func inventoryDetailHero(parsePage inventoryDetailPage, parseRollup InventoryRol
 			// The SKU is a machine fact, so the eyebrow slot gets Data rather than the
 			// Display-role Eyebrow: an eyebrow that is an identifier should read as
 			// something the system printed.
-				html.Span(html.Props{Class: atlasMetaClass()}, html.Text("SKU "+parsePage.SKU)),
+			html.Span(html.Props{Class: atlasMetaClass()}, html.Text("SKU "+parsePage.SKU)),
 			html.H2(html.Props{Class: design.Class(design.PageTitle())}, html.Text(parsePage.Title)),
 		),
 		html.Div(html.Props{Class: atlasSplitRowClass()},
@@ -677,7 +677,7 @@ func InventoryThresholdHistoryOverlay(parsePayload Payload) ui.Node {
 func inventoryThresholdHistoryPanel(parsePanel inventoryThresholdHistoryPanelPage, parsePage inventoryDetailPage) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		parseCloseHref := "/app/inventory/" + parsePage.SKU
-		parsePanelID := ui.UseId()
+		parsePanelID := useAtlasID()
 		parseTitleID := parsePanelID + "-title"
 		parseDescriptionID := parsePanelID + "-description"
 		parseCloseID := parsePanelID + "-close"
@@ -686,7 +686,7 @@ func inventoryThresholdHistoryPanel(parsePanel inventoryThresholdHistoryPanelPag
 			parseLatest := parsePanel.Items[0]
 			parseLatestSignature = parseLatest.ID + ":" + fmt.Sprintf("%d", parseLatest.ReorderPoint) + ":" + fmt.Sprintf("%d", parseLatest.SafetyStock) + ":" + parseLatest.CreatedAt
 		}
-		parsePreviousLatest := ui.UsePrevious(parseLatestSignature)
+		parsePreviousLatest := useAtlasPrevious(parseLatestSignature)
 		// Threshold history is a log: one row per change, same columns every time. As a
 		// list of bordered boxes the reorder and safety numbers could not be compared
 		// down the column, which is the only reason an operator opens a history at all.
@@ -923,7 +923,7 @@ func warehouseInventoryDetailContent(parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		parseSearch := useAtlasSearchParams()
 		parseInitial := atlasMapFilterState(parsePage.Filters)
-		parseForm := ui.UseForm(parseInitial)
+		parseForm := useAtlasForm(parseInitial)
 		parseTransition := useAtlasTransition()
 		useAtlasEffect(func() func() {
 			if !atlasSameListFilterState(parseForm.Get(), parseInitial) {
@@ -932,8 +932,8 @@ func warehouseInventoryDetailContent(parsePayload Payload) ui.Node {
 			return nil
 		}, parseInitial)
 		parseValue := parseForm.Get()
-		parseDeferred := ui.UseDeferredValue(parseValue)
-		parseDebounced := ui.UseDebounced(parseValue, atlasFilterSyncDelay)
+		parseDeferred := useAtlasDeferredValue(parseValue)
+		parseDebounced := useAtlasDebounced(parseValue, atlasFilterSyncDelay)
 		useAtlasEffect(func() func() {
 			parseNext := atlasBuildListFilterQuery(parseSearch.Values(), parseDebounced.Get())
 			if parseNext.Encode() != parseSearch.Values().Encode() {
@@ -941,7 +941,7 @@ func warehouseInventoryDetailContent(parsePayload Payload) ui.Node {
 			}
 			return nil
 		}, parseDebounced.Get())
-		parseSubmit := ui.UseEvent(func(parseEvent ui.FormEvent) {
+		parseSubmit := useAtlasEvent(func(parseEvent ui.FormEvent) {
 			parseEvent.PreventDefault()
 			parseSearch.ReplaceAll(atlasBuildListFilterQuery(parseSearch.Values(), parseForm.Get()))
 		})
@@ -1588,7 +1588,7 @@ func inventoryCMSFilterForm(parseForm ui.Form[atlasListFilterState], isSyncing b
 func inventoryLaneEditorCardWithOptions(parseRow inventoryRow, parsePayload Payload, parseReturnPath string) ui.Node {
 	parseWarehouseLabel := fallback(parseRow.WarehouseName, parseRow.WarehouseID)
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(inventoryLaneEditorFormState{
+		parseForm := useAtlasForm(inventoryLaneEditorFormState{
 			WarehouseID:  parseRow.WarehouseID,
 			OnHand:       fmt.Sprintf("%d", parseRow.OnHand),
 			Reserved:     fmt.Sprintf("%d", parseRow.Reserved),
@@ -1657,12 +1657,12 @@ func orderInventoryModalCard(parseRows []inventoryRow, parseDefaultWarehouse str
 		parseDescription = "Creates a purchase order for this SKU without leaving the editor."
 	}
 	return ui.CreateElement(func() ui.Node {
-		parseWorkflow := ui.UseReducer(reducePurchaseOrderWorkflowState, defaultPurchaseOrderWorkflowState(parseDefaultSKU, parseDefaultWarehouse, parseReturnPath))
-		parseOpen := ui.UseState(false)
-		parseOpenModal := ui.UseEvent(func(ui.Event) {
+		parseWorkflow := useAtlasReducer(reducePurchaseOrderWorkflowState, defaultPurchaseOrderWorkflowState(parseDefaultSKU, parseDefaultWarehouse, parseReturnPath))
+		parseOpen := useAtlasUIState(false)
+		parseOpenModal := useAtlasEvent(func(ui.Event) {
 			parseOpen.Set(true)
 		})
-		parseCloseModal := ui.UseEvent(func(ui.Event) {
+		parseCloseModal := useAtlasEvent(func(ui.Event) {
 			parseOpen.Set(false)
 		})
 		parseValue := parseWorkflow.Get()
@@ -1807,12 +1807,12 @@ func atlasWorkflowNoticeClass() string {
 }
 
 func inventoryReducerTextField(parseName, parseLabel, parseValue string, parseWorkflow ui.Reducer[purchaseOrderWorkflowState, purchaseOrderWorkflowAction]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
 		html.Input(html.Props{
 			ID: parseId, Name: parseName, Value: parseValue, Class: warehouseInputClass(),
-			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
+			OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) {
 				parseWorkflow.Dispatch(purchaseOrderWorkflowAction{Field: parseName, Value: parseEvent.GetValue()})
 			}),
 			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
@@ -1821,13 +1821,13 @@ func inventoryReducerTextField(parseName, parseLabel, parseValue string, parseWo
 }
 
 func inventoryReducerNumberField(parseName, parseLabel, parseValue string, parseWorkflow ui.Reducer[purchaseOrderWorkflowState, purchaseOrderWorkflowAction]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
 		html.Input(html.Props{
 			// A quantity is a machine fact, so the control is the mono/tabular variant.
 			ID: parseId, Type: "number", Name: parseName, Value: parseValue, Class: warehouseDataInputClass(),
-			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
+			OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) {
 				parseWorkflow.Dispatch(purchaseOrderWorkflowAction{Field: parseName, Value: parseEvent.GetValue()})
 			}),
 			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
@@ -1836,7 +1836,7 @@ func inventoryReducerNumberField(parseName, parseLabel, parseValue string, parse
 }
 
 func inventoryReducerSelectField(parseName, parseLabel, parseValue string, parseOptions []optionItem, parseWorkflow ui.Reducer[purchaseOrderWorkflowState, purchaseOrderWorkflowAction]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	parseChildren := make([]ui.Node, 0, len(parseOptions))
 	for _, parseOption := range parseOptions {
 		parseChildren = append(parseChildren, html.Option(html.Props{Value: parseOption.Value, Selected: strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value))}, html.Text(parseOption.Label)))
@@ -1845,7 +1845,7 @@ func inventoryReducerSelectField(parseName, parseLabel, parseValue string, parse
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
 		html.Select(html.Props{
 			ID: parseId, Name: parseName, Class: warehouseInputClass(),
-			OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) {
+			OnChange: useAtlasEvent(func(parseEvent ui.ChangeEvent) {
 				parseWorkflow.Dispatch(purchaseOrderWorkflowAction{Field: parseName, Value: parseEvent.GetValue()})
 			}),
 			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
@@ -1942,10 +1942,10 @@ func inventoryNumberField(parseName, parseLabel, parseValue string) ui.Node {
 }
 
 func inventoryBoundNumberField[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseDataInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseDataInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -1961,14 +1961,14 @@ func inventorySelectField(parseName, parseLabel, parseValue string, parseOptions
 }
 
 func inventoryBoundSelectField[T any](parseName, parseLabel, parseValue, parseField string, parseOptions []optionItem, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	parseChildren := make([]ui.Node, 0, len(parseOptions))
 	for _, parseOption := range parseOptions {
 		parseChildren = append(parseChildren, html.Option(html.Props{Value: parseOption.Value, Selected: strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value))}, html.Text(parseOption.Label)))
 	}
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
-		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, parseChildren...),
+		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: useAtlasEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, parseChildren...),
 	)
 }
 
@@ -2128,21 +2128,6 @@ func atlasFilterRowClass() string {
 		design.Cluster(design.Space4),
 		css.Items.End,
 		css.Descendant(css.El("label"), css.Raw("flex", "1 1 12rem")),
-	))
-}
-
-// atlasRecordRowClass is one entry in a list of records: a hairline above it, a Stack
-// inside it, and no border on the other three sides.
-//
-// This is the direct replacement for "every row is a bordered box". A rule costs one
-// pixel and says "these are entries in the same list"; a box costs a border, a radius
-// and two gutters and says "these are separate objects". Inside a list the first
-// statement is the true one.
-func atlasRecordRowClass() string {
-	return design.Class(css.Rules(
-		design.Stack(design.Space1),
-		css.BorderTop(design.HairlineWidth, design.Hairline()),
-		css.PaddingY(design.Space3),
 	))
 }
 

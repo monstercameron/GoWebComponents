@@ -707,7 +707,7 @@ func App(parsePayload Payload) ui.Node {
 		}
 	}
 	parseRouteAnnouncement := strings.TrimSpace(fallback(parsePayload.Route.Title, parsePayload.Route.Screen))
-	parsePreviousRouteAnnouncement := ui.UsePrevious(parseRouteAnnouncement)
+	parsePreviousRouteAnnouncement := useAtlasPrevious(parseRouteAnnouncement)
 	useAtlasEffect(func() func() {
 		if !parsePreviousRouteAnnouncement.Ok() || strings.TrimSpace(parseRouteAnnouncement) == "" || parsePreviousRouteAnnouncement.Get() == parseRouteAnnouncement {
 			return nil
@@ -716,7 +716,7 @@ func App(parsePayload Payload) ui.Node {
 		return nil
 	}, parseRouteAnnouncement)
 	parseNoticeMessage := atlasNoticeMessage(parsePayload)
-	parsePreviousNotice := ui.UsePrevious(parseNoticeMessage)
+	parsePreviousNotice := useAtlasPrevious(parseNoticeMessage)
 	useAtlasEffect(func() func() {
 		if strings.TrimSpace(parseNoticeMessage) == "" || (parsePreviousNotice.Ok() && parsePreviousNotice.Get() == parseNoticeMessage) {
 			return nil
@@ -724,7 +724,7 @@ func App(parsePayload Payload) ui.Node {
 		parseAnnouncer.Polite(parseNoticeMessage)
 		return nil
 	}, parseNoticeMessage)
-	parsePreviousToast := ui.UsePrevious(parseToastState.Get())
+	parsePreviousToast := useAtlasPrevious(parseToastState.Get())
 	useAtlasEffect(func() func() {
 		parseCurrent := parseToastState.Get()
 		if strings.TrimSpace(parseCurrent.Title) == "" || (parsePreviousToast.Ok() && parsePreviousToast.Get() == parseCurrent) {
@@ -825,12 +825,12 @@ type atlasPublicNavLink struct {
 
 func publicHeader(parsePayload Payload, parseLinks []atlasPublicNavLink) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseOpen := ui.UseState(false)
-		parseSheetID := ui.UseId() + "-public-nav"
+		parseOpen := useAtlasUIState(false)
+		parseSheetID := useAtlasID() + "-public-nav"
 		parseTitleID := parseSheetID + "-title"
 		parseDescriptionID := parseSheetID + "-description"
 		parseCloseID := parseSheetID + "-close"
-		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
+		parseOpenDrawer := useAtlasEvent(func() { parseOpen.Set(true) })
 		parseCloseDrawer := func() { parseOpen.Set(false) }
 		parseIdentity := publicIdentityLabel
 		if parsePayload.User != nil {
@@ -869,7 +869,7 @@ func publicHeader(parsePayload Payload, parseLinks []atlasPublicNavLink) ui.Node
 						html.P(html.Props{ID: parseTitleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Browse Atlas")),
 						html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-7 text-stone-300"}, html.Text("Open the public menu to jump between landing, shop, and warehouse discovery routes without losing the current storefront context.")),
 					),
-					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-stone-200", OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-stone-200", OnClick: useAtlasEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
 				html.Div(html.Props{Class: "grid gap-3"}, parseMobileNodes...),
 				html.Div(html.Props{Class: "lg:hidden"}, publicLanguageControl(parsePayload)),
@@ -1120,28 +1120,8 @@ func internalSurfaceCardClass() string {
 	return "rounded-[1.55rem] border border-slate-800/95 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(7,12,24,0.98))] shadow-[0_24px_60px_rgba(2,6,23,0.3)]"
 }
 
-func internalInsetSurfaceClass() string {
-	return "rounded-[1.15rem] border border-slate-800/90 bg-[linear-gradient(180deg,rgba(10,17,30,0.92),rgba(6,10,20,0.96))] shadow-[inset_0_1px_0_rgba(148,163,184,0.05)]"
-}
-
-func internalAccentSurfaceClass() string {
-	return "rounded-[1.2rem] border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(8,20,36,0.95),rgba(6,12,24,0.98))] shadow-[0_18px_40px_rgba(2,6,23,0.24)]"
-}
-
-func internalSurfacePillClass() string {
-	return "inline-flex items-center gap-2 rounded-full border border-slate-800/95 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(7,12,24,0.96))] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 shadow-[0_14px_28px_rgba(2,6,23,0.18)]"
-}
-
 func internalTableContainerClass() string {
 	return "overflow-x-auto rounded-[1.4rem] border border-slate-800/95 bg-[linear-gradient(180deg,rgba(9,14,26,0.98),rgba(5,9,18,1))] shadow-[0_24px_60px_rgba(2,6,23,0.28)]"
-}
-
-func internalTableHeaderCellClass() string {
-	return "px-4 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"
-}
-
-func internalTableRowClass() string {
-	return "border-t border-slate-800/90 bg-transparent text-sm text-slate-200"
 }
 
 func noticeBanner(parsePayload Payload) ui.Node {
@@ -1649,24 +1629,6 @@ func dashboardContent(parsePayload Payload) ui.Node {
 // contract as everything else: lane blue from the token (so they invert with the
 // theme), square-cut (RadiusNone), no gradient. The old bars were rounded-full
 // cyan-300/35, i.e. a colour the palette does not contain.
-func dashboardSparkRowClass() string {
-	return design.Class(design.Cluster(design.Space1), []css.Rule{
-		css.Raw("flex-wrap", "nowrap"),
-		css.Items.End,
-		css.H(css.Rem(3)),
-		css.W(css.Full),
-	})
-}
-
-func dashboardSparkBarClass() string {
-	return design.Class([]css.Rule{
-		css.Bg(design.Lane()),
-		css.Rounded(design.RadiusNone),
-		css.Raw("flex", "1 1 0"),
-		css.MinWidth(css.Px(2)),
-	})
-}
-
 // dashboardSummaryBand is the route's own numbers and nothing else.
 //
 // The design note that used to render here as body copy — "the dashboard should
@@ -2341,7 +2303,7 @@ func routeRevalidationCard(parseTitle string, parseDetail string) ui.Node {
 				Type:     "button",
 				Class:    consoleSecondaryButtonClass(),
 				Disabled: parseRevalidator.Loading(),
-				OnClick:  ui.UseEvent(func() { parseRevalidator.Revalidate() }),
+				OnClick:  useAtlasEvent(func() { parseRevalidator.Revalidate() }),
 			}, html.Text(parseLabel)),
 		)
 	})
@@ -2749,7 +2711,7 @@ func receivingLineTable(parseLines []receivingLineRecord) ui.Node {
 // on any goroutine; running hooks is not.
 func atlasLazySection(parseLoader func() ui.Node, parseFallback ui.Node, parseDeps ...any) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		handle := ui.UseLazyNode(func(context.Context) (ui.Node, error) {
+		handle := useAtlasLazyNode(func(context.Context) (ui.Node, error) {
 			return parseLoader(), nil
 		}, parseDeps...)
 		parseState := handle.Get()
@@ -2966,7 +2928,7 @@ func atlasDismissibleSheet(isOpen bool, parseSurfaceID, parseLabelledBy, parseDe
 // Hooks are never conditional. No hook after an early return, inside an if, or in
 // a loop whose length varies.
 func atlasConfirmationDialog(isOpen bool, parseModalID, parseTitle, parseCopy, parseConfirmLabel string, parseOnDismiss func(), parseBody ...ui.Node) ui.Node {
-	parseDismissHandler := ui.UseEvent(func() {
+	parseDismissHandler := useAtlasEvent(func() {
 		if parseOnDismiss != nil {
 			parseOnDismiss()
 		}
@@ -3066,9 +3028,9 @@ func purchaseOrderDetailStatsIsland(parsePayload Payload, parsePage purchaseOrde
 		return parseFallbackNode
 	}
 	return ui.CreateElement(func() ui.Node {
-		parsePanelState := useAtlasState(parsePage)
-		parseRefreshingState := useAtlasState(false)
-		parseRefreshErrorState := useAtlasState("")
+		parsePanelState := useAtlasUIState(parsePage)
+		parseRefreshingState := useAtlasUIState(false)
+		parseRefreshErrorState := useAtlasUIState("")
 		parseResource := useAtlasStartupPageResource(parsePayload)
 		parseResourceState := parseResource.Get()
 		parseCachedPage := purchaseOrderDetailPage{}
@@ -3081,7 +3043,7 @@ func purchaseOrderDetailStatsIsland(parsePayload Payload, parsePage purchaseOrde
 			}
 			return nil
 		}, parseResourceState.Ready, parseCachedPage.Order.ID, parseCachedPage.Order.Status, parseCachedPage.Order.ETA, parseCachedPage.Order.WarehouseName)
-		parseRefreshPanel := ui.UseEvent(func() {
+		parseRefreshPanel := useAtlasEvent(func() {
 			if parseRefreshingState.Get() {
 				return
 			}
@@ -3165,9 +3127,9 @@ func receivingDetailStatsIsland(parsePayload Payload, parsePage receivingDetailP
 		return parseFallbackNode
 	}
 	return ui.CreateElement(func() ui.Node {
-		parsePanelState := useAtlasState(parsePage)
-		parseRefreshingState := useAtlasState(false)
-		parseRefreshErrorState := useAtlasState("")
+		parsePanelState := useAtlasUIState(parsePage)
+		parseRefreshingState := useAtlasUIState(false)
+		parseRefreshErrorState := useAtlasUIState("")
 		parseResource := useAtlasStartupPageResource(parsePayload)
 		parseResourceState := parseResource.Get()
 		parseCachedPage := receivingDetailPage{}
@@ -3180,7 +3142,7 @@ func receivingDetailStatsIsland(parsePayload Payload, parsePage receivingDetailP
 			}
 			return nil
 		}, parseResourceState.Ready, parseCachedPage.Session.ID, parseCachedPage.Session.Status, parseCachedPage.Session.WarehouseID)
-		parseRefreshPanel := ui.UseEvent(func() {
+		parseRefreshPanel := useAtlasEvent(func() {
 			if parseRefreshingState.Get() {
 				return
 			}
@@ -3291,7 +3253,7 @@ func detailRailErrorIsland(parseTitle string, parseErr error, parseRetry func(),
 				html.Button(html.Props{
 					Type:    "button",
 					Class:   consoleSecondaryButtonClass(),
-					OnClick: ui.UseEvent(func() { parseRetry() }),
+					OnClick: useAtlasEvent(func() { parseRetry() }),
 				}, html.Text("Retry panel")),
 			),
 			parseFallbackNode,
@@ -3797,8 +3759,8 @@ func savedViewBrowserCard(parsePayload Payload) ui.Node {
 		})
 	}
 	return ui.CreateElement(func() ui.Node {
-		parseNav := ui.UseCompositeNavigation(parseItems, ui.CompositeNavigationOptions{Orientation: "vertical", Loop: true})
-		parseListboxKeyDown := ui.UseEvent(func(parseEvent ui.KeyboardEvent) {
+		parseNav := useAtlasCompositeNavigation(parseItems, ui.CompositeNavigationOptions{Orientation: "vertical", Loop: true})
+		parseListboxKeyDown := useAtlasEvent(func(parseEvent ui.KeyboardEvent) {
 			parseNav.OnKeyDown(parseEvent)
 		})
 		parseActiveIndex := parseNav.ActiveIndex()
@@ -3821,7 +3783,7 @@ func savedViewBrowserCard(parsePayload Payload) ui.Node {
 				ID:    parseCurrentItem.ID,
 				Role:  "option",
 				Class: parseClassName,
-				OnClick: ui.UseEvent(func() {
+				OnClick: useAtlasEvent(func() {
 					parseNav.SetActive(parseCurrentIndex)
 				}),
 				Aria: map[string]string{
@@ -3965,36 +3927,6 @@ func featureCard(parseTitle, parseCopy string) ui.Node {
 		html.P(html.Props{Class: consoleSectionTitleClass()}, html.Text(parseTitle)),
 		html.P(html.Props{Class: consoleProseClass()}, html.Text(parseCopy)),
 	)
-}
-
-func publicFeatureCard(parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: publicGlassCardClass()},
-		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
-		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-stone-300"}, html.Text(parseCopy)),
-	)
-}
-
-func publicMetricCard(parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: publicMetricSurfaceClass()},
-		html.P(html.Props{Class: "text-xl font-bold tracking-[-0.03em] text-white"}, html.Text(parseTitle)),
-		html.P(html.Props{Class: "mt-2 text-sm leading-6 text-stone-300"}, html.Text(parseCopy)),
-	)
-}
-
-func publicSignalPill(parseLabel string) ui.Node {
-	return html.Div(html.Props{Class: publicSignalPillClass()}, html.Text(parseLabel))
-}
-
-func publicStatusClass(parseStatus string) string {
-	parseBase := "rounded-full border px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.22em]"
-	switch strings.TrimSpace(strings.ToLower(parseStatus)) {
-	case "in_stock", "healthy", "approved", "available":
-		return parseBase + " border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
-	case "low_stock", "pending", "submitted", "in_review":
-		return parseBase + " border-amber-400/30 bg-amber-400/12 text-amber-200"
-	default:
-		return parseBase + " border-white/12 bg-white/8 text-stone-300"
-	}
 }
 
 func publicStatusLabel(parseStatus string) string {
@@ -4204,7 +4136,7 @@ func preferenceForm(parsePayload Payload) ui.Node {
 		// useAtlasAtom, so calling it before ui.CreateElement put this card's atom
 		// subscription in the caller's fiber instead of its own.
 		parsePresentation := currentShellPresentationState(parsePayload)
-		parseForm := ui.UseForm(preferenceFormState{
+		parseForm := useAtlasForm(preferenceFormState{
 			Theme:              fallback(parsePresentation.Theme, "dark"),
 			Locale:             fallback(parsePresentation.Locale, "en"),
 			Density:            fallback(parsePresentation.Density, "compact"),
@@ -4231,10 +4163,10 @@ func moderationForm(parseItems []commentRecord, parsePayload Payload) ui.Node {
 		parseId = parseItems[0].ID
 	}
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(moderationActionFormState{Status: "approved", Reason: "Reviewed by Atlas operations."})
-		parseConfirmOpen := ui.UseState(false)
+		parseForm := useAtlasForm(moderationActionFormState{Status: "approved", Reason: "Reviewed by Atlas operations."})
+		parseConfirmOpen := useAtlasUIState(false)
 		parseValue := parseForm.Get()
-		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseOpenConfirm := useAtlasEvent(func() { parseConfirmOpen.Set(true) })
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
 			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Review first queued buyer question")),
@@ -4256,14 +4188,14 @@ func bulkModerationForm(parseItems []commentRecord, parsePayload Payload) ui.Nod
 		parseIds = append(parseIds, parseItem.ID)
 	}
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(bulkModerationActionFormState{
+		parseForm := useAtlasForm(bulkModerationActionFormState{
 			IDs:    strings.Join(parseIds, ","),
 			Status: "approved",
 			Reason: "Bulk-reviewed from the visible Atlas buyer inbox queue.",
 		})
-		parseConfirmOpen := ui.UseState(false)
+		parseConfirmOpen := useAtlasUIState(false)
 		parseValue := parseForm.Get()
-		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseOpenConfirm := useAtlasEvent(func() { parseConfirmOpen.Set(true) })
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
 			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Bulk review visible queue")),
@@ -4344,7 +4276,7 @@ func savedViewTransferCard(parsePayload Payload) ui.Node {
 		// whose hook count then depended on which settings rail was rendered.
 		parsePresentation := currentShellPresentationState(parsePayload)
 		parseDefaultImportPayload := savedViewTransferDefaultPayload(parsePayload, parsePresentation)
-		parseForm := ui.UseForm(savedViewImportFormState{ViewsJSON: parseDefaultImportPayload})
+		parseForm := useAtlasForm(savedViewImportFormState{ViewsJSON: parseDefaultImportPayload})
 		parseValidator := useAtlasWorkerTask[savedViewImportValidationRequest, savedViewImportValidationProgress, savedViewImportValidationResult](interop.WorkerOptions{
 			URL:   "/assets/script/atlas-saved-view-import-worker.js",
 			Ready: true,
@@ -4478,7 +4410,7 @@ func savedViewImportValidationCard(parseState atlasWorkerTaskState[savedViewImpo
 
 func operatorWorkspaceSnapshotCard(parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(workspaceSnapshotFormState{WorkspaceSnapshotJSON: operatorWorkspaceSnapshotJSON(parsePayload)})
+		parseForm := useAtlasForm(workspaceSnapshotFormState{WorkspaceSnapshotJSON: operatorWorkspaceSnapshotJSON(parsePayload)})
 		parseValue := parseForm.Get()
 		return html.Div(html.Props{Class: consoleSurfaceClass()},
 			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Export workspace snapshot")),
@@ -4531,15 +4463,15 @@ func operatorWorkspaceSnapshotJSON(parsePayload Payload) string {
 
 func transferForm(parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(transferFormState{
+		parseForm := useAtlasForm(transferFormState{
 			SourceWarehouseID:      "nevada-hub",
 			DestinationWarehouseID: "new-jersey-hub",
 			Reason:                 "Support east-coast promise windows",
 			RecommendedBy:          "Atlas Hydration Demo",
 		})
-		parseConfirmOpen := ui.UseState(false)
+		parseConfirmOpen := useAtlasUIState(false)
 		parseValue := parseForm.Get()
-		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseOpenConfirm := useAtlasEvent(func() { parseConfirmOpen.Set(true) })
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
 			html.P(html.Props{Class: consoleEyebrowClass()}, html.Text("Create transfer")),
@@ -4575,19 +4507,19 @@ func receivingForm(parsePayload Payload) ui.Node {
 
 func receivingFormForID(parseSessionID string, parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(receivingFormState{
+		parseForm := useAtlasForm(receivingFormState{
 			Status:             "closed",
 			DiscrepancySummary: "Short shipment recorded and available stock released.",
 		})
-		parseConfirmOpen := ui.UseState(false)
+		parseConfirmOpen := useAtlasUIState(false)
 		parseValue := parseForm.Get()
-		parsePrevious := ui.UsePrevious(parseValue)
-		parseWorkflow := ui.UseReducer(reduceReceivingResolutionWorkflowState, normalizeReceivingResolutionWorkflowState(receivingResolutionWorkflowState{
+		parsePrevious := useAtlasPrevious(parseValue)
+		parseWorkflow := useAtlasReducer(reduceReceivingResolutionWorkflowState, normalizeReceivingResolutionWorkflowState(receivingResolutionWorkflowState{
 			Status:             parseValue.Status,
 			DiscrepancySummary: parseValue.DiscrepancySummary,
 		}))
 		parseWorkflowState := parseWorkflow.Get()
-		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseOpenConfirm := useAtlasEvent(func() { parseConfirmOpen.Set(true) })
 		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
 		parseChildren := []ui.Node{
 			receivingResolutionSummaryCard(parseWorkflowState),
@@ -4743,12 +4675,12 @@ func receivingResolutionSummaryCard(parseState receivingResolutionWorkflowState)
 // ─────────────────────────────────────────────────────────────────────────────
 
 func receivingWorkflowInputWithValue(parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[receivingFormState], parseWorkflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: consoleFieldClass()},
 		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
 		html.Input(html.Props{
 			ID: parseId, Name: parseName, Value: parseValue, Class: consoleInputDataClass(),
-			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
+			OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) {
 				parseNext := parseEvent.GetValue()
 				parseForm.SetField(parseField, parseNext)
 				parseWorkflow.Dispatch(receivingResolutionWorkflowAction{Field: parseName, Value: parseNext})
@@ -4759,12 +4691,12 @@ func receivingWorkflowInputWithValue(parseName, parseLabel, parseValue, parseFie
 }
 
 func receivingWorkflowTextareaWithValue(parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[receivingFormState], parseWorkflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: consoleFieldClass()},
 		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
 		html.Textarea(html.Props{
 			ID: parseId, Name: parseName, Value: parseValue, Class: consoleInputClass(),
-			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
+			OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) {
 				parseNext := parseEvent.GetValue()
 				parseForm.SetField(parseField, parseNext)
 				parseWorkflow.Dispatch(receivingResolutionWorkflowAction{Field: parseName, Value: parseNext})
@@ -4814,7 +4746,7 @@ func publicInput(parseName, parseLabel string) ui.Node {
 }
 
 func publicInputWithValue(parseName, parseLabel, parseValue string) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
 		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
@@ -4822,7 +4754,7 @@ func publicInputWithValue(parseName, parseLabel, parseValue string) ui.Node {
 }
 
 func inputWithValue(parseName, parseLabel, parseValue string) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: consoleFieldClass()},
 		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
 		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: consoleInputDataClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
@@ -4830,15 +4762,15 @@ func inputWithValue(parseName, parseLabel, parseValue string) ui.Node {
 }
 
 func boundInputWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: consoleFieldClass()},
 		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: consoleInputDataClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: consoleInputDataClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
 func boundTransitionSelectWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseOptions []optionItem, parseForm ui.Form[T], parseTransition atlasTransition) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	parseChildren := make([]ui.Node, 0, len(parseOptions))
 	for _, parseOption := range parseOptions {
 		isParseSelected := strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value)) || (strings.TrimSpace(parseValue) == "" && parseOption.Value == "")
@@ -4849,7 +4781,7 @@ func boundTransitionSelectWithValue[T any](parseName, parseLabel, parseValue, pa
 		html.Select(html.Props{
 			ID:   parseId,
 			Name: parseName,
-			OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) {
+			OnChange: useAtlasEvent(func(parseEvent ui.ChangeEvent) {
 				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
 			Class: consoleInputDataClass(),
@@ -4859,7 +4791,7 @@ func boundTransitionSelectWithValue[T any](parseName, parseLabel, parseValue, pa
 }
 
 func publicTextarea(parseName, parseLabel string) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
 		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
@@ -4867,7 +4799,7 @@ func publicTextarea(parseName, parseLabel string) ui.Node {
 }
 
 func textareaWithValue(parseName, parseLabel, parseValue string) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: consoleFieldClass()},
 		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
 		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: consoleInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
@@ -4875,10 +4807,10 @@ func textareaWithValue(parseName, parseLabel, parseValue string) ui.Node {
 }
 
 func boundTextareaWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: consoleFieldClass()},
 		html.Span(html.Props{ID: parseId + "-label", Class: consoleFieldLabelClass()}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: consoleInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: consoleInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
@@ -4937,12 +4869,12 @@ func commentNodes(parseItems []commentRecord) []ui.Node {
 
 func internalWorkflowSection(parseTitle, parseCopy string, parseCards ...ui.Node) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseOpen := ui.UseState(false)
-		parseSheetID := ui.UseId() + "-workflow-sheet"
+		parseOpen := useAtlasUIState(false)
+		parseSheetID := useAtlasID() + "-workflow-sheet"
 		parseTitleID := parseSheetID + "-title"
 		parseDescriptionID := parseSheetID + "-description"
 		parseCloseID := parseSheetID + "-close"
-		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
+		parseOpenDrawer := useAtlasEvent(func() { parseOpen.Set(true) })
 		parseCloseDrawer := func() { parseOpen.Set(false) }
 		parseHead := []ui.Node{html.P(html.Props{Class: consoleEyebrowClass()}, html.Text(parseTitle))}
 		if strings.TrimSpace(parseCopy) != "" {
@@ -4962,7 +4894,7 @@ func internalWorkflowSection(parseTitle, parseCopy string, parseCards ...ui.Node
 						html.P(html.Props{ID: parseTitleID, Class: consoleSectionTitleClass()}, html.Text(parseTitle)),
 						html.P(html.Props{ID: parseDescriptionID, Class: consoleProseFineClass()}, html.Text(parseCopy)),
 					),
-					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: consoleQuietButtonClass(), OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: consoleQuietButtonClass(), OnClick: useAtlasEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
 				html.Div(html.Props{Class: consoleStackClass()}, parseCards...),
 			)),

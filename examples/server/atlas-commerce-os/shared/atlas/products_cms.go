@@ -340,7 +340,7 @@ func productCreateFormWithOptions(parsePayload Payload, parseOptions productForm
 	parseWarehouseID := fallback(parseOptions.LockedWarehouseID, "new-jersey-hub")
 	parseIntroLabel := fallback(parseOptions.IntroLabel, "Add catalog item")
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(productEditorFormState{
+		parseForm := useAtlasForm(productEditorFormState{
 			Category:        "desks",
 			PriceCents:      "189900",
 			Status:          "in_stock",
@@ -392,7 +392,7 @@ func productUpdateFormWithOptions(parseItem productAdminCard, parsePayload Paylo
 	parseWarehouseID := fallback(parseOptions.LockedWarehouseID, parseItem.WarehouseID)
 	parseIntroLabel := fallback(parseOptions.IntroLabel, "Edit catalog item")
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(productEditorFormState{
+		parseForm := useAtlasForm(productEditorFormState{
 			SKU:             parseItem.SKU,
 			Slug:            parseItem.Slug,
 			Title:           parseItem.Title,
@@ -410,7 +410,7 @@ func productUpdateFormWithOptions(parseItem productAdminCard, parsePayload Paylo
 			ReturnWarehouse: parseOptions.ReturnWarehouseID,
 		})
 		parseValue := parseForm.Get()
-		parsePrevious := ui.UsePrevious(parseValue)
+		parsePrevious := useAtlasPrevious(parseValue)
 		parseHiddenFields := []ui.Node{
 			html.Input(html.Props{Type: "hidden", Name: "current_warehouse_id", Value: parseWarehouseID}),
 			html.Input(html.Props{Type: "hidden", Name: "sku", Value: parseValue.SKU}),
@@ -586,7 +586,7 @@ type optionItem struct {
 }
 
 func cmsTextInput(parseName, parseLabel, parseValue string) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
 		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
@@ -594,22 +594,22 @@ func cmsTextInput(parseName, parseLabel, parseValue string) ui.Node {
 }
 
 func cmsBoundTextInput[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
 func cmsTransitionBoundTextInput[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T], parseTransition atlasTransition) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
 		html.Input(html.Props{
 			ID:    parseId,
 			Name:  parseName,
 			Value: parseValue,
-			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
+			OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) {
 				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
 			Class: warehouseInputClass(),
@@ -629,7 +629,7 @@ func cmsReadOnlyField(parseLabel, parseValue string) ui.Node {
 }
 
 func cmsNumberInput(parseName, parseLabel, parseValue string) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
 		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, Class: warehouseDataInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
@@ -637,15 +637,15 @@ func cmsNumberInput(parseName, parseLabel, parseValue string) ui.Node {
 }
 
 func cmsBoundNumberInput[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseDataInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseDataInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
 func cmsTextarea(parseName, parseLabel, parseValue string) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
 		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: atlasTextareaClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
@@ -653,15 +653,15 @@ func cmsTextarea(parseName, parseLabel, parseValue string) ui.Node {
 }
 
 func cmsBoundTextarea[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: atlasTextareaClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: atlasTextareaClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
 func cmsSelectInput(parseName, parseLabel, parseValue string, parseOptions []optionItem) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	parseChildren := make([]ui.Node, 0, len(parseOptions))
 	for _, parseOption := range parseOptions {
 		isParseSelected := strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value)) || (strings.TrimSpace(parseValue) == "" && parseOption.Value == "all")
@@ -674,7 +674,7 @@ func cmsSelectInput(parseName, parseLabel, parseValue string, parseOptions []opt
 }
 
 func cmsBoundSelectInput[T any](parseName, parseLabel, parseValue, parseField string, parseOptions []optionItem, parseForm ui.Form[T]) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	parseChildren := make([]ui.Node, 0, len(parseOptions))
 	for _, parseOption := range parseOptions {
 		isParseSelected := strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value)) || (strings.TrimSpace(parseValue) == "" && parseOption.Value == "all")
@@ -682,12 +682,12 @@ func cmsBoundSelectInput[T any](parseName, parseLabel, parseValue, parseField st
 	}
 	return html.Label(html.Props{Class: design.Class(design.Field())},
 		html.Span(html.Props{ID: parseId + "-label", Class: design.Class(design.FieldLabel())}, html.Text(parseLabel)),
-		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, parseChildren...),
+		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: useAtlasEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, parseChildren...),
 	)
 }
 
 func cmsTransitionBoundSelectInput[T any](parseName, parseLabel, parseValue, parseField string, parseOptions []optionItem, parseForm ui.Form[T], parseTransition atlasTransition) ui.Node {
-	parseId := ui.UseId()
+	parseId := useAtlasID()
 	parseChildren := make([]ui.Node, 0, len(parseOptions))
 	for _, parseOption := range parseOptions {
 		isParseSelected := strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value)) || (strings.TrimSpace(parseValue) == "" && parseOption.Value == "all")
@@ -698,7 +698,7 @@ func cmsTransitionBoundSelectInput[T any](parseName, parseLabel, parseValue, par
 		html.Select(html.Props{
 			ID:   parseId,
 			Name: parseName,
-			OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) {
+			OnChange: useAtlasEvent(func(parseEvent ui.ChangeEvent) {
 				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
 			Class: warehouseInputClass(),
@@ -766,7 +766,7 @@ func publicCatalogInput(parseName, parseLabel, parseValue string) ui.Node {
 func publicCatalogBoundInput[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{}, html.Text(parseLabel)),
-		html.Input(html.Props{Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: publicFormControlClass()}),
+		html.Input(html.Props{Name: parseName, Value: parseValue, OnInput: useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: publicFormControlClass()}),
 	)
 }
 
@@ -790,7 +790,7 @@ func publicCatalogBoundSelect[T any](parseName, parseLabel, parseValue, parseFie
 	}
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{}, html.Text(parseLabel)),
-		html.Select(html.Props{Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: publicFormControlClass()}, parseChildren...),
+		html.Select(html.Props{Name: parseName, OnChange: useAtlasEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: publicFormControlClass()}, parseChildren...),
 	)
 }
 
