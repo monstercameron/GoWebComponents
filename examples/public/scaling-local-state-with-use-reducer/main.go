@@ -179,17 +179,15 @@ type supportReplyWorkflow struct {
 
 func useSupportReplyWorkflow() supportReplyWorkflow {
 	parseWorkflow := ui.UseReducer(reduceReplyState, initialReplyState())
-	parseLoadThread := func(parseThread supportThread) ui.Handler {
-		return ui.UseEvent(func() {
-			parseWorkflow.Dispatch(replyAction{Type: actionLoadThread, Thread: parseThread})
-		})
-	}
+	parseBilling := ui.UseEvent(func() { parseWorkflow.Dispatch(replyAction{Type: actionLoadThread, Thread: threadOptions[0]}) })
+	parseShipping := ui.UseEvent(func() { parseWorkflow.Dispatch(replyAction{Type: actionLoadThread, Thread: threadOptions[1]}) })
+	parsePolicy := ui.UseEvent(func() { parseWorkflow.Dispatch(replyAction{Type: actionLoadThread, Thread: threadOptions[2]}) })
 
 	return supportReplyWorkflow{
 		State:             parseWorkflow.Get(),
-		UseBillingThread:  parseLoadThread(threadOptions[0]),
-		UseShippingThread: parseLoadThread(threadOptions[1]),
-		UsePolicyThread:   parseLoadThread(threadOptions[2]),
+		UseBillingThread:  parseBilling,
+		UseShippingThread: parseShipping,
+		UsePolicyThread:   parsePolicy,
 		RefineReply: ui.UseEvent(func() {
 			parseWorkflow.Dispatch(replyAction{Type: actionRefineReply})
 		}),
