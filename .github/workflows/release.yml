@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Semver tag to release (vMAJOR.MINOR.PATCH)"
+        description: "Semver tag to release (vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N)"
         required: true
         type: string
 
@@ -102,7 +102,7 @@ jobs:
         # This gate is blocking. Any accepted exception must be documented in
         # security/govulncheck-suppressions.md and should have a tracked expiry.
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           & "$(go env GOPATH)\bin\govulncheck.exe" ./...
         shell: pwsh
 

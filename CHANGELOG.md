@@ -42,6 +42,10 @@ Running notes for the unreleased v7 line, taken from the verified wave logs in
 entry. Each item below passed its own tests; the Known issues list says what did
 not.
 
+The buffered/template/worker interop experiment remains on `v7/interop-exp` and
+is not part of this release. Its partial measurements did not establish a
+reliable end-to-end win, so the full experiment verdict remains future research.
+
 #### Added
 
 - Error-code registry: tag-free `internal/errcode` (72 entries covering runtime,

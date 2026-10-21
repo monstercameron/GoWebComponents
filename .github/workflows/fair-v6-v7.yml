@@ -1,0 +1,127 @@
+name: Fair v6/v7 Production Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      v6_ref:
+        description: Historical v6 commit to compare
+        required: false
+        default: 1e61695cda00a659faf8215d6a496342f75e8298
+        type: string
+
+permissions:
+  contents: read
+
+# The comparison is intentionally sequential and must never be cancelled by a
+# second manual dispatch.  A single ubuntu-latest runner is amd64 today.
+concurrency:
+  group: fair-v6-v7-production
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      V6_REF: ${{ inputs.v6_ref || '1e61695cda00a659faf8215d6a496342f75e8298' }}
+      FAIR_DIR: ${{ runner.temp }}/fair-v6-v7
+      V6_DIR: ${{ runner.temp }}/fair-v6-v7/v6-ref
+      GWC_SUITE: ${{ runner.temp }}/fair-v6-v7/gwc-suite
+      GOWASM_EXEC: ${{ runner.temp }}/fair-v6-v7/gowasmexec
+    steps:
+      - name: Checkout clean v7 source
+        uses: actions/checkout@v6
+        with:
+          clean: true
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.27.3
+          cache: true
+
+      - name: Record runner and source identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$FAIR_DIR"
+          {
+            uname -a
+            uname -m
+            nproc
+            go version
+            go env GOOS GOARCH GOAMD64
+            printf 'v7_ref='; git rev-parse HEAD
+            printf 'v7_commit='; git show -s --format='%H %s' HEAD
+            printf 'v6_ref=%s\n' "$V6_REF"
+          } | tee "$FAIR_DIR/runner-and-sources.txt"
+          git cat-file -e "$V6_REF^{commit}"
+          git show -s --format='v6_commit=%H %s' "$V6_REF" | tee -a "$FAIR_DIR/runner-and-sources.txt"
+
+      - name: Materialize clean v6 source and normalize benchmark driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$V6_DIR"
+          git archive "$V6_REF" | tar -x -C "$V6_DIR"
+          printf 'v6_archive_marker=%s\n' "$V6_REF" | tee -a "$FAIR_DIR/runner-and-sources.txt"
+          python3 .github/scripts/normalize-v6-benchmarks.py "$V6_DIR" \
+            --report "$FAIR_DIR/v6-loop-normalization.json" \
+            | tee "$FAIR_DIR/v6-loop-normalization.txt"
+
+      - name: Build suite tooling from clean v7 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          go -C tools build -o "$GWC_SUITE" ./gwc
+          go -C tools build -o "$GOWASM_EXEC" ./gowasmexec
+
+      - name: Compile normalized v6 benchmark packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages=(
+            ./internal/runtime ./ui ./html ./css ./router
+            ./internal/platform/mockdom ./delta ./logging ./projection
+            ./virtualization ./pwa ./head ./sanitize ./i18n ./devtools
+            ./diagnostics
+          )
+          for package in "${packages[@]}"; do
+            (cd "$V6_DIR" && go test -tags production -run '^$' "$package")
+          done
+
+      - name: Run sequential production comparison
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$FAIR_DIR"
+          packages='./internal/runtime,./ui,./html,./css,./router,./internal/platform/mockdom,./delta,./logging,./projection,./virtualization,./pwa,./head,./sanitize,./i18n,./devtools,./diagnostics'
+          common=(-lane native -goarch amd64 -count 5 -warmup 1 -shuffle -seed 6001 -packages "$packages" -skip '^BenchmarkHydrateMediumTreeFirstUpdate$' -tags production)
+          export GO_WASM_EXEC="$GOWASM_EXEC"
+
+          set +e
+          "$GWC_SUITE" bench suite -root "$V6_DIR" -suite v6-prod "${common[@]}" -out "$FAIR_DIR/v6-prod.json" \
+            2>&1 | tee "$FAIR_DIR/v6-prod.console.txt"
+          v6_status=${PIPESTATUS[0]}
+          "$GWC_SUITE" bench suite -root "$GITHUB_WORKSPACE" -suite v7-prod "${common[@]}" -out "$FAIR_DIR/v7-prod.json" \
+            2>&1 | tee "$FAIR_DIR/v7-prod.console.txt"
+          v7_status=${PIPESTATUS[0]}
+          set -e
+
+          if [[ "$v6_status" == 0 && "$v7_status" == 0 && -s "$FAIR_DIR/v6-prod.json" && -s "$FAIR_DIR/v7-prod.json" ]]; then
+            "$GWC_SUITE" bench suite compare "$FAIR_DIR/v6-prod.json" "$FAIR_DIR/v7-prod.json" \
+              2>&1 | tee "$FAIR_DIR/compare-prod.txt"
+          else
+            printf 'compare skipped: v6_status=%s v7_status=%s\n' "$v6_status" "$v7_status" | tee "$FAIR_DIR/compare-prod.txt"
+          fi
+          printf 'v6_status=%s\nv7_status=%s\n' "$v6_status" "$v7_status" | tee "$FAIR_DIR/status.txt"
+          [[ "$v6_status" == 0 && "$v7_status" == 0 ]]
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fair-v6-v7-production-${{ github.run_id }}
+          path: ${{ runner.temp }}/fair-v6-v7
+          if-no-files-found: warn
