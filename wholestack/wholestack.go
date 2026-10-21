@@ -112,7 +112,7 @@ func assetExists(parseAssets fs.FS, parseName string) bool {
 	}
 	defer func() {
 		if parseCloseErr := parseFile.Close(); parseCloseErr != nil {
-			// Asset probing has no useful caller-visible error channel.
+			return
 		}
 	}()
 	parseInfo, parseErr := parseFile.Stat()
@@ -131,7 +131,7 @@ func serveFile(parseW http.ResponseWriter, parseR *http.Request, parseAssets fs.
 	}
 	defer func() {
 		if parseCloseErr := parseFile.Close(); parseCloseErr != nil {
-			// The response is already in progress and cannot change status now.
+			return
 		}
 	}()
 	if strings.HasSuffix(parseName, ".html") {

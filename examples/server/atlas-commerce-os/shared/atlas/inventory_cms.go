@@ -6,6 +6,9 @@ import (
 	"sort"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/monstercameron/GoWebComponents/v7/css"
 	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/design"
 	"github.com/monstercameron/GoWebComponents/v7/html"
@@ -1076,7 +1079,7 @@ func warehouseDetailInventoryTableRow(parseWarehouseID string, parseItem invento
 			html.Div(html.Props{Class: atlasStackClass(design.Space1)},
 				html.A(html.Props{Href: parseItemHref, Class: atlasCellLinkClass()}, html.Text(parseItem.Title)),
 				html.Span(html.Props{Class: atlasMetaClass()}, html.Text(parseItem.SKU)),
-				html.Span(html.Props{Class: atlasMetaClass()}, html.Text(strings.Title(parseItem.Category))),
+				html.Span(html.Props{Class: atlasMetaClass()}, html.Text(cases.Title(language.English).String(parseItem.Category))),
 			),
 		),
 		html.Td(html.Props{}, atlasStatusChip(parseItem.Status)),
@@ -1282,7 +1285,7 @@ func warehouseOpsItemContent(parsePayload Payload) ui.Node {
 				html.Div(html.Props{Class: design.Class(design.Divider())}),
 				html.P(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Market and sales readout")),
 				atlasFactCluster(
-					warehouseInfoRow("Category", strings.Title(parsePage.Item.Category)),
+					warehouseInfoRow("Category", cases.Title(language.English).String(parsePage.Item.Category)),
 					warehouseInfoRow("Sell-through", fmt.Sprintf("%d%%", parsePage.Item.SellThrough)),
 					warehouseInfoRow("Demand score", fmt.Sprintf("%d / 100", parsePage.Item.DemandScore)),
 					warehouseInfoRow("Regional share", fmt.Sprintf("%d%%", parsePage.Item.RegionalShare)),

@@ -8,8 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"runtime"
 
 	"github.com/monstercameron/GoWebComponents/v7/ui"
 	"strings"
@@ -223,7 +223,13 @@ func main() {
 		http.ServeFile(parseWriter, parseRequest, parsePath)
 	})
 	http.HandleFunc("/wasm_exec.js", func(parseWriter http.ResponseWriter, parseRequest *http.Request) {
-		http.ServeFile(parseWriter, parseRequest, filepath.Join(runtime.GOROOT(), "lib", "wasm", "wasm_exec.js"))
+		parseGoPath, parseErr := exec.LookPath("go")
+		if parseErr != nil {
+			http.NotFound(parseWriter, parseRequest)
+			return
+		}
+		parseGoRoot := filepath.Dir(filepath.Dir(parseGoPath))
+		http.ServeFile(parseWriter, parseRequest, filepath.Join(parseGoRoot, "lib", "wasm", "wasm_exec.js"))
 	})
 	http.HandleFunc("/events", parseMainHub.handleServerInteractiveEvents)
 	http.HandleFunc("/action", parseMainHub.handleServerInteractiveAction)

@@ -249,7 +249,7 @@ func normalizeToTraceID(parseV string) string {
 // isLowercaseHex is a core package helper.
 func isLowercaseHex(parseS string) bool {
 	for _, parseC := range parseS {
-		if !((parseC >= '0' && parseC <= '9') || (parseC >= 'a' && parseC <= 'f')) {
+		if (parseC < '0' || parseC > '9') && (parseC < 'a' || parseC > 'f') {
 			return false
 		}
 	}
