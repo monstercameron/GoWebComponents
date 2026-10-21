@@ -37,19 +37,21 @@ type example100HappyPathArtifact struct {
 // seedExample100HappyPathDatabase seeds one sqlite file with deterministic QA credentials and conversations.
 func seedExample100HappyPathDatabase(parseT *testing.T, parseRepoRoot string, parseDBPath string) {
 	parseT.Helper()
-	parseCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "run", "./cmd/seed-test-db")
-	parseCommand.Dir = parseRepoRoot
-	parseCommand.Env = append(os.Environ(), "CHAT_DB_PATH="+parseDBPath)
-	if parseOutput, parseErr := parseCommand.CombinedOutput(); parseErr == nil {
-		return
-	} else {
-		parseFixtureDBPath := filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "testdata", "test_chat.db")
-		parseFixtureBytes, parseReadErr := os.ReadFile(parseFixtureDBPath)
-		if parseReadErr != nil {
-			parseT.Fatalf("seed example 100 test db failed: %v\n%s\nfixture read failed: %v", parseErr, strings.TrimSpace(string(parseOutput)), parseReadErr)
+	for parseAttempt := 1; parseAttempt <= 3; parseAttempt++ {
+		parseCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "run", "./cmd/seed-test-db")
+		parseCommand.Dir = parseRepoRoot
+		parseCommand.Env = append(os.Environ(), "CHAT_DB_PATH="+parseDBPath)
+		parseOutput, parseErr := parseCommand.CombinedOutput()
+		if parseErr == nil {
+			return
 		}
-		if parseWriteErr := os.WriteFile(parseDBPath, parseFixtureBytes, 0o644); parseWriteErr != nil {
-			parseT.Fatalf("seed example 100 test db failed: %v\n%s\nfixture write failed: %v", parseErr, strings.TrimSpace(string(parseOutput)), parseWriteErr)
+		if parseAttempt == 3 {
+			parseT.Fatalf("seed example 100 test db failed after %d attempts: %v\n%s", parseAttempt, parseErr, strings.TrimSpace(string(parseOutput)))
+		}
+		for _, parseSuffix := range []string{"", "-wal", "-shm"} {
+			if parseRemoveErr := os.Remove(parseDBPath + parseSuffix); parseRemoveErr != nil && !os.IsNotExist(parseRemoveErr) {
+				parseT.Fatalf("remove incomplete example 100 seed database: %v", parseRemoveErr)
+			}
 		}
 	}
 }
