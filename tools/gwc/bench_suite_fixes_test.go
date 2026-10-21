@@ -94,6 +94,28 @@ func TestBenchmarkPackageRunPassesGoarchAndReadsHeader(parseT *testing.T) {
 	}
 }
 
+// TestBenchmarkPackageRunUsesTrimpathToNormalizeSourceLocations keeps native
+// stack-based benchmarks independent of the absolute checkout path.
+func TestBenchmarkPackageRunUsesTrimpathToNormalizeSourceLocations(parseT *testing.T) {
+	parseOriginal := benchmarkRunCommandTimeout
+	parseT.Cleanup(func() { benchmarkRunCommandTimeout = parseOriginal })
+	var parseArgsSeen []string
+	benchmarkRunCommandTimeout = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string, parseTimeout time.Duration) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("command = %q, want go", parseCommand)
+		}
+		parseArgsSeen = append([]string(nil), parseArgs...)
+		return "goos: windows\ngoarch: arm64\nBenchmarkX-8 10 100 ns/op 8 B/op 1 allocs/op\nPASS", nil
+	}
+	parseReport := launcher{}.runBenchmarkPackage(benchmarkConfig{rootPath: parseT.TempDir(), bench: ".", count: 1, targetTimeout: time.Minute}, "native", ".")
+	if !parseReport.OK {
+		parseT.Fatalf("benchmark package failed: %+v", parseReport)
+	}
+	if !slices.Contains(parseArgsSeen, "-trimpath") {
+		parseT.Fatalf("go test args lack -trimpath: %v", parseArgsSeen)
+	}
+}
+
 func TestBenchSuiteGoarchMismatchFailsTargetAndRecordsObservedArch(parseT *testing.T) {
 	parseConfig := makeBenchSuiteTargetsFixture(parseT)
 	parseConfig.progressWriter = &bytes.Buffer{}
