@@ -102,34 +102,35 @@ jobs:
           echo "FAIR_DIR=$FAIR_DIR" >> "$GITHUB_ENV"
           echo "V6_DIR=$V6_DIR" >> "$GITHUB_ENV"
 
-      - name: Run v6 Example 201 report
-        id: v6
+      - name: Run paired v6/v7 Example 201 reports
+        id: bench
         shell: bash
         run: |
           set +e
-          cd "$V6_DIR"
-          go test -mod=mod -tags playwrightgo ./test/playwrightgo/examples \
-            -run '^TestExample201BrowserBenchmarkReport$' -count=1 -v -timeout 15m \
-            2>&1 | tee "$FAIR_DIR/v6-console.txt"
-          status=${PIPESTATUS[0]}
-          report="$V6_DIR/bin/test-results/example-201-browser-benchmark/browser-benchmark-report.json"
-          [ -f "$report" ] && cp "$report" "$FAIR_DIR/v6-browser-benchmark-report.json"
-          [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v6-browser-benchmark-report.md"
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit 0
-      - name: Run v7 Example 201 report
-        id: v7
-        shell: bash
-        run: |
-          set +e
-          go -C test/playwrightgo test -tags playwrightgo ./examples \
-            -run '^TestExample201BrowserBenchmarkReport$' -count=1 -v -timeout 15m \
-            2>&1 | tee "$FAIR_DIR/v7-console.txt"
-          status=${PIPESTATUS[0]}
-          report="bin/test-results/example-201-browser-benchmark/browser-benchmark-report.json"
-          [ -f "$report" ] && cp "$report" "$FAIR_DIR/v7-browser-benchmark-report.json"
-          [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v7-browser-benchmark-report.md"
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+          v6_overall=0
+          v7_overall=0
+          for run in 1 2 3; do
+            cd "$V6_DIR"
+            go test -mod=mod -tags playwrightgo ./test/playwrightgo/examples \
+              -run '^TestExample201BrowserBenchmarkReport$' -count=1 -v -timeout 15m \
+              2>&1 | tee "$FAIR_DIR/v6-console-$run.txt"
+            status=${PIPESTATUS[0]}
+            [ "$status" -eq 0 ] || v6_overall=$status
+            report="$V6_DIR/bin/test-results/example-201-browser-benchmark/browser-benchmark-report.json"
+            [ -f "$report" ] && cp "$report" "$FAIR_DIR/v6-browser-benchmark-report-$run.json"
+            [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v6-browser-benchmark-report-$run.md"
+            cd "$GITHUB_WORKSPACE"
+            go -C test/playwrightgo test -tags playwrightgo ./examples \
+              -run '^TestExample201BrowserBenchmarkReport$' -count=1 -v -timeout 15m \
+              2>&1 | tee "$FAIR_DIR/v7-console-$run.txt"
+            status=${PIPESTATUS[0]}
+            [ "$status" -eq 0 ] || v7_overall=$status
+            report="bin/test-results/example-201-browser-benchmark/browser-benchmark-report.json"
+            [ -f "$report" ] && cp "$report" "$FAIR_DIR/v7-browser-benchmark-report-$run.json"
+            [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v7-browser-benchmark-report-$run.md"
+          done
+          echo "v6_status=$v6_overall" >> "$GITHUB_OUTPUT"
+          echo "v7_status=$v7_overall" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Compare reports and enforce V7-P3 gate
@@ -138,12 +139,16 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/compare-example201.py \
-            "$FAIR_DIR/v6-browser-benchmark-report.json" \
-            "$FAIR_DIR/v7-browser-benchmark-report.json" \
+            --baseline "$FAIR_DIR/v6-browser-benchmark-report-1.json" \
+            --baseline "$FAIR_DIR/v6-browser-benchmark-report-2.json" \
+            --baseline "$FAIR_DIR/v6-browser-benchmark-report-3.json" \
+            --candidate "$FAIR_DIR/v7-browser-benchmark-report-1.json" \
+            --candidate "$FAIR_DIR/v7-browser-benchmark-report-2.json" \
+            --candidate "$FAIR_DIR/v7-browser-benchmark-report-3.json" \
             --json "$FAIR_DIR/example201-comparison.json" \
             --markdown "$FAIR_DIR/example201-comparison.md"
-          test "${{ steps.v6.outputs.status }}" = 0
-          test "${{ steps.v7.outputs.status }}" = 0
+          test "${{ steps.bench.outputs.v6_status }}" = 0
+          test "${{ steps.bench.outputs.v7_status }}" = 0
 
       - name: Upload Example 201 evidence
         if: always()

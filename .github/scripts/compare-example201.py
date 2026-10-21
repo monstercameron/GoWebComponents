@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare two Example 201 browser benchmark reports.
+"""Compare paired Example 201 browser benchmark captures.
 
 The reports are produced by the Playwright harness with the same seed and
 scenario set.  DOM Ready representative timing is the primary metric used by
@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import statistics
 import sys
 from pathlib import Path
 
@@ -39,9 +40,11 @@ def load_runtime_report(path: Path) -> tuple[dict, dict, dict[str, dict]]:
             raise ValueError(f"{path}: scenario has no getScenarioID")
         if scenario_id in result:
             raise ValueError(f"{path}: duplicate runtime1 scenario {scenario_id}")
-        value = item.get("getDomReadyRepresentativeMs")
-        if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-            raise ValueError(f"{path}: {scenario_id} has invalid representative timing {value!r}")
+        samples = item.get("getDomReadySamplesMs")
+        if not isinstance(samples, list) or not samples:
+            raise ValueError(f"{path}: {scenario_id} has no raw timing samples")
+        if any(not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0 for value in samples):
+            raise ValueError(f"{path}: {scenario_id} has invalid raw timing samples {samples!r}")
         result[scenario_id] = item
     return payload, report, result
 
@@ -50,26 +53,46 @@ def geometric_mean(values: list[float]) -> float:
     return math.exp(sum(math.log(value) for value in values) / len(values))
 
 
+def capture_medians(result: dict[str, dict]) -> dict[str, float]:
+    return {scenario_id: statistics.median(item["getDomReadySamplesMs"])
+            for scenario_id, item in result.items()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("baseline", type=Path)
-    parser.add_argument("candidate", type=Path)
+    parser.add_argument("--baseline", type=Path, action="append", required=True, help="one v6 report; repeat for captures")
+    parser.add_argument("--candidate", type=Path, action="append", required=True, help="one v7 report; repeat for captures")
     parser.add_argument("--json", type=Path, required=True)
     parser.add_argument("--markdown", type=Path, required=True)
     parser.add_argument("--max-regress-pct", type=float, default=30.0)
     args = parser.parse_args()
 
     try:
-        baseline_payload, baseline_report, baseline = load_runtime_report(args.baseline)
-        candidate_payload, candidate_report, candidate = load_runtime_report(args.candidate)
-        if baseline_payload.get("getBrowser") != candidate_payload.get("getBrowser"):
-            raise ValueError("baseline and candidate use different browsers")
-        if baseline_report.get("getScenarioOrder") != candidate_report.get("getScenarioOrder"):
-            raise ValueError("baseline and candidate scenario orders differ")
-        if baseline_report.get("getSeed") != candidate_report.get("getSeed"):
-            raise ValueError("baseline and candidate seeds differ")
-        if set(baseline) != set(candidate):
-            raise ValueError("baseline and candidate scenario sets differ")
+        if len(args.baseline) != len(args.candidate) or len(args.baseline) < 3:
+            raise ValueError("provide at least three paired baseline/candidate reports")
+        baselines = [load_runtime_report(path) for path in args.baseline]
+        candidates = [load_runtime_report(path) for path in args.candidate]
+        baseline_payload, baseline_report, baseline = baselines[0]
+        candidate_payload, candidate_report, candidate = candidates[0]
+        for (_, report, result), (_, candidate_capture_report, candidate_capture) in zip(baselines, candidates):
+            if baseline_payload.get("getBrowser") != candidate_payload.get("getBrowser"):
+                raise ValueError("baseline and candidate use different browsers")
+            if report.get("getScenarioOrder") != candidate_capture_report.get("getScenarioOrder"):
+                raise ValueError("baseline and candidate scenario orders differ")
+            if report.get("getSeed") != candidate_capture_report.get("getSeed"):
+                raise ValueError("baseline and candidate seeds differ")
+            if set(result) != set(candidate_capture):
+                raise ValueError("baseline and candidate scenario sets differ")
+        if len(baseline) != 19:
+            raise ValueError(f"expected all 19 Example 201 scenarios, found {len(baseline)}")
+        if set(baseline_report.get("getScenarioOrder", [])) != set(baseline) or len(baseline_report["getScenarioOrder"]) != 19:
+            raise ValueError("scenario order must contain all 19 scenarios exactly once")
+        if any(payload.get("getBrowser") != baseline_payload.get("getBrowser") or
+               report.get("getScenarioOrder") != baseline_report.get("getScenarioOrder") or
+               report.get("getSeed") != baseline_report.get("getSeed") or
+               set(result) != set(baseline)
+               for payload, report, result in baselines[1:] + candidates[1:]):
+            raise ValueError("captures do not share browser, seed, order, or scenario set")
         if not math.isfinite(args.max_regress_pct) or args.max_regress_pct < 0:
             raise ValueError("--max-regress-pct must be finite and non-negative")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -77,16 +100,24 @@ def main() -> int:
         return 2
 
     rows = []
+    baseline_captures = [capture_medians(result) for _, _, result in baselines]
+    candidate_captures = [capture_medians(result) for _, _, result in candidates]
     for scenario_id in baseline_report["getScenarioOrder"]:
         if scenario_id not in baseline:
             continue
-        baseline_ms = float(baseline[scenario_id]["getDomReadyRepresentativeMs"])
-        candidate_ms = float(candidate[scenario_id]["getDomReadyRepresentativeMs"])
+        baseline_values = [capture[scenario_id] for capture in baseline_captures]
+        candidate_values = [capture[scenario_id] for capture in candidate_captures]
+        baseline_ms = float(statistics.median(baseline_values))
+        candidate_ms = float(statistics.median(candidate_values))
         delta_pct = (candidate_ms / baseline_ms - 1.0) * 100.0
         rows.append({
             "scenarioID": scenario_id,
             "baselineMs": baseline_ms,
             "candidateMs": candidate_ms,
+            "baselineCaptureMediansMs": baseline_values,
+            "candidateCaptureMediansMs": candidate_values,
+            "baselineSpreadPct": (max(baseline_values) / min(baseline_values) - 1.0) * 100.0,
+            "candidateSpreadPct": (max(candidate_values) / min(candidate_values) - 1.0) * 100.0,
             "deltaPct": delta_pct,
             "regressedBeyondNoise": delta_pct > args.max_regress_pct,
         })
@@ -96,9 +127,10 @@ def main() -> int:
     failures = [row["scenarioID"] for row in rows if row["regressedBeyondNoise"]]
     gate_passed = not failures and geomean_delta_pct <= 0.0
     result = {
-        "schema": "example201-v6-v7/v1",
-        "baseline": {"path": str(args.baseline), "generatedAt": baseline_payload.get("getGeneratedAt")},
-        "candidate": {"path": str(args.candidate), "generatedAt": candidate_payload.get("getGeneratedAt")},
+        "schema": "example201-v6-v7/v2",
+        "captureCount": len(args.baseline),
+        "baseline": {"paths": [str(path) for path in args.baseline]},
+        "candidate": {"paths": [str(path) for path in args.candidate]},
         "browser": candidate_payload.get("getBrowser"),
         "seed": candidate_report.get("getSeed"),
         "scenarioCount": len(rows),
@@ -117,6 +149,7 @@ def main() -> int:
         "",
         f"- Browser: `{result['browser']}`",
         f"- Seed: `{result['seed']}`",
+        f"- Paired captures: `{result['captureCount']}` (median of raw samples, then median across captures)",
         f"- Scenarios: `{result['scenarioCount']}`",
         f"- Noise floor: `+{args.max_regress_pct:.1f}%` per scenario",
         f"- Baseline geomean: `{baseline_mean:.3f} ms`",
@@ -124,13 +157,14 @@ def main() -> int:
         f"- Geomean delta: `{geomean_delta_pct:+.2f}%`",
         f"- Gate: **{'PASS' if gate_passed else 'FAIL'}**",
         "",
-        "| Scenario | v6 DOM Ready Rep. (ms) | v7 DOM Ready Rep. (ms) | Delta | Beyond noise |",
-        "| --- | ---: | ---: | ---: | --- |",
+        "| Scenario | v6 median (ms) | v7 median (ms) | Delta | v6 spread | v7 spread | Beyond noise |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for row in rows:
         lines.append(
             f"| `{row['scenarioID']}` | {row['baselineMs']:.3f} | {row['candidateMs']:.3f} "
-            f"| {row['deltaPct']:+.2f}% | {'yes' if row['regressedBeyondNoise'] else 'no'} |"
+            f"| {row['deltaPct']:+.2f}% | {row['baselineSpreadPct']:.1f}% | {row['candidateSpreadPct']:.1f}% "
+            f"| {'yes' if row['regressedBeyondNoise'] else 'no'} |"
         )
     args.markdown.parent.mkdir(parents=True, exist_ok=True)
     args.markdown.write_text("\n".join(lines) + "\n", encoding="utf-8")
