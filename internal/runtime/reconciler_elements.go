@@ -931,6 +931,12 @@ func flattenFragments(parseElements []any) ([]any, bool) {
 	}
 
 	parseFlattened := slicePool.get()
+	parseFlattened = appendFlattenedFragments(parseFlattened, parseElements)
+	return parseFlattened, true
+}
+
+// appendFlattenedFragments appends fragment descendants to one caller-owned buffer.
+func appendFlattenedFragments(parseFlattened, parseElements []any) []any {
 	for _, parseElement2 := range parseElements {
 		parseElem2, parseOk3 := parseElement2.(*Element)
 		if !parseOk3 {
@@ -946,18 +952,14 @@ func flattenFragments(parseElements []any) ([]any, bool) {
 		}
 		if parseT2, parseOk4 := parseElem2.Type.(string); parseOk4 && parseT2 == "FRAGMENT" {
 			if parseChildren := getElementChildren(parseElem2); parseChildren != nil {
-				parseRes, parseAllocated := flattenFragments(parseChildren)
-				parseFlattened = append(parseFlattened, parseRes...)
-				if parseAllocated {
-					slicePool.clear(parseRes)
-				}
+				parseFlattened = appendFlattenedFragments(parseFlattened, parseChildren)
 			}
 			continue
 		}
 		parseFlattened = append(parseFlattened, parseElem2)
 	}
 
-	return parseFlattened, true
+	return parseFlattened
 }
 
 // cloneChildFibers clones the child fibers from the alternate to the current fiber

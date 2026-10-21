@@ -1624,6 +1624,53 @@ func TestFlattenFragments_NestedFragments(parseT *testing.T) {
 	}
 }
 
+// TestFlattenFragmentsNestedOrderNilAndPoolOwnership preserves child slots and
+// confirms callers can return the single flattened scratch buffer to its pool.
+func TestFlattenFragmentsNestedOrderNilAndPoolOwnership(parseT *testing.T) {
+	parseFirst := &Element{Type: "span"}
+	parseSecond := &Element{Type: "p"}
+	var parseTypedNil *Element
+	parseFragmentChildren := []any{parseTypedNil, parseFirst, nil, "inside"}
+	parseNested := &Element{Type: "FRAGMENT", Props: map[string]any{"children": []any{nil, parseSecond}}}
+	parseFragmentChildren[2] = parseNested
+	parseFragment := &Element{Type: "FRAGMENT", Props: map[string]any{"children": parseFragmentChildren}}
+	parseElements := []any{nil, "before", parseFragment, "after"}
+
+	parseResult, parseAllocated := flattenFragments(parseElements)
+	if !parseAllocated {
+		parseT.Fatal("flattenFragments should allocate a pooled result when fragments are present")
+	}
+	parseExpected := []any{nil, "before", nil, parseFirst, nil, parseSecond, "inside", "after"}
+	if len(parseResult) != len(parseExpected) {
+		parseT.Fatalf("flattened length = %d, want %d: %#v", len(parseResult), len(parseExpected), parseResult)
+	}
+	for parseIndex := range parseExpected {
+		if parseResult[parseIndex] != parseExpected[parseIndex] {
+			parseT.Errorf("flattened child %d = %#v, want %#v", parseIndex, parseResult[parseIndex], parseExpected[parseIndex])
+		}
+	}
+	if parseResult[0] != nil || parseResult[2] != nil || parseResult[4] != nil {
+		parseT.Fatal("nil children must retain their slots through nested flattening")
+	}
+	parseResult[3] = nil
+	if parseFragmentChildren[1] != parseFirst {
+		parseT.Fatal("flattened output must not alias the source fragment children")
+	}
+
+	// Returning the buffer must clear retained element references before reuse.
+	slicePool.clear(parseResult)
+	for parseIndex, parseValue := range parseResult {
+		if parseValue != nil {
+			parseT.Errorf("pooled result retained value at %d: %#v", parseIndex, parseValue)
+		}
+	}
+	parseAgain, parseAllocatedAgain := flattenFragments(parseElements)
+	if !parseAllocatedAgain || len(parseAgain) != len(parseExpected) || parseAgain[3] != parseFirst || parseAgain[5] != parseSecond {
+		parseT.Fatalf("flattening after returning scratch buffer = %#v, want nested children in order", parseAgain)
+	}
+	slicePool.clear(parseAgain)
+}
+
 func TestFlattenFragments_EmptyFragment(parseT *testing.T) {
 	parseElements := []any{
 		&Element{Type: "div", Props: make(map[string]any), Children: []any{}},
