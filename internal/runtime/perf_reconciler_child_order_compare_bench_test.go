@@ -31,7 +31,7 @@ func applyLegacyCommittedChildOrder(getRuntime *Runtime, getParent DOMNode, getE
 		return
 	}
 	for getIndex, getExpectedNode := range getExpected {
-		getObserved := getRuntime.buildObservedChildNodes(getParent)
+		getObserved := getRuntime.buildObservedChildNodes(getParent, 4)
 		if getIndex < len(getObserved) && IsSameDOMNode(getObserved[getIndex], getExpectedNode) {
 			continue
 		}
@@ -45,7 +45,7 @@ func applyLegacyCommittedChildOrder(getRuntime *Runtime, getParent DOMNode, getE
 		}
 		if getAttached {
 			getRuntime.domAdapter.RemoveChild(getParent, getExpectedNode)
-			getObserved = getRuntime.buildObservedChildNodes(getParent)
+			getObserved = getRuntime.buildObservedChildNodes(getParent, 4)
 		}
 
 		if getIndex < len(getObserved) {
