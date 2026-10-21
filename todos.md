@@ -72,6 +72,8 @@ Verification addendum: `gwc verify` for the counter app passed its CI wasm build
 
 2026-10-21 PR follow-up checkpoint: PR CI fixes now cover the API/agent working-directory errors, desktop platform fixture, fetch test cleanup race, bridge analyzer toolchain, and Windows Wasm runner environment limit; the dependency graph uses fixed `x/net` and `x/text` versions. Runtime regressions cover both commit scheduling windows and resolve late component-owned updates onto the in-flight tree. After rebuilding Example100 Wasm with that fix, a stable focused Admin Ops browser run passed (`bin/test-results/v7-example100-ops-stable-wip-20261021.log`). The broader Example100 browser sweep and fresh PR checks remain open. A Windows test run also hit temporary executable cleanup locks; those failures are separate from browser assertions. No merge, tag or deployment is ready.
 
+2026-10-21 grouped browser/CI checkpoint: all eight previously affected Example100 browser cases passed together with the rebuilt Wasm client (`bin/test-results/v7-example100-affected-after-wip-20261021.log`). Fresh PR checks then exposed nested-module metadata drift after the dependency update, which has been tidied for desktop, tools/livereload, and agenthub. The GoGRPCBridge standalone security lane still needs fixed dependencies and a patched Go toolchain; compatibility-smoke still reports incomplete child-process I/O after browser assertions pass. Full browser and release gates remain open.
+
 ### V7 progress log (2026-10-03, branch v7/dev, nothing committed)
 
 Integrated check after wave 2: `go build ./...`, `go vet ./...`, wasm `go vet` over the core packages, and `go test -p 2` on 44 core packages all green.

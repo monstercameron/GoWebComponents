@@ -495,7 +495,7 @@ package name says wasm.
 
 #### Repairs to tests and tooling
 
-- Example 100: auth route resolution now waits until the admin role is applied; emergency pricing/FAQ copy covers first paint; the billing regression seeds a paid plan; browser helpers wait for Wasm boot completion between hard navigations and log bounded failure diagnostics. Focused Admin Journey, Chats, Ops, Billing Summary and Pricing First Paint checks pass. The grouped browser suite remains open.
+- Example 100: auth route resolution now waits until the admin role is applied; emergency pricing/FAQ copy covers first paint; the billing regression seeds a paid plan; browser helpers wait for Wasm boot completion between hard navigations and log bounded failure diagnostics. Eight previously affected browser cases pass together; the full browser suite remains open.
 - PR CI: API and agent test commands now use the repository root; desktop host fixture runs on Windows; fetch test cleanup preserves shared maps during late loaders; the bridge analyzer lane uses its declared Go toolchain; the Windows Wasm runner limits the Node environment; reachable `x/net` and `x/text` advisories use fixed versions. Fresh PR checks remain pending.
 - Flaky wasm hydration tests (`TestHydrationRoundTripFuzz`, `TestHydrateEffectStateUpdatesScheduleAfterCommit` and a third): the runtime's default 5 ms wall-clock slice budget made the first pass yield before commit on slow wasm -> the tests build their runtimes with `FrameBudgetMs: -1` (300 green runs); `BenchmarkHydrateMediumTreeFirstUpdate` now drains continuations instead of assuming one scheduler slice.
 - `state` wasm tests lacked `Reset: true`, so atoms leaked between runs -> they reset.
