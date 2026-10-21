@@ -384,7 +384,7 @@ func redactSupportString(parseValue string) string {
 	// Most snapshot strings are ordinary labels, IDs, and enum values. Avoid
 	// invoking the URL parser for those: URL handling is only relevant when the
 	// value has a query/fragment or an explicit authority.
-	if strings.ContainsAny(parseTrimmed, "?#") || strings.Contains(parseTrimmed, "://") {
+	if strings.ContainsAny(parseTrimmed, "?#") || strings.Contains(parseTrimmed, "://") || strings.HasPrefix(parseTrimmed, "//") {
 		if parseRedactedURL, parseOk := redactSupportURL(parseTrimmed); parseOk {
 			return parseRedactedURL
 		}

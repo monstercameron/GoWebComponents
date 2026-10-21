@@ -23,6 +23,7 @@ func TestRedactSupportStringCatchesQuotedAndSchemeSecrets(parseT *testing.T) {
 		{"basic authorization", `Authorization: Basic dXNlcjpwYXNzd29yZA==`, "dXNlcjpwYXNzd29yZA"},
 		{"cookie header second cookie", `Cookie: theme=dark; sid=abcdef123456`, "abcdef123456"},
 		{"url userinfo", `https://alice:topsecretpw@example.com/path`, "topsecretpw"},
+		{"protocol-relative url userinfo", `//alice:relativesecret@example.com/path`, "relativesecret"},
 		{"url fragment token", `https://example.com/cb#access_token=frag-secret-1&state=x`, "frag-secret-1"},
 		{"passphrase key", `passphrase=correct-horse-battery`, "correct-horse-battery"},
 	}
