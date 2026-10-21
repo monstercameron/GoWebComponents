@@ -118,3 +118,17 @@ func TestFrameFormattingHelpers(parseT *testing.T) {
 		parseT.Fatalf("expected appendFrame to append formatted frame, got %+v", parseValues)
 	}
 }
+
+// TestParseFramesStripsOffsets verifies stack offsets are removed without changing locations or line numbers.
+func TestParseFramesStripsOffsets(parseT *testing.T) {
+	parseGot := parseFrames([]byte("goroutine 1 [running]:\r\nexample.withOffset()\r\nC:/work/app/main.go:12 +0x2a\r\nexample.withoutOffset()\r\n/tmp/app/other.go:7\r\n"), nil)
+	if len(parseGot) != 2 {
+		parseT.Fatalf("parseFrames() returned %d frames, want 2: %+v", len(parseGot), parseGot)
+	}
+	if parseGot[0] != (frame{Function: "example.withOffset()", File: "C:/work/app/main.go", Line: 12}) {
+		parseT.Fatalf("offset frame = %+v, want function/location/line preserved with offset removed", parseGot[0])
+	}
+	if parseGot[1] != (frame{Function: "example.withoutOffset()", File: "/tmp/app/other.go", Line: 7}) {
+		parseT.Fatalf("no-offset frame = %+v, want input location and line preserved", parseGot[1])
+	}
+}
