@@ -89,6 +89,12 @@ func finishHookOrderRender(parseHooks *Hooks) {
 	if !hookSignatureRecordingEnabled || parseHooks == nil {
 		return
 	}
+	// Components that use no hooks do not have a signature to compare. Keep
+	// their steady-state render allocation free; the tracker can be created
+	// lazily by beginHookOrderRender once a hook has actually been recorded.
+	if parseHooks.order == nil && len(parseHooks.signature) == 0 {
+		return
+	}
 	if parseHooks.order == nil {
 		parseHooks.order = &hookOrderTracker{}
 	}

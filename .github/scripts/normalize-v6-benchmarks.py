@@ -3,9 +3,9 @@
 
 The v7 benchmark suite uses testing.B.Loop.  Applying the same loop driver to
 the historical source keeps the v6/v7 comparison focused on the implementation.
-The old loop index is retained because some benchmarks deliberately vary input
-with the iteration number.  It remains in the loop's original scope and keeps
-its original zero-based values by using the post statement.
+The old loop index is retained only when the body uses it. Some benchmarks
+deliberately vary input with the iteration number; unused increments would
+otherwise skew tiny benchmarks against v7's bare b.Loop form.
 """
 
 from __future__ import annotations
@@ -22,6 +22,49 @@ LOOP = re.compile(
     r"[ \t]*(?P=index)\+\+[ \t]*\{",
     re.MULTILINE,
 )
+
+
+def loop_body(source: str, opening_brace: int) -> str | None:
+    """Return a Go loop body, ignoring braces inside comments and literals."""
+    depth = 1
+    index = opening_brace + 1
+    start = index
+    state = "code"
+    while index < len(source):
+        char = source[index]
+        next_char = source[index + 1] if index + 1 < len(source) else ""
+        if state == "code":
+            if char == "/" and next_char == "/":
+                state = "line_comment"
+                index += 2
+                continue
+            if char == "/" and next_char == "*":
+                state = "block_comment"
+                index += 2
+                continue
+            if char in ('"', "'", "`"):
+                state = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[start:index]
+        elif state == "line_comment":
+            if char == "\n":
+                state = "code"
+        elif state == "block_comment":
+            if char == "*" and next_char == "/":
+                state = "code"
+                index += 2
+                continue
+        elif char == state:
+            state = "code"
+        elif state != "`" and char == "\\":
+            index += 2
+            continue
+        index += 1
+    return None
 
 
 def normalize_props_storage_source(path: Path, source: str) -> tuple[str, int]:
@@ -70,6 +113,9 @@ def main() -> int:
             indent = match.group("indent")
             index = match.group("index")
             bench = match.group("bench")
+            body = loop_body(before, match.end() - 1)
+            if body is not None and not re.search(rf"\b{re.escape(index)}\b", body):
+                return f"{indent}for {bench}.Loop() {{"
             return f"{indent}for {index} := 0; {bench}.Loop(); {index}++ {{"
 
         after = LOOP.sub(replace, before)
