@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/query"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/query"
 )
 
 // UseQuery subscribes the calling component to a key in a query.Cache and returns the
@@ -34,8 +34,12 @@ func UseQuery[T any](parseCache *query.Cache, parseKey string, parseFetcher func
 	parseRerender := UseForceUpdate()
 	parseEffectDeps := append([]any{parseKey}, parseDeps...)
 	UseEffect(func() func() {
-		query.SWR(parseCache, parseKey, parseFetcher, func(query.Result[T]) { parseRerender() })
-		return nil
+		parseRefetch := func() {
+			query.SWR(parseCache, parseKey, parseFetcher, func(query.Result[T]) { parseRerender() })
+		}
+		parseRefetch()
+		// Registered so UseRevalidateOnFocus can trigger a refetch; unregistered when key or deps change.
+		return storeQueryRevalidator(parseCache, parseRefetch)
 	}, parseEffectDeps...)
 	return query.Snapshot[T](parseCache, parseKey)
 }

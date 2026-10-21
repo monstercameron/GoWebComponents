@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	"example.com/gwc-wails-counter/contracts"
-	"github.com/monstercameron/GoWebComponents/v6/css"
-	"github.com/monstercameron/GoWebComponents/v6/desktop"
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/kvstate"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/kvstate"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderCounter renders local state and lifecycle-owned native tasks.

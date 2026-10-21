@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // TestEffectRunsOnceAndOnDepsChange: an effect runs after mount, re-runs (after
@@ -21,7 +21,7 @@ func TestEffectRunsOnceAndOnDepsChange(t *testing.T) {
 
 	var parseSetDep func(any)
 	parseEffectRuns, parseCleanups := 0, 0
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGetDep, parseSet := runtime.GoUseState(rt, 0)
 		parseSetDep = parseSet
 		runtime.GoUseEffect(func() func() {
@@ -63,7 +63,7 @@ func TestEffectCleanupOnUnmount(t *testing.T) {
 	}
 
 	// Mount with the effect-bearing child present.
-	rt.RenderInto(root, runtime.CreateElement("div", map[string]any{},
+	_ = rt.RenderInto(root, runtime.CreateElement("div", map[string]any{},
 		runtime.CreateElement(parseChild, map[string]any{})))
 	if parseEffectRuns < 1 {
 		t.Fatalf("mount: effect did not run (effectRuns=%d)", parseEffectRuns)
@@ -71,7 +71,7 @@ func TestEffectCleanupOnUnmount(t *testing.T) {
 	parseCleanupsBefore := parseCleanups
 
 	// Re-render with the child removed -> unmount -> cleanup should fire.
-	rt.RenderInto(root, runtime.CreateElement("div", map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement("div", map[string]any{}))
 	if parseCleanups <= parseCleanupsBefore {
 		t.Errorf("unmount: cleanup did not run (cleanups %d -> %d)", parseCleanupsBefore, parseCleanups)
 	}

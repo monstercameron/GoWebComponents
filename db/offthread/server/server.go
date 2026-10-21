@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/monstercameron/GoWebComponents/v6/db/offthread"
-	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v7/db/offthread"
+	"github.com/monstercameron/GoWebComponents/v7/db/sqlite"
 )
 
 // defaultMaxRows caps a result set when a request does not.
@@ -99,7 +99,12 @@ func (parseServer *Server) handleBegin(parseCtx context.Context) offthread.Respo
 		return offthread.Response{Err: "a transaction is already open on this database"}
 	}
 
-	parseTx, parseErr := parseServer.db.Begin(parseCtx)
+	// The transaction outlives this request, so it must not inherit the request's
+	// cancellation: database/sql rolls a transaction back when the context it was
+	// begun with ends, and a worker's per-request context ends once the response
+	// is posted. The client's later statements and commit would then hit a
+	// transaction that was silently discarded.
+	parseTx, parseErr := parseServer.db.Begin(context.WithoutCancel(parseCtx))
 	if parseErr != nil {
 		return offthread.Response{Err: parseErr.Error()}
 	}
@@ -131,7 +136,23 @@ func (parseServer *Server) handleFinishTransaction(parseRequest offthread.Reques
 	return offthread.Response{}
 }
 
+// refuseAutocommitDuringTransaction reports the refusal for a statement that
+// names no transaction while one is open. The open transaction owns the only
+// pooled connection and this server answers one request at a time, so waiting
+// for the connection would hang the database thread permanently.
+func (parseServer *Server) refuseAutocommitDuringTransaction() (offthread.Response, bool) {
+	if len(parseServer.openTransactions) == 0 {
+		return offthread.Response{}, false
+	}
+	return offthread.Response{Err: "a transaction is open; commit or roll back before running a statement outside it"}, true
+}
+
 func (parseServer *Server) handleExec(parseCtx context.Context, parseRequest offthread.Request) offthread.Response {
+	if parseRequest.TxID == "" {
+		if parseRefusal, parseRefused := parseServer.refuseAutocommitDuringTransaction(); parseRefused {
+			return parseRefusal
+		}
+	}
 	parseArgs := toGoArgs(parseRequest.Args)
 
 	var parseResult sql.Result
@@ -162,6 +183,11 @@ func (parseServer *Server) handleExec(parseCtx context.Context, parseRequest off
 }
 
 func (parseServer *Server) handleQuery(parseCtx context.Context, parseRequest offthread.Request) offthread.Response {
+	if parseRequest.TxID == "" {
+		if parseRefusal, parseRefused := parseServer.refuseAutocommitDuringTransaction(); parseRefused {
+			return parseRefusal
+		}
+	}
 	parseArgs := toGoArgs(parseRequest.Args)
 
 	var parseRows *sql.Rows
@@ -178,7 +204,7 @@ func (parseServer *Server) handleQuery(parseCtx context.Context, parseRequest of
 	if parseErr != nil {
 		return offthread.Response{Err: parseErr.Error()}
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 
 	return materializeRows(parseRows, parseRequest.MaxRows)
 }

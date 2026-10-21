@@ -14,8 +14,9 @@ for discussion before commitment.
 
 - **DevX polish to "god-tier".** Closing the per-feature last-mile gaps tracked
   in `research/devx-maxxing/IMPROVEMENT_PLAN.md` — structured `gwc check --fix`
-  remediations, the transitive server-leak analyzer, a blocking vuln gate, the
-  bench-drift merge gate, and cross-platform prebuilt `gwc` binaries.
+  remediations and the transitive server-leak analyzer. The blocking vuln gate,
+  bench-drift merge gate, and cross-platform prebuilt `gwc` binaries shipped
+  with v7.0.0.
 - **Accessibility by default.** Router-managed focus on navigation, the static
   `gwc-a11y` lint, and arrow-key roving in the catalog components.
 

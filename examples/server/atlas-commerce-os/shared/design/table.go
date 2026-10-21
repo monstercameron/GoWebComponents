@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v6/css"
+import "github.com/monstercameron/GoWebComponents/v7/css"
 
 // The data table — the primitive Atlas needs most, and the one the old design did
 // not have.
@@ -57,7 +57,7 @@ var tableBundle = clip(css.Rules(
 	// heavy 2px ink rule. That rule is the single mark that makes a <table> read as
 	// printed paperwork rather than as a grid of divs, and it is why the header does
 	// not need a filled background to separate itself.
-	css.Descendant(css.El("thead th"),
+	css.Descendant(css.Sel("thead th"),
 		css.Rules(
 			Display(StepMicro),
 			css.TextColor(Graphite()),
@@ -76,13 +76,13 @@ var tableBundle = clip(css.Rules(
 	),
 
 	// --- body cells -------------------------------------------------------------
-	css.Descendant(css.El("tbody td"),
+	css.Descendant(css.Sel("tbody td"),
 		css.PaddingX(Space3),
 		css.PaddingY(Space2),
 		css.Raw("border-bottom", hairlineRule()),
 		css.Raw("vertical-align", "top"),
 	),
-	css.Descendant(css.El("tbody th"),
+	css.Descendant(css.Sel("tbody th"),
 		css.Rules(
 			// A row header (a SKU in the first column) stays mono but gains weight,
 			// so the row has an anchor to read from without a second color.
@@ -106,7 +106,7 @@ var tableBundle = clip(css.Rules(
 	// Zebra earns its place here specifically because these tables are wide: at 12+
 	// columns, tracking one row across the screen is the failure mode, and stripes
 	// fix it more cheaply than row hover alone.
-	css.Descendant(css.El("tbody tr"),
+	css.Descendant(css.Sel("tbody tr"),
 		css.NthChild(css.Odd, css.Bg(PaperSunk()))...,
 	),
 
@@ -121,12 +121,12 @@ var tableBundle = clip(css.Rules(
 	// row gives "& tbody tr:hover td" (0-1-3) against the zebra's
 	// "& tbody tr:nth-child(odd)" (0-1-2), so hover reliably beats the stripe on
 	// every row. Never rely on source order inside a fold.
-	css.Descendant(css.El("tbody tr"),
+	css.Descendant(css.Sel("tbody tr"),
 		css.Hover(
 			css.Descendant(css.El("td"), css.Bg(Paper()))...,
 		)...,
 	),
-	css.Descendant(css.El("tbody tr"),
+	css.Descendant(css.Sel("tbody tr"),
 		css.Hover(
 			css.Descendant(css.El("th"), css.Bg(Paper()))...,
 		)...,

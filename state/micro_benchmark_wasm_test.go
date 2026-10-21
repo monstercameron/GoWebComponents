@@ -15,7 +15,7 @@ func BenchmarkMarshalSnapshotJSONMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_, parseErr := MarshalSnapshotJSON(parseSnapshot)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -37,7 +37,7 @@ func BenchmarkUnmarshalSnapshotJSONMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_, parseDecodeErr := UnmarshalSnapshotJSON(parsePayload)
 		if parseDecodeErr != nil {
 			parseB.Fatal(parseDecodeErr)

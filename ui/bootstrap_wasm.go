@@ -4,7 +4,8 @@ package ui
 
 import (
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 	"syscall/js"
 )
 
@@ -17,12 +18,12 @@ func ReadBootstrapScript(parseScriptID string) (SSRBootstrap, error) {
 
 	parseDocument := js.Global().Get("document")
 	if !parseDocument.Truthy() {
-		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapScript could not access document")
+		return SSRBootstrap{}, errcode.New(errcode.UIBootstrapUnavailable, "ui.ReadBootstrapScript could not access document")
 	}
 
 	parseScriptNode := parseDocument.Call("getElementById", parseId)
 	if !parseScriptNode.Truthy() {
-		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapScript could not find script element with id %q", parseId)
+		return SSRBootstrap{}, errcode.New(errcode.UIBootstrapUnavailable, fmt.Sprintf("ui.ReadBootstrapScript could not find script element with id %q (emit the bootstrap script from the server)", parseId))
 	}
 
 	parseText := parseScriptNode.Get("textContent").String()
@@ -38,12 +39,12 @@ func ReadBootstrapReferenceScript(parseScriptID string) (SSRBootstrapReference, 
 
 	parseDocument := js.Global().Get("document")
 	if !parseDocument.Truthy() {
-		return SSRBootstrapReference{}, fmt.Errorf("ui.ReadBootstrapReferenceScript could not access document")
+		return SSRBootstrapReference{}, errcode.New(errcode.UIBootstrapUnavailable, "ui.ReadBootstrapReferenceScript could not access document")
 	}
 
 	parseScriptNode := parseDocument.Call("getElementById", parseId)
 	if !parseScriptNode.Truthy() {
-		return SSRBootstrapReference{}, fmt.Errorf("ui.ReadBootstrapReferenceScript could not find script element with id %q", parseId)
+		return SSRBootstrapReference{}, errcode.New(errcode.UIBootstrapUnavailable, fmt.Sprintf("ui.ReadBootstrapReferenceScript could not find script element with id %q (emit the bootstrap reference script from the server)", parseId))
 	}
 
 	parseText := parseScriptNode.Get("textContent").String()
@@ -58,12 +59,12 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	}
 	parseRef = parseNormalizedRef
 	if parseRef.URL == "" {
-		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapReference requires a non-empty URL")
+		return SSRBootstrap{}, errcode.New(errcode.UIBootstrapUnavailable, "ui.ReadBootstrapReference requires a non-empty URL")
 	}
 
 	parseFetchFunction := js.Global().Get("fetch")
 	if !parseFetchFunction.Truthy() {
-		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapReference could not access fetch")
+		return SSRBootstrap{}, errcode.New(errcode.UIBootstrapUnavailable, "ui.ReadBootstrapReference could not access fetch")
 	}
 
 	type fetchResult struct {
@@ -88,7 +89,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 		if parseRecovered := recover(); parseRecovered != nil {
 			runtime.ContainPanic("ui", runtime.PanicPhaseAsync, "ReadBootstrapReference callback", parseRecovered)
 			select {
-			case parseResultCh <- fetchResult{err: fmt.Errorf("bootstrap fetch callback panicked: %v", parseRecovered)}:
+			case parseResultCh <- fetchResult{err: errcode.New(errcode.UIBootstrapUnavailable, fmt.Sprintf("bootstrap fetch callback panicked: %v", parseRecovered))}:
 			default:
 			}
 		}
@@ -113,7 +114,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	parseDataFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
 		defer parseContainToChannel()
 		if len(parseArgs2) == 0 {
-			parseResultCh <- fetchResult{err: fmt.Errorf("bootstrap fetch returned no data")}
+			parseResultCh <- fetchResult{err: errcode.New(errcode.UIBootstrapUnavailable, "bootstrap fetch returned no data")}
 			return nil
 		}
 		parseBuffer := parseArgs2[0]
@@ -130,7 +131,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 		if len(parseArgs3) > 0 {
 			parseMessage = parseArgs3[0].String()
 		}
-		parseResultCh <- fetchResult{err: fmt.Errorf("%s", parseMessage)}
+		parseResultCh <- fetchResult{err: errcode.New(errcode.UIBootstrapUnavailable, parseMessage)}
 		return nil
 	})
 
@@ -150,6 +151,6 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	case SSRBootstrapFormatCBOR:
 		return UnmarshalSSRBootstrapBinary(parseResult.data)
 	default:
-		return SSRBootstrap{}, fmt.Errorf("unsupported bootstrap reference format %q", parseRef.Format)
+		return SSRBootstrap{}, errcode.New(errcode.UIBootstrapUnavailable, fmt.Sprintf("unsupported bootstrap reference format %q (use json or cbor)", parseRef.Format))
 	}
 }

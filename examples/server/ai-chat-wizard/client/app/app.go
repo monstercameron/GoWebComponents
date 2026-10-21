@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v6/i18n"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/logging"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v7/i18n"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/logging"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // ParseApp renders the chat wizard application shell.
@@ -310,6 +310,9 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 			parsePendingThreadRouteResolution.Set(parseThreadRoutePublicID)
 			parsePendingRootRouteWarningConvID.Set(0)
 			parseConversationList.ResolveRoute(parseThreadRoutePublicID)
+		case shouldDeferPendingRootRouteReset(parseCurrentPath, parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID, parsePendingRootRouteWarningConvID.Get()):
+			// Keep the marker until the normalization effect commits the thread
+			// route; clearing it here would reopen the root-reset race.
 		case shouldResetDraftForRootRoute(parseCurrentPath, parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
 			parsePendingThreadRouteResolution.Set("")
 			parseLastRouteMismatchWarning.Set("")

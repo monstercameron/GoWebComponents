@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v6/agentbridge"
+	"github.com/monstercameron/GoWebComponents/v7/agentbridge"
 )
 
 const (

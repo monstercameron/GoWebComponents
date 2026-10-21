@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -226,7 +226,7 @@ func TestAdminControlOpsWorkspaceScope(parseT *testing.T) {
 
 // BenchmarkParseHasAdminIncidentResolvedStatus reports micro-benchmark throughput for incident-status resolution checks.
 func BenchmarkParseHasAdminIncidentResolvedStatus(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseHasAdminIncidentResolvedStatus("resolved")
 	}
 }

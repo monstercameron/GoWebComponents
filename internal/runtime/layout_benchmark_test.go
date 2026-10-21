@@ -19,7 +19,7 @@ func BenchmarkRuntimeLayoutBaselines(parseB *testing.B) {
 	parseB.ReportMetric(float64(unsafe.Sizeof(Element{})), "element-bytes")
 	parseB.ReportMetric(float64(unsafe.Sizeof(FetchState{})), "fetchstate-bytes")
 
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 	}
 }
 
@@ -38,8 +38,7 @@ func BenchmarkFiberHotFieldScan256(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseDirtyCount := 0
 		var parseLastType any
 		var isAnyNeedsUpdate bool
@@ -71,8 +70,7 @@ func BenchmarkFiberSiblingWalk256(parseB *testing.B) {
 	parseHead := &parseFibers[0]
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseCount := 0
 		var parseLastType any
 		for parseFiber := parseHead; parseFiber != nil; parseFiber = parseFiber.sibling {
@@ -101,8 +99,7 @@ func BenchmarkHooksIndexResetHotPath(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseHooks.index = 7
 		parseHooks.stateIndex = 3
 		parseHooks.depIndex = 2

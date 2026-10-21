@@ -4,8 +4,45 @@ package runtime
 
 import (
 	"fmt"
+	"sync"
 	"syscall/js"
+	"weak"
 )
+
+// fetchRequestSeqKey identifies one GoUseFetch slot without keeping its hooks
+// alive: the weak pointer lets an unmounted component's hooks be collected.
+type fetchRequestSeqKey struct {
+	hooks weak.Pointer[Hooks]
+	index int
+}
+
+var (
+	fetchRequestSeqMu sync.Mutex
+	fetchRequestSeqs  = map[fetchRequestSeqKey]uint64{}
+)
+
+// bumpFetchRequestSeq starts a new request for a fetch slot and returns its
+// sequence number. Slots whose hooks were collected are pruned on the way.
+func bumpFetchRequestSeq(parseHooks *Hooks, parseIndex int) uint64 {
+	fetchRequestSeqMu.Lock()
+	defer fetchRequestSeqMu.Unlock()
+	for parseKey := range fetchRequestSeqs {
+		if parseKey.hooks.Value() == nil {
+			delete(fetchRequestSeqs, parseKey)
+		}
+	}
+	parseKey := fetchRequestSeqKey{hooks: weak.Make(parseHooks), index: parseIndex}
+	fetchRequestSeqs[parseKey]++
+	return fetchRequestSeqs[parseKey]
+}
+
+// isFetchRequestCurrent reports whether parseSeq is still the newest request for
+// the slot, so an older response can be dropped instead of overwriting newer state.
+func isFetchRequestCurrent(parseHooks *Hooks, parseIndex int, parseSeq uint64) bool {
+	fetchRequestSeqMu.Lock()
+	defer fetchRequestSeqMu.Unlock()
+	return fetchRequestSeqs[fetchRequestSeqKey{hooks: weak.Make(parseHooks), index: parseIndex}] == parseSeq
+}
 
 // GoUseFetch is a manual-trigger fetch hook that manages async data fetching
 // It uses goroutines and channels internally to fetch data without blocking
@@ -80,6 +117,8 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 			return
 		}
 
+		parseSeq := bumpFetchRequestSeq(parseHooks, parseIdx)
+
 		// Mark as loading
 		parseHooks.fetches[parseIdx].state = FetchState{Data: nil, Error: "", Loading: true}
 
@@ -98,6 +137,9 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 			parseFetch := js.Global().Get("fetch")
 			if !parseFetch.Truthy() {
 				parseRt.applyAsyncStateWrite(func() {
+					if !isFetchRequestCurrent(parseHooks, parseIdx, parseSeq) {
+						return
+					}
 					parseHooks.fetches[parseIdx].state = FetchState{
 						Data:    nil,
 						Error:   "fetch API unavailable",
@@ -128,6 +170,9 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 					parseErrorMsg := fmt.Sprintf("Fetch failed: %d %s", parseStatus, parseStatusText)
 
 					parseRt.applyAsyncStateWrite(func() {
+						if !isFetchRequestCurrent(parseHooks, parseIdx, parseSeq) {
+							return
+						}
 						parseHooks.fetches[parseIdx].state = FetchState{
 							Data:    nil,
 							Error:   parseErrorMsg,
@@ -151,6 +196,9 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 
 					parseData := parseArgs2[0].String()
 					parseRt.applyAsyncStateWrite(func() {
+						if !isFetchRequestCurrent(parseHooks, parseIdx, parseSeq) {
+							return
+						}
 						parseHooks.fetches[parseIdx].state = FetchState{
 							Data:    parseData,
 							Error:   "",
@@ -169,6 +217,9 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 					defer parseTextCatch.Release()
 
 					parseRt.applyAsyncStateWrite(func() {
+						if !isFetchRequestCurrent(parseHooks, parseIdx, parseSeq) {
+							return
+						}
 						parseHooks.fetches[parseIdx].state = FetchState{
 							Data:    nil,
 							Error:   "Failed to read response body",
@@ -192,6 +243,9 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 				defer parseCatch.Release()
 
 				parseRt.applyAsyncStateWrite(func() {
+					if !isFetchRequestCurrent(parseHooks, parseIdx, parseSeq) {
+						return
+					}
 					parseHooks.fetches[parseIdx].state = FetchState{
 						Data:    nil,
 						Error:   "Fetch failed", // Matches test expectation

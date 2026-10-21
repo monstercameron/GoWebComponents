@@ -5,8 +5,8 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // TestConditionalNilRenderTogglesMount: a component that returns nil renders
@@ -18,7 +18,7 @@ func TestConditionalNilRenderTogglesMount(t *testing.T) {
 	root := adapter.CreateElement("div")
 
 	var parseSetShow func(any)
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseShow, parseSetter := runtime.GoUseState(rt, true)
 		parseSetShow = parseSetter
 		if !parseShow() {

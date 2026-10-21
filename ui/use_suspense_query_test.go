@@ -6,9 +6,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/query"
+	"github.com/monstercameron/GoWebComponents/v7/query"
 )
 
 // TestUseSuspenseQueryReturnsCachedValueWithoutSuspending proves the resolved path: a fresh cached
@@ -71,42 +72,44 @@ func TestUseSuspenseQuerySuspendsToFallbackWhileLoading(parseT *testing.T) {
 // transitions from fallback to content. (Native UseRef is stateless, so each RenderToString builds
 // a fresh box; the second render sees the now-settled cache and resolves immediately.)
 func TestUseSuspenseQueryResumesWithDataAfterFetch(parseT *testing.T) {
-	parseCache := query.New(query.WithStaleTime(time.Hour))
-	parseRelease := make(chan struct{})
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseCache := query.New(query.WithStaleTime(time.Hour))
+		parseRelease := make(chan struct{})
 
-	parseComponent := func() Node {
-		return Text(UseSuspenseQuery(parseCache, "user", func() (string, error) {
-			<-parseRelease
-			return "Ada", nil
-		}))
-	}
-	parseTree := func() Node {
-		return AsyncBoundary(AsyncBoundaryProps{Fallback: Text("loading"), Content: CreateElement(parseComponent)})
-	}
-
-	// First render suspends → fallback, and starts the loader goroutine.
-	if parseM1, parseErr := RenderToString(parseTree()); parseErr != nil || parseM1 != "loading" {
-		parseT.Fatalf("first render = %q, %v; want loading", parseM1, parseErr)
-	}
-
-	// Let the fetch complete and land in the cache.
-	close(parseRelease)
-	parseLanded := false
-	for range 500 {
-		if parseV, parseOk := parseCache.Peek("user"); parseOk && parseV == "Ada" {
-			parseLanded = true
-			break
+		parseComponent := func() Node {
+			return Text(UseSuspenseQuery(parseCache, "user", func() (string, error) {
+				<-parseRelease
+				return "Ada", nil
+			}))
 		}
-		time.Sleep(time.Millisecond)
-	}
-	if !parseLanded {
-		parseT.Fatal("fetch never populated the cache")
-	}
+		parseTree := func() Node {
+			return AsyncBoundary(AsyncBoundaryProps{Fallback: Text("loading"), Content: CreateElement(parseComponent)})
+		}
 
-	// Second render now sees settled data → content, not fallback.
-	if parseM2, parseErr := RenderToString(parseTree()); parseErr != nil || parseM2 != "Ada" {
-		parseT.Fatalf("second render = %q, %v; want Ada", parseM2, parseErr)
-	}
+		// First render suspends → fallback, and starts the loader goroutine.
+		if parseM1, parseErr := RenderToString(parseTree()); parseErr != nil || parseM1 != "loading" {
+			parseT.Fatalf("first render = %q, %v; want loading", parseM1, parseErr)
+		}
+
+		// Let the fetch complete and land in the cache.
+		close(parseRelease)
+		parseLanded := false
+		for range 500 {
+			if parseV, parseOk := parseCache.Peek("user"); parseOk && parseV == "Ada" {
+				parseLanded = true
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		if !parseLanded {
+			parseT.Fatal("fetch never populated the cache")
+		}
+
+		// Second render now sees settled data → content, not fallback.
+		if parseM2, parseErr := RenderToString(parseTree()); parseErr != nil || parseM2 != "Ada" {
+			parseT.Fatalf("second render = %q, %v; want Ada", parseM2, parseErr)
+		}
+	})
 }
 
 // TestUseSuspenseQuerySurfacesErrorToErrorBoundary proves the error path: a settled cache error is

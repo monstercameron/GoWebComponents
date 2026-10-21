@@ -1,8 +1,10 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/anim"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"math"
+
+	"github.com/monstercameron/GoWebComponents/v7/anim"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // settledEpsilon is the positional/velocity threshold below which the spring is
@@ -41,7 +43,7 @@ func UseSpring(parseTarget float64, parseConfig anim.SpringConfig) float64 {
 		if parseS == nil {
 			return func() {}
 		}
-		return startSpringAnimation(parseS, parsePos.Set, interop.RequestAnimationFrame)
+		return startSpringAnimationTo(parseS, parseTarget, parsePos.Set, interop.RequestAnimationFrame)
 	}, parseTarget)
 
 	return parsePos.Get()
@@ -61,9 +63,26 @@ func springReducedSnap(parseReduced bool, parseTarget float64, parseSetPosition 
 
 type springFrameScheduler func(func(float64)) func()
 
+// startSpringAnimation runs parseS to rest without knowing its destination, so it cannot snap the final
+// position; UseSpring uses startSpringAnimationTo instead.
 func startSpringAnimation(parseS *anim.Spring, parseSetPosition func(float64), parseRequestFrame springFrameScheduler) func() {
+	return startSpringAnimationTo(parseS, math.NaN(), parseSetPosition, parseRequestFrame)
+}
+
+// startSpringAnimationTo animates parseS toward parseTarget (NaN when unknown). With a known target the
+// rest threshold is capped at 1% of the travel, so a short move such as scale 1 -> 1.05 still animates
+// instead of counting as settled on the first frame, and the final frame publishes the exact target
+// rather than a position up to the threshold away from it.
+func startSpringAnimationTo(parseS *anim.Spring, parseTarget float64, parseSetPosition func(float64), parseRequestFrame springFrameScheduler) func() {
 	if parseS == nil || parseRequestFrame == nil {
 		return func() {}
+	}
+	parseEpsilon := settledEpsilon
+	isTargetKnown := !math.IsNaN(parseTarget)
+	if isTargetKnown {
+		if parseTravel := math.Abs(parseTarget - parseS.Position()); parseTravel*0.01 < parseEpsilon && parseTravel > 0 {
+			parseEpsilon = parseTravel * 0.01
+		}
 	}
 	if parseSetPosition == nil {
 		parseSetPosition = func(float64) {}
@@ -95,10 +114,15 @@ func startSpringAnimation(parseS *anim.Spring, parseSetPosition func(float64), p
 			parsePrevTS = parseTimestampMillis
 
 			parseNewPos := parseS.Step(parseDt)
-			parseSetPosition(parseNewPos)
-			if !parseS.IsSettled(settledEpsilon) {
-				parseSchedule()
+			if parseS.IsSettled(parseEpsilon) {
+				if isTargetKnown {
+					parseNewPos = parseTarget
+				}
+				parseSetPosition(parseNewPos)
+				return
 			}
+			parseSetPosition(parseNewPos)
+			parseSchedule()
 		})
 	}
 

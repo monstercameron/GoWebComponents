@@ -5,12 +5,12 @@ portable `desktop.FileDialogBackend`, `desktop.NativeBackend`, and optional
 capability contracts using Wails v3.0.0-beta.17 with a pinned Windows menu patch
 in the [GWC-maintained fork](https://github.com/monstercameron/wails).
 Only the native application host imports this package. Wasm/shared application
-code imports `github.com/monstercameron/GoWebComponents/v6/desktop` instead.
+code imports `github.com/monstercameron/GoWebComponents/v7/desktop` instead.
 
 ```go
 import (
-    "github.com/monstercameron/GoWebComponents/v6/desktop"
-    wailsadapter "github.com/monstercameron/GoWebComponents/v6/desktop/wails"
+    "github.com/monstercameron/GoWebComponents/v7/desktop"
+    wailsadapter "github.com/monstercameron/GoWebComponents/v7/desktop/wails"
     "github.com/wailsapp/wails/v3/pkg/application"
 )
 

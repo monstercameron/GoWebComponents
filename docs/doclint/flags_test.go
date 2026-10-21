@@ -87,7 +87,7 @@ func TestDocsGwcFlagsExist(t *testing.T) {
 func TestScanDocGwcFlagsCatchesPlantedUnknown(t *testing.T) {
 	root := t.TempDir()
 	doc := "# Doc\n\n```powershell\n" +
-		"go run ./tools/gwc dev -app .\\main.go -totallyfakeflag x\n" + // gwc line: app ok, totallyfakeflag bad
+		"go -C tools run ./gwc dev -app .\\main.go -totallyfakeflag x\n" + // gwc line: app ok, totallyfakeflag bad
 		"go test ./... -count=1 -v\n" + // not a gwc line: -count/-v must be ignored
 		"```\n"
 	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte(doc), 0o644); err != nil {

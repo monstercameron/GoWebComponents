@@ -76,6 +76,7 @@ func recordHookSignature(parseHooks *Hooks, parseKind string) {
 	if parseHooks == nil || parseKind == "" {
 		return
 	}
+	checkHookOrderSlot(parseHooks, parseKind)
 	parseHooks.signature = append(parseHooks.signature, parseKind)
 }
 

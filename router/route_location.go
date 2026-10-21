@@ -12,6 +12,10 @@ type Location struct {
 	Query string
 	// Params are the params captured by the matched route pattern.
 	Params map[string]string
+
+	// revision bumps when loader data changes without a path change, so
+	// subscribers of UseRouteData re-render on revalidation.
+	revision int //nolint:unused // read by use_route_wasm.go.
 }
 
 // Param returns the captured route param for key, or "" if absent.

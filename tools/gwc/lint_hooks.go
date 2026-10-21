@@ -57,6 +57,9 @@ func collectLintHookRuleFiles(parseRootPath string, parsePaths []string) ([]stri
 			return nil, parseErr
 		}
 		for _, parsePath := range parseTargetFiles {
+			if shouldSkipLintHookRuleBenchmarkPath(parseRootPath, parsePath) {
+				continue
+			}
 			parseFilesByPath[parsePath] = struct{}{}
 		}
 	}
@@ -66,6 +69,29 @@ func collectLintHookRuleFiles(parseRootPath string, parsePaths []string) ([]stri
 	}
 	sort.Strings(parseFiles)
 	return parseFiles, nil
+}
+
+// shouldSkipLintHookRuleBenchmarkPath excludes benchmark fixtures whose hook
+// shapes intentionally stress repeated hook calls. These files are benchmark
+// targets rather than application components; changing them would invalidate
+// the measurements. Keep this list exact so production examples continue to
+// receive hook-rule diagnostics.
+func shouldSkipLintHookRuleBenchmarkPath(parseRootPath string, parsePath string) bool {
+	parseRel, parseErr := filepath.Rel(parseRootPath, parsePath)
+	if parseErr != nil {
+		return false
+	}
+	parseRel = filepath.ToSlash(parseRel)
+	for _, parsePrefix := range []string{
+		"test/benchmark/",
+		"examples/testing/render-benchmark/",
+		"research/framework-bench/",
+	} {
+		if strings.HasPrefix(parseRel, parsePrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // collectLintHookRuleTargetFiles resolves one lint path pattern into local Go files.
@@ -141,7 +167,10 @@ func collectLintHookRuleRecursiveFiles(parseRootPath string) ([]string, error) {
 			}
 			return nil
 		}
-		if filepath.Ext(parseEntry.Name()) == ".go" {
+		// Test files commonly contain deliberately invalid hook call shapes to
+		// exercise the renderer. The hook rule is a production-source check, so
+		// keep those fixtures out while retaining all non-test examples.
+		if filepath.Ext(parseEntry.Name()) == ".go" && !strings.HasSuffix(parseEntry.Name(), "_test.go") {
 			parseFiles = append(parseFiles, parsePath)
 		}
 		return nil
@@ -165,7 +194,8 @@ func collectLintHookRuleFileIssues(parseRootPath string, parsePath string) ([]li
 		return nil, fmt.Errorf("parse hook rules file %s: %w", parsePath, parseErr)
 	}
 	parseImports := buildLintHookRuleImports(parseFile.Imports)
-	if len(parseImports) == 0 {
+	parseHTMLImports := buildLintHookHTMLImports(parseFile.Imports)
+	if len(parseImports) == 0 && len(parseHTMLImports) == 0 {
 		return nil, nil
 	}
 
@@ -180,6 +210,22 @@ func collectLintHookRuleFileIssues(parseRootPath string, parsePath string) ([]li
 			return false
 		}
 		if parseCall, isParseCall := parseNode.(*ast.CallExpr); isParseCall {
+			if parseHandlerName, parseHandlerPos, isParseHandler := isLintHookInlineHandlerCall(parseCall, parseHTMLImports); isParseHandler {
+				if parseListContext := getLintHookListContext(parseStack, parseHTMLImports); parseListContext != "" {
+					parsePosition := parseFileSet.Position(parseHandlerPos)
+					parseMessage, parseSymbol := buildLintHookInlineHandlerIssue(parseHandlerName, parseListContext)
+					parseIssues = append(parseIssues, lintIssueRecord{
+						Linter:     lintHookRuleLinter,
+						Severity:   "warning",
+						Path:       parseLintIssuePath(parseRootPath, parsePath),
+						Line:       parsePosition.Line,
+						Column:     parsePosition.Column,
+						Message:    parseMessage,
+						SourceLine: parseLintHookRuleSourceLine(parseSourceLines, parsePosition.Line),
+						Symbol:     parseSymbol,
+					})
+				}
+			}
 			parseHookName, parseHookPos, isParseHook := parseLintHookRuleCallName(parseCall, parseImports)
 			if isParseHook {
 				parseContext := buildLintHookRuleContext(parseStack)
@@ -290,8 +336,8 @@ func parseLintHookRuleCallFun(parseExpr ast.Expr) ast.Expr {
 // parseLintHookRuleImportPackage extracts the final package path segment.
 func parseLintHookRuleImportPackage(parseImportPath string) string {
 	parseImportPath = strings.TrimSpace(parseImportPath)
-	if parseIndex := strings.LastIndex(parseImportPath, "/"); parseIndex >= 0 {
-		return parseImportPath[parseIndex+1:]
+	if _, parseAfter, isSlashFound := strings.CutLast(parseImportPath, "/"); isSlashFound {
+		return parseAfter
 	}
 	return parseImportPath
 }
@@ -299,7 +345,7 @@ func parseLintHookRuleImportPackage(parseImportPath string) string {
 // isLintHookRuleImportPath reports whether an import path is one of the GWC hook packages.
 func isLintHookRuleImportPath(parseImportPath string) bool {
 	parseImportPath = strings.TrimSpace(parseImportPath)
-	if !strings.HasPrefix(parseImportPath, "github.com/monstercameron/GoWebComponents/v6/") {
+	if !strings.HasPrefix(parseImportPath, "github.com/monstercameron/GoWebComponents/v7/") {
 		return false
 	}
 	switch parseLintHookRuleImportPackage(parseImportPath) {

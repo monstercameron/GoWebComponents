@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/server/provider"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -167,8 +167,7 @@ func BenchmarkRequireUsageBudget(parseB *testing.B) {
 	parseServer := &chatServer{store: parseStore, logger: parseNewBenchmarkLogger()}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseReleaseBudget, parseErr := parseServer.parseRequireUsageBudget(parseUser.ID)
 		if parseErr != nil {
 			parseB.Fatalf("parseRequireUsageBudget: %v", parseErr)
@@ -180,8 +179,7 @@ func BenchmarkRequireUsageBudget(parseB *testing.B) {
 func BenchmarkBuildSendAccessDeniedStatus(parseB *testing.B) {
 	parseInputErr := status.Error(codes.ResourceExhausted, "monthly token quota exceeded: used=100000 limit=100000")
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseBuildSendAccessDeniedStatus(parseInputErr, "team")
 	}
 }

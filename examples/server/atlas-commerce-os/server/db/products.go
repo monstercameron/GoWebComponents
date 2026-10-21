@@ -91,7 +91,7 @@ func (parseS *Store) ProductAdminList(parseCtx context.Context, parseQuery Produ
 	if parseErr != nil {
 		return nil, fmt.Errorf("query product admin list: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ProductAdminRecord{}
 	for parseRows.Next() {
 		var parseSku string
@@ -122,7 +122,7 @@ func (parseS *Store) CreateProduct(parseCtx context.Context, parseInput CreatePr
 	if parseErr != nil {
 		return ProductAdminRecord{}, fmt.Errorf("begin create product transaction: %w", parseErr)
 	}
-	defer parseTx.Rollback()
+	defer func() { _ = parseTx.Rollback() }()
 
 	parseNow := timestampNow()
 	if _, parseErr2 := parseTx.ExecContext(parseCtx, `insert into products(sku, slug, title, category, price_cents, status, finish, summary, details, seo_title, seo_description, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, parsePrepared.SKU, parsePrepared.Slug, parsePrepared.Title, parsePrepared.Category, parsePrepared.PriceCents, parsePrepared.Status, parsePrepared.Finish, parsePrepared.Summary, parsePrepared.Details, parsePrepared.SEOTitle, parsePrepared.SEODescription, parseNow, parseNow); parseErr2 != nil {
@@ -147,7 +147,7 @@ func (parseS *Store) UpdateProduct(parseCtx context.Context, parseCurrentSlug st
 	if parseErr != nil {
 		return ProductAdminRecord{}, fmt.Errorf("begin update product transaction: %w", parseErr)
 	}
-	defer parseTx.Rollback()
+	defer func() { _ = parseTx.Rollback() }()
 
 	parseNow := timestampNow()
 	if _, parseErr2 := parseTx.ExecContext(parseCtx, `update products set sku = ?, slug = ?, title = ?, category = ?, price_cents = ?, status = ?, finish = ?, summary = ?, details = ?, seo_title = ?, seo_description = ?, updated_at = ? where slug = ?`, parsePrepared.SKU, parsePrepared.Slug, parsePrepared.Title, parsePrepared.Category, parsePrepared.PriceCents, parsePrepared.Status, parsePrepared.Finish, parsePrepared.Summary, parsePrepared.Details, parsePrepared.SEOTitle, parsePrepared.SEODescription, parseNow, strings.TrimSpace(parseCurrentSlug)); parseErr2 != nil {

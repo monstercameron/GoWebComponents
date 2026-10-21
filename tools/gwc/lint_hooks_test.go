@@ -17,11 +17,11 @@ func TestCollectLintHookRuleIssuesFlagsBoundedViolations(parseT *testing.T) {
 	parseSource := `package app
 
 import (
-	gwcui "github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/flags"
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	gwcui "github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/flags"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 func Component() gwcui.Node {
@@ -111,7 +111,7 @@ func TestCollectLintHookRuleIssuesHandlesDotImportsAndTargets(parseT *testing.T)
 	}
 	parseScopedSource := `package scoped
 
-import . "github.com/monstercameron/GoWebComponents/v6/ui"
+import . "github.com/monstercameron/GoWebComponents/v7/ui"
 
 func Component() {
 	if true {
@@ -121,7 +121,7 @@ func Component() {
 `
 	parseOtherSource := `package other
 
-import "github.com/monstercameron/GoWebComponents/v6/ui"
+import "github.com/monstercameron/GoWebComponents/v7/ui"
 
 func Component() {
 	if true {
@@ -156,13 +156,88 @@ func Component() {
 	}
 }
 
+// TestCollectLintHookRuleIssuesSkipsTestFixtures ensures deliberate hook
+// misuse in *_test.go files does not fail the production-source lint pass.
+func TestCollectLintHookRuleIssuesSkipsTestFixtures(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseProductionPath := filepath.Join(parseRoot, "component.go")
+	parseFixturePath := filepath.Join(parseRoot, "component_test.go")
+	parseSource := `package app
+
+import "github.com/monstercameron/GoWebComponents/v7/ui"
+
+func Component() {
+	if true {
+		_ = ui.UseState(0)
+	}
+}
+`
+	for _, parseEntry := range []struct {
+		path   string
+		source string
+	}{
+		{parseProductionPath, parseSource},
+		{parseFixturePath, parseSource},
+	} {
+		if parseErr := os.WriteFile(parseEntry.path, []byte(parseEntry.source), 0644); parseErr != nil {
+			parseT.Fatalf("write %s: %v", parseEntry.path, parseErr)
+		}
+	}
+
+	parseIssues, parseErr := collectLintHookRuleIssues(parseRoot, []string{"./..."})
+	if parseErr != nil {
+		parseT.Fatalf("collect hook rule issues: %v", parseErr)
+	}
+	if len(parseIssues) != 1 || parseIssues[0].Path != "component.go" {
+		parseT.Fatalf("expected only production hook issue, got %#v", parseIssues)
+	}
+}
+
+// TestCollectLintHookRuleIssuesSkipsBenchmarkFixtures keeps benchmark targets
+// stable while ensuring an ordinary production example remains checked.
+func TestCollectLintHookRuleIssuesSkipsBenchmarkFixtures(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseSource := `package fixture
+
+import "github.com/monstercameron/GoWebComponents/v7/ui"
+
+func Component() {
+	for range []int{1} {
+		_ = ui.UseState(0)
+	}
+}
+`
+	parseProductionPath := filepath.Join(parseRoot, "examples", "public", "component.go")
+	parseBenchmarkPaths := []string{
+		filepath.Join(parseRoot, "test", "benchmark", "component.go"),
+		filepath.Join(parseRoot, "examples", "testing", "render-benchmark", "component.go"),
+		filepath.Join(parseRoot, "research", "framework-bench", "apps", "component.go"),
+	}
+	for _, parsePath := range append([]string{parseProductionPath}, parseBenchmarkPaths...) {
+		if parseErr := os.MkdirAll(filepath.Dir(parsePath), 0755); parseErr != nil {
+			parseT.Fatalf("create fixture directory: %v", parseErr)
+		}
+		if parseErr := os.WriteFile(parsePath, []byte(parseSource), 0644); parseErr != nil {
+			parseT.Fatalf("write fixture source: %v", parseErr)
+		}
+	}
+
+	parseIssues, parseErr := collectLintHookRuleIssues(parseRoot, []string{"./..."})
+	if parseErr != nil {
+		parseT.Fatalf("collect hook rule issues: %v", parseErr)
+	}
+	if len(parseIssues) != 1 || parseIssues[0].Path != "examples/public/component.go" {
+		parseT.Fatalf("expected only production example finding, got %#v", parseIssues)
+	}
+}
+
 // TestBuildLintSummaryIncludesHookRuleIssues verifies built-in hook findings join the lint report.
 func TestBuildLintSummaryIncludesHookRuleIssues(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
 	parseSourcePath := filepath.Join(parseRoot, "component.go")
 	parseSource := `package app
 
-import "github.com/monstercameron/GoWebComponents/v6/ui"
+import "github.com/monstercameron/GoWebComponents/v7/ui"
 
 func Component() {
 	if true {

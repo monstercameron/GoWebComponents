@@ -27,7 +27,7 @@ previous acceptance results. No implementation or test fixes were made.
 Root command: `go test -p 1 ./... -count=1`, with process-local Windows/amd64,
 CGO disabled and empty GOFLAGS. The CLI package passed in 86.665s.
 Browser command: `go test -tags playwrightgo -p 1 ./test/playwrightgo/... -count=1 -timeout 20m`.
-CLI browser command: `go test -tags playwrightgo ./tools/gwc -count=1 -timeout 15m`.
+CLI browser command: `go -C tools/gwc test -tags playwrightgo ./... -count=1 -timeout 15m`.
 The browser command exited 1. The examples package timed out as
 `TestExample201LongFrameParity` started compiling; this is incomplete coverage,
 not proof that that individual test requires 20 minutes. Later tests in the

@@ -345,7 +345,7 @@ func TestRenderToStreamEdgeErrorsAndFlushFallbacks(parseT *testing.T) {
 	}
 
 	parseWriter := &ssrStreamFailingWriter{}
-	parseErr := RenderToStream(nil, parseWriter, CreateElement("div", nil, "x"), SSRStreamOptions{})
+	parseErr := RenderToStream(context.TODO(), parseWriter, CreateElement("div", nil, "x"), SSRStreamOptions{})
 	if !errors.Is(parseErr, errSSRStreamWrite) {
 		parseT.Fatalf("RenderToStream writer error = %v", parseErr)
 	}

@@ -101,3 +101,15 @@ func TestBenchmarkDriftNoteIsGenerated(parseT *testing.T) {
 		parseT.Fatalf("benchmark drift note is stale; regenerate with BENCHMARKS_WRITE=1 go test ./docs/benchmarks/")
 	}
 }
+
+// TestRenderDriftNoteIncludesMachineWhenPresent checks the machine line appears only when the block exists.
+func TestRenderDriftNoteIncludesMachineWhenPresent(parseT *testing.T) {
+	parseWithout := RenderDriftNote(BenchmarkReport{})
+	if strings.Contains(parseWithout, "Machine:") {
+		parseT.Fatalf("machine line must be absent without a machine block:\n%s", parseWithout)
+	}
+	parseWith := RenderDriftNote(BenchmarkReport{Machine: &BenchmarkMachine{OS: "windows", Arch: "amd64", HostArch: "arm64", LogicalCPUs: 12}})
+	if !strings.Contains(parseWith, "windows/amd64") || !strings.Contains(parseWith, "host `arm64`") {
+		parseT.Fatalf("machine line missing arch details:\n%s", parseWith)
+	}
+}

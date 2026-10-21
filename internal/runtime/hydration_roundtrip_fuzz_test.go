@@ -53,7 +53,7 @@ func runHydrationRoundTrip(parseT *testing.T, parseSeed int64) {
 
 	// Client pass: a FRESH runtime hydrates the same model onto that DOM.
 	parseScheduler := newTestScheduler()
-	parseClientRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseClientRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 	parseClientRt.Hydrate(buildFuzzListElement(parseRows, true), parseContainer)
 	runHydrationWork(parseT, parseScheduler)
 

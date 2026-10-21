@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // MockDOMNode implements runtime.DOMNode
@@ -343,7 +343,7 @@ func (parseA *MockDOMAdapter) InsertBefore(parseParent, parseNewNode, parseRefer
 				break
 			}
 		}
-		if !parseHasRef {
+		if !parseHasRef || parseN.ID == parseR.ID {
 			return
 		}
 		if parseN.Parent != nil {
@@ -372,6 +372,21 @@ func (parseA *MockDOMAdapter) ReplaceChild(parseParent, parseNewNode, parseOldNo
 	if parsePok && parseNok && parseOok {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
+		// Browser fidelity: replaceWith is a no-op when the old node is not a
+		// child of parent, and a replacement that already lives in a tree is
+		// moved out of it first (never listed under two parents).
+		if parseN.ID == parseO.ID || parseO.Parent != parseP {
+			return
+		}
+		if parseN.Parent != nil {
+			for parseIndex, parseExisting := range parseN.Parent.Children {
+				if parseExisting.ID == parseN.ID {
+					parseN.Parent.Children = removeMockChildAt(parseN.Parent.Children, parseIndex)
+					break
+				}
+			}
+			parseN.Parent = nil
+		}
 		for parseI, parseCh := range parseP.Children {
 			if parseCh.ID == parseO.ID {
 				parseP.Children[parseI] = parseN

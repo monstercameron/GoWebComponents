@@ -35,11 +35,15 @@ func openDriver(parseCtx context.Context, parseOptions Options) (*DB, error) {
 	}
 	parseSDB.SetMaxOpenConns(1)
 	if parseErr := parseSDB.PingContext(parseCtx); parseErr != nil {
-		parseSDB.Close()
+		if parseCloseErr := parseSDB.Close(); parseCloseErr != nil {
+			return nil, fmt.Errorf("ping sqlite: %v (close: %w)", parseErr, parseCloseErr)
+		}
 		return nil, fmt.Errorf("ping sqlite: %w", parseErr)
 	}
 	if parseErr := applyPragmas(parseCtx, parseSDB, defaultPragmas(parseOptions.Pragmas)); parseErr != nil {
-		parseSDB.Close()
+		if parseCloseErr := parseSDB.Close(); parseCloseErr != nil {
+			return nil, fmt.Errorf("apply sqlite pragmas: %v (close: %w)", parseErr, parseCloseErr)
+		}
 		return nil, parseErr
 	}
 	// Durability on native is the OS file itself; no flush hook needed.

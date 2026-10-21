@@ -1,9 +1,9 @@
 package shorthand
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/sanitize"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/sanitize"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // RawHTML parses sanitized markup into nodes (safe for untrusted input).

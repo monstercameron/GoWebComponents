@@ -57,8 +57,8 @@ import (
 	"fmt"
 	"strings"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type reviewForm struct {
@@ -195,8 +195,8 @@ package editor
 import (
 	"strings"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type articleForm struct {
@@ -329,9 +329,9 @@ In a larger app, keep locale state, routing policy, and accessibility shell beha
 package shell
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/i18n"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/i18n"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 var workspaceBundle = func() *i18n.Bundle {
@@ -567,13 +567,13 @@ For SSR:
 Use the smallest checks for the exact slice you changed:
 
 ```powershell
-go run ./tools/gwc build -app .\examples\public\use-form\main.go -root .\examples\public\use-form
-go run ./tools/gwc build -app .\examples\public\accessible-overlay\main.go -root .\examples\public\accessible-overlay
-go run ./tools/gwc build -app .\examples\public\form-accessibility\main.go -root .\examples\public\form-accessibility
-go run ./tools/gwc build -app .\examples\public\routed-accessibility\main.go -root .\examples\public\routed-accessibility
-go run ./tools/gwc build -app .\examples\public\locale-switcher\main.go -root .\examples\public\locale-switcher
-go run ./tools/gwc build -app .\examples\public\server-side-rendering-internationalization-bootstrap\main.go -root .\examples\public\server-side-rendering-internationalization-bootstrap
-go run ./tools/gwc build -app .\examples\public\locale-routing\main.go -root .\examples\public\locale-routing
+go -C tools run ./gwc build -app ..\examples\public\use-form\main.go -root ..\examples\public\use-form
+go -C tools run ./gwc build -app ..\examples\public\accessible-overlay\main.go -root ..\examples\public\accessible-overlay
+go -C tools run ./gwc build -app ..\examples\public\form-accessibility\main.go -root ..\examples\public\form-accessibility
+go -C tools run ./gwc build -app ..\examples\public\routed-accessibility\main.go -root ..\examples\public\routed-accessibility
+go -C tools run ./gwc build -app ..\examples\public\locale-switcher\main.go -root ..\examples\public\locale-switcher
+go -C tools run ./gwc build -app ..\examples\public\server-side-rendering-internationalization-bootstrap\main.go -root ..\examples\public\server-side-rendering-internationalization-bootstrap
+go -C tools run ./gwc build -app ..\examples\public\locale-routing\main.go -root ..\examples\public\locale-routing
 go run .\examples\server\server-side-rendering-secure-forms
 go test ./ui ./i18n
 ```

@@ -21,8 +21,8 @@ import (
 // so that is checked on the dependency graph rather than inferred from a size
 // that could be small for unrelated reasons.
 
-const appPackage = "github.com/monstercameron/GoWebComponents/v6/examples/v5-two-artifact/app"
-const servicesPackage = "github.com/monstercameron/GoWebComponents/v6/examples/v5-two-artifact/services"
+const appPackage = "github.com/monstercameron/GoWebComponents/v7/examples/v5-two-artifact/app"
+const servicesPackage = "github.com/monstercameron/GoWebComponents/v7/examples/v5-two-artifact/services"
 
 // m5BudgetBytes is M5's target for the render-thread binary, gzipped.
 const m5BudgetBytes = 1_600_000
@@ -38,7 +38,8 @@ func buildWasm(parseT *testing.T, parsePackage string) (int64, int64) {
 
 	parseOutput := filepath.Join(parseT.TempDir(), "out.wasm")
 	parseCommand := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", parseOutput, parsePackage)
-	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm")
+	// Keep the size ratchet on the same wasm experiment profile as gwc's CI build.
+	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm", "GOEXPERIMENT=nojsonv2")
 	if parseCombined, parseErr := parseCommand.CombinedOutput(); parseErr != nil {
 		parseT.Fatalf("building %s:\n%s", parsePackage, parseCombined)
 	}
@@ -89,7 +90,7 @@ func buildAndRead(parseT *testing.T, parsePackage string) []byte {
 	}
 	parseOutput := filepath.Join(parseT.TempDir(), "out.wasm")
 	parseCommand := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", parseOutput, parsePackage)
-	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm")
+	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm", "GOEXPERIMENT=nojsonv2")
 	if parseCombined, parseErr := parseCommand.CombinedOutput(); parseErr != nil {
 		parseT.Fatalf("building %s: %s", parsePackage, parseCombined)
 	}
@@ -173,7 +174,7 @@ func TestAppArtifactDoesNotLinkTheEngine(parseT *testing.T) {
 			"github.com/tetratelabs/wazero",
 			"github.com/ncruces/go-sqlite3",
 			"modernc.org/sqlite",
-			"github.com/monstercameron/GoWebComponents/v6/db/sqlite",
+			"github.com/monstercameron/GoWebComponents/v7/db/sqlite",
 		} {
 			if parseDep == parseEngine || strings.HasPrefix(parseDep, parseEngine+"/") {
 				parseT.Errorf("app.wasm links %q — the two-artifact split is not holding", parseDep)

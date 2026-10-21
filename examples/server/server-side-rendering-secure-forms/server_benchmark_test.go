@@ -14,8 +14,7 @@ import (
 func BenchmarkRenderSecureFormsDocument(parseB *testing.B) {
 	parseState := newPageState("token-123", nil)
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseDocument, parseErr := renderDocument(parseState)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -30,8 +29,7 @@ func BenchmarkHandleMultipartUploadSuccess(parseB *testing.B) {
 	parseServer := newTestServer()
 	parseCsrfToken, parseCsrfCookie := loadBenchmarkCSRF(parseB, parseServer)
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseBody := &bytes.Buffer{}
 		parseWriter := multipart.NewWriter(parseBody)
 		_ = parseWriter.WriteField("csrf_token", parseCsrfToken)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/compute"
+	"github.com/monstercameron/GoWebComponents/v7/compute"
 )
 
 // v5 P3.12 — the compute pool.
@@ -307,7 +307,7 @@ func TestRequeuedJobsGoToTheFront(parseT *testing.T) {
 		}
 	}
 
-	var parseVictimWorker compute.WorkerID = parseFirstBatch[0].WorkerID
+	parseVictimWorker := parseFirstBatch[0].WorkerID
 	parseVictimJob := parseFirstBatch[0].Job.ID
 	parseReplacement := compute.WorkerID("w9")
 	if _, parseErr := parsePool.RestartWorker(parseVictimWorker, parseReplacement); parseErr != nil {

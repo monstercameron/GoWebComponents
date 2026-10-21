@@ -32,7 +32,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Setup Node
         # The GOOS=js exec wrapper ($GOROOT/lib/wasm/go_js_wasm_exec) runs the test
@@ -55,3 +55,26 @@ jobs:
           GOOS=js GOARCH=wasm go test -exec "$exec_wrapper" -count=1 \
             -skip 'PublicAPIBaseline|APIBaseline|ApiBaseline|API_BASELINE' \
             $pkgs
+
+  wasm-vet:
+    # Compile + vet the core packages under js/wasm. Catches wasm-only breaks such as
+    # a package using a symbol that exists only in a `!js || !wasm` file (e.g.
+    # telemetry -> ui.GetSSRObservationAttributes), which native lanes never see.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.27.x"
+
+      - name: Vet core packages for js/wasm
+        run: |
+          set -euo pipefail
+          GOOS=js GOARCH=wasm go vet ./ui ./html ./html/shorthand ./css ./css/u ./state ./router ./fetch
+          GOOS=js GOARCH=wasm go vet ./flags ./i18n ./interop ./internal/... ./devtools ./telemetry
+          GOOS=js GOARCH=wasm go vet ./logging ./sanitize ./head ./pwa ./anim ./hotreload ./localfirst

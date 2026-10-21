@@ -22,7 +22,7 @@ func benchmarkGoEvent() GoEvent {
 func BenchmarkGoEventGetValue(parseB *testing.B) {
 	parseEvent := benchmarkGoEvent()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseEvent.GetValue()
 	}
 }
@@ -30,7 +30,7 @@ func BenchmarkGoEventGetValue(parseB *testing.B) {
 func BenchmarkGoEventIsChecked(parseB *testing.B) {
 	parseEvent := benchmarkGoEvent()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseEvent.IsChecked()
 	}
 }
@@ -38,7 +38,7 @@ func BenchmarkGoEventIsChecked(parseB *testing.B) {
 func BenchmarkGoEventGetKey(parseB *testing.B) {
 	parseEvent := benchmarkGoEvent()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseEvent.GetKey()
 	}
 }
@@ -46,7 +46,7 @@ func BenchmarkGoEventGetKey(parseB *testing.B) {
 func BenchmarkGoEventGetKeyCode(parseB *testing.B) {
 	parseEvent := benchmarkGoEvent()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseEvent.GetKeyCode()
 	}
 }
@@ -54,7 +54,7 @@ func BenchmarkGoEventGetKeyCode(parseB *testing.B) {
 func BenchmarkGoEventGetTarget(parseB *testing.B) {
 	parseEvent := benchmarkGoEvent()
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseEvent.GetTarget()
 	}
 }

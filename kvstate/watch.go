@@ -3,7 +3,7 @@ package kvstate
 import (
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // Cross-tab consistency uses a BroadcastChannel (interop.OpenCrossTabChannel),
@@ -69,7 +69,7 @@ func getHub(parseName string) *crossTabHub {
 	if parseErr == nil {
 		parseHub.ch = parseChannel
 		parseHub.available = true
-		parseChannel.Subscribe(func(parseEnv interop.CrossTabEnvelope, parseSubErr error) {
+		if _, parseSubErr := parseChannel.Subscribe(func(parseEnv interop.CrossTabEnvelope, parseSubErr error) {
 			if parseSubErr != nil {
 				return
 			}
@@ -79,7 +79,9 @@ func getHub(parseName string) *crossTabHub {
 			}
 			parseKey, _ := parsePayload["key"].(string)
 			parseHub.fire(parseKey)
-		})
+		}); parseSubErr != nil {
+			parseHub.available = false
+		}
 	}
 	hubs[parseName] = parseHub
 	return parseHub
@@ -133,5 +135,7 @@ func broadcastCrossTab(parseName, parseKey string, parseVersion int64) {
 	if !parseHub.available {
 		return
 	}
-	parseHub.ch.Publish(map[string]any{"key": parseKey, "version": parseVersion})
+	if parsePublishErr := parseHub.ch.Publish(map[string]any{"key": parseKey, "version": parseVersion}); parsePublishErr != nil {
+		parseHub.available = false
+	}
 }

@@ -5,7 +5,7 @@ package app
 import (
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 )
 
 func TestShouldRedirectUnauthenticatedRouteToLanding(parseT *testing.T) {
@@ -236,6 +236,15 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 				parseT2.Fatalf("shouldResetDraftForRootRoute(%q, %q, %d, %q) = %v, want %v", parseTest.currentPath, parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
+	}
+}
+
+func TestShouldDeferPendingRootRouteReset(t *testing.T) {
+	if !shouldDeferPendingRootRouteReset(chatRouteRoot, "", 42, "thread-public-id", 42) {
+		t.Fatal("pending marker should survive while root navigation is outstanding")
+	}
+	if shouldDeferPendingRootRouteReset("/app/thread/thread-public-id", "thread-public-id", 42, "thread-public-id", 42) {
+		t.Fatal("pending marker should clear after thread route commits")
 	}
 }
 

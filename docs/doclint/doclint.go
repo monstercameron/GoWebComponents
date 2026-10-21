@@ -180,7 +180,7 @@ func scanFile(absPath, docRel string, topLevel map[string]bool) ([]PathRef, erro
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var refs []PathRef
 	scanner := bufio.NewScanner(file)
@@ -252,7 +252,9 @@ func candidatesInLine(line string, topLevel map[string]bool) []PathRef {
 		// at any depth (a project's bin/ or dist/ holds build and runtime
 		// artifacts: wasm, logs, sqlite files).
 		if strings.HasPrefix(rel, "bin/") || strings.Contains(rel, "/bin/") ||
-			strings.Contains(rel, "/dist/") || strings.HasSuffix(rel, "/dist") {
+			strings.Contains(rel, "/dist/") || strings.HasSuffix(rel, "/dist") ||
+			strings.HasPrefix(rel, "static/bin/") || strings.Contains(rel, "/static/bin") ||
+			rel == "examples/testing/v5-load-harness/v5harness.wasm" {
 			continue
 		}
 		refs = append(refs, PathRef{Raw: token, Rel: rel})

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // Ported from React's ReactDOMServerIntegrationHooks: hooks run during server
@@ -97,7 +97,7 @@ func TestHookComponentRendersViaReconciler(t *testing.T) {
 	adapter := mockdom.NewMockDOMAdapter()
 	rt := runtime.NewRuntime(runtime.Config{DOMAdapter: adapter, Reset: true})
 	root := adapter.CreateElement("div")
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, _ := runtime.GoUseState(rt, 42)
 		return runtime.CreateElement("span", map[string]any{}, fmt.Sprint(parseGet()))
 	}, map[string]any{}))

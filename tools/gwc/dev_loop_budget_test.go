@@ -71,8 +71,8 @@ func TestDevLoopLargeAppRebuildBudget(parseT *testing.T) {
 		parseSource := fmt.Sprintf(`package main
 
 import (
-	html "github.com/monstercameron/GoWebComponents/v6/html"
-	ui "github.com/monstercameron/GoWebComponents/v6/ui"
+	html "github.com/monstercameron/GoWebComponents/v7/html"
+	ui "github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // %s is a generated budget-fixture component.
@@ -85,7 +85,7 @@ func %s() ui.Node {
 		}
 	}
 	var parseRegistry strings.Builder
-	parseRegistry.WriteString("package main\n\nimport ui \"github.com/monstercameron/GoWebComponents/v6/ui\"\n\n// genRegistry keeps every generated component reachable for the linker.\nvar genRegistry = []func() ui.Node{\n")
+	parseRegistry.WriteString("package main\n\nimport ui \"github.com/monstercameron/GoWebComponents/v7/ui\"\n\n// genRegistry keeps every generated component reachable for the linker.\nvar genRegistry = []func() ui.Node{\n")
 	for _, parseName := range parseRegistryNames {
 		parseRegistry.WriteString("\t" + parseName + ",\n")
 	}
@@ -101,7 +101,7 @@ func %s() ui.Node {
 
 	parseCtx, parseCancel := context.WithCancel(context.Background())
 	defer parseCancel()
-	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"run", "./tools/gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
+	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"-C", "tools", "run", "./gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
 	parseCmd.Dir = parseRepoRoot
 	var parseOutput bytes.Buffer
 	parseCmd.Stdout = &parseOutput

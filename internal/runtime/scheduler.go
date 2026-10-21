@@ -180,7 +180,9 @@ func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecor
 	// previous commit's passive effects are queued in that list, and clearing it
 	// with a drain still pending drops them silently. Outside the lock because a
 	// passive effect may schedule an update of its own, which would re-enter.
-	parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	if parseRt.passiveDrainScheduled && len(parseRt.pendingEffectFibers) != 0 {
+		parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	}
 
 	schedulerMu.Lock()
 	parseRt.profiling.scheduledRootUpdates++
@@ -399,6 +401,11 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 		parseContinueWork func()
 		parseScheduler    Scheduler
 	)
+	// The previous commit's deferred passive effects are queued in
+	// pendingEffectFibers, which this call truncates below; settle them first.
+	if parseRt.passiveDrainScheduled && len(parseRt.pendingEffectFibers) != 0 {
+		parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	}
 	schedulerMu.Lock()
 	if parseRt.currentRoot == nil {
 		parseRt.beginStartupProfilingLocked("render")
@@ -475,6 +482,10 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 		parseContinueWork func()
 		parseScheduler    Scheduler
 	)
+	// See Render: pending passive effects would be truncated away below.
+	if parseRt.passiveDrainScheduled && len(parseRt.pendingEffectFibers) != 0 {
+		parseRt.flushPendingPassiveEffectsBeforeSchedule()
+	}
 	schedulerMu.Lock()
 	if parseRt.currentRoot == nil {
 		parseRt.beginStartupProfilingLocked("hydrate")
@@ -836,6 +847,20 @@ func (parseRt *Runtime) resolveOwnedFiberTarget(parseFiber *Fiber) *Fiber {
 	if parseRt == nil || parseFiber == nil {
 		return parseFiber
 	}
+	// During the render/commit gap, currentRoot is still the previous
+	// generation while wipRoot is the tree that is about to be published. An
+	// owned update that resolves through currentRoot would mark the old
+	// alternate; commit then publishes the clean WIP and the follow-up pass can
+	// discard the old mark when it reuses that alternate. Prefer the in-flight
+	// tree, including the alternate of a stale owner, while it exists.
+	if parseRt.wipRoot != nil && parseRt.updateScheduled {
+		if isFiberInRootTree(parseFiber, parseRt.wipRoot) {
+			return parseFiber
+		}
+		if parseFiber.alternate != nil && isFiberInRootTree(parseFiber.alternate, parseRt.wipRoot) {
+			return parseFiber.alternate
+		}
+	}
 	if parseRt.isFiberInCurrentTree(parseFiber) {
 		return parseFiber
 	}
@@ -910,14 +935,18 @@ func buildSubscribedSiblingIndex(parseParent *Fiber, parseChild *Fiber) int {
 
 // isFiberInCurrentTree is a core package helper.
 func (parseRt *Runtime) isFiberInCurrentTree(parseFiber *Fiber) bool {
-	if parseRt == nil || parseFiber == nil || parseRt.currentRoot == nil {
+	return parseRt != nil && isFiberInRootTree(parseFiber, parseRt.currentRoot)
+}
+
+func isFiberInRootTree(parseFiber *Fiber, parseRoot *Fiber) bool {
+	if parseFiber == nil || parseRoot == nil {
 		return false
 	}
-	parseRoot := parseFiber
-	for parseRoot.parent != nil {
-		parseRoot = parseRoot.parent
+	parseCursor := parseFiber
+	for parseCursor.parent != nil {
+		parseCursor = parseCursor.parent
 	}
-	return parseRoot == parseRt.currentRoot
+	return parseCursor == parseRoot
 }
 
 // NOTE(v5 P2.4): EnqueueUI / ProcessUIQueue / GetUIQueueSize were REMOVED.

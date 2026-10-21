@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type countingSink struct{ calls int }
@@ -83,7 +83,7 @@ func TestContextMultipleConsumersAllUpdate(t *testing.T) {
 			makeConsumer("a"), makeConsumer("b"), makeConsumer("c"))
 	}
 
-	rt.RenderInto(root, runtime.CreateElement(parseApp, map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement(parseApp, map[string]any{}))
 	if parseState := collect(); parseState["a"] != "v0" || parseState["b"] != "v0" || parseState["c"] != "v0" {
 		t.Fatalf("mount: consumers = %v, want all v0", parseState)
 	}

@@ -89,17 +89,7 @@ func consoleCapturePayload(parseSource string, parseMessage string, parseArgs []
 	for _, parseArg := range parseArgs {
 		parseArgsText = append(parseArgsText, jsValueSummary(parseArg))
 	}
-	if parseMessage == "" && len(parseArgsText) > 0 {
-		parseMessage = parseArgsText[0]
-	}
-	parsePayload, _ := json.Marshal(map[string]any{
-		"source":    parseSource,
-		"severity":  "error",
-		"message":   parseMessage,
-		"arguments": parseArgsText,
-		"time":      time.Now().UTC().Format(time.RFC3339Nano),
-	})
-	return parsePayload
+	return buildConsolePayload(parseSource, parseMessage, parseArgsText, time.Now())
 }
 
 func jsValueSummary(parseValue js.Value) (parseResult string) {

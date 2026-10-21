@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 
 // DeferStatus is the state of a deferred, possibly-async view. It models Angular @defer's
 // blocks: a placeholder before work begins, a loading block while an async resource resolves,
@@ -95,7 +95,7 @@ func UseAsyncDefer[T any](parseTriggered bool, parseLoad func() (T, error)) Defe
 			// Contain loader panics like every sibling async hook: an
 			// unrecovered goroutine panic kills the whole wasm program.
 			defer runtime.RecoverContainedPanic("ui", "UseAsyncDefer loader")
-			parseData, parseErr := parseLoad()
+			parseData, parseErr := containAsyncFn("UseAsyncDefer loader", parseLoad)()
 			if parseErr != nil {
 				parseState.Set(DeferState[T]{Status: DeferError, Err: parseErr})
 				return

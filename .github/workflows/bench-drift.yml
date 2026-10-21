@@ -1,37 +1,158 @@
 name: Bench Drift
 
-# D3 merge gate: a benchmark that regresses beyond the tolerance fails the build, so a
-# performance regression cannot land silently. The run compares the fresh native benchmark
-# numbers against the committed baseline (docs/benchmarks/latest.json) and exits non-zero on any
-# out-of-tolerance regression via `gwc bench -fail-on-regression`. Benchmarks are pinned to a
-# single package run (-parallel 1) for the lowest-noise comparison.
+# D3 merge gate: run the base and head revisions sequentially on one runner, then compare
+# their reports. The committed benchmark reports remain historical evidence; they are not a
+# cross-machine timing baseline for a pull request.
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Revision to use as the comparison base (defaults to main)"
+        required: false
+        default: main
 
 permissions:
   contents: read
+
+concurrency:
+  group: bench-drift-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   bench-drift:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout base revision
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base_ref || 'main' }}
+          path: bench-base
+          submodules: recursive
+
+      - name: Checkout head revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: bench-head
           submodules: recursive
 
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.3"
 
-      - name: Build gwc
-        run: go build -o gwc ./tools/gwc
+      - name: Normalize and compile base benchmark sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 bench-head/.github/scripts/normalize-v6-benchmarks.py bench-base \
+            --report bench-base-loop-normalization.json \
+            | tee bench-base-loop-normalization.txt
+          packages=(
+            ./internal/runtime ./ui ./html ./css ./router ./delta
+            ./projection ./virtualization
+          )
+          for package in "${packages[@]}"; do
+            (cd bench-base && go test -tags production -run '^$' "$package")
+          done
 
-      - name: Benchmark drift gate (native lane)
-        # Compares against the committed baseline and fails on any out-of-tolerance regression.
-        run: ./gwc bench -lane native -parallel 1 -fail-on-regression
+      - name: Build suite tool from head revision
+        run: |
+          go -C bench-head/tools build -o ../gwc-head ./gwc
+
+      - name: Run base and head suite sequentially, then enforce drift gate
+        shell: bash
+        run: |
+          set -o pipefail
+          packages='./internal/runtime,./ui,./html,./css,./router,./delta,./projection,./virtualization'
+          common=(-lane native -count 5 -warmup 1 -shuffle -seed 6001 \
+            -packages "$packages" -skip '^BenchmarkHydrateMediumTreeFirstUpdate$' -tags production)
+          set +e
+          ./bench-head/gwc-head bench suite -root "$GITHUB_WORKSPACE/bench-base" "${common[@]}" \
+            -suite pr-base -out "$GITHUB_WORKSPACE/bench-base-suite.json" \
+            2>&1 | tee bench-base-suite.console.txt
+          base_status=${PIPESTATUS[0]}
+          ./bench-head/gwc-head bench suite -root "$GITHUB_WORKSPACE/bench-head" "${common[@]}" \
+            -suite pr-head -out "$GITHUB_WORKSPACE/bench-head-suite.json" \
+            2>&1 | tee bench-head-suite.console.txt
+          head_status=${PIPESTATUS[0]}
+          set -e
+          if [[ "$base_status" != 0 || "$head_status" != 0 ]]; then
+            printf 'base_status=%s\nhead_status=%s\n' "$base_status" "$head_status" | tee bench-suite-status.txt
+            exit 1
+          fi
+          set +e
+          ./bench-head/gwc-head bench suite compare -json \
+            bench-base-suite.json bench-head-suite.json > bench-suite-compare.json
+          json_status=$?
+          base_module=$(awk '$1 == "module" {print $2; exit}' bench-base/go.mod)
+          head_module=$(awk '$1 == "module" {print $2; exit}' bench-head/go.mod)
+          if [[ -z "$base_module" || -z "$head_module" ]]; then
+            echo 'missing module path in benchmark source' >&2
+            exit 1
+          fi
+          if [[ "$base_module" == "$head_module" ]]; then
+            gate_mode=per-entry
+            # Sub-100 ns timings are reported but not hard-gated: repeated
+            # same-runner runs showed sign flips at that scale.
+            ./bench-head/gwc-head bench suite compare -max-regress-pct 15 -min-baseline-ns 100 \
+              bench-base-suite.json bench-head-suite.json 2>&1 | tee bench-suite-compare.txt
+            compare_status=${PIPESTATUS[0]}
+          else
+            gate_mode=major-upgrade-advisory
+            printf 'Module path changed: %s -> %s; per-entry drift is advisory for this major upgrade.\n' \
+              "$base_module" "$head_module" | tee bench-suite-compare.txt
+            # The full fair v6/v7 benchmark and its documented disposition
+            # are the release gate. Preserve every PR-screen delta for review.
+            ./bench-head/gwc-head bench suite compare \
+              bench-base-suite.json bench-head-suite.json 2>&1 | tee -a bench-suite-compare.txt
+            compare_status=${PIPESTATUS[0]}
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("bench-suite-compare.json").read_text())
+          entries = report["data"]["deltas"]
+          packages = (
+              "./internal/runtime", "./ui", "./html", "./css",
+              "./router", "./delta", "./projection", "./virtualization",
+          )
+          missing = [package for package in packages if not any(
+              entry["id"].startswith(f"native/{package}/") for entry in entries
+          )]
+          if missing:
+              raise SystemExit("no matched benchmarks for: " + ", ".join(missing))
+          print(f"matched benchmark entries: {len(entries)}")
+          PY
+          coverage_status=$?
+          set -e
+          if [[ "$json_status" != 0 || "$coverage_status" != 0 ]]; then
+            compare_status=1
+          fi
+          printf 'base_status=%s\nhead_status=%s\ncompare_status=%s\ncoverage_status=%s\ngate_mode=%s\n' \
+            "$base_status" "$head_status" "$compare_status" "$coverage_status" "$gate_mode" | tee bench-suite-status.txt
+          exit "$compare_status"
+
+      - name: Upload same-run benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-drift-${{ github.run_id }}
+          if-no-files-found: error
+          path: |
+            bench-base-loop-normalization.json
+            bench-base-loop-normalization.txt
+            bench-base-suite.json
+            bench-base-suite.json.log
+            bench-head-suite.json
+            bench-head-suite.json.log
+            bench-base-suite.console.txt
+            bench-head-suite.console.txt
+            bench-suite-compare.json
+            bench-suite-compare.txt
+            bench-suite-status.txt

@@ -55,23 +55,23 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Install Playwright Chromium
         run: go run github.com/mxschmitt/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
 
       - name: Run native agent bridge lane
-        run: go run ./tools/gwc test -lane agent -json
+        run: go -C tools run ./gwc test -root .. -lane agent -json
 
       - name: Prebuild agent dogfood client
         run: |
           mkdir -p examples/server/ai-chat-wizard/bin/client/app
-          GOOS=js GOARCH=wasm go build -tags gwcagent -o examples/server/ai-chat-wizard/bin/client/app/chat.wasm ./examples/server/ai-chat-wizard/client
+          GOOS=js GOARCH=wasm go -C examples/server/ai-chat-wizard build -tags gwcagent -o bin/client/app/chat.wasm ./client
 
       - name: Prebuild agent dogfood server
         run: |
           mkdir -p bin/ci
-          go build -o bin/ci/example100-agent-dogfood-server ./examples/server/ai-chat-wizard/cmd/server
+          go -C examples/server/ai-chat-wizard build -o "$GITHUB_WORKSPACE/bin/ci/example100-agent-dogfood-server" ./cmd/server
 
       - name: Run headless agent bridge dogfood lane
         env:
@@ -84,4 +84,4 @@ jobs:
           done &
           keepalive_pid="$!"
           trap 'kill "$keepalive_pid" 2>/dev/null || true' EXIT
-          go test -tags playwrightgo -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout=5m -v ./test/playwrightgo/examples
+          go -C test/playwrightgo test -tags playwrightgo -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout=5m -v ./examples

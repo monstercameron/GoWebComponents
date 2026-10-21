@@ -559,8 +559,8 @@ func TestStartHelperDefaultsAndUtilities(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("pipe: %v", parseErr)
 	}
-	defer parseReader.Close()
-	defer parseWriter.Close()
+	defer func() { _ = parseReader.Close() }()
+	defer func() { _ = parseWriter.Close() }()
 	if isInteractiveFile(parseReader) {
 		parseT.Fatal("expected pipe file to be non-interactive")
 	}
@@ -1491,13 +1491,13 @@ func TestDetectHTMLPathReturnsEmptyForNonDirectoryRoot(parseT *testing.T) {
 
 func TestRenderScaffoldGoModUsesStandaloneLayout(parseT *testing.T) {
 	parseSelection := startSelection{ModulePath: "github.com/test/app"}
-	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v6", `C:\repo\GoWebComponents`)
+	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v7", `C:\repo\GoWebComponents`)
 	for _, parseExpected := range []string{"module github.com/test/app", "go 1.25.0"} {
 		if !strings.Contains(parseContent, parseExpected) {
 			parseT.Fatalf("expected go.mod content to contain %q", parseExpected)
 		}
 	}
-	for _, parseUnexpected := range []string{"require github.com/monstercameron/GoWebComponents/v6", "replace github.com/monstercameron/GoWebComponents/v6"} {
+	for _, parseUnexpected := range []string{"require github.com/monstercameron/GoWebComponents/v7", "replace github.com/monstercameron/GoWebComponents/v7"} {
 		if strings.Contains(parseContent, parseUnexpected) {
 			parseT.Fatalf("expected standalone go.mod content to omit %q", parseUnexpected)
 		}
@@ -1509,11 +1509,11 @@ func TestRenderScaffoldGoModUsesContributorLinkedReplace(parseT *testing.T) {
 		ModulePath:  "github.com/test/app",
 		ProjectMode: scaffoldProjectModeContributorLinked,
 	}
-	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v6", `C:\repo\GoWebComponents`)
+	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v7", `C:\repo\GoWebComponents`)
 	for _, parseExpected := range []string{
 		"module github.com/test/app",
 		"go 1.25.0",
-		"replace github.com/monstercameron/GoWebComponents/v6 => C:/repo/GoWebComponents",
+		"replace github.com/monstercameron/GoWebComponents/v7 => C:/repo/GoWebComponents",
 	} {
 		if !strings.Contains(parseContent, parseExpected) {
 			parseT.Fatalf("expected contributor-linked go.mod content to contain %q", parseExpected)
@@ -1671,7 +1671,7 @@ func TestRenderScaffoldExtraFilesAddsBrowserTestScaffold(parseT *testing.T) {
 }
 
 func TestRenderScaffoldOutputGolden(parseT *testing.T) {
-	const repoModulePath = "github.com/monstercameron/GoWebComponents/v6"
+	const repoModulePath = "github.com/monstercameron/GoWebComponents/v7"
 	parseRepoRoot := filepath.FromSlash("/repo/GoWebComponents")
 
 	parseTests := []struct {
@@ -1825,7 +1825,7 @@ func TestRenderScaffoldMainIncludesFeatureCardsFromSelection(parseT *testing.T) 
 		ModulePath:  "example.com/starter-app",
 	}
 
-	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v6")
+	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v7")
 	for _, parseExpected := range []string{
 		"Starter capability matrix",
 		"Route shell and navigation affordances are scaffolded in the starter layout.",
@@ -1852,7 +1852,7 @@ func TestRenderScaffoldMainReferenceAppIncludesCommonPathWidgets(parseT *testing
 		TargetDir:   filepath.Join("C:\\tmp", "starter-app"),
 	}
 
-	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v6")
+	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v7")
 	for _, parseExpected := range []string{
 		`html.Text("Routing")`,
 		`html.Text("Async Data")`,
@@ -1978,6 +1978,7 @@ func TestSeedScaffoldGoSumCopiesRootGoSum(parseT *testing.T) {
 }
 
 func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
+	useIsolatedGoTmp(parseT)
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
@@ -2151,9 +2152,9 @@ func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
 	parseTestCmd.Dir = parseTargetDir
 	// Baseline scaffold tests run on the host, independently of an outer cross-target lane.
 	parseTestCmd.Env = buildNativeGoEnv()
-	parseTestOutput, parseErr := parseTestCmd.CombinedOutput()
+	parseTestOutput, parseErr := runChildGoCommand(parseT, parseTestCmd)
 	if parseErr != nil {
-		parseT.Fatalf("expected generated scaffold baseline tests to pass, got error: %v\n%s", parseErr, string(parseTestOutput))
+		parseT.Fatalf("expected generated scaffold baseline tests to pass, got error: %v\n%s", parseErr, parseTestOutput)
 	}
 }
 
@@ -2184,8 +2185,8 @@ func TestScaffoldMainWiresHotReloadWhenSelected(parseT *testing.T) {
 		Preset:      startPreset{Name: "Hot", Features: []string{"ui", "html", "hot-reload"}},
 		ProjectName: "hot-app",
 		ModulePath:  "example.com/hot-app",
-	}, "github.com/monstercameron/GoWebComponents/v6")
-	for _, parseWant := range []string{"hotreload.Enable()", "GoWebComponents/v6/hotreload"} {
+	}, "github.com/monstercameron/GoWebComponents/v7")
+	for _, parseWant := range []string{"hotreload.Enable()", "GoWebComponents/v7/hotreload"} {
 		if !strings.Contains(parseWith, parseWant) {
 			parseT.Fatalf("hot-reload starter main must contain %q:\n%s", parseWant, parseWith)
 		}
@@ -2195,7 +2196,7 @@ func TestScaffoldMainWiresHotReloadWhenSelected(parseT *testing.T) {
 		Preset:      startPreset{Name: "Plain", Features: []string{"ui", "html"}},
 		ProjectName: "plain-app",
 		ModulePath:  "example.com/plain-app",
-	}, "github.com/monstercameron/GoWebComponents/v6")
+	}, "github.com/monstercameron/GoWebComponents/v7")
 	if strings.Contains(parseWithout, "hotreload") {
 		parseT.Fatalf("a starter without hot-reload must not import hotreload:\n%s", parseWithout)
 	}
@@ -2308,6 +2309,7 @@ func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(parseT *testing.T)
 }
 
 func TestDefaultStarterTemplatesScaffoldTidyTestAndBuild(parseT *testing.T) {
+	useIsolatedGoTmp(parseT)
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
@@ -2340,9 +2342,9 @@ func TestDefaultStarterTemplatesScaffoldTidyTestAndBuild(parseT *testing.T) {
 			parseTestCmd := exec.Command("go", "test", "./...")
 			parseTestCmd.Dir = parseTargetDir
 			parseTestCmd.Env = buildNativeGoEnv()
-			parseTestOutput, parseErr2 := parseTestCmd.CombinedOutput()
+			parseTestOutput, parseErr2 := runChildGoCommand(parseT2, parseTestCmd)
 			if parseErr2 != nil {
-				parseT2.Fatalf("generated starter tests failed: %v\n%s", parseErr2, string(parseTestOutput))
+				parseT2.Fatalf("generated starter tests failed: %v\n%s", parseErr2, parseTestOutput)
 			}
 
 			parseBuildErr := parseLauncher.runBuild([]string{
@@ -2394,7 +2396,7 @@ func TestGenerateStartScaffoldWritesContributorLinkedGoMod(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("read contributor-linked go.mod: %v", parseErr)
 	}
-	parseExpectedReplace := "replace github.com/monstercameron/GoWebComponents/v6 => " + filepath.ToSlash(filepath.Clean(parseRepoRoot))
+	parseExpectedReplace := "replace github.com/monstercameron/GoWebComponents/v7 => " + filepath.ToSlash(filepath.Clean(parseRepoRoot))
 	if !strings.Contains(string(parseGoModBytes), parseExpectedReplace) {
 		parseT.Fatalf("expected contributor-linked go.mod to contain %q, got:\n%s", parseExpectedReplace, string(parseGoModBytes))
 	}
@@ -2560,7 +2562,7 @@ func TestRunDevExecutesForwardedCommandAndSurfacesFailure(parseT *testing.T) {
 		parseT.Fatalf("read forwarded args: %v", parseErr8)
 	}
 	parseArgsText := string(parseArgsBytes)
-	for _, parseExpected := range []string{"run tools/livereload/client_script.go tools/livereload/livereload.go tools/livereload/livereload_http.go tools/livereload/livereload_paths.go tools/livereload/livereload_support.go", "-app " + parseAppPath, "-root " + parseAppDir, "-html " + parseHtmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot false", "-client-script custom-client.js"} {
+	for _, parseExpected := range []string{"-C tools/livereload run .", "-app " + parseAppPath, "-root " + parseAppDir, "-html " + parseHtmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot=false", "-client-script custom-client.js"} {
 		if !strings.Contains(parseArgsText, parseExpected) {
 			parseT.Fatalf("expected forwarded args to contain %q, got %q", parseExpected, parseArgsText)
 		}
@@ -3164,7 +3166,7 @@ func TestGeneratedScaffoldServesOverDevServer(parseT *testing.T) {
 
 	parseCtx, parseCancel := context.WithCancel(context.Background())
 	parseT.Cleanup(parseCancel)
-	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"run", "./tools/gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
+	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"-C", "tools", "run", "./gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
 	parseCmd.Dir = parseRepoRoot
 	var parseOutput bytes.Buffer
 	parseCmd.Stdout = &parseOutput
@@ -3241,6 +3243,7 @@ func TestGeneratedScaffoldLauncherBuildTestVerifyReleaseRoundTrip(parseT *testin
 		parseT.Skip("skipping launcher round-trip test in short mode")
 	}
 
+	useIsolatedGoTmp(parseT)
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
@@ -3348,7 +3351,7 @@ func ensureScaffoldUsesLocalRepoModule(parseT *testing.T, parseRepoRoot string, 
 		parseT.Fatalf("read scaffold go.mod: %v", parseErr)
 	}
 	parseGoModText := strings.TrimSpace(string(parseGoModBytes)) + "\n\n" +
-		"require " + parseModulePath + " v6.0.0\n\n" +
+		"require " + parseModulePath + " " + scaffoldModuleMajorSuffix(parseModulePath) + ".0.0\n\n" +
 		"replace " + parseModulePath + " => " + filepath.ToSlash(parseRepoRoot) + "\n"
 	if parseErr2 := os.WriteFile(parseGoModPath, []byte(parseGoModText), 0644); parseErr2 != nil {
 		parseT.Fatalf("write scaffold go.mod: %v", parseErr2)
@@ -3366,12 +3369,11 @@ func ensureScaffoldUsesLocalRepoModule(parseT *testing.T, parseRepoRoot string, 
 func runLauncherJSONCommand(parseT *testing.T, parseRepoRoot string, parseTarget any, parseArgs ...string) {
 	parseT.Helper()
 
-	parseCmd := exec.Command("go", append([]string{"run", "./tools/gwc"}, parseArgs...)...)
-	parseCmd.Dir = parseRepoRoot
-	parseOutput, parseErr := parseCmd.CombinedOutput()
-	if parseErr != nil {
-		parseT.Fatalf("run launcher command %q: %v\n%s", strings.Join(parseArgs, " "), parseErr, string(parseOutput))
-	}
+	// Run in-process so the benign Windows exe-cleanup failure of the nested `go test`
+	// can be recognised at the one place that sees the raw tool output.
+	useBenignTolerantLauncherRuns(parseT)
+	parseStdout := runLauncherCapturingStdout(parseT, launcher{repoRoot: parseRepoRoot}, parseArgs)
+	parseOutput := []byte(parseStdout)
 	parsePayload := bytes.TrimSpace(parseOutput)
 	if len(parsePayload) > 0 && parsePayload[0] != '{' {
 		parseStart := bytes.IndexByte(parsePayload, '{')

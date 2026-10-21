@@ -114,52 +114,6 @@ func ConfigureBootstrapCorrelation(parseCtx context.Context, parseBootstrap *SSR
 	}
 }
 
-// GetSSRObservationAttributes maps one SSRObservation to OTel-compatible span attribute
-// key-value pairs.
-//
-// The returned map uses stable "gwc.*" attribute keys following OpenTelemetry naming
-// conventions. Pass them to your OTel SDK with SetAttributes or equivalent:
-//
-//	attrs := ui.GetSSRObservationAttributes(event)
-//	for k, v := range attrs {
-//	    span.SetAttributes(attribute.String(k, v))
-//	}
-//
-// Keys are guaranteed stable across patch releases once the observability surface
-// is marked stable.
-func GetSSRObservationAttributes(parseObservation SSRObservation) map[string]string {
-	parseAttrs := map[string]string{
-		"gwc.ssr.event.name":      parseObservation.Name,
-		"gwc.ssr.event.domain":    parseObservation.Domain,
-		"gwc.ssr.event.phase":     parseObservation.Phase,
-		"gwc.ssr.correlation_id":  parseObservation.CorrelationID,
-		"gwc.ssr.event.timestamp": parseObservation.Timestamp.UTC().Format("2006-01-02T15:04:05.999999999Z"),
-	}
-	if parseR := parseObservation.Render; parseR != nil {
-		parseAttrs["gwc.ssr.render.duration_ms"] = fmt.Sprintf("%.3f", float64(parseR.DurationNs)/1e6)
-		parseAttrs["gwc.ssr.render.duration_ns"] = fmt.Sprintf("%d", parseR.DurationNs)
-	}
-	if parseB := parseObservation.Bootstrap; parseB != nil {
-		parseAttrs["gwc.ssr.bootstrap.format"] = parseB.Format
-		parseAttrs["gwc.ssr.bootstrap.payload_bytes"] = fmt.Sprintf("%d", parseB.PayloadBytes)
-		parseAttrs["gwc.ssr.bootstrap.script_bytes"] = fmt.Sprintf("%d", parseB.ScriptBytes)
-	}
-	if parseH := parseObservation.Hydration; parseH != nil {
-		parseAttrs["gwc.ssr.hydration.duration_ms"] = fmt.Sprintf("%.3f", float64(parseH.DurationNs)/1e6)
-		parseAttrs["gwc.ssr.hydration.duration_ns"] = fmt.Sprintf("%d", parseH.DurationNs)
-		parseAttrs["gwc.ssr.hydration.existing_dom_nodes"] = fmt.Sprintf("%d", parseH.ExistingDOMNodeCount)
-		parseAttrs["gwc.ssr.hydration.fallback_count"] = fmt.Sprintf("%d", parseH.FallbackCount)
-		parseAttrs["gwc.ssr.hydration.mismatch_count"] = fmt.Sprintf("%d", parseH.MismatchCount)
-		parseAttrs["gwc.ssr.hydration.discarded_node_count"] = fmt.Sprintf("%d", parseH.DiscardedNodeCount)
-		parseAttrs["gwc.ssr.hydration.strict"] = fmt.Sprintf("%t", parseH.Strict)
-		parseAttrs["gwc.ssr.hydration.failed"] = fmt.Sprintf("%t", parseH.Failed)
-		if parseH.Failure != "" {
-			parseAttrs["gwc.ssr.hydration.failure"] = parseH.Failure
-		}
-	}
-	return parseAttrs
-}
-
 // WrapSSRCorrelation is an HTTP middleware that propagates per-request
 // trace context following W3C Trace Context (https://www.w3.org/TR/trace-context/)
 // and common correlation ID conventions.
@@ -183,7 +137,7 @@ func GetSSRObservationAttributes(parseObservation SSRObservation) map[string]str
 // beyond structural format — callers are responsible for ensuring IDs are opaque.
 func WrapSSRCorrelation(parseNext http.Handler) http.Handler {
 	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
-		parseTc := resolveTraceContext(parseR)
+		parseTc, parseBase := resolveExtractedTraceContext(parseR)
 		parseW.Header().Set("X-Correlation-ID", parseTc.TraceID)
 		if parseTp := parseTc.Traceparent(); parseTp != "" {
 			parseW.Header().Set("Traceparent", parseTp)
@@ -191,10 +145,30 @@ func WrapSSRCorrelation(parseNext http.Handler) http.Handler {
 		if parseTc.TraceState != "" {
 			parseW.Header().Set("Tracestate", parseTc.TraceState)
 		}
-		parseCtx := WithCorrelationID(parseR.Context(), parseTc.TraceID)
+		parseCtx := WithCorrelationID(parseBase, parseTc.TraceID)
 		parseCtx = WithW3CTraceContext(parseCtx, parseTc)
 		parseNext.ServeHTTP(parseW, parseR.WithContext(parseCtx))
 	})
+}
+
+// resolveExtractedTraceContext asks the installed TracePropagator for a remote
+// parent and falls back to the legacy header resolution when it supplies none.
+// The returned context is the request context the propagator extended.
+func resolveExtractedTraceContext(parseR *http.Request) (W3CTraceContext, context.Context) {
+	// A zero-value marker lets us tell a fresh extraction from a context stored
+	// by an outer middleware.
+	parseBase := WithW3CTraceContext(parseR.Context(), W3CTraceContext{})
+	parseBase = GetTracePropagator().Extract(parseBase, parseR.Header)
+	if parseTc, parseOk := TraceContextFromContext(parseBase); parseOk && parseTc.IsValid() {
+		if parseTc.SpanID == "" {
+			parseTc.SpanID = generateSpanID()
+		}
+		if parseTc.Flags == "" {
+			parseTc.Flags = "00"
+		}
+		return parseTc, parseBase
+	}
+	return resolveTraceContext(parseR), parseBase
 }
 
 // resolveTraceContext builds a W3CTraceContext for the incoming request.
@@ -275,7 +249,7 @@ func normalizeToTraceID(parseV string) string {
 // isLowercaseHex is a core package helper.
 func isLowercaseHex(parseS string) bool {
 	for _, parseC := range parseS {
-		if !((parseC >= '0' && parseC <= '9') || (parseC >= 'a' && parseC <= 'f')) {
+		if (parseC < '0' || parseC > '9') && (parseC < 'a' || parseC > 'f') {
 			return false
 		}
 	}

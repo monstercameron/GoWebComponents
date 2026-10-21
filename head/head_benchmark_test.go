@@ -3,7 +3,7 @@ package head
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 func BenchmarkRenderToString(parseB *testing.B) {

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // readDeepText returns the deepest first-child text under root (helper local to
@@ -37,7 +37,7 @@ func TestHookFunctionalUpdateAndStableSetter(t *testing.T) {
 
 	var parseSet func(any)
 	var parseSetterIDs []string
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseGet, parseSetter := runtime.GoUseState(rt, 10)
 		parseSet = parseSetter
 		parseSetterIDs = append(parseSetterIDs, fmt.Sprintf("%p", parseSetter))
@@ -82,11 +82,11 @@ func TestHookSetAfterUnmountIsSafe(t *testing.T) {
 		parseSet = parseSetter
 		return runtime.CreateElement("span", map[string]any{}, "child")
 	}
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
 		runtime.CreateElement(parseChild, map[string]any{})))
 
 	// Unmount the child.
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
 	parseOuter := adapter.GetChildren(root)[0]
 	if parseN := len(adapter.GetChildren(parseOuter)); parseN != 0 {
 		t.Fatalf("child not unmounted: %d children remain", parseN)

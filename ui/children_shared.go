@@ -3,7 +3,7 @@ package ui
 import (
 	"reflect"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // coalesceChildren flattens a boundary/provider's Child + Children props into one ordered []any.

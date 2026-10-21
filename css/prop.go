@@ -1,6 +1,6 @@
 package css
 
-import "github.com/monstercameron/GoWebComponents/v6/deprecation"
+import "github.com/monstercameron/GoWebComponents/v7/deprecation"
 
 // This file defines the typed property surface for Layer 1: typed namespaces of
 // typed values (the css.Display.Flex shape) and typed property constructors
@@ -179,7 +179,10 @@ func Border(width Length, c Color) Rule {
 //
 // Deprecated: prefer the typed OpacityNum(Num(n)) — it matches the typed-value convention used by
 // the rest of the prop constructors. Opacity(float64) remains for convenience.
-func Opacity(n float64) Rule { return decl("opacity", trimFloat(n)) }
+func Opacity(n float64) Rule {
+	deprecation.Warn("css.Opacity", "css.OpacityNum(css.Num(n))")
+	return decl("opacity", trimFloat(n))
+}
 
 // Property is the legacy string escape hatch.
 //

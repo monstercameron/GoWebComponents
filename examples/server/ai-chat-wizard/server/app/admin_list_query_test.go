@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 )
 
 // TestAdminListQueryUsersUsageConversations verifies typed list-query search/filter/sort/pagination behavior for user, usage, and conversation admin RPCs.
@@ -257,8 +257,7 @@ func BenchmarkParseFilterAdminUserRowsBySearch(parseB *testing.B) {
 			TotalCostUSD: float64(parseIndex) / 10,
 		})
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseFilterAdminUserRowsBySearch(parseRows, "user19")
 	}
 }

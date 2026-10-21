@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 type ctxHarness struct {
@@ -58,14 +58,14 @@ func TestContextProvidesAndDefaults(t *testing.T) {
 	}
 
 	parseH := newCtxHarness()
-	parseH.rt.RenderInto(parseH.root, runtime.CreateElementOwned(parseProvider, map[string]any{"value": "HELLO"},
+	_ = parseH.rt.RenderInto(parseH.root, runtime.CreateElementOwned(parseProvider, map[string]any{"value": "HELLO"},
 		runtime.CreateElement(parseConsumer, map[string]any{})))
 	if parseH.allText() != "HELLO" {
 		t.Errorf("inside provider: got %q want HELLO", parseH.allText())
 	}
 
 	parseH2 := newCtxHarness()
-	parseH2.rt.RenderInto(parseH2.root, runtime.CreateElement(parseConsumer, map[string]any{}))
+	_ = parseH2.rt.RenderInto(parseH2.root, runtime.CreateElement(parseConsumer, map[string]any{}))
 	if parseH2.allText() != "DEFAULT" {
 		t.Errorf("no provider: got %q want DEFAULT", parseH2.allText())
 	}
@@ -81,7 +81,7 @@ func TestContextNestedProviderOverrides(t *testing.T) {
 	}
 
 	parseH := newCtxHarness()
-	parseH.rt.RenderInto(parseH.root,
+	_ = parseH.rt.RenderInto(parseH.root,
 		runtime.CreateElementOwned(parseProvider, map[string]any{"value": "OUTER"},
 			runtime.CreateElement(parseConsumer, map[string]any{}),
 			runtime.CreateElementOwned(parseProvider, map[string]any{"value": "INNER"},
@@ -111,7 +111,7 @@ func TestContextValueUpdatePropagates(t *testing.T) {
 			runtime.CreateElement(parseConsumer, map[string]any{}))
 	}
 
-	parseH.rt.RenderInto(parseH.root, runtime.CreateElement(parseApp, map[string]any{}))
+	_ = parseH.rt.RenderInto(parseH.root, runtime.CreateElement(parseApp, map[string]any{}))
 	if parseH.allText() != "v0" {
 		t.Fatalf("mount: got %q want v0", parseH.allText())
 	}

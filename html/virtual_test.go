@@ -2,10 +2,11 @@ package html_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // v5 P4.1 — flat-list virtualization, acceptance M4.
@@ -363,5 +364,33 @@ func BenchmarkUnvirtualizedBuild(parseB *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// TestVisibleRangeSurvivesHostileNumbers pins that NaN/Inf/huge geometry and an
+// oversized overscan never produce an inverted, negative or overflowed range.
+func TestVisibleRangeSurvivesHostileNumbers(parseT *testing.T) {
+	parseInf := math.Inf(1)
+	parseCases := []struct {
+		label string
+		props html.VirtualListProps
+	}{
+		{"NaN scroll", html.VirtualListProps{ItemCount: 100, ItemHeight: 40, ViewportHeight: 800, ScrollTop: math.NaN()}},
+		{"+Inf scroll", html.VirtualListProps{ItemCount: 100, ItemHeight: 40, ViewportHeight: 800, ScrollTop: parseInf}},
+		{"huge scroll", html.VirtualListProps{ItemCount: 100, ItemHeight: 40, ViewportHeight: 800, ScrollTop: 1e300}},
+		{"past end", html.VirtualListProps{ItemCount: 100, ItemHeight: 40, ViewportHeight: 800, ScrollTop: 100000}},
+		{"max overscan", html.VirtualListProps{ItemCount: 100, ItemHeight: 40, ViewportHeight: 800, ScrollTop: 400, Overscan: math.MaxInt}},
+		{"Inf viewport", html.VirtualListProps{ItemCount: 100, ItemHeight: 40, ViewportHeight: parseInf}},
+		{"NaN viewport", html.VirtualListProps{ItemCount: 100, ItemHeight: 40, ViewportHeight: math.NaN()}},
+		{"Inf height", html.VirtualListProps{ItemCount: 100, ItemHeight: parseInf, ViewportHeight: 800}},
+	}
+	for _, parseCase := range parseCases {
+		parseRange := html.VisibleRange(parseCase.props)
+		if parseRange.Start < 0 || parseRange.End > parseCase.props.ItemCount || parseRange.Start > parseRange.End {
+			parseT.Errorf("%s: range %+v is invalid for %d items", parseCase.label, parseRange, parseCase.props.ItemCount)
+		}
+		if parseRange.Len() == 0 {
+			parseT.Errorf("%s: range %+v is empty although the list has rows", parseCase.label, parseRange)
+		}
 	}
 }

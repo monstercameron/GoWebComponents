@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 var retainedCallbacks []js.Func

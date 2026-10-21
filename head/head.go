@@ -2,11 +2,12 @@ package head
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // SocialMetadata describes common Open Graph and Twitter card metadata.
@@ -394,7 +395,28 @@ func mergeAlternates(parseBase, parseOverride []AlternateLink, parseOptions Merg
 		return append([]AlternateLink(nil), parseOverride...)
 	}
 	parseMerged := append([]AlternateLink(nil), parseBase...)
-	return append(parseMerged, parseOverride...)
+	for _, parseLink := range parseOverride {
+		parseKey := alternateLinkKey(parseLink)
+		parseIndex := slices.IndexFunc(parseMerged, func(parseExisting AlternateLink) bool {
+			return alternateLinkKey(parseExisting) == parseKey
+		})
+		if parseIndex >= 0 {
+			parseMerged[parseIndex] = parseLink
+			continue
+		}
+		parseMerged = append(parseMerged, parseLink)
+	}
+	return parseMerged
+}
+
+// alternateLinkKey identifies an alternate link for override matching: the locale
+// (case-insensitive) when there is one, otherwise the URL, plus media and type.
+func alternateLinkKey(parseLink AlternateLink) string {
+	parseIdentity := "lang:" + strings.ToLower(strings.TrimSpace(parseLink.HrefLang))
+	if strings.TrimSpace(parseLink.HrefLang) == "" {
+		parseIdentity = "href:" + strings.TrimSpace(parseLink.Href)
+	}
+	return parseIdentity + "|" + strings.TrimSpace(parseLink.Media) + "|" + strings.TrimSpace(parseLink.Type)
 }
 
 func mergeResourceHints(parseBase, parseOverride []ResourceHint, parseOptions MergeOptions) []ResourceHint {
@@ -402,7 +424,24 @@ func mergeResourceHints(parseBase, parseOverride []ResourceHint, parseOptions Me
 		return append([]ResourceHint(nil), parseOverride...)
 	}
 	parseMerged := append([]ResourceHint(nil), parseBase...)
-	return append(parseMerged, parseOverride...)
+	for _, parseHint := range parseOverride {
+		parseKey := resourceHintKey(parseHint)
+		parseIndex := slices.IndexFunc(parseMerged, func(parseExisting ResourceHint) bool {
+			return resourceHintKey(parseExisting) == parseKey
+		})
+		if parseIndex >= 0 {
+			parseMerged[parseIndex] = parseHint
+			continue
+		}
+		parseMerged = append(parseMerged, parseHint)
+	}
+	return parseMerged
+}
+
+// resourceHintKey identifies a resource hint for override matching: relationship,
+// target and destination type.
+func resourceHintKey(parseHint ResourceHint) string {
+	return strings.ToLower(strings.TrimSpace(parseHint.Rel)) + "|" + strings.TrimSpace(parseHint.Href) + "|" + strings.ToLower(strings.TrimSpace(parseHint.As))
 }
 
 func mergeJSONLD(parseBase, parseOverride []JSONLDBlock, parseOptions MergeOptions) []JSONLDBlock {
@@ -410,7 +449,22 @@ func mergeJSONLD(parseBase, parseOverride []JSONLDBlock, parseOptions MergeOptio
 		return append([]JSONLDBlock(nil), parseOverride...)
 	}
 	parseMerged := append([]JSONLDBlock(nil), parseBase...)
-	return append(parseMerged, parseOverride...)
+	for _, parseBlock := range parseOverride {
+		// Blocks without an id cannot be matched, so they always append; two
+		// script elements sharing an id would be invalid markup.
+		parseID := strings.TrimSpace(parseBlock.ID)
+		if parseID != "" {
+			parseIndex := slices.IndexFunc(parseMerged, func(parseExisting JSONLDBlock) bool {
+				return strings.TrimSpace(parseExisting.ID) == parseID
+			})
+			if parseIndex >= 0 {
+				parseMerged[parseIndex] = parseBlock
+				continue
+			}
+		}
+		parseMerged = append(parseMerged, parseBlock)
+	}
+	return parseMerged
 }
 
 func mergeExtras(parseBase, parseOverride []ui.Node, parseOptions MergeOptions) []ui.Node {

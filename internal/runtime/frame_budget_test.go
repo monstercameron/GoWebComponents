@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -27,23 +28,25 @@ func TestFrameBudget_InfiniteDeadlineNeverYields(parseT *testing.T) {
 // TestFrameBudget_DeadlineExpires proves the new deadline actually elapses,
 // which is the whole point: it must reach the sub-1ms region workLoop yields on.
 func TestFrameBudget_DeadlineExpires(parseT *testing.T) {
-	parseDeadline := newFrameBudgetDeadline(2)
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseDeadline := newFrameBudgetDeadline(2)
 
-	if getRemaining := parseDeadline.TimeRemaining(); getRemaining <= 1 {
-		parseT.Fatalf("a fresh 2ms budget should have >1ms remaining, got %v", getRemaining)
-	}
-	if parseDeadline.DidTimeout() {
-		parseT.Fatal("a fresh budget must not report a timeout")
-	}
+		if getRemaining := parseDeadline.TimeRemaining(); getRemaining <= 1 {
+			parseT.Fatalf("a fresh 2ms budget should have >1ms remaining, got %v", getRemaining)
+		}
+		if parseDeadline.DidTimeout() {
+			parseT.Fatal("a fresh budget must not report a timeout")
+		}
 
-	time.Sleep(3 * time.Millisecond)
+		time.Sleep(3 * time.Millisecond)
 
-	if getRemaining := parseDeadline.TimeRemaining(); getRemaining >= 1 {
-		parseT.Errorf("an elapsed 2ms budget should be under the 1ms yield threshold, got %v", getRemaining)
-	}
-	if !parseDeadline.DidTimeout() {
-		parseT.Error("an elapsed budget must report a timeout")
-	}
+		if getRemaining := parseDeadline.TimeRemaining(); getRemaining >= 1 {
+			parseT.Errorf("an elapsed 2ms budget should be under the 1ms yield threshold, got %v", getRemaining)
+		}
+		if !parseDeadline.DidTimeout() {
+			parseT.Error("an elapsed budget must report a timeout")
+		}
+	})
 }
 
 // TestFrameBudget_DisabledByDefault pins R2: the runtime keeps count-only
@@ -97,17 +100,19 @@ func TestFrameBudget_ConfiguredValueIsUsed(parseT *testing.T) {
 // TestFrameBudget_ResolvesToARealDeadlineWhenEnabled proves the work loop
 // receives a budget that can actually expire, rather than the sentinel.
 func TestFrameBudget_ResolvesToARealDeadlineWhenEnabled(parseT *testing.T) {
-	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), FrameBudgetMs: 1, Reset: true})
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), FrameBudgetMs: 1, Reset: true})
 
-	parseDeadline := parseRt.resolveWorkLoopDeadline()
-	if parseDeadline == Deadline(globalInfiniteDeadline) {
-		parseT.Fatal("an enabled budget must not resolve to the infinite deadline")
-	}
+		parseDeadline := parseRt.resolveWorkLoopDeadline()
+		if parseDeadline == Deadline(globalInfiniteDeadline) {
+			parseT.Fatal("an enabled budget must not resolve to the infinite deadline")
+		}
 
-	time.Sleep(2 * time.Millisecond)
-	if !parseDeadline.DidTimeout() {
-		parseT.Error("the work loop's deadline must be able to expire; that is the entire fix")
-	}
+		time.Sleep(2 * time.Millisecond)
+		if !parseDeadline.DidTimeout() {
+			parseT.Error("the work loop's deadline must be able to expire; that is the entire fix")
+		}
+	})
 }
 
 // TestFrameBudget_GatedOnInterruptSafeRestart pins the P1.2 -> P2.5 dependency

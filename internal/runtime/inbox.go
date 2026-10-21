@@ -506,6 +506,8 @@ func (parseRt *Runtime) AsyncIngressEnabled() bool {
 // rendering, but it runs as a MICROTASK outside any region the runtime marked.
 // A resolution that lands while a sliced render is between units mutates hook
 // state the in-flight tree has already read.
+//
+//nolint:unused // called by hooks_fetch.go, which is js/wasm-only.
 func (parseRt *Runtime) applyAsyncStateWrite(parseWrite func()) {
 	if parseWrite == nil {
 		return

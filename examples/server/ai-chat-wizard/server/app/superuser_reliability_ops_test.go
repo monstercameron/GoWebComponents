@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -519,7 +519,7 @@ func TestSuperuserReliabilityControlRPCs(parseT *testing.T) {
 
 // BenchmarkParseNormalizeSuperuserIncidentStatus reports micro-benchmark throughput for superuser incident-status normalization.
 func BenchmarkParseNormalizeSuperuserIncidentStatus(parseB *testing.B) {
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseNormalizeSuperuserIncidentStatus("resolved")
 	}
 }

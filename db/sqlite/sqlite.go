@@ -153,8 +153,11 @@ func (parseDB *DB) Flush(parseCtx context.Context) error {
 	if parseConnErr != nil {
 		return parseConnErr
 	}
-	defer parseConn.Close()
-	return parseDB.flush(parseCtx)
+	parseFlushErr := parseDB.flush(parseCtx)
+	if parseCloseErr := parseConn.Close(); parseCloseErr != nil && parseFlushErr == nil {
+		return parseCloseErr
+	}
+	return parseFlushErr
 }
 
 // Close flushes (for durable backends) and closes the database.
@@ -176,6 +179,15 @@ func defaultPragmas(parsePragmas map[string]string) map[string]string {
 	parseMerged := map[string]string{
 		"foreign_keys": "ON",
 		"busy_timeout": "5000",
+	}
+	for parseKey := range parsePragmas {
+		// PRAGMA names are case-insensitive, so an override that differs only in
+		// case must replace the default rather than sort next to it.
+		for parseDefault := range parseMerged {
+			if strings.EqualFold(parseKey, parseDefault) {
+				delete(parseMerged, parseDefault)
+			}
+		}
 	}
 	maps.Copy(parseMerged, parsePragmas)
 	return parseMerged

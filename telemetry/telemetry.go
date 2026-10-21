@@ -3,28 +3,51 @@ package telemetry
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/devtools"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/devtools"
+	"github.com/monstercameron/GoWebComponents/v7/internal/gwcattrs"
+	"github.com/monstercameron/GoWebComponents/v7/internal/telemetryredaction"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type RUMEvent struct {
-	Name       string            `json:"name"`
-	Type       string            `json:"type"`
-	Timestamp  time.Time         `json:"timestamp"`
-	TraceID    string            `json:"traceId,omitempty"`
-	SpanID     string            `json:"spanId,omitempty"`
-	DurationNs int64             `json:"durationNs,omitempty"`
-	Attributes map[string]string `json:"attributes,omitempty"`
+	Name      string    `json:"name"`
+	Type      string    `json:"type"`
+	Timestamp time.Time `json:"timestamp"`
+	TraceID   string    `json:"traceId,omitempty"`
+	SpanID    string    `json:"spanId,omitempty"`
+	// ParentSpanID is the span id of the parent span; it is exported only when valid.
+	ParentSpanID string            `json:"parentSpanId,omitempty"`
+	DurationNs   int64             `json:"durationNs,omitempty"`
+	Attributes   map[string]string `json:"attributes,omitempty"`
 }
 
+// ExportOptions configures the OTLP resource and scope attached to an export.
 type ExportOptions struct {
 	ServiceName string
+	// ServiceVersion is exported as service.version when non-empty.
+	ServiceVersion string
+	// Environment is exported as deployment.environment when non-empty.
+	Environment string
+	// ScopeVersion is exported as the instrumentation scope version when non-empty.
+	ScopeVersion string
 }
+
+const (
+	scopeName        = "github.com/monstercameron/GoWebComponents/v7/telemetry"
+	otlpKindInternal = 1
+	otlpKindServer   = 2
+	otlpKindClient   = 3
+	otlpStatusError  = 2
+)
 
 // EventsFromSnapshot extracts browser RUM events from a devtools snapshot.
 func EventsFromSnapshot(parseSnapshot devtools.Snapshot) []RUMEvent {
@@ -82,7 +105,9 @@ func EventFromSSRObservation(parseObservation ui.SSRObservation) RUMEvent {
 	}
 }
 
-// BuildOTLPJSON builds an OTLP/HTTP JSON trace export request body.
+// BuildOTLPJSON builds an OTLP/HTTP JSON trace export request body. Ids that are not valid
+// W3C ids are replaced by deterministic hash-derived ids so the output is stable and always
+// accepted by collectors. Attribute values pass through the telemetry redaction policy.
 func BuildOTLPJSON(parseEvents []RUMEvent, parseOptions ExportOptions) ([]byte, error) {
 	parseService := strings.TrimSpace(parseOptions.ServiceName)
 	if parseService == "" {
@@ -90,30 +115,45 @@ func BuildOTLPJSON(parseEvents []RUMEvent, parseOptions ExportOptions) ([]byte, 
 	}
 	parseSpans := make([]map[string]any, 0, len(parseEvents))
 	for parseIndex, parseEvent := range parseEvents {
-		parseSpans = append(parseSpans, map[string]any{
-			"traceId":           traceID(parseEvent.TraceID, parseIndex),
-			"spanId":            spanID(parseEvent.SpanID, parseIndex),
+		parseAttrs := buildEventAttributes(parseEvent)
+		parseTrace := resolveTraceID(parseEvent.TraceID, parseIndex, parseEvent.Name)
+		parseSpan := map[string]any{
+			"traceId":           parseTrace,
+			"spanId":            resolveSpanID(parseEvent.SpanID, parseTrace, parseIndex, parseEvent.Name),
 			"name":              parseEvent.Name,
-			"kind":              3,
+			"kind":              getSpanKind(parseEvent),
 			"startTimeUnixNano": unixNanoString(resolveTimestamp(parseEvent.Timestamp)),
 			"endTimeUnixNano":   unixNanoString(resolveTimestamp(parseEvent.Timestamp).Add(time.Duration(parseEvent.DurationNs))),
-			"attributes":        otlpAttributes(parseEvent.Attributes),
-		})
+			"attributes":        otlpAttributes(parseAttrs),
+		}
+		if interop.IsValidSpanID(parseEvent.ParentSpanID) {
+			parseSpan["parentSpanId"] = parseEvent.ParentSpanID
+		}
+		if isErrorEvent(parseEvent) {
+			parseSpan["status"] = map[string]any{"code": otlpStatusError, "message": getErrorMessage(parseEvent, parseAttrs)}
+		}
+		parseSpans = append(parseSpans, parseSpan)
+	}
+	parseResource := []map[string]any{
+		stringAttr("service.name", parseService),
+		stringAttr("telemetry.sdk.language", "go"),
+		stringAttr("telemetry.sdk.name", "gwc"),
+	}
+	if parseVersion := strings.TrimSpace(parseOptions.ServiceVersion); parseVersion != "" {
+		parseResource = append(parseResource, stringAttr("service.version", parseVersion))
+	}
+	if parseEnvironment := strings.TrimSpace(parseOptions.Environment); parseEnvironment != "" {
+		parseResource = append(parseResource, stringAttr("deployment.environment", parseEnvironment))
+	}
+	parseScope := map[string]string{"name": scopeName}
+	if parseScopeVersion := strings.TrimSpace(parseOptions.ScopeVersion); parseScopeVersion != "" {
+		parseScope["version"] = parseScopeVersion
 	}
 	parseBody := map[string]any{
 		"resourceSpans": []map[string]any{{
-			"resource": map[string]any{
-				"attributes": []map[string]any{{
-					"key": "service.name",
-					"value": map[string]string{
-						"stringValue": parseService,
-					},
-				}},
-			},
+			"resource": map[string]any{"attributes": parseResource},
 			"scopeSpans": []map[string]any{{
-				"scope": map[string]string{
-					"name": "github.com/monstercameron/GoWebComponents/v6/telemetry",
-				},
+				"scope": parseScope,
 				"spans": parseSpans,
 			}},
 		}},
@@ -143,7 +183,9 @@ func ExportOTLPHTTP(parseCtx context.Context, parseClient *http.Client, parseEnd
 	if parseErr != nil {
 		return parseErr
 	}
-	defer parseResp.Body.Close()
+	if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+		return parseCloseErr
+	}
 	if parseResp.StatusCode >= 300 {
 		return &HTTPStatusError{StatusCode: parseResp.StatusCode}
 	}
@@ -158,20 +200,70 @@ func (parseErr *HTTPStatusError) Error() string {
 	return "gwc telemetry export failed with HTTP status " + intString(parseErr.StatusCode)
 }
 
+// buildEventAttributes is the single place event attributes are prepared for export: it
+// applies the telemetry redaction policy, which drops any attribute whose redactor fails.
+func buildEventAttributes(parseEvent RUMEvent) map[string]string {
+	parseAttrs := parseEvent.Attributes
+	if isErrorEvent(parseEvent) {
+		parseAttrs = gwcattrs.NormalizeErrorAttrs(parseAttrs, getErrorMessage(parseEvent, parseAttrs))
+	}
+	return telemetryredaction.StringMap("attributes", parseAttrs)
+}
+
+// otlpAttributes converts already-redacted attributes to sorted OTLP key-values.
 func otlpAttributes(parseValues map[string]string) []map[string]any {
-	parseAttrs := make([]map[string]any, 0, len(parseValues))
-	for parseKey, parseValue := range parseValues {
-		if strings.TrimSpace(parseKey) == "" {
-			continue
+	parseKeys := make([]string, 0, len(parseValues))
+	for parseKey := range parseValues {
+		if strings.TrimSpace(parseKey) != "" {
+			parseKeys = append(parseKeys, parseKey)
 		}
-		parseAttrs = append(parseAttrs, map[string]any{
-			"key": parseKey,
-			"value": map[string]string{
-				"stringValue": parseValue,
-			},
-		})
+	}
+	sort.Strings(parseKeys)
+	parseAttrs := make([]map[string]any, 0, len(parseKeys))
+	for _, parseKey := range parseKeys {
+		parseAttrs = append(parseAttrs, stringAttr(parseKey, parseValues[parseKey]))
 	}
 	return parseAttrs
+}
+
+func stringAttr(parseKey string, parseValue string) map[string]any {
+	return map[string]any{"key": parseKey, "value": map[string]string{"stringValue": parseValue}}
+}
+
+// getSpanKind maps an event to an OTLP span kind: ssr is server, fetch is client and
+// render, commit, hydrate and everything else is internal.
+func getSpanKind(parseEvent RUMEvent) int {
+	switch {
+	case parseEvent.Type == "ssr":
+		return otlpKindServer
+	case parseEvent.Type == "fetch" || strings.HasPrefix(parseEvent.Name, "fetch"):
+		return otlpKindClient
+	default:
+		return otlpKindInternal
+	}
+}
+
+// isErrorEvent reports whether an event represents a failure that needs an error status.
+func isErrorEvent(parseEvent RUMEvent) bool {
+	if parseEvent.Type == "error" {
+		return true
+	}
+	parseAttrs := parseEvent.Attributes
+	return parseAttrs["gwc.severity"] == "error" ||
+		parseAttrs[gwcattrs.KeySSREventPhase] == "error" ||
+		parseAttrs[gwcattrs.KeySSRHydrationFailed] == "true" ||
+		parseAttrs[gwcattrs.KeyExceptionType] != "" ||
+		parseAttrs[gwcattrs.KeyErrorCode] != ""
+}
+
+// getErrorMessage picks the status message from the redacted attributes so redaction applies.
+func getErrorMessage(parseEvent RUMEvent, parseRedacted map[string]string) string {
+	for _, parseKey := range []string{gwcattrs.KeyExceptionMessage, "gwc.message", gwcattrs.KeySSRHydrationFailure} {
+		if parseValue := parseRedacted[parseKey]; parseValue != "" {
+			return parseValue
+		}
+	}
+	return parseEvent.Name
 }
 
 func mergeAttrs(parseBase map[string]string, parseExtra map[string]string) map[string]string {
@@ -220,30 +312,43 @@ func unixNanoString(parseValue time.Time) string {
 	return int64String(parseValue.UnixNano())
 }
 
-func traceID(parseValue string, parseIndex int) string {
+// resolveTraceID keeps a valid trace id and otherwise derives a deterministic one from the
+// supplied correlation text (so events sharing a correlation id share a trace) or, when none
+// was supplied, from the event position and name.
+func resolveTraceID(parseValue string, parseIndex int, parseName string) string {
 	parseValue = strings.TrimSpace(parseValue)
-	if len(parseValue) == 32 {
+	if interop.IsValidTraceID(parseValue) {
 		return parseValue
 	}
-	return "000000000000000000000000" + leftPadHex(parseIndex+1, 8)
+	parseSeed := "trace|" + parseValue
+	if parseValue == "" {
+		parseSeed = "trace||" + intString(parseIndex) + "|" + parseName
+	}
+	parseSum := sha256.Sum256([]byte(parseSeed))
+	return hex.EncodeToString(parseSum[:16])
 }
 
-func spanID(parseValue string, parseIndex int) string {
+// resolveSpanID keeps a valid span id and otherwise derives a non-zero deterministic one
+// from the trace id, event position and name.
+func resolveSpanID(parseValue string, parseTrace string, parseIndex int, parseName string) string {
 	parseValue = strings.TrimSpace(parseValue)
-	if len(parseValue) == 16 {
+	if interop.IsValidSpanID(parseValue) {
 		return parseValue
 	}
-	return leftPadHex(parseIndex+1, 16)
+	parseSum := sha256.Sum256([]byte("span|" + parseTrace + "|" + intString(parseIndex) + "|" + parseName))
+	if isAllZeroBytes(parseSum[:8]) {
+		parseSum[7] = 1
+	}
+	return hex.EncodeToString(parseSum[:8])
 }
 
-func leftPadHex(parseValue int, parseWidth int) string {
-	const parseDigits = "0123456789abcdef"
-	parseOut := make([]byte, parseWidth)
-	for parseIndex := parseWidth - 1; parseIndex >= 0; parseIndex-- {
-		parseOut[parseIndex] = parseDigits[parseValue&15]
-		parseValue >>= 4
+func isAllZeroBytes(parseValue []byte) bool {
+	for _, parseByte := range parseValue {
+		if parseByte != 0 {
+			return false
+		}
 	}
-	return string(parseOut)
+	return true
 }
 
 func intString(parseValue int) string {

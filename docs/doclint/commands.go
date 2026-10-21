@@ -137,7 +137,7 @@ func scanDocGwcCommandFile(parsePath, parseDocRel string) ([]GwcCommandRef, erro
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	defer parseFile.Close()
+	defer func() { _ = parseFile.Close() }()
 
 	var parseRefs []GwcCommandRef
 	parseScanner := bufio.NewScanner(parseFile)
@@ -183,11 +183,8 @@ func parseGwcCommandArgs(parseLine string) ([]string, bool) {
 	if parseErr != nil || len(parseFields) == 0 {
 		return nil, false
 	}
-	if strings.EqualFold(parseFields[0], "go") &&
-		len(parseFields) >= 3 &&
-		strings.EqualFold(parseFields[1], "run") &&
-		isToolsGwcToken(parseFields[2]) {
-		return normalizeCommandPathArgs(parseFields[3:]), true
+	if parseArgs, parseOk := parseGoGwcArgs(parseFields); parseOk {
+		return parseArgs, true
 	}
 	if strings.EqualFold(parseFields[0], "gwc") {
 		return normalizeCommandPathArgs(parseFields[1:]), true

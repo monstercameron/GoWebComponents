@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/auth"
-	serverdb "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/db"
+	serverauth "github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/server/auth"
+	serverdb "github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/server/db"
 )
 
 func main() {
@@ -64,7 +64,7 @@ func runAtlasServer(parseDeps atlasMainDeps) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	defer parseDatabase.Close()
+	defer func() { _ = parseDatabase.Close() }()
 
 	if parseErr2 := parseDeps.migrate(parseCtx, parseDatabase, parseCfg.MigrationsDir, parseCfg.FallbackSchema); parseErr2 != nil {
 		return parseErr2

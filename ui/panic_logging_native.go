@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // actionableUnsupportedOnServerPanic is a core package helper.

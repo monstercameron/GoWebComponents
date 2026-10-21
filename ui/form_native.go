@@ -8,7 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 const DefaultCSRFHeaderName = "X-CSRF-Token"
@@ -274,7 +275,7 @@ func (parseF Form[T]) HasField(parseName string) bool {
 // development. Prefer it where the field name is a hardcoded literal.
 func (parseF Form[T]) MustSetField(parseName string, parseValue any) {
 	if !parseF.SetField(parseName, parseValue) {
-		panic("ui: MustSetField: unknown field or mismatched value type: " + parseName)
+		panic(errcode.New(errcode.UIFormFieldInvalid, "ui: MustSetField: unknown field or mismatched value type: "+parseName+" (the field must be an exported field of the form struct and the value must be assignable to its type)"))
 	}
 }
 
@@ -498,7 +499,7 @@ func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string),
 
 	parseSnapshot := parseF.Get()
 	parseF.mu.Lock()
-	parseSequence := parseF.state.validateSeq + 1
+	parseSequence := nextFormValidateSeq()
 	parseF.state.validating = true
 	parseF.state.validated = false
 	parseF.state.formError = ""
@@ -507,7 +508,7 @@ func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string),
 
 	go func(parseValue T, parseExpectedSeq int) {
 		defer runtime.RecoverContainedPanic("ui", "UseForm validator")
-		parseErrors, parseFormError := parseValidate(parseValue)
+		parseErrors, parseFormError := callFormValidator(parseValidate, parseValue)
 		isParseValid := len(parseErrors) == 0 && parseFormError == ""
 		parseF.mu.Lock()
 		if parseF.state != nil && parseF.state.validateSeq == parseExpectedSeq {
@@ -539,7 +540,7 @@ func (parseF Form[T]) Submit(parseRun func(T) error) {
 
 	go func(parseValue T) {
 		defer runtime.RecoverContainedPanic("ui", "UseForm submit runner")
-		parseErr := parseRun(parseValue)
+		parseErr := callFormRunner("UseForm submit runner", func() error { return parseRun(parseValue) })
 		parseF.mu.Lock()
 		if parseF.state != nil {
 			parseF.state.submitting = false
@@ -573,7 +574,7 @@ func (parseF Form[T]) SubmitWithIntent(parseIntent string, parseRun func(T, stri
 
 	go func(parseValue T, parseActiveIntent string) {
 		defer runtime.RecoverContainedPanic("ui", "UseForm intent runner")
-		parseErr := parseRun(parseValue, parseActiveIntent)
+		parseErr := callFormRunner("UseForm intent runner", func() error { return parseRun(parseValue, parseActiveIntent) })
 		parseF.mu.Lock()
 		if parseF.state != nil {
 			parseF.state.submitting = false
@@ -670,7 +671,7 @@ func (parseF Form[T]) Reset(parseNext ...T) {
 	parseF.state.formError = ""
 	parseF.state.validating = false
 	parseF.state.validated = false
-	parseF.state.validateSeq = 0
+	parseF.state.validateSeq = nextFormValidateSeq()
 	parseF.state.submitting = false
 	parseF.state.submitted = false
 	parseF.state.submitError = nil

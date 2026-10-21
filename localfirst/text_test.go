@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/localfirst"
+	"github.com/monstercameron/GoWebComponents/v7/localfirst"
 )
 
 // TestTextBasicEditing proves local insert/delete behave like an ordinary mutable string.
@@ -122,5 +122,25 @@ func TestTextExportRestoreRoundTrip(parseT *testing.T) {
 	}
 	if parseRestored.Value() != "raft" {
 		parseT.Fatalf("expected 'raft' after tombstoning 'd', got %q", parseRestored.Value())
+	}
+}
+
+// TestTextDeleteClampsNegativeIndex pins the documented clamping: a negative index starts at 0
+// instead of silently deleting nothing, and a run past the end stops at the end.
+func TestTextDeleteClampsNegativeIndex(parseT *testing.T) {
+	parseDoc := localfirst.NewText("A")
+	parseDoc.Insert(0, "abcdef")
+	parseDoc.Delete(-3, 2)
+	if parseDoc.Value() != "cdef" {
+		parseT.Fatalf("negative index should clamp to 0, got %q", parseDoc.Value())
+	}
+	parseDoc.Delete(2, 99)
+	if parseDoc.Value() != "cd" {
+		parseT.Fatalf("overlong count should stop at the end, got %q", parseDoc.Value())
+	}
+	parseDoc.Delete(50, 1)
+	parseDoc.Delete(0, -4)
+	if parseDoc.Value() != "cd" {
+		parseT.Fatalf("out-of-range index and negative count must be no-ops, got %q", parseDoc.Value())
 	}
 }

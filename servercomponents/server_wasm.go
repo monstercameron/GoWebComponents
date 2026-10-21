@@ -3,8 +3,8 @@
 package servercomponents
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // ServerOnly emits a client placeholder on wasm targets so server-only render

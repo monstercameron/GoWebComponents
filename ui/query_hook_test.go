@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/query"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/query"
 )
 
 // TestUseQueryRendersCachedDataToDOMNatively proves UseQuery's snapshot path renders cached

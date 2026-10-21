@@ -2,17 +2,26 @@ package fetch
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 // ErrCircuitOpen is returned by ExecuteWithPolicy when the circuit breaker is
 // in the open state and is not yet eligible to transition to half-open.
-var ErrCircuitOpen = errors.New("fetch: circuit breaker is open")
+var ErrCircuitOpen error = errcode.New(errcode.FetchCircuitOpen, "fetch: circuit breaker is open")
+
+// Defaults substituted for zero-valued RetryPolicy and BreakerConfig fields.
+const (
+	defaultRetryMaxDelay           = 5 * time.Second
+	defaultRetryMultiplier         = 2.0
+	defaultBreakerFailureThreshold = 5
+	defaultBreakerHalfOpenMaxCalls = 1
+)
 
 // RetryPolicy describes how ExecuteWithPolicy retries a failing operation,
 // using exponential backoff with optional jitter.
@@ -25,12 +34,12 @@ type RetryPolicy struct {
 	BaseDelay time.Duration
 
 	// MaxDelay caps the computed backoff delay so it never grows unboundedly.
+	// Zero uses the default of 5 s.
 	MaxDelay time.Duration
 
 	// Multiplier scales the delay between successive retries. A value of 2.0
-	// doubles the delay after each failure. A zero multiplier is honored as
-	// zero, so attempts after the second compute a zero delay; prefer
-	// DefaultRetryPolicy or an explicit positive multiplier for real backoff.
+	// doubles the delay after each failure. Zero uses the default of 2.0; use
+	// 1 for a constant delay.
 	Multiplier float64
 
 	// Jitter is a fractional spread added to each delay to prevent thundering
@@ -56,10 +65,23 @@ func DefaultRetryPolicy() RetryPolicy {
 	}
 }
 
+// withDefaults returns the policy with zero MaxDelay and Multiplier replaced by
+// their documented defaults; non-zero values are kept unchanged.
+func (parseP RetryPolicy) withDefaults() RetryPolicy {
+	if parseP.MaxDelay == 0 {
+		parseP.MaxDelay = defaultRetryMaxDelay
+	}
+	if parseP.Multiplier == 0 {
+		parseP.Multiplier = defaultRetryMultiplier
+	}
+	return parseP
+}
+
 // delay computes the backoff duration before attempt parseAttempt (1-indexed).
 // parseRandFloat must return a value in [0, 1); it is injected so callers can
 // supply a deterministic source in tests.
 func (parseP RetryPolicy) delay(parseAttempt int, parseRandFloat func() float64) time.Duration {
+	parseP = parseP.withDefaults()
 	if parseAttempt <= 1 {
 		return 0
 	}
@@ -111,6 +133,7 @@ func (parseState BreakerState) String() string {
 // BreakerConfig holds the tuning parameters for a CircuitBreaker.
 type BreakerConfig struct {
 	// FailureThreshold is the consecutive-failure count that trips the breaker.
+	// Zero uses the default of 5.
 	FailureThreshold int
 
 	// OpenDuration is how long the breaker stays open before probing with
@@ -119,8 +142,7 @@ type BreakerConfig struct {
 
 	// HalfOpenMaxCalls is the maximum number of calls allowed in the half-open
 	// state before the breaker re-opens (if all half-open calls succeed, it
-	// instead resets to closed). Zero or negative values allow unlimited
-	// half-open probes until a probe records success or failure.
+	// instead resets to closed). Zero uses the default of 1 probe.
 	HalfOpenMaxCalls int
 }
 
@@ -137,11 +159,25 @@ type CircuitBreaker struct {
 	now           func() time.Time
 }
 
+// withDefaults returns the config with zero FailureThreshold and
+// HalfOpenMaxCalls replaced by their documented defaults; non-zero values are
+// kept unchanged.
+func (parseC BreakerConfig) withDefaults() BreakerConfig {
+	if parseC.FailureThreshold == 0 {
+		parseC.FailureThreshold = defaultBreakerFailureThreshold
+	}
+	if parseC.HalfOpenMaxCalls == 0 {
+		parseC.HalfOpenMaxCalls = defaultBreakerHalfOpenMaxCalls
+	}
+	return parseC
+}
+
 // NewCircuitBreaker constructs a CircuitBreaker with the supplied configuration
+// (zero fields take the documented defaults)
 // and a real wall-clock source. Inject a synthetic clock via setNow for tests.
 func NewCircuitBreaker(parseConfig BreakerConfig) *CircuitBreaker {
 	return &CircuitBreaker{
-		config: parseConfig,
+		config: parseConfig.withDefaults(),
 		now:    time.Now,
 	}
 }
@@ -183,7 +219,7 @@ func (parseB *CircuitBreaker) allow() (bool, error) {
 		fallthrough
 
 	case StateHalfOpen:
-		if parseB.halfOpenCalls >= parseB.config.HalfOpenMaxCalls && parseB.config.HalfOpenMaxCalls > 0 {
+		if parseB.halfOpenCalls >= parseB.config.HalfOpenMaxCalls {
 			return false, ErrCircuitOpen
 		}
 		parseB.halfOpenCalls++
@@ -191,6 +227,17 @@ func (parseB *CircuitBreaker) allow() (bool, error) {
 	}
 
 	return true, nil
+}
+
+// releaseProbe returns a half-open probe slot taken by allow when the call ended
+// without a success or failure verdict (panic or cancellation), so the breaker
+// cannot reject every later call forever.
+func (parseB *CircuitBreaker) releaseProbe() {
+	parseB.mu.Lock()
+	defer parseB.mu.Unlock()
+	if parseB.state == StateHalfOpen && parseB.halfOpenCalls > 0 {
+		parseB.halfOpenCalls--
+	}
 }
 
 // recordSuccess resets the breaker to closed, clearing failure counts.
@@ -203,15 +250,16 @@ func (parseB *CircuitBreaker) recordSuccess() {
 }
 
 // recordFailure increments the consecutive-failure counter and opens the
-// breaker when the threshold is reached or a half-open probe fails.
-func (parseB *CircuitBreaker) recordFailure() {
+// breaker when the threshold is reached or a half-open probe fails. It reports
+// whether the breaker is open after recording.
+func (parseB *CircuitBreaker) recordFailure() bool {
 	parseB.mu.Lock()
 	defer parseB.mu.Unlock()
 
 	switch parseB.state {
 	case StateClosed:
 		parseB.failures++
-		if parseB.config.FailureThreshold > 0 && parseB.failures >= parseB.config.FailureThreshold {
+		if parseB.failures >= parseB.config.FailureThreshold {
 			parseB.state = StateOpen
 			parseB.openedAt = parseB.now()
 		}
@@ -222,6 +270,7 @@ func (parseB *CircuitBreaker) recordFailure() {
 		parseB.openedAt = parseB.now()
 		parseB.halfOpenCalls = 0
 	}
+	return parseB.state == StateOpen
 }
 
 // ResiliencePolicy bundles a RetryPolicy and an optional CircuitBreaker into a
@@ -303,6 +352,7 @@ func ExecuteWithPolicy[T any](parseCtx context.Context, parsePolicy ResiliencePo
 	}
 
 	// Fast-fail if the breaker is already open before we attempt anything.
+	parseIsProbeHeld := false
 	if parsePolicy.Breaker != nil {
 		if parseAllowed, parseBreakerErr := parsePolicy.Breaker.allow(); !parseAllowed {
 			return parseZero, parseBreakerErr
@@ -317,6 +367,13 @@ func ExecuteWithPolicy[T any](parseCtx context.Context, parsePolicy ResiliencePo
 		// counts one call per ExecuteWithPolicy call, not per retry. We keep
 		// the check above as the gate and do NOT call allow() again inside the
 		// loop.  The halfOpenCalls counter was already incremented; proceed.
+		parseIsProbeHeld = true
+		// A panic or cancellation records no verdict; hand the probe slot back.
+		defer func() {
+			if parseIsProbeHeld {
+				parsePolicy.Breaker.releaseProbe()
+			}
+		}()
 	}
 
 	parseMaxAttempts := parsePolicy.Retry.MaxAttempts
@@ -336,6 +393,7 @@ func ExecuteWithPolicy[T any](parseCtx context.Context, parsePolicy ResiliencePo
 		parseResult, parseOpErr := parseOp(parseCtx)
 		if parseOpErr == nil {
 			if parsePolicy.Breaker != nil {
+				parseIsProbeHeld = false
 				parsePolicy.Breaker.recordSuccess()
 			}
 			return parseResult, nil
@@ -344,16 +402,21 @@ func ExecuteWithPolicy[T any](parseCtx context.Context, parsePolicy ResiliencePo
 		// RetryIf veto: do not retry, surface the error immediately.
 		if parsePolicy.Retry.RetryIf != nil && !parsePolicy.Retry.RetryIf(parseOpErr) {
 			if parsePolicy.Breaker != nil {
+				parseIsProbeHeld = false
 				parsePolicy.Breaker.recordFailure()
 			}
 			return parseZero, parseOpErr
 		}
 
-		if parsePolicy.Breaker != nil {
-			parsePolicy.Breaker.recordFailure()
-		}
-
 		parseLastErr = parseOpErr
+		if parsePolicy.Breaker != nil {
+			parseIsProbeHeld = false
+			// Once the breaker is open, further retries would keep hitting the
+			// downstream it was opened to protect.
+			if parsePolicy.Breaker.recordFailure() {
+				break
+			}
+		}
 
 		// No sleep needed after the final attempt.
 		if parseAttempt == parseMaxAttempts {

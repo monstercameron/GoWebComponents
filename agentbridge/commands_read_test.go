@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // TestRegisterReadCommandsRegistersCommands pins that RegisterReadCommands

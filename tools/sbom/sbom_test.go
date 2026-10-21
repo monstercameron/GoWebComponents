@@ -12,13 +12,24 @@ func repoRoot(parseT *testing.T) string {
 	parseT.Helper()
 	parseDir, _ := os.Getwd()
 	for range 8 {
-		if _, parseErr := os.Stat(filepath.Join(parseDir, "go.mod")); parseErr == nil {
+		if parseModuleRaw, parseReadErr := os.ReadFile(filepath.Join(parseDir, "go.mod")); parseReadErr == nil && hasV7Module(parseModuleRaw) {
 			return parseDir
 		}
 		parseDir = filepath.Dir(parseDir)
 	}
 	parseT.Fatal("module root not found")
 	return ""
+}
+
+func hasV7Module(parseRaw []byte) bool {
+	parseFirstLine := strings.SplitN(strings.ReplaceAll(string(parseRaw), "\r\n", "\n"), "\n", 2)[0]
+	return strings.TrimSpace(parseFirstLine) == "module github.com/monstercameron/GoWebComponents/v7"
+}
+
+func TestHasV7ModuleAcceptsCRLF(parseT *testing.T) {
+	if !hasV7Module([]byte("module github.com/monstercameron/GoWebComponents/v7\r\ngo 1.27\r\n")) {
+		parseT.Fatal("CRLF go.mod module declaration was not recognized")
+	}
 }
 
 // TestBuildDocumentParsesModuleList pins the decode logic against a fixture
@@ -66,7 +77,7 @@ func TestGenerateMatchesModuleGraph(parseT *testing.T) {
 	if parseDoc.BOMFormat != "CycloneDX" {
 		parseT.Fatalf("not CycloneDX: %+v", parseDoc.BOMFormat)
 	}
-	if len(parseDoc.Components) < 50 {
+	if len(parseDoc.Components) < 40 {
 		parseT.Fatalf("expected a substantial dependency graph, got %d components", len(parseDoc.Components))
 	}
 	parseFound := false

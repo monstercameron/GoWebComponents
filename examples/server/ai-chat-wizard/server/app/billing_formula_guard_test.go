@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -404,7 +404,7 @@ func TestSuperuserBillingPlanBoundaryMutations(parseT *testing.T) {
 // BenchmarkBuildUsageBasedBillingPreview measures preview formula computation overhead.
 func BenchmarkBuildUsageBasedBillingPreview(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parsePreview, parseErr := parseBuildUsageBasedBillingPreview(2900, 12345, 500)
 		if parseErr != nil {
 			parseB.Fatalf("parseBuildUsageBasedBillingPreview: %v", parseErr)

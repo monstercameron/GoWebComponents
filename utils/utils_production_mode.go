@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/deprecation"
-	"github.com/monstercameron/GoWebComponents/v6/hotreload"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
+	"github.com/monstercameron/GoWebComponents/v7/hotreload"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // isDebugBuild returns false for production builds

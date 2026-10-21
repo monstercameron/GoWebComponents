@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/workbench"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/workbench"
 )
 
 // recordingT captures Errorf calls so the tests can assert what RunStories reported.

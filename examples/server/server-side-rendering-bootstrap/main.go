@@ -3,11 +3,11 @@
 package main
 
 import (
-	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 func setClientStatus(parseMessage string) {

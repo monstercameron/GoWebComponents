@@ -30,8 +30,7 @@ func buildSSRBenchmarkTree(parseRows int) *Element {
 func BenchmarkSSRRenderToString100Rows(parseB *testing.B) {
 	parseTree := buildSSRBenchmarkTree(100)
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseIdx := 0; parseIdx < parseB.N; parseIdx++ {
+	for parseB.Loop() {
 		parseMarkup, parseErr := RenderToString(parseTree)
 		if parseErr != nil || len(parseMarkup) == 0 {
 			parseB.Fatalf("render failed: %v", parseErr)

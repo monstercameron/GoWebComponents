@@ -105,10 +105,16 @@ func Apply(parseProfile Profile, parseMemoryLimitBytes int64) (Settings, Previou
 		MemoryLimitBytes: debug.SetMemoryLimit(memoryLimitOrOff(parseMemoryLimitBytes)),
 	}
 
+	// A non-positive limit means off, so report it as 0 like the Settings doc says.
+	parseAppliedLimit := parseMemoryLimitBytes
+	if parseAppliedLimit < 0 {
+		parseAppliedLimit = 0
+	}
+
 	return Settings{
 		Profile:          parseProfile,
 		GCPercent:        parseGCPercent,
-		MemoryLimitBytes: parseMemoryLimitBytes,
+		MemoryLimitBytes: parseAppliedLimit,
 	}, parsePrevious, nil
 }
 

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 const (

@@ -24,11 +24,18 @@ func UseInterval(parseFn func(), parseInterval time.Duration, parseDeps ...any) 
 
 func useTimer(parseFn func(), parseDelay time.Duration, parseRepeat bool, parseDeps ...any) {
 	parseEffectDeps := timerDeps(parseDelay, parseRepeat, parseDeps)
+	// Latest-ref: the timer fires the callback from the most recent render, not the first one.
+	parseLatest := UseRef(parseFn)
+	parseLatest.Set(parseFn)
 	UseEffect(func() func() {
 		if parseFn == nil || parseDelay < 0 {
 			return nil
 		}
-		return scheduleTimer(parseFn, parseDelay, parseRepeat)
+		return scheduleTimer(func() {
+			if parseCurrent := parseLatest.Get(); parseCurrent != nil {
+				parseCurrent()
+			}
+		}, parseDelay, parseRepeat)
 	}, parseEffectDeps...)
 }
 

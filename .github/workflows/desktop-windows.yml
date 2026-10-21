@@ -25,7 +25,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.26.6'
+          go-version: '1.27.1'
       - name: Portable adapter and persistence race checks
         run: go test -race ./desktop ./kvstate
   windows-webview:
@@ -48,7 +48,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.26.6'
+          go-version: '1.27.1'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -60,12 +60,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Wasm transport contracts
         run: |
+          go -C tools build -o ../bin/gowasmexec.exe ./gowasmexec
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:GOOS = 'js'
           $env:GOARCH = 'wasm'
-          go test -exec "$PWD/tools/go_js_wasm_exec.bat" ./desktop
+          go test -exec "$PWD/bin/gowasmexec.exe" ./desktop
           exit $LASTEXITCODE
       - name: Desktop prerequisites (missing runtime is a failure, not a pass)
-        run: go run ./tools/gwc desktop doctor -root ./examples/desktop/wails-counter -json
+        run: go -C tools run ./gwc desktop doctor -root ../examples/desktop/wails-counter -json
       - name: Native example tests and embedded build
         working-directory: examples/desktop/wails-counter
         run: |
@@ -88,7 +90,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($parseDependencies -match 'github.com/wailsapp/') { throw 'Wails leaked into portable SDK' }
       - name: Real Chromium web artifact regression
-        run: go test -tags playwrightgo ./test/playwrightgo -run '^TestDesktopLabWebE2E$' -count=1
+        run: go -C test/playwrightgo test -tags playwrightgo . -run '^TestDesktopLabWebE2E$' -count=1
       - name: Actual WebView smoke and startup failures
         working-directory: examples/desktop/wails-counter
         run: |
@@ -102,13 +104,14 @@ jobs:
             & ./bin/wails-counter.exe --smoke-test --smoke-fault $parseFault
             if ($LASTEXITCODE -ne 1) { throw "Expected startup failure for $parseFault" }
           }
+          exit 0
       - name: Fresh CLI scaffold and unsigned package
         run: |
-          go run ./tools/gwc desktop init -root ./bin/desktop-ci -json
+          go -C tools run ./gwc desktop init -root ./bin/desktop-ci -json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          go run ./tools/gwc desktop doctor -root ./bin/desktop-ci -json
+          go -C tools run ./gwc desktop doctor -root ./bin/desktop-ci -json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          go run ./tools/gwc desktop package -root ./bin/desktop-ci -json
+          go -C tools run ./gwc desktop package -root ./bin/desktop-ci -json
           exit $LASTEXITCODE
       # macOS/Linux native hosts are deliberately not claimed by this Windows template.
       # Add native-engine jobs only alongside working platform build/packaging targets.

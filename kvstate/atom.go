@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v7/state"
 )
 
 // BoundAtom is a global state.Atom whose value is durably persisted. Its
@@ -38,6 +38,10 @@ func (parseB BoundAtom[T]) Err() error { return parseB.err() }
 // BindAtom binds a global atom to durable storage under parseKey. It loads the
 // stored value asynchronously and applies it to the atom, then returns a
 // write-through handle. Cross-tab writes are reflected back into the atom.
+//
+// A Set made before the initial hydrate finishes is newer than the stored row:
+// it is kept in the atom and persisted once the stored version is known, rather
+// than being overwritten by the load.
 func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey string, parseOptions ...Options) BoundAtom[T] {
 	parseOpts := firstOptions(parseOptions).withDefaults()
 	if parseCtx == nil {
@@ -46,6 +50,44 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 
 	parseShared := &boundAtomState{loading: true}
 	parseInitial := parseAtom.Get()
+
+	// parsePersist writes parseValue durably through parseEngine. The version is
+	// claimed synchronously so concurrent Set calls receive distinct, call-ordered
+	// versions; assigning it inside the goroutine via a non-atomic getVersion()+1
+	// let two writers claim the same version and clobber each other.
+	parsePersist := func(parseEngine *engine, parseValue T) {
+		parseNextVersion := parseShared.nextVersion()
+		go func() {
+			parseData, parseEncErr := parseOpts.Codec.Encode(parseValue)
+			if parseCtx.Err() != nil {
+				return
+			}
+			if parseEncErr != nil {
+				parseShared.setError(parseEncErr)
+				return
+			}
+			parseRec := Record{
+				Key:       parseKey,
+				Value:     parseData,
+				Version:   parseNextVersion,
+				UpdatedAt: time.Now().UnixMilli(),
+			}
+			if parseSaveErr := parseEngine.backend.Save(parseCtx, parseRec); parseSaveErr != nil {
+				if parseCtx.Err() != nil {
+					return
+				}
+				parseShared.setError(parseSaveErr)
+				return
+			}
+			if parseCtx.Err() != nil {
+				return
+			}
+			parseOpts.Strategy.OnWrite(parseCtx, parseKey, parseEngine.flush)
+			if !parseOpts.ExternalInvalidation {
+				broadcastCrossTab(parseOpts.Name, parseKey, parseNextVersion)
+			}
+		}()
+	}
 
 	go func() {
 		parseEngine, parseErr := acquireEngine(parseCtx, parseOpts)
@@ -57,8 +99,14 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 			parseShared.setLoading(false)
 			return
 		}
-		parseShared.setEngine(parseEngine)
 
+		// The engine is published only after the stored version is known (see
+		// publishEngine): a Set made before hydration finishes is parked instead
+		// of being versioned against 0, saved under a version the stored row
+		// outranks, and then overwritten by the load.
+		var parseLoaded T
+		parseHasLoaded := false
+		parseStoredVersion := int64(0)
 		if parseRec, parseFound, parseLoadErr := parseEngine.backend.Load(parseCtx, parseKey); parseLoadErr != nil {
 			if parseCtx.Err() != nil {
 				return
@@ -68,10 +116,9 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 			if parseCtx.Err() != nil {
 				return
 			}
-			var parseValue T
-			if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
-				parseShared.setVersion(parseRec.Version)
-				parseAtom.Set(parseValue)
+			if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseLoaded); parseDecodeErr == nil {
+				parseStoredVersion = parseRec.Version
+				parseHasLoaded = true
 			} else {
 				// Surface schema drift / corrupted rows: silently keeping the
 				// initial value with Err()==nil hid the failure entirely.
@@ -81,10 +128,20 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 			if parseCtx.Err() != nil {
 				return
 			}
-			parseShared.setVersion(parseRec.Version)
+			parseStoredVersion = parseRec.Version
 		}
 		if parseCtx.Err() != nil {
 			return
+		}
+		parsePending, parseHasPending := parseShared.publishEngine(parseEngine, parseStoredVersion)
+		if parseHasPending {
+			// A local write beat hydration; it is newer than the stored row, so it
+			// wins and is made durable now.
+			if parsePendingValue, parseIsT := parsePending.(T); parseIsT {
+				parsePersist(parseEngine, parsePendingValue)
+			}
+		} else if parseHasLoaded {
+			parseAtom.Set(parseLoaded)
 		}
 		parseShared.setLoading(false)
 
@@ -134,44 +191,11 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 			return
 		}
 		parseAtom.Set(parseValue)
-		parseEngine := parseShared.getEngine()
+		parseEngine := parseShared.getEngineOrPark(parseValue)
 		if parseEngine == nil {
-			return
+			return // parked until hydration publishes the engine
 		}
-		// Claim the version synchronously so concurrent Set calls receive distinct,
-		// call-ordered versions; assigning it inside the goroutine via a non-atomic
-		// getVersion()+1 let two writers claim the same version and clobber each other.
-		parseNextVersion := parseShared.nextVersion()
-		go func() {
-			parseData, parseEncErr := parseOpts.Codec.Encode(parseValue)
-			if parseCtx.Err() != nil {
-				return
-			}
-			if parseEncErr != nil {
-				parseShared.setError(parseEncErr)
-				return
-			}
-			parseRec := Record{
-				Key:       parseKey,
-				Value:     parseData,
-				Version:   parseNextVersion,
-				UpdatedAt: time.Now().UnixMilli(),
-			}
-			if parseSaveErr := parseEngine.backend.Save(parseCtx, parseRec); parseSaveErr != nil {
-				if parseCtx.Err() != nil {
-					return
-				}
-				parseShared.setError(parseSaveErr)
-				return
-			}
-			if parseCtx.Err() != nil {
-				return
-			}
-			parseOpts.Strategy.OnWrite(parseCtx, parseKey, parseEngine.flush)
-			if !parseOpts.ExternalInvalidation {
-				broadcastCrossTab(parseOpts.Name, parseKey, parseNextVersion)
-			}
-		}()
+		parsePersist(parseEngine, parseValue)
 	}
 
 	return BoundAtom[T]{
@@ -185,22 +209,41 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 // boundAtomState guards the mutable fields shared between the bind goroutine and
 // the write-through closure.
 type boundAtomState struct {
-	mu      sync.Mutex
-	engine  *engine
-	version int64
-	loading bool
-	lastErr error
+	mu     sync.Mutex
+	engine *engine
+	// pending is the latest value Set before hydration published the engine.
+	pending    any
+	hasPending bool
+	version    int64
+	loading    bool
+	lastErr    error
 }
 
-func (parseS *boundAtomState) setEngine(parseE *engine) {
-	parseS.mu.Lock()
-	parseS.engine = parseE
-	parseS.mu.Unlock()
-}
-
-func (parseS *boundAtomState) getEngine() *engine {
+// publishEngine makes the engine visible to Set once the stored version is
+// known, and hands back the value (if any) a Set parked while hydration was
+// pending. The version only moves forward so a parked write is versioned after
+// the stored row.
+func (parseS *boundAtomState) publishEngine(parseE *engine, parseStoredVersion int64) (any, bool) {
 	parseS.mu.Lock()
 	defer parseS.mu.Unlock()
+	if parseStoredVersion > parseS.version {
+		parseS.version = parseStoredVersion
+	}
+	parseS.engine = parseE
+	parsePending, parseHasPending := parseS.pending, parseS.hasPending
+	parseS.pending, parseS.hasPending = nil, false
+	return parsePending, parseHasPending
+}
+
+// getEngineOrPark returns the published engine, or nil after parking parseValue
+// as the pending write when hydration has not finished yet (last Set wins).
+func (parseS *boundAtomState) getEngineOrPark(parseValue any) *engine {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
+	if parseS.engine == nil {
+		parseS.pending, parseS.hasPending = parseValue, true
+		return nil
+	}
 	return parseS.engine
 }
 

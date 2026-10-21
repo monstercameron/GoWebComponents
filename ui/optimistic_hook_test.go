@@ -4,9 +4,10 @@ package ui
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/query"
+	"github.com/monstercameron/GoWebComponents/v7/query"
 )
 
 // TestUseOptimisticAppliesImmediately proves the optimistic setter writes the cache at once
@@ -53,16 +54,18 @@ func TestUseAsyncMutationOptimisticThenCommits(parseT *testing.T) {
 // TestUseActionRollsBackOnError proves UseAction's run rolls the cache back to the prior
 // value when the action fails.
 func TestUseActionRollsBackOnError(parseT *testing.T) {
-	parseCache := query.New(query.WithStaleTime(time.Hour))
-	parseCache.Set("likes", 10)
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseCache := query.New(query.WithStaleTime(time.Hour))
+		parseCache.Set("likes", 10)
 
-	_, parseRun := UseAction[int](parseCache, "likes")
-	parseRun(11, func() (int, error) { return 0, errString("server rejected") })
+		_, parseRun := UseAction[int](parseCache, "likes")
+		parseRun(11, func() (int, error) { return 0, errString("server rejected") })
 
-	if !waitForCache(parseCache, "likes", 10) {
-		parsePeek, _ := parseCache.Peek("likes")
-		parseT.Fatalf("expected rollback to 10 after a failed action, got %v", parsePeek)
-	}
+		if !waitForCache(parseCache, "likes", 10) {
+			parsePeek, _ := parseCache.Peek("likes")
+			parseT.Fatalf("expected rollback to 10 after a failed action, got %v", parsePeek)
+		}
+	})
 }
 
 // waitForCache polls the cache until key equals want, up to a second.

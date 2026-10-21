@@ -1,0 +1,3075 @@
+{
+  "schemaVersion": "gwc.bench.suite/v1",
+  "suite": "v7-prod",
+  "generatedAt": "2026-10-21T07:45:21Z",
+  "machine": {
+    "os": "linux",
+    "arch": "amd64",
+    "hostArch": "amd64",
+    "cpuModel": "AMD EPYC 7763 64-Core Processor",
+    "logicalCpus": 4,
+    "ramBytes": 16766414848,
+    "goVersion": "go1.27.3",
+    "gomaxprocs": 4,
+    "buildTags": "production",
+    "gitSha": "a1d6455fba8149d1dce58c3322d83c77956266a8",
+    "goEnvGoarch": "amd64",
+    "archSource": "benchmark-header",
+    "rootGoMod": "go 1.27.0; toolchain go1.27.1",
+    "rootGitSha": "a1d6455fba8149d1dce58c3322d83c77956266a8"
+  },
+  "run": {
+    "count": 5,
+    "warmup": 1,
+    "seed": 6001,
+    "order": [
+      "native/./virtualization",
+      "native/./internal/runtime",
+      "native/./ui",
+      "native/./router",
+      "native/./diagnostics",
+      "native/./devtools",
+      "native/./sanitize",
+      "native/./head",
+      "native/./css",
+      "native/./delta",
+      "native/./logging",
+      "native/./html",
+      "native/./projection",
+      "native/./internal/platform/mockdom",
+      "native/./pwa",
+      "native/./i18n"
+    ],
+    "parallel": 1
+  },
+  "lanes": [
+    {
+      "lane": "native",
+      "layer": "native-micro",
+      "status": "ok",
+      "entries": [
+        {
+          "id": "native/./virtualization/BenchmarkComputeViewportStateMicro",
+          "unit": "ns/op",
+          "samples": [
+            22.31,
+            22.38,
+            22.31,
+            22.34,
+            22.45
+          ],
+          "median": 22.34,
+          "mad": 0.030000000000001137,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./virtualization/BenchmarkComputeViewportState",
+          "unit": "ns/op",
+          "samples": [
+            22.31,
+            22.3,
+            22.35,
+            22.3,
+            22.37
+          ],
+          "median": 22.31,
+          "mad": 0.00999999999999801,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./virtualization/BenchmarkViewportDiagnosticsWithRowLifecycle",
+          "unit": "ns/op",
+          "samples": [
+            27.53,
+            27.54,
+            27.46,
+            27.53,
+            27.46
+          ],
+          "median": 27.53,
+          "mad": 0.00999999999999801,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFineGrainedKeyedDashboardComponentUpdate16",
+          "unit": "ns/op",
+          "samples": [
+            15459,
+            15575,
+            15468,
+            15687,
+            15629
+          ],
+          "median": 15575,
+          "mad": 107,
+          "n": 5,
+          "bytesPerOp": 9927,
+          "allocsPerOp": 109
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16",
+          "unit": "ns/op",
+          "samples": [
+            3162,
+            3172,
+            3168,
+            3213,
+            3179
+          ],
+          "median": 3172,
+          "mad": 7,
+          "n": 5,
+          "bytesPerOp": 160,
+          "allocsPerOp": 8
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFineGrainedSelectorDashboardComponentUpdate16",
+          "unit": "ns/op",
+          "samples": [
+            14630,
+            14737,
+            14687,
+            14742,
+            14869
+          ],
+          "median": 14737,
+          "mad": 50,
+          "n": 5,
+          "bytesPerOp": 9821,
+          "allocsPerOp": 93
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16",
+          "unit": "ns/op",
+          "samples": [
+            3596,
+            3593,
+            3605,
+            3591,
+            3587
+          ],
+          "median": 3593,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 216,
+          "allocsPerOp": 11
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16",
+          "unit": "ns/op",
+          "samples": [
+            4413,
+            4385,
+            4390,
+            4393,
+            4340
+          ],
+          "median": 4390,
+          "mad": 5,
+          "n": 5,
+          "bytesPerOp": 734,
+          "allocsPerOp": 16
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFineGrainedAncestorRerenderStaticLeaves64",
+          "unit": "ns/op",
+          "samples": [
+            13842,
+            13803,
+            13859,
+            13867,
+            13865
+          ],
+          "median": 13859,
+          "mad": 8,
+          "n": 5,
+          "bytesPerOp": 2280,
+          "allocsPerOp": 19
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFineGrainedAncestorRerenderReactiveRegions64",
+          "unit": "ns/op",
+          "samples": [
+            14399,
+            14262,
+            14364,
+            14434,
+            14436
+          ],
+          "median": 14399,
+          "mad": 35,
+          "n": 5,
+          "bytesPerOp": 2280,
+          "allocsPerOp": 18
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGetGlobalRuntime",
+          "unit": "ns/op",
+          "samples": [
+            6.097,
+            6.232,
+            6.11,
+            6.114,
+            6.116
+          ],
+          "median": 6.114,
+          "mad": 0.0039999999999995595,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkIsNilableTypeCachedPointer",
+          "unit": "ns/op",
+          "samples": [
+            2.193,
+            2.185,
+            2.221,
+            2.18,
+            2.19
+          ],
+          "median": 2.19,
+          "mad": 0.004999999999999893,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFastEqualInt",
+          "unit": "ns/op",
+          "samples": [
+            3.133,
+            3.119,
+            3.124,
+            3.117,
+            3.124
+          ],
+          "median": 3.124,
+          "mad": 0.004999999999999893,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFastEqualString",
+          "unit": "ns/op",
+          "samples": [
+            4.994,
+            4.989,
+            5.071,
+            4.987,
+            4.994
+          ],
+          "median": 4.994,
+          "mad": 0.004999999999999893,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkAreDepsEqual3Primitives",
+          "unit": "ns/op",
+          "samples": [
+            15.51,
+            15.23,
+            15.03,
+            14.96,
+            15.11
+          ],
+          "median": 15.11,
+          "mad": 0.120000000000001,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseStateIntDirectUpdate",
+          "unit": "ns/op",
+          "samples": [
+            411,
+            418.2,
+            417.1,
+            407.2,
+            408.4
+          ],
+          "median": 411,
+          "mad": 3.8000000000000114,
+          "n": 5,
+          "bytesPerOp": 503,
+          "allocsPerOp": 6
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseStatePointerNilReset",
+          "unit": "ns/op",
+          "samples": [
+            386.7,
+            383.6,
+            386.2,
+            388.4,
+            387.4
+          ],
+          "median": 386.7,
+          "mad": 0.6999999999999886,
+          "n": 5,
+          "bytesPerOp": 472,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseMemoSameDeps",
+          "unit": "ns/op",
+          "samples": [
+            112.4,
+            94.74,
+            108,
+            122.2,
+            118.7
+          ],
+          "median": 112.4,
+          "mad": 6.299999999999997,
+          "n": 5,
+          "bytesPerOp": 109,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHookHeavyInitialRender",
+          "unit": "ns/op",
+          "samples": [
+            4562,
+            4616,
+            4635,
+            4492,
+            4610
+          ],
+          "median": 4610,
+          "mad": 25,
+          "n": 5,
+          "bytesPerOp": 11056,
+          "allocsPerOp": 22
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseCallbackSameDeps",
+          "unit": "ns/op",
+          "samples": [
+            124,
+            99.98,
+            110.6,
+            103.9,
+            106.5
+          ],
+          "median": 106.5,
+          "mad": 4.099999999999994,
+          "n": 5,
+          "bytesPerOp": 110,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseRefStable",
+          "unit": "ns/op",
+          "samples": [
+            70.86,
+            81.52,
+            81.15,
+            72.35,
+            64.68
+          ],
+          "median": 72.35,
+          "mad": 7.6699999999999875,
+          "n": 5,
+          "bytesPerOp": 81,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseIdStable",
+          "unit": "ns/op",
+          "samples": [
+            80.86,
+            69.25,
+            71.55,
+            79.9,
+            81.93
+          ],
+          "median": 79.9,
+          "mad": 2.030000000000001,
+          "n": 5,
+          "bytesPerOp": 82,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseFuncWrap",
+          "unit": "ns/op",
+          "samples": [
+            93.9,
+            115.8,
+            128.4,
+            128.9,
+            118.3
+          ],
+          "median": 118.3,
+          "mad": 10.100000000000009,
+          "n": 5,
+          "bytesPerOp": 88,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseEffectSameDeps",
+          "unit": "ns/op",
+          "samples": [
+            121.4,
+            102,
+            85.74,
+            99.06,
+            121
+          ],
+          "median": 102,
+          "mad": 16.260000000000005,
+          "n": 5,
+          "bytesPerOp": 100,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseFetchStubInit",
+          "unit": "ns/op",
+          "samples": [
+            0.9342,
+            0.9358,
+            0.936,
+            0.9352,
+            0.9347
+          ],
+          "median": 0.9352,
+          "mad": 0.0005999999999999339,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseFetchStubGetter",
+          "unit": "ns/op",
+          "samples": [
+            10.28,
+            10.28,
+            10.28,
+            10.29,
+            10.41
+          ],
+          "median": 10.28,
+          "mad": 0,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseFetchStubRefetch",
+          "unit": "ns/op",
+          "samples": [
+            1.558,
+            1.557,
+            1.558,
+            1.562,
+            1.561
+          ],
+          "median": 1.558,
+          "mad": 0.001000000000000112,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFormatHookIDCurrentVsLegacy/legacy",
+          "unit": "ns/op",
+          "samples": [
+            111.2,
+            111.9,
+            111.6,
+            111.9,
+            111.1
+          ],
+          "median": 111.6,
+          "mad": 0.30000000000001137,
+          "n": 5,
+          "bytesPerOp": 13,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFormatHookIDCurrentVsLegacy/current",
+          "unit": "ns/op",
+          "samples": [
+            33.88,
+            33.96,
+            35.01,
+            33.93,
+            34.5
+          ],
+          "median": 33.96,
+          "mad": 0.0799999999999983,
+          "n": 5,
+          "bytesPerOp": 10,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkDivWithTextChildren",
+          "unit": "ns/op",
+          "samples": [
+            559.8,
+            568.9,
+            571.1,
+            583,
+            563.3
+          ],
+          "median": 568.9,
+          "mad": 5.600000000000023,
+          "n": 5,
+          "bytesPerOp": 952,
+          "allocsPerOp": 7
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkDivWithComponents4",
+          "unit": "ns/op",
+          "samples": [
+            662.8,
+            657.4,
+            655.3,
+            650,
+            659.5
+          ],
+          "median": 657.4,
+          "mad": 2.1000000000000227,
+          "n": 5,
+          "bytesPerOp": 1096,
+          "allocsPerOp": 10
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkWithComponentsGeneric4",
+          "unit": "ns/op",
+          "samples": [
+            689.6,
+            673.2,
+            662.3,
+            670.6,
+            669.3
+          ],
+          "median": 670.6,
+          "mad": 2.6000000000000227,
+          "n": 5,
+          "bytesPerOp": 1112,
+          "allocsPerOp": 11
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHydrateSimpleReuse",
+          "unit": "ns/op",
+          "samples": [
+            19073,
+            18775,
+            18517,
+            18449,
+            18398
+          ],
+          "median": 18517,
+          "mad": 119,
+          "n": 5,
+          "bytesPerOp": 65072,
+          "allocsPerOp": 64
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHydrateTagMismatchFallback",
+          "unit": "ns/op",
+          "samples": [
+            18856,
+            18591,
+            18750,
+            18461,
+            18599
+          ],
+          "median": 18599,
+          "mad": 138,
+          "n": 5,
+          "bytesPerOp": 65113,
+          "allocsPerOp": 67
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHydrateMediumTreeReuse",
+          "unit": "ns/op",
+          "samples": [
+            643346,
+            647639,
+            641132,
+            665303,
+            644393
+          ],
+          "median": 644393,
+          "mad": 3246,
+          "n": 5,
+          "bytesPerOp": 484448,
+          "allocsPerOp": 6735
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkDOMNodeInterfaceEquals",
+          "unit": "ns/op",
+          "samples": [
+            2.5,
+            2.507,
+            2.496,
+            2.494,
+            2.491
+          ],
+          "median": 2.496,
+          "mad": 0.0040000000000000036,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkDOMAdapterInterfaceCreateElement",
+          "unit": "ns/op",
+          "samples": [
+            32.37,
+            32.16,
+            32.2,
+            32.27,
+            32.22
+          ],
+          "median": 32.22,
+          "mad": 0.05000000000000426,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkSchedulerInterfaceSetTimeout",
+          "unit": "ns/op",
+          "samples": [
+            62.31,
+            68.42,
+            61.44,
+            71.14,
+            68.58
+          ],
+          "median": 68.42,
+          "mad": 2.719999999999999,
+          "n": 5,
+          "bytesPerOp": 44,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRuntimeLayoutBaselines",
+          "unit": "ns/op",
+          "samples": [
+            0.6265,
+            0.6255,
+            0.6252,
+            0.6235,
+            0.6237
+          ],
+          "median": 0.6252,
+          "mad": 0.0012999999999999678,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFiberHotFieldScan256",
+          "unit": "ns/op",
+          "samples": [
+            611.8,
+            608.9,
+            611.4,
+            610.5,
+            610.7
+          ],
+          "median": 610.7,
+          "mad": 0.6999999999999318,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFiberSiblingWalk256",
+          "unit": "ns/op",
+          "samples": [
+            646.6,
+            666.6,
+            653.3,
+            655.4,
+            665.2
+          ],
+          "median": 655.4,
+          "mad": 8.799999999999955,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHooksIndexResetHotPath",
+          "unit": "ns/op",
+          "samples": [
+            12.81,
+            12.78,
+            12.81,
+            12.79,
+            12.82
+          ],
+          "median": 12.81,
+          "mad": 0.009999999999999787,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkMountFromEmpty200",
+          "unit": "ns/op",
+          "samples": [
+            53989,
+            52071,
+            53981,
+            53120,
+            53665
+          ],
+          "median": 53665,
+          "mad": 324,
+          "n": 5,
+          "bytesPerOp": 90496,
+          "allocsPerOp": 3
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHasCommittedPlacementChildrenAtLeastCurrentVsLegacy/current",
+          "unit": "ns/op",
+          "samples": [
+            15.96,
+            15.91,
+            15.95,
+            16.12,
+            16.11
+          ],
+          "median": 15.96,
+          "mad": 0.05000000000000071,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHasCommittedPlacementChildrenAtLeastCurrentVsLegacy/legacy",
+          "unit": "ns/op",
+          "samples": [
+            2806,
+            2814,
+            2816,
+            2808,
+            2810
+          ],
+          "median": 2810,
+          "mad": 4,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkApplyCommittedChildOrderCurrentVsLegacy/current",
+          "unit": "ns/op",
+          "samples": [
+            206572,
+            207627,
+            205881,
+            210310,
+            211279
+          ],
+          "median": 207627,
+          "mad": 1746,
+          "n": 5,
+          "bytesPerOp": 11072,
+          "allocsPerOp": 13
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkApplyCommittedChildOrderCurrentVsLegacy/legacy",
+          "unit": "ns/op",
+          "samples": [
+            7985690,
+            7860647,
+            7814667,
+            7892103,
+            7821040
+          ],
+          "median": 7860647,
+          "mad": 39607,
+          "n": 5,
+          "bytesPerOp": 1266929,
+          "allocsPerOp": 1657
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderPortalToSelector",
+          "unit": "ns/op",
+          "samples": [
+            18987,
+            19268,
+            19456,
+            19794,
+            20508
+          ],
+          "median": 19456,
+          "mad": 338,
+          "n": 5,
+          "bytesPerOp": 63436,
+          "allocsPerOp": 46
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkProfilingRepresentativeScenarios/large-list",
+          "unit": "ns/op",
+          "samples": [
+            39178,
+            39283,
+            38157,
+            38354,
+            37613
+          ],
+          "median": 38354,
+          "mad": 741,
+          "n": 5,
+          "bytesPerOp": 96116,
+          "allocsPerOp": 38
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkProfilingRepresentativeScenarios/nested-routes",
+          "unit": "ns/op",
+          "samples": [
+            38244,
+            37967,
+            39985,
+            38665,
+            40812
+          ],
+          "median": 38665,
+          "mad": 698,
+          "n": 5,
+          "bytesPerOp": 96116,
+          "allocsPerOp": 38
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkProfilingRepresentativeScenarios/async-dashboard",
+          "unit": "ns/op",
+          "samples": [
+            37435,
+            37506,
+            38463,
+            38699,
+            38141
+          ],
+          "median": 38141,
+          "mad": 558,
+          "n": 5,
+          "bytesPerOp": 96116,
+          "allocsPerOp": 38
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkProfilingRepresentativeScenarios/portal-overlays",
+          "unit": "ns/op",
+          "samples": [
+            37804,
+            37844,
+            38985,
+            38295,
+            36708
+          ],
+          "median": 37844,
+          "mad": 451,
+          "n": 5,
+          "bytesPerOp": 96116,
+          "allocsPerOp": 38
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsCloneBySize/keys-1",
+          "unit": "ns/op",
+          "samples": [
+            197.5,
+            199.7,
+            201,
+            197.3,
+            199.8
+          ],
+          "median": 199.7,
+          "mad": 1.3000000000000114,
+          "n": 5,
+          "bytesPerOp": 336,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsCloneBySize/keys-2",
+          "unit": "ns/op",
+          "samples": [
+            216.9,
+            219.8,
+            217.4,
+            215.8,
+            219.3
+          ],
+          "median": 217.4,
+          "mad": 1.5999999999999943,
+          "n": 5,
+          "bytesPerOp": 336,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsCloneBySize/keys-4",
+          "unit": "ns/op",
+          "samples": [
+            259,
+            263.7,
+            265.2,
+            263.3,
+            261.1
+          ],
+          "median": 263.3,
+          "mad": 1.8999999999999773,
+          "n": 5,
+          "bytesPerOp": 336,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsCloneBySize/keys-8",
+          "unit": "ns/op",
+          "samples": [
+            492.9,
+            494,
+            492.7,
+            486.8,
+            492.3
+          ],
+          "median": 492.7,
+          "mad": 0.39999999999997726,
+          "n": 5,
+          "bytesPerOp": 664,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsCloneBySize/keys-16",
+          "unit": "ns/op",
+          "samples": [
+            1039,
+            1048,
+            1038,
+            1034,
+            1040
+          ],
+          "median": 1039,
+          "mad": 1,
+          "n": 5,
+          "bytesPerOp": 1240,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCreateElementVsOwned/CreateElement_clones",
+          "unit": "ns/op",
+          "samples": [
+            595.4,
+            593.1,
+            597.3,
+            593.6,
+            608.3
+          ],
+          "median": 595.4,
+          "mad": 1.8999999999999773,
+          "n": 5,
+          "bytesPerOp": 616,
+          "allocsPerOp": 5
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCreateElementVsOwned/CreateElementOwned_no_clone",
+          "unit": "ns/op",
+          "samples": [
+            329.1,
+            332.3,
+            329,
+            337.1,
+            329
+          ],
+          "median": 329.1,
+          "mad": 0.10000000000002274,
+          "n": 5,
+          "bytesPerOp": 312,
+          "allocsPerOp": 3
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCreateElementVsOwned/CompactHost_no_map",
+          "unit": "ns/op",
+          "samples": [
+            74.46,
+            75.08,
+            74.25,
+            74.2,
+            75.28
+          ],
+          "median": 74.46,
+          "mad": 0.2599999999999909,
+          "n": 5,
+          "bytesPerOp": 128,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsCloneEmptyFastPath",
+          "unit": "ns/op",
+          "samples": [
+            0.942,
+            0.9534,
+            0.9363,
+            0.9377,
+            0.9403
+          ],
+          "median": 0.9403,
+          "mad": 0.0026000000000000467,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkComponentUpdateWithProps",
+          "unit": "ns/op",
+          "samples": [
+            11008,
+            10995,
+            10759,
+            10844,
+            10944
+          ],
+          "median": 10944,
+          "mad": 64,
+          "n": 5,
+          "bytesPerOp": 10376,
+          "allocsPerOp": 102
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/map/keys-1",
+          "unit": "ns/op",
+          "samples": [
+            198.2,
+            197.8,
+            198.8,
+            200.3,
+            195.6
+          ],
+          "median": 198.2,
+          "mad": 0.6000000000000227,
+          "n": 5,
+          "bytesPerOp": 336,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/slice/keys-1",
+          "unit": "ns/op",
+          "samples": [
+            113.2,
+            111.7,
+            111.3,
+            111.7,
+            111.7
+          ],
+          "median": 111.7,
+          "mad": 0,
+          "n": 5,
+          "bytesPerOp": 56,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/map/keys-2",
+          "unit": "ns/op",
+          "samples": [
+            222.1,
+            218.7,
+            217.7,
+            217.2,
+            215.7
+          ],
+          "median": 217.7,
+          "mad": 1,
+          "n": 5,
+          "bytesPerOp": 336,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/slice/keys-2",
+          "unit": "ns/op",
+          "samples": [
+            194.6,
+            187.6,
+            191.7,
+            188.1,
+            186.8
+          ],
+          "median": 188.1,
+          "mad": 1.299999999999983,
+          "n": 5,
+          "bytesPerOp": 168,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/map/keys-4",
+          "unit": "ns/op",
+          "samples": [
+            256.9,
+            254.8,
+            254.4,
+            251.6,
+            253.2
+          ],
+          "median": 254.4,
+          "mad": 1.200000000000017,
+          "n": 5,
+          "bytesPerOp": 336,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/slice/keys-4",
+          "unit": "ns/op",
+          "samples": [
+            277,
+            280.2,
+            281.2,
+            282.9,
+            280.9
+          ],
+          "median": 280.9,
+          "mad": 0.6999999999999886,
+          "n": 5,
+          "bytesPerOp": 232,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/map/keys-8",
+          "unit": "ns/op",
+          "samples": [
+            486.4,
+            501.3,
+            489.8,
+            489.4,
+            484.7
+          ],
+          "median": 489.4,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 664,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_MapVsSlice/slice/keys-8",
+          "unit": "ns/op",
+          "samples": [
+            675.5,
+            683,
+            681.8,
+            683.2,
+            683.1
+          ],
+          "median": 683,
+          "mad": 0.20000000000004547,
+          "n": 5,
+          "bytesPerOp": 360,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_ReadPath/map/keys-2",
+          "unit": "ns/op",
+          "samples": [
+            9.979,
+            10.65,
+            9.999,
+            9.986,
+            10
+          ],
+          "median": 9.999,
+          "mad": 0.0129999999999999,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_ReadPath/slice/keys-2",
+          "unit": "ns/op",
+          "samples": [
+            3.767,
+            3.738,
+            3.743,
+            3.742,
+            3.745
+          ],
+          "median": 3.743,
+          "mad": 0.002000000000000224,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_ReadPath/map/keys-4",
+          "unit": "ns/op",
+          "samples": [
+            10.64,
+            10.61,
+            10.62,
+            10.95,
+            10.62
+          ],
+          "median": 10.62,
+          "mad": 0.009999999999999787,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_ReadPath/slice/keys-4",
+          "unit": "ns/op",
+          "samples": [
+            11.21,
+            11.23,
+            11.26,
+            11.24,
+            11.45
+          ],
+          "median": 11.24,
+          "mad": 0.019999999999999574,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_ReadPath/map/keys-8",
+          "unit": "ns/op",
+          "samples": [
+            10.73,
+            10.61,
+            11.15,
+            10.67,
+            10.61
+          ],
+          "median": 10.67,
+          "mad": 0.0600000000000005,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsStorage_ReadPath/slice/keys-8",
+          "unit": "ns/op",
+          "samples": [
+            13.2,
+            13.21,
+            13.19,
+            13.18,
+            13.17
+          ],
+          "median": 13.19,
+          "mad": 0.009999999999999787,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCreateElementHostWithTextChildren",
+          "unit": "ns/op",
+          "samples": [
+            761.2,
+            721.2,
+            723.8,
+            727.6,
+            721.4
+          ],
+          "median": 723.8,
+          "mad": 2.599999999999909,
+          "n": 5,
+          "bytesPerOp": 1016,
+          "allocsPerOp": 7
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCreateElementHostWithDirectTextChild",
+          "unit": "ns/op",
+          "samples": [
+            565.2,
+            574.5,
+            568.6,
+            566.7,
+            570.9
+          ],
+          "median": 568.6,
+          "mad": 2.2999999999999545,
+          "n": 5,
+          "bytesPerOp": 600,
+          "allocsPerOp": 6
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsEqualChildrenSamePointer",
+          "unit": "ns/op",
+          "samples": [
+            3.176,
+            3.226,
+            3.133,
+            3.142,
+            3.154
+          ],
+          "median": 3.154,
+          "mad": 0.020999999999999908,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPropsEqualChildrenDifferentPointer",
+          "unit": "ns/op",
+          "samples": [
+            67.09,
+            70.62,
+            66.68,
+            66.87,
+            67.42
+          ],
+          "median": 67.09,
+          "mad": 0.3299999999999983,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkReconcileChildrenStableList16",
+          "unit": "ns/op",
+          "samples": [
+            1971,
+            1952,
+            1947,
+            2040,
+            2016
+          ],
+          "median": 1971,
+          "mad": 24,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkReconcileChildrenWithFragments16",
+          "unit": "ns/op",
+          "samples": [
+            2107,
+            2110,
+            2122,
+            2125,
+            2110
+          ],
+          "median": 2110,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 24,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkReconcileChildrenKeyedStableList16",
+          "unit": "ns/op",
+          "samples": [
+            2349,
+            2371,
+            2348,
+            2350,
+            2383
+          ],
+          "median": 2350,
+          "mad": 2,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPerformUnitOfWorkFunctionComponentLeaf",
+          "unit": "ns/op",
+          "samples": [
+            458.3,
+            445.3,
+            448.3,
+            451.3,
+            450.6
+          ],
+          "median": 450.6,
+          "mad": 2.3000000000000114,
+          "n": 5,
+          "bytesPerOp": 656,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf",
+          "unit": "ns/op",
+          "samples": [
+            442.3,
+            439.3,
+            442.7,
+            450,
+            441.2
+          ],
+          "median": 442.3,
+          "mad": 1.1000000000000227,
+          "n": 5,
+          "bytesPerOp": 656,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkUpdateDomPropertiesInitialRender",
+          "unit": "ns/op",
+          "samples": [
+            814.2,
+            824,
+            813.3,
+            841.8,
+            813
+          ],
+          "median": 814.2,
+          "mad": 1.2000000000000455,
+          "n": 5,
+          "bytesPerOp": 1120,
+          "allocsPerOp": 7
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkUpdateDomPropertiesSteadyState",
+          "unit": "ns/op",
+          "samples": [
+            760,
+            776.8,
+            760.8,
+            759.8,
+            762
+          ],
+          "median": 760.8,
+          "mad": 1,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCommitDeletionDomlessSubtree32",
+          "unit": "ns/op",
+          "samples": [
+            17464,
+            17177,
+            17146,
+            17139,
+            16976
+          ],
+          "median": 17146,
+          "mad": 31,
+          "n": 5,
+          "bytesPerOp": 24242,
+          "allocsPerOp": 171
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCommitWorkPlacementChain16",
+          "unit": "ns/op",
+          "samples": [
+            798.3,
+            795.4,
+            797.9,
+            795.7,
+            803.8
+          ],
+          "median": 797.9,
+          "mad": 2.199999999999932,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRunEffectsChain16",
+          "unit": "ns/op",
+          "samples": [
+            62.42,
+            62.49,
+            62.41,
+            63.64,
+            62.57
+          ],
+          "median": 62.49,
+          "mad": 0.0799999999999983,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderShare_TrivialBodies",
+          "unit": "ns/op",
+          "samples": [
+            119699,
+            114784,
+            114848,
+            113737,
+            113282
+          ],
+          "median": 114784,
+          "mad": 1047,
+          "n": 5,
+          "bytesPerOp": 135627,
+          "allocsPerOp": 1608
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderShare_LightBodies",
+          "unit": "ns/op",
+          "samples": [
+            127870,
+            126524,
+            126573,
+            125871,
+            128023
+          ],
+          "median": 126573,
+          "mad": 702,
+          "n": 5,
+          "bytesPerOp": 135628,
+          "allocsPerOp": 1608
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderShare_HeavyBodies",
+          "unit": "ns/op",
+          "samples": [
+            270274,
+            269999,
+            271677,
+            273134,
+            267847
+          ],
+          "median": 270274,
+          "mad": 1403,
+          "n": 5,
+          "bytesPerOp": 135629,
+          "allocsPerOp": 1608
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderShare_BodyWorkAlone/per-body-50",
+          "unit": "ns/op",
+          "samples": [
+            12419,
+            12318,
+            12630,
+            12248,
+            12263
+          ],
+          "median": 12318,
+          "mad": 70,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderShare_BodyWorkAlone/per-body-500",
+          "unit": "ns/op",
+          "samples": [
+            153165,
+            153452,
+            153257,
+            153274,
+            153296
+          ],
+          "median": 153274,
+          "mad": 22,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGetGlobalRuntimeLazy",
+          "unit": "ns/op",
+          "samples": [
+            627.2,
+            659.3,
+            616.6,
+            616.4,
+            618.6
+          ],
+          "median": 618.6,
+          "mad": 2.2000000000000455,
+          "n": 5,
+          "bytesPerOp": 2048,
+          "allocsPerOp": 6
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkInitGlobalRuntimeAfterLazyGet",
+          "unit": "ns/op",
+          "samples": [
+            684.2,
+            690.9,
+            679.3,
+            667.7,
+            672.5
+          ],
+          "median": 679.3,
+          "mad": 6.7999999999999545,
+          "n": 5,
+          "bytesPerOp": 2048,
+          "allocsPerOp": 6
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderTo",
+          "unit": "ns/op",
+          "samples": [
+            2070,
+            2068,
+            2050,
+            2103,
+            2073
+          ],
+          "median": 2070,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 3992,
+          "allocsPerOp": 18
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkScheduleUpdate",
+          "unit": "ns/op",
+          "samples": [
+            176.9,
+            176.8,
+            178.4,
+            180.2,
+            183
+          ],
+          "median": 178.4,
+          "mad": 1.5999999999999943,
+          "n": 5,
+          "bytesPerOp": 448,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkScheduleUpdateSteadyState",
+          "unit": "ns/op",
+          "samples": [
+            44.13,
+            44.14,
+            44.34,
+            44.11,
+            44.21
+          ],
+          "median": 44.14,
+          "mad": 0.030000000000001137,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkScheduleUpdateForFiberDepth32",
+          "unit": "ns/op",
+          "samples": [
+            396.1,
+            390.5,
+            388.7,
+            392.4,
+            388.2
+          ],
+          "median": 390.5,
+          "mad": 1.8999999999999773,
+          "n": 5,
+          "bytesPerOp": 464,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRender",
+          "unit": "ns/op",
+          "samples": [
+            938.1,
+            933,
+            936,
+            937.6,
+            937.9
+          ],
+          "median": 937.6,
+          "mad": 0.5,
+          "n": 5,
+          "bytesPerOp": 1496,
+          "allocsPerOp": 9
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkRenderSteadyState",
+          "unit": "ns/op",
+          "samples": [
+            938.6,
+            932.3,
+            941.5,
+            939.4,
+            941.3
+          ],
+          "median": 939.4,
+          "mad": 1.8999999999999773,
+          "n": 5,
+          "bytesPerOp": 1496,
+          "allocsPerOp": 9
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkTransitionListRefresh250",
+          "unit": "ns/op",
+          "samples": [
+            244818,
+            234269,
+            235157,
+            237284,
+            240785
+          ],
+          "median": 237284,
+          "mad": 3015,
+          "n": 5,
+          "bytesPerOp": 149066,
+          "allocsPerOp": 1283
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkSSRRenderToString100Rows",
+          "unit": "ns/op",
+          "samples": [
+            423014,
+            422156,
+            421660,
+            419140,
+            422895
+          ],
+          "median": 422156,
+          "mad": 739,
+          "n": 5,
+          "bytesPerOp": 277332,
+          "allocsPerOp": 2720
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkAtomRegistryInitAtomExisting",
+          "unit": "ns/op",
+          "samples": [
+            28.67,
+            28.78,
+            28.85,
+            28.82,
+            28.91
+          ],
+          "median": 28.82,
+          "mad": 0.03999999999999915,
+          "n": 5,
+          "bytesPerOp": 7,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkAtomRegistryGetAtom",
+          "unit": "ns/op",
+          "samples": [
+            13.06,
+            12.8,
+            13.24,
+            12.79,
+            12.81
+          ],
+          "median": 12.81,
+          "mad": 0.02000000000000135,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkAtomRegistrySubscribeUnsubscribe",
+          "unit": "ns/op",
+          "samples": [
+            234.6,
+            231.8,
+            231.9,
+            236.3,
+            231.6
+          ],
+          "median": 231.9,
+          "mad": 0.30000000000001137,
+          "n": 5,
+          "bytesPerOp": 192,
+          "allocsPerOp": 2
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkAtomRegistrySetAtom32Subscribers",
+          "unit": "ns/op",
+          "samples": [
+            542.8,
+            525.9,
+            565.9,
+            496.5,
+            549.3
+          ],
+          "median": 542.8,
+          "mad": 16.899999999999977,
+          "n": 5,
+          "bytesPerOp": 263,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseAtomIntUpdate",
+          "unit": "ns/op",
+          "samples": [
+            560.3,
+            567.3,
+            567.1,
+            561.8,
+            562
+          ],
+          "median": 562,
+          "mad": 1.7000000000000455,
+          "n": 5,
+          "bytesPerOp": 567,
+          "allocsPerOp": 7
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseAtomPointerNilReset",
+          "unit": "ns/op",
+          "samples": [
+            559.3,
+            552.6,
+            561.1,
+            556.2,
+            556.8
+          ],
+          "median": 556.8,
+          "mad": 2.5,
+          "n": 5,
+          "bytesPerOp": 544,
+          "allocsPerOp": 6
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseAtomGetter",
+          "unit": "ns/op",
+          "samples": [
+            14.05,
+            14.08,
+            14.04,
+            14.04,
+            14.05
+          ],
+          "median": 14.05,
+          "mad": 0.010000000000001563,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkGoUseAtomStableRerender",
+          "unit": "ns/op",
+          "samples": [
+            118.1,
+            87.93,
+            99.83,
+            102.3,
+            88.42
+          ],
+          "median": 99.83,
+          "mad": 11.409999999999997,
+          "n": 5,
+          "bytesPerOp": 88,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkCleanupAtomSubscriptions8",
+          "unit": "ns/op",
+          "samples": [
+            1870,
+            1888,
+            1909,
+            1891,
+            1873
+          ],
+          "median": 1888,
+          "mad": 15,
+          "n": 5,
+          "bytesPerOp": 1535,
+          "allocsPerOp": 15
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkAtomRegistryUnsubscribeMany8",
+          "unit": "ns/op",
+          "samples": [
+            1893,
+            1901,
+            1892,
+            1895,
+            1893
+          ],
+          "median": 1893,
+          "mad": 1,
+          "n": 5,
+          "bytesPerOp": 1536,
+          "allocsPerOp": 16
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFiberAllocation",
+          "unit": "ns/op",
+          "samples": [
+            25.75,
+            26.35,
+            26.3,
+            26.6,
+            26.15
+          ],
+          "median": 26.3,
+          "mad": 0.15000000000000213,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkElementLiteralCreation",
+          "unit": "ns/op",
+          "samples": [
+            3.12,
+            3.173,
+            3.13,
+            3.14,
+            3.121
+          ],
+          "median": 3.13,
+          "mad": 0.009999999999999787,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkHooksPackedStateRead",
+          "unit": "ns/op",
+          "samples": [
+            2.985,
+            3.001,
+            2.978,
+            2.98,
+            2.98
+          ],
+          "median": 2.98,
+          "mad": 0.0019999999999997797,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./internal/runtime/BenchmarkFetchStateCopy",
+          "unit": "ns/op",
+          "samples": [
+            1.248,
+            1.248,
+            1.247,
+            1.247,
+            1.248
+          ],
+          "median": 1.248,
+          "mad": 0,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./ui/BenchmarkRenderToStringMicro",
+          "unit": "ns/op",
+          "samples": [
+            1088,
+            1210,
+            1087,
+            1084,
+            1081
+          ],
+          "median": 1087,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 2624,
+          "allocsPerOp": 13
+        },
+        {
+          "id": "native/./ui/BenchmarkMarshalUnmarshalSSRBootstrapMicro",
+          "unit": "ns/op",
+          "samples": [
+            10664,
+            10643,
+            10692,
+            10734,
+            11174
+          ],
+          "median": 10692,
+          "mad": 42,
+          "n": 5,
+          "bytesPerOp": 5096,
+          "allocsPerOp": 66
+        },
+        {
+          "id": "native/./ui/BenchmarkCreateElementCachedComponentHandle",
+          "unit": "ns/op",
+          "samples": [
+            327.6,
+            323.4,
+            326.4,
+            324.4,
+            324
+          ],
+          "median": 324.4,
+          "mad": 1,
+          "n": 5,
+          "bytesPerOp": 488,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./ui/BenchmarkCreateElementFreshClosureComponentHandle",
+          "unit": "ns/op",
+          "samples": [
+            450.5,
+            449.7,
+            458.5,
+            456.8,
+            447.2
+          ],
+          "median": 450.5,
+          "mad": 3.3000000000000114,
+          "n": 5,
+          "bytesPerOp": 640,
+          "allocsPerOp": 7
+        },
+        {
+          "id": "native/./ui/BenchmarkRenderToStringPublicSSRSurface",
+          "unit": "ns/op",
+          "samples": [
+            14090,
+            14127,
+            14352,
+            14072,
+            14077
+          ],
+          "median": 14090,
+          "mad": 18,
+          "n": 5,
+          "bytesPerOp": 5280,
+          "allocsPerOp": 39
+        },
+        {
+          "id": "native/./ui/BenchmarkMarshalSSRBootstrapJSON",
+          "unit": "ns/op",
+          "samples": [
+            6498,
+            6439,
+            6521,
+            6429,
+            6569
+          ],
+          "median": 6498,
+          "mad": 59,
+          "n": 5,
+          "bytesPerOp": 3297,
+          "allocsPerOp": 45
+        },
+        {
+          "id": "native/./ui/BenchmarkMarshalSSRBootstrapBinary",
+          "unit": "ns/op",
+          "samples": [
+            1945,
+            1949,
+            1990,
+            1949,
+            1952
+          ],
+          "median": 1949,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 416,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./ui/BenchmarkUnmarshalSSRBootstrapJSON",
+          "unit": "ns/op",
+          "samples": [
+            5837,
+            5729,
+            5752,
+            5787,
+            5730
+          ],
+          "median": 5752,
+          "mad": 23,
+          "n": 5,
+          "bytesPerOp": 1904,
+          "allocsPerOp": 32
+        },
+        {
+          "id": "native/./ui/BenchmarkUnmarshalSSRBootstrapBinary",
+          "unit": "ns/op",
+          "samples": [
+            4466,
+            4480,
+            4461,
+            4475,
+            4478
+          ],
+          "median": 4475,
+          "mad": 5,
+          "n": 5,
+          "bytesPerOp": 1976,
+          "allocsPerOp": 42
+        },
+        {
+          "id": "native/./ui/BenchmarkRenderBootstrapReferenceScript",
+          "unit": "ns/op",
+          "samples": [
+            1970,
+            1966,
+            1972,
+            1995,
+            1968
+          ],
+          "median": 1970,
+          "mad": 2,
+          "n": 5,
+          "bytesPerOp": 1800,
+          "allocsPerOp": 20
+        },
+        {
+          "id": "native/./router/BenchmarkRouteContractMustHrefForMicro",
+          "unit": "ns/op",
+          "samples": [
+            952.7,
+            952.4,
+            954.1,
+            951.8,
+            947.4
+          ],
+          "median": 952.4,
+          "mad": 0.6000000000000227,
+          "n": 5,
+          "bytesPerOp": 952,
+          "allocsPerOp": 12
+        },
+        {
+          "id": "native/./diagnostics/BenchmarkNewReport",
+          "unit": "ns/op",
+          "samples": [
+            15303,
+            15009,
+            15090,
+            15046,
+            14991
+          ],
+          "median": 15046,
+          "mad": 44,
+          "n": 5,
+          "bytesPerOp": 6313,
+          "allocsPerOp": 40
+        },
+        {
+          "id": "native/./diagnostics/BenchmarkWriteHTTPError",
+          "unit": "ns/op",
+          "samples": [
+            5299
+          ],
+          "median": 5299,
+          "mad": 0,
+          "n": 1,
+          "bytesPerOp": 3633,
+          "allocsPerOp": 33
+        },
+        {
+          "id": "native/./diagnostics/BenchmarkNewReportMicro",
+          "unit": "ns/op",
+          "samples": [
+            15206,
+            15201,
+            15153,
+            15223,
+            15454
+          ],
+          "median": 15206,
+          "mad": 17,
+          "n": 5,
+          "bytesPerOp": 6313,
+          "allocsPerOp": 40
+        },
+        {
+          "id": "native/./devtools/BenchmarkSanitizeBugCaptureBundleForSupport",
+          "unit": "ns/op",
+          "samples": [
+            62834,
+            63202,
+            63177,
+            63136,
+            65820
+          ],
+          "median": 63177,
+          "mad": 41,
+          "n": 5,
+          "bytesPerOp": 38841,
+          "allocsPerOp": 82
+        },
+        {
+          "id": "native/./devtools/BenchmarkExportSupportDiagnosticBundleJSON",
+          "unit": "ns/op",
+          "samples": [
+            74948,
+            75114,
+            76020,
+            74983,
+            75130
+          ],
+          "median": 75114,
+          "mad": 131,
+          "n": 5,
+          "bytesPerOp": 45692,
+          "allocsPerOp": 93
+        },
+        {
+          "id": "native/./devtools/BenchmarkSnapshotNowMicro",
+          "unit": "ns/op",
+          "samples": [
+            431.1,
+            430.6,
+            430.2,
+            430.6,
+            430.6
+          ],
+          "median": 430.6,
+          "mad": 0,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./devtools/BenchmarkCompareSnapshotsMicro",
+          "unit": "ns/op",
+          "samples": [
+            217442,
+            221398,
+            214689,
+            214198,
+            220838
+          ],
+          "median": 217442,
+          "mad": 3244,
+          "n": 5,
+          "bytesPerOp": 78909,
+          "allocsPerOp": 1037
+        },
+        {
+          "id": "native/./sanitize/BenchmarkSanitizeLargeDocument",
+          "unit": "ns/op",
+          "samples": [
+            1684637,
+            1690405,
+            1679320,
+            1722534,
+            1690113
+          ],
+          "median": 1690113,
+          "mad": 5476,
+          "n": 5,
+          "bytesPerOp": 748629,
+          "allocsPerOp": 13050
+        },
+        {
+          "id": "native/./head/BenchmarkRenderToString",
+          "unit": "ns/op",
+          "samples": [
+            31214,
+            30940,
+            31240,
+            31091,
+            31194
+          ],
+          "median": 31194,
+          "mad": 46,
+          "n": 5,
+          "bytesPerOp": 35529,
+          "allocsPerOp": 256
+        },
+        {
+          "id": "native/./head/BenchmarkRenderJSONLD",
+          "unit": "ns/op",
+          "samples": [
+            6192,
+            6084,
+            6092,
+            6443,
+            6054
+          ],
+          "median": 6092,
+          "mad": 38,
+          "n": 5,
+          "bytesPerOp": 9341,
+          "allocsPerOp": 44
+        },
+        {
+          "id": "native/./head/BenchmarkMergeDocumentMicro",
+          "unit": "ns/op",
+          "samples": [
+            125.3,
+            128.1,
+            125.2,
+            125.3,
+            127.4
+          ],
+          "median": 125.3,
+          "mad": 0.09999999999999432,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./css/BenchmarkFoldWarmFourBundles",
+          "unit": "ns/op",
+          "samples": [
+            836.2,
+            825,
+            815.4,
+            814.4,
+            816.7
+          ],
+          "median": 816.7,
+          "mad": 2.300000000000068,
+          "n": 5,
+          "bytesPerOp": 1144,
+          "allocsPerOp": 16
+        },
+        {
+          "id": "native/./css/BenchmarkFoldWarmFourBundlesOldOrdering",
+          "unit": "ns/op",
+          "samples": [
+            2512,
+            2652,
+            2495,
+            2552,
+            2498
+          ],
+          "median": 2512,
+          "mad": 17,
+          "n": 5,
+          "bytesPerOp": 2376,
+          "allocsPerOp": 29
+        },
+        {
+          "id": "native/./css/BenchmarkFoldRuleConstructionOnly",
+          "unit": "ns/op",
+          "samples": [
+            556.1,
+            564,
+            553.7,
+            551.4,
+            559.5
+          ],
+          "median": 556.1,
+          "mad": 3.3999999999999773,
+          "n": 5,
+          "bytesPerOp": 248,
+          "allocsPerOp": 15
+        },
+        {
+          "id": "native/./delta/BenchmarkPublishOneEditIn20k",
+          "unit": "ns/op",
+          "samples": [
+            6584119,
+            7224527,
+            6672804,
+            6725252,
+            6743769
+          ],
+          "median": 6725252,
+          "mad": 52448,
+          "n": 5,
+          "bytesPerOp": 6292593,
+          "allocsPerOp": 268
+        },
+        {
+          "id": "native/./delta/BenchmarkPublishScaling/rows-1000",
+          "unit": "ns/op",
+          "samples": [
+            254321,
+            251573,
+            252259,
+            257790,
+            252423
+          ],
+          "median": 252423,
+          "mad": 850,
+          "n": 5,
+          "bytesPerOp": 377008,
+          "allocsPerOp": 28
+        },
+        {
+          "id": "native/./delta/BenchmarkPublishScaling/rows-5000",
+          "unit": "ns/op",
+          "samples": [
+            1615038,
+            1610212,
+            1617290,
+            1625116,
+            1597299
+          ],
+          "median": 1615038,
+          "mad": 4826,
+          "n": 5,
+          "bytesPerOp": 1573235,
+          "allocsPerOp": 76
+        },
+        {
+          "id": "native/./delta/BenchmarkPublishScaling/rows-20000",
+          "unit": "ns/op",
+          "samples": [
+            6876550,
+            6739763,
+            6595111,
+            6639143,
+            6736373
+          ],
+          "median": 6736373,
+          "mad": 97230,
+          "n": 5,
+          "bytesPerOp": 6292593,
+          "allocsPerOp": 268
+        },
+        {
+          "id": "native/./delta/BenchmarkApplyScaling/rows-1000",
+          "unit": "ns/op",
+          "samples": [
+            69.71,
+            69.89,
+            70.53,
+            69.73,
+            69.76
+          ],
+          "median": 69.76,
+          "mad": 0.05000000000001137,
+          "n": 5,
+          "bytesPerOp": 64,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./delta/BenchmarkApplyScaling/rows-5000",
+          "unit": "ns/op",
+          "samples": [
+            71.84,
+            71.84,
+            72.89,
+            71.74,
+            72.2
+          ],
+          "median": 71.84,
+          "mad": 0.10000000000000853,
+          "n": 5,
+          "bytesPerOp": 64,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./delta/BenchmarkApplyScaling/rows-20000",
+          "unit": "ns/op",
+          "samples": [
+            87.3,
+            83.89,
+            84.35,
+            84.83,
+            87.47
+          ],
+          "median": 84.83,
+          "mad": 0.9399999999999977,
+          "n": 5,
+          "bytesPerOp": 64,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./delta/BenchmarkApplyOneEdit",
+          "unit": "ns/op",
+          "samples": [
+            84.03,
+            84.52,
+            84.12,
+            87.59,
+            83.87
+          ],
+          "median": 84.12,
+          "mad": 0.25,
+          "n": 5,
+          "bytesPerOp": 64,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./logging/BenchmarkCloneFieldsSmall",
+          "unit": "ns/op",
+          "samples": [
+            121.4,
+            121.4,
+            121.5,
+            121.6,
+            121.4
+          ],
+          "median": 121.4,
+          "mad": 0,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./logging/BenchmarkLoggerScope",
+          "unit": "ns/op",
+          "samples": [
+            1.056,
+            1.046,
+            1.066,
+            1.043,
+            1.069
+          ],
+          "median": 1.056,
+          "mad": 0.010000000000000009,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./logging/BenchmarkCloneFieldsMicro",
+          "unit": "ns/op",
+          "samples": [
+            105,
+            104.6,
+            104.4,
+            104.9,
+            104.4
+          ],
+          "median": 104.6,
+          "mad": 0.19999999999998863,
+          "n": 5,
+          "bytesPerOp": 0,
+          "allocsPerOp": 0
+        },
+        {
+          "id": "native/./html/BenchmarkTagDivWithCommonProps",
+          "unit": "ns/op",
+          "samples": [
+            484.8,
+            483.6,
+            489.7,
+            489.4,
+            490.3
+          ],
+          "median": 489.4,
+          "mad": 0.9000000000000341,
+          "n": 5,
+          "bytesPerOp": 576,
+          "allocsPerOp": 5
+        },
+        {
+          "id": "native/./html/BenchmarkCompactPropsClassOnly",
+          "unit": "ns/op",
+          "samples": [
+            56.81,
+            54.48,
+            54.94,
+            54.69,
+            54.67
+          ],
+          "median": 54.69,
+          "mad": 0.21000000000000085,
+          "n": 5,
+          "bytesPerOp": 32,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./html/BenchmarkCompactPropsClassData",
+          "unit": "ns/op",
+          "samples": [
+            143.3,
+            141.7,
+            141.8,
+            142,
+            142.4
+          ],
+          "median": 142,
+          "mad": 0.30000000000001137,
+          "n": 5,
+          "bytesPerOp": 96,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./html/BenchmarkCustomElementWithAttributesAndProperties",
+          "unit": "ns/op",
+          "samples": [
+            1079,
+            1068,
+            1066,
+            1064,
+            1058
+          ],
+          "median": 1066,
+          "mad": 2,
+          "n": 5,
+          "bytesPerOp": 832,
+          "allocsPerOp": 11
+        },
+        {
+          "id": "native/./html/BenchmarkDivNodeConstructionMicro",
+          "unit": "ns/op",
+          "samples": [
+            220.9,
+            221.6,
+            221.9,
+            227.6,
+            223.4
+          ],
+          "median": 221.9,
+          "mad": 1,
+          "n": 5,
+          "bytesPerOp": 288,
+          "allocsPerOp": 3
+        },
+        {
+          "id": "native/./html/BenchmarkMergePropsHotPath",
+          "unit": "ns/op",
+          "samples": [
+            2904,
+            2918,
+            2950,
+            2923,
+            2912
+          ],
+          "median": 2918,
+          "mad": 6,
+          "n": 5,
+          "bytesPerOp": 3904,
+          "allocsPerOp": 10
+        },
+        {
+          "id": "native/./html/BenchmarkVirtualListBuild/items-1000",
+          "unit": "ns/op",
+          "samples": [
+            23504,
+            23664,
+            23565,
+            23772,
+            23413
+          ],
+          "median": 23565,
+          "mad": 99,
+          "n": 5,
+          "bytesPerOp": 27638,
+          "allocsPerOp": 269
+        },
+        {
+          "id": "native/./html/BenchmarkVirtualListBuild/items-10000",
+          "unit": "ns/op",
+          "samples": [
+            23563,
+            23879,
+            23841,
+            23635,
+            24125
+          ],
+          "median": 23841,
+          "mad": 206,
+          "n": 5,
+          "bytesPerOp": 27638,
+          "allocsPerOp": 269
+        },
+        {
+          "id": "native/./html/BenchmarkVirtualListBuild/items-100000",
+          "unit": "ns/op",
+          "samples": [
+            23744,
+            23477,
+            23294,
+            23699,
+            23358
+          ],
+          "median": 23477,
+          "mad": 183,
+          "n": 5,
+          "bytesPerOp": 27646,
+          "allocsPerOp": 269
+        },
+        {
+          "id": "native/./html/BenchmarkUnvirtualizedBuild/items-1000",
+          "unit": "ns/op",
+          "samples": [
+            234416,
+            233530,
+            234818,
+            233475,
+            235191
+          ],
+          "median": 234416,
+          "mad": 775,
+          "n": 5,
+          "bytesPerOp": 312706,
+          "allocsPerOp": 3003
+        },
+        {
+          "id": "native/./html/BenchmarkUnvirtualizedBuild/items-10000",
+          "unit": "ns/op",
+          "samples": [
+            2932175,
+            2973462,
+            2875978,
+            2996822,
+            2964731
+          ],
+          "median": 2964731,
+          "mad": 32091,
+          "n": 5,
+          "bytesPerOp": 3125895,
+          "allocsPerOp": 30003
+        },
+        {
+          "id": "native/./projection/BenchmarkFilterResident/rows-1000",
+          "unit": "ns/op",
+          "samples": [
+            1614,
+            1619,
+            1635,
+            1622,
+            1622
+          ],
+          "median": 1622,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 48,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./projection/BenchmarkFilterResident/rows-5000",
+          "unit": "ns/op",
+          "samples": [
+            8301,
+            8288,
+            8304,
+            8318,
+            8251
+          ],
+          "median": 8301,
+          "mad": 13,
+          "n": 5,
+          "bytesPerOp": 608,
+          "allocsPerOp": 4
+        },
+        {
+          "id": "native/./projection/BenchmarkFilterResident/rows-20000",
+          "unit": "ns/op",
+          "samples": [
+            33615,
+            33707,
+            33694,
+            33795,
+            33604
+          ],
+          "median": 33694,
+          "mad": 79,
+          "n": 5,
+          "bytesPerOp": 2720,
+          "allocsPerOp": 6
+        },
+        {
+          "id": "native/./projection/BenchmarkApplyUpdateBatch/rows-1000",
+          "unit": "ns/op",
+          "samples": [
+            444,
+            443.7,
+            445.1,
+            443.2,
+            443.8
+          ],
+          "median": 443.8,
+          "mad": 0.19999999999998863,
+          "n": 5,
+          "bytesPerOp": 24,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./projection/BenchmarkApplyUpdateBatch/rows-5000",
+          "unit": "ns/op",
+          "samples": [
+            446.1,
+            446.8,
+            450.6,
+            444.4,
+            444.4
+          ],
+          "median": 446.1,
+          "mad": 1.7000000000000455,
+          "n": 5,
+          "bytesPerOp": 24,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./projection/BenchmarkApplyUpdateBatch/rows-20000",
+          "unit": "ns/op",
+          "samples": [
+            454.2,
+            453,
+            449.7,
+            450.6,
+            449.7
+          ],
+          "median": 450.6,
+          "mad": 0.9000000000000341,
+          "n": 5,
+          "bytesPerOp": 24,
+          "allocsPerOp": 1
+        },
+        {
+          "id": "native/./internal/platform/mockdom/BenchmarkMockDOMAdapterCreateElementAndAppendChild",
+          "unit": "ns/op",
+          "samples": [
+            1126,
+            1086,
+            1119,
+            1087,
+            1181
+          ],
+          "median": 1119,
+          "mad": 32,
+          "n": 5,
+          "bytesPerOp": 1457,
+          "allocsPerOp": 7
+        },
+        {
+          "id": "native/./internal/platform/mockdom/BenchmarkMockSchedulerFlushAll",
+          "unit": "ns/op",
+          "samples": [
+            1620,
+            1638,
+            1636,
+            1651,
+            1634
+          ],
+          "median": 1636,
+          "mad": 2,
+          "n": 5,
+          "bytesPerOp": 816,
+          "allocsPerOp": 27
+        },
+        {
+          "id": "native/./pwa/BenchmarkBuildServiceWorkerAssetPlanMicro",
+          "unit": "ns/op",
+          "samples": [
+            2743,
+            2782,
+            2742,
+            2760,
+            2751
+          ],
+          "median": 2751,
+          "mad": 9,
+          "n": 5,
+          "bytesPerOp": 2704,
+          "allocsPerOp": 25
+        },
+        {
+          "id": "native/./pwa/BenchmarkMarshalManifestJSON",
+          "unit": "ns/op",
+          "samples": [
+            1257,
+            1235,
+            1278,
+            1237,
+            1238
+          ],
+          "median": 1238,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 848,
+          "allocsPerOp": 3
+        },
+        {
+          "id": "native/./pwa/BenchmarkBuildServiceWorkerAssetPlan",
+          "unit": "ns/op",
+          "samples": [
+            2847,
+            2831,
+            2819,
+            2812,
+            2835
+          ],
+          "median": 2831,
+          "mad": 12,
+          "n": 5,
+          "bytesPerOp": 2848,
+          "allocsPerOp": 25
+        },
+        {
+          "id": "native/./i18n/BenchmarkBundleTranslate",
+          "unit": "ns/op",
+          "samples": [
+            3142,
+            3139,
+            3162,
+            3146,
+            3139
+          ],
+          "median": 3142,
+          "mad": 3,
+          "n": 5,
+          "bytesPerOp": 2152,
+          "allocsPerOp": 29
+        },
+        {
+          "id": "native/./i18n/BenchmarkNormalizeLocaleMicro",
+          "unit": "ns/op",
+          "samples": [
+            515.9,
+            512.8,
+            505.4,
+            513.7,
+            507.2
+          ],
+          "median": 512.8,
+          "mad": 3.1000000000000227,
+          "n": 5,
+          "bytesPerOp": 244,
+          "allocsPerOp": 4
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "layer": "wasm-micro",
+      "status": "not-run",
+      "reason": "lane not selected for this run",
+      "entries": []
+    },
+    {
+      "lane": "size",
+      "layer": "size",
+      "status": "not-run",
+      "reason": "lane not selected for this run",
+      "entries": []
+    },
+    {
+      "lane": "build",
+      "layer": "build",
+      "status": "not-run",
+      "reason": "lane not selected for this run",
+      "entries": []
+    },
+    {
+      "lane": "browser",
+      "layer": "browser",
+      "status": "not-run",
+      "reason": "browser lanes are not implemented yet; added in a later v7 phase",
+      "entries": []
+    }
+  ],
+  "targets": [
+    {
+      "lane": "native",
+      "package": "./virtualization",
+      "status": "ok",
+      "durationMs": 24180,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./internal/runtime",
+      "status": "ok",
+      "durationMs": 826597,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./ui",
+      "status": "ok",
+      "durationMs": 73744,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./router",
+      "status": "ok",
+      "durationMs": 7984,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./diagnostics",
+      "status": "ok",
+      "durationMs": 24368,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./devtools",
+      "status": "ok",
+      "durationMs": 29697,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./sanitize",
+      "status": "ok",
+      "durationMs": 7573,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./head",
+      "status": "ok",
+      "durationMs": 22445,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./css",
+      "status": "ok",
+      "durationMs": 22740,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./delta",
+      "status": "ok",
+      "durationMs": 58245,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./logging",
+      "status": "ok",
+      "durationMs": 21423,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./html",
+      "status": "ok",
+      "durationMs": 79670,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./projection",
+      "status": "ok",
+      "durationMs": 44028,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./internal/platform/mockdom",
+      "status": "ok",
+      "durationMs": 14833,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./pwa",
+      "status": "ok",
+      "durationMs": 22421,
+      "goos": "linux",
+      "goarch": "amd64"
+    },
+    {
+      "lane": "native",
+      "package": "./i18n",
+      "status": "ok",
+      "durationMs": 16054,
+      "goos": "linux",
+      "goarch": "amd64"
+    }
+  ],
+  "size": [],
+  "refs": {},
+  "health": {}
+}

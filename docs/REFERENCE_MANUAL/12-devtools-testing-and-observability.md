@@ -5,7 +5,7 @@ Use this chapter when you need repeatable test harnesses, in-app diagnostics, st
 It is the right chapter for:
 
 - public testing helpers under `test/render`, `test/hooks`, `test/router`, `test/ssr`, and `test/browser`
-- launcher-driven test lanes through `go run ./tools/gwc test -lane ...`
+- launcher-driven test lanes through `go -C tools run ./gwc test -lane ...`
 - in-browser diagnostics through `devtools.Panel(...)`, `devtools.UseSnapshot(...)`, and `devtools.SnapshotNow()`
 - error overlays, trace capture, bug bundles, support bundles, and snapshot comparison
 - structured logging through `logging.New(...)`, `logging.NewContext(...)`, and browser lifecycle logging through `logging.AttachBrowserConsole(...)`
@@ -90,9 +90,9 @@ import (
 	"fmt"
 	"testing"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	render "github.com/monstercameron/GoWebComponents/v6/test/render"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	render "github.com/monstercameron/GoWebComponents/v7/test/render"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderSaveSettingsButton renders one small stateful control for a consumer-facing fixture test.
@@ -138,10 +138,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/devtools"
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/logging"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/devtools"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/logging"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderDiagnosticsShell embeds a small summary, the full panel, and the focused error overlay.
@@ -200,7 +200,7 @@ When a team needs reproducible troubleshooting, capture a local bug bundle, deri
 ```go gwc:build
 package support
 
-import "github.com/monstercameron/GoWebComponents/v6/devtools"
+import "github.com/monstercameron/GoWebComponents/v7/devtools"
 
 type supportArtifacts struct {
 	BugJSON           []byte
@@ -266,6 +266,35 @@ Prefer this lane split:
 - hydration-focused tests when the SSR and client boundary is the thing under risk
 - Playwright for real browser behavior such as focus trapping, keyboard flow, multi-surface timing, and end-to-end journeys
 
+### Deterministic Time With `testing/synctest`
+
+Tests that wait on timers (retry backoff, circuit-breaker open windows, debounce, realtime reconnects, out-of-order SSR streaming) should run inside a `testing/synctest` bubble instead of calling `time.Sleep`. Inside `synctest.Test(t, func(t *testing.T) { ... })` the clock is fake and only advances when every goroutine in the bubble is blocked, and `synctest.Wait()` returns once they all are. The converted tests live in `internal/runtime`, `fetch`, `query` and `ui` (for example `query/query_overlap_test.go`); they were stable at `-count=20`, and the out-of-order SSR stream tests dropped from about 0.70 s of real delay to about 0.01 s.
+
+Use these rules:
+
+- `synctest` is host-only. Do not put it in a test that also runs under `js/wasm`; keep such tests in `_native_test.go` files or behind the same build constraint as the code they cover.
+- Real network, file or process I/O blocks outside the bubble's control, so a test that needs it stays a normal test with a timeout guard.
+- Code under test that calls `time.Now()` or `time.AfterFunc` directly is still bubble-friendly, because the bubble replaces the clock for the goroutines it owns. A global timer created outside the bubble is not.
+- Production code with hard-wired clocks (the `fetch` cache and realtime paths) is still not injectable, so tests there pin timing through the bubble rather than a clock parameter.
+
+### Running `js/wasm` Tests
+
+`go test` for a `js/wasm` package needs an executor. `gwc test -lane wasm` and `gwc bench` resolve it in this order: the `goWasmExec` path in `gwc-runner.json`, the `GO_WASM_EXEC` environment variable, then on Windows the shell-free `bin/gowasmexec.exe`, which `gwc` builds from `tools/gowasmexec` on first use. `tools/go_js_wasm_exec.bat` remains only as a last-resort fallback: `cmd.exe` treats `^` as an escape character, so the `-test.run=^$` that the benchmark lane passes degraded to `$` and ran the entire suite. `gowasmexec` forwards every argument to Node verbatim.
+
+To run one package by hand:
+
+```powershell
+$env:GOOS = "js"; $env:GOARCH = "wasm"
+go test -exec .\bin\gowasmexec.exe ./state
+Remove-Item Env:GOOS, Env:GOARCH
+```
+
+Two cautions: clear stale `GOOS`/`GOARCH` before native work, and give every wasm test `Reset: true` (or its own atom ids) so global atoms do not leak between tests in the same process.
+
+### Windows Cleanup Noise
+
+On Windows, Go sometimes cannot delete a freshly built `*.test.exe` (`unlinkat ... .exe: Access is denied`), usually because a scanner or indexer holds the file. The tests themselves have already passed. `gwc bench` and `gwc bench suite` treat a PASS whose only error is that cleanup line as success and record a `warnings` entry in the report; `gwc bench capture` still treats it as a failure, and any other error line (including `exit status N`) is a real failure. Excluding the temp directory from the scanner removes the noise.
+
 ## Observability Workflow
 
 Use `devtools` in layers:
@@ -291,6 +320,24 @@ The current record shape is intentionally stable across native and `js/wasm` tar
 - when context metadata is present, records also include `correlation_id`, `trace_id`, `span_id`, `traceparent`, and `tracestate`
 - call sites can stay low ceremony by passing key/value pairs, `logging.Fields`, or `slog.Attr`
 - framework-owned unhandled panics on `js/wasm` are also emitted as structured `console.error` records with the same slog-like level metadata, and `ui` initializes the runtime with raw panic rethrow hidden by default so wrapped runtime panics can be reported without tearing down the module
+
+## OpenTelemetry (`telemetry/otel`)
+
+GoWebComponents keeps OpenTelemetry out of the framework core. `ui`, `fetch`, `serverfn`, `logging`, `telemetry` and the runtime import no `go.opentelemetry.io/*` package, and the `js/wasm` build must never link one: the OTel `otel` and `propagation` packages pull in `net/http` and `crypto/tls`. `test/wasmdeps/wasmdeps_test.go` fails the build if that rule is broken. Instead the core exposes small hooks, and the native-only package `telemetry/otel` (`//go:build !js || !wasm`) is the one place that imports OpenTelemetry and fills the hooks in.
+
+On the server, wire it once at startup:
+
+- `otel.Install(otel.Options{TracerProvider, Propagator, MeterProvider})` returns a `*Bridge` and a shutdown function. Unset providers default to the global OTel providers, and a propagator with no fields falls back to W3C Trace Context. `NewBridge` builds the same bridge without touching any global hook.
+- `Install` registers `ui.SetTracePropagator`, `serverfn.SetTracePropagator`, `serverfn.SetServerSpanHook` and the panic observer. The shutdown function removes them again.
+- `Bridge.Middleware(next)` wraps an SSR handler in a `gwc.ssr.render` server span; the `serverfn` handler records `gwc.serverfn.<name>` spans, and the `serverfn` client injects trace headers.
+- `Bridge.ExportRecorderSpans` replays finished `trace.Recorder` spans, and `Bridge.ExportRUMEvents` replays browser `telemetry.RUMEvent` values, into the bridge's `TracerProvider`. One redaction conversion function (`internal/telemetryredaction`) sits on both paths.
+- `Bridge.ObserveSSR` must be called for the hydration-mismatch counter to move.
+
+Metrics (instruments created from `Options.MeterProvider`): `gwc.ssr.render.duration`, `gwc.serverfn.duration`, `gwc.panic` (by `gwc.error.code`), `gwc.hydration.mismatch`, and the runtime gauges `gwc.sched.goroutines`, `gwc.sched.latency` and `gwc.gc.heap.live`. Attribute cardinality is bounded by a `BoundedSet` capped near 200 entries; a value past the cap is reported as `_other`. The `serverfn` histogram is bounded by that cap, not by the set of registered function names.
+
+In the browser, the `telemetry` package builds OTLP/HTTP JSON without OpenTelemetry. Trace and span IDs are validated hex (all-zero IDs are rejected) or derived deterministically, and spans carry kind, status, parent span ID, resource and scope attributes. `telemetry.NewBatchExporter(BatchExporterConfig{...})` posts events in batches of up to 100 with up to four attempts, exponential backoff from 200 ms to 5 s, and `Retry-After` honored up to 30 s; it counts events it gave up on instead of blocking the page. `telemetry.NewEventQueue(exporter, limit)` bounds memory (default 1000 events) and flushes on `pagehide`. Defaults are the `Default*` constants in `telemetry/exporter.go`.
+
+Still missing: native `fetch` does not inject trace headers (the file is a stub), and there is no `tracetest`-based test that follows one trace across SSR, `serverfn` and `fetch`. For the wasm `fetch` header, see [07 Data Loading And Mutations](07-data-loading-and-mutations.md).
 
 ## Live Agent Bridge
 
@@ -334,8 +381,8 @@ The bridge follows a CRUD-on-inputs rule: agents should drive user-observable in
 Headless dogfood recipe:
 
 ```powershell
-go run ./tools/gwc test -lane agent -json
-go run ./tools/gwc test -lane agent-browser -json
+go -C tools run ./gwc test -lane agent -json
+go -C tools run ./gwc test -lane agent-browser -json
 ```
 
 The `agent` lane covers native bridge, runtime, hub, and livereload integration. The `agent-browser` lane runs the ai-chat-wizard Playwright-Go dogfood test when present. The dogfood flow should launch the app through `gwc dev`, open it with `?gwc-dev=agent`, connect through a real hub token, query the composer, set the model atom, emit send, wait, snapshot the thread, and assert the message appears. It must also prove that the same app without the query parameter opens no socket and that reload links a successor session.
@@ -425,6 +472,22 @@ Use this triage order:
 3. identify whether the failure is render, route, hydration, interop, storage, or worker owned
 4. only then widen into snapshots, traces, or support bundles
 
+### Error Codes And Dev-Only Hook Diagnostics
+
+Every framework panic and most framework errors carry a stable code from the registry in `internal/errcode` (code, family, headline, remediation, docs anchor, recoverability, severity). The full list, generated from the registry, is [error-codes.md](error-codes.md); each entry's docs link points at its anchor there. `gwc explain <code>` reads the same registry, so it works from an installed binary. A panic report reads a leading `[GWC-...]` token, and `errors.Is` matches a coded error by code. `internal/errcode/guard_test.go` fails when a new uncoded `panic` or `Errorf` appears in framework packages, so the uncoded count only goes down; a few `Errorf` sites in `fetch`, `interop`, `router`, `runtime` and `serverfn` are still on the allowlist.
+
+Error-boundary and hook-order reports name the component with its source `(file:line)`. The location comes from `internal/runtime/callable_source.go`, is diagnostics-only, and is empty in production wasm builds.
+
+Three diagnostics exist only in development builds (they cost nothing in production wasm):
+
+| Code | Fires when | Typical fix |
+| --- | --- | --- |
+| `GWC-RUNTIME-HOOK-ORDER` | the hook count or kind at a slot differs from the first render of the same component (for example "was state, now memo") | move the conditional hook call out of the branch; hooks stay at the top level |
+| `GWC-RUNTIME-HOOK-DEP-UNSTABLE` | a dependency changed identity: a new closure each render, or a map or slice that is deeply equal but a different object | memoize it, hoist it, or depend on the values it holds; pass `ui.Always` as the sole dependency when every-render is intended |
+| `GWC-RUNTIME-HOOK-IN-LIST` | a hook-backed handler such as `OnClick(func...)` is created inside `Map` or `MapKeyed` | use `MapKeyedComponent` and put the handler in the item component |
+
+Limits: hook-order detection runs for function components that call hooks on their first render (a component with no hooks then has no baseline), and `gwc lint` / `hookcheck` additionally flag inline `On*(func...)` handlers in loops and `Map` callbacks before the code runs. For `ui.Always`, see [04 UI Rendering And Hooks](04-ui-rendering-and-hooks.md).
+
 ## API Families
 
 | Family | Primary APIs | Stability | Use this when | Do not use this when | Notes |
@@ -467,15 +530,15 @@ Use this triage order:
 Use the smallest relevant slices first:
 
 ```powershell
-go run ./tools/gwc test -lane unit -lane wasm
-go run ./tools/gwc test -lane hydration
-go run ./tools/gwc test -lane browser
-go run ./tools/gwc lint -root .
+go -C tools run ./gwc test -lane unit -lane wasm
+go -C tools run ./gwc test -lane hydration
+go -C tools run ./gwc test -lane browser
+go -C tools run ./gwc lint -root .
 go test ./devtools ./logging ./test/render ./test/hooks ./test/router ./test/ssr ./test/browser
-go run ./tools/gwc build -app .\examples\public\devtools-panel\main.go -root .\examples\public\devtools-panel
-go run ./tools/gwc build -app .\examples\public\use-snapshot\main.go -root .\examples\public\use-snapshot
-go run ./tools/gwc build -app .\examples\public\snapshot-now\main.go -root .\examples\public\snapshot-now
-go run ./tools/gwc build -app .\examples\public\devtools-diagnostics\main.go -root .\examples\public\devtools-diagnostics
+go -C tools run ./gwc build -app ..\examples\public\devtools-panel\main.go -root ..\examples\public\devtools-panel
+go -C tools run ./gwc build -app ..\examples\public\use-snapshot\main.go -root ..\examples\public\use-snapshot
+go -C tools run ./gwc build -app ..\examples\public\snapshot-now\main.go -root ..\examples\public\snapshot-now
+go -C tools run ./gwc build -app ..\examples\public\devtools-diagnostics\main.go -root ..\examples\public\devtools-diagnostics
 go test -tags playwrightgo ./test/playwrightgo/kernelplugindevtools -timeout 5m -v
 ```
 

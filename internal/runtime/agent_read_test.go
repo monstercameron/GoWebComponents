@@ -372,12 +372,12 @@ func TestQueryAgentNodesAmbiguousReturnsAll(t *testing.T) {
 func TestQueryAgentNodesEmptyTreeOK(t *testing.T) {
 	parseEmpty := &Runtime{}
 	parseMatches := QueryAgentNodes(parseEmpty, AgentQuerySelector{Role: "button"})
-	if parseMatches != nil && len(parseMatches) > 0 {
+	if len(parseMatches) > 0 {
 		t.Fatalf("expected empty result with no tree, got %v", parseMatches)
 	}
 
 	parseMatches2 := QueryAgentNodes(nil, AgentQuerySelector{Role: "button"})
-	if parseMatches2 != nil && len(parseMatches2) > 0 {
+	if len(parseMatches2) > 0 {
 		t.Fatalf("expected empty result with nil runtime, got %v", parseMatches2)
 	}
 }

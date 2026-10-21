@@ -7,21 +7,21 @@ The supported user-facing tooling entrypoint in this repository is `gwc`.
 Run it from the repo root:
 
 ```powershell
-go run ./tools/gwc <command> [flags]
+go -C tools run ./gwc <command> [flags]
 ```
 
 Start here:
 
 ```powershell
-go run ./tools/gwc doctor
-go run ./tools/gwc bootstrap
-go run ./tools/gwc examples
-go run ./tools/gwc examples build-public-site
-go run ./tools/gwc dev -app .\examples\public\counter\main.go
-go run ./tools/gwc build -app .\examples\public\counter\main.go -profile development
-go run ./tools/gwc test -lane unit -lane wasm
-go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
-go run ./tools/gwc lint -root . -out .\bin\lint-report.txt
+go -C tools run ./gwc doctor
+go -C tools run ./gwc bootstrap
+go -C tools run ./gwc examples
+go -C tools run ./gwc examples build-public-site
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
+go -C tools run ./gwc build -app ..\examples\public\counter\main.go -profile development
+go -C tools run ./gwc test -lane unit -lane wasm
+go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter
+go -C tools run ./gwc lint -root . -out .\bin\lint-report.txt
 ```
 
 ## `gwc`
@@ -68,44 +68,44 @@ Current command surface:
 Common commands:
 
 ```powershell
-go run ./tools/gwc doctor
-go run ./tools/gwc start
-go run ./tools/gwc init -root . -skip-runtime-assets
-go run ./tools/gwc upgrade -root . -skip-runtime-assets
-go run ./tools/gwc migrate -root . -skip-runtime-assets -apply -json
-go run ./tools/gwc bootstrap -examples
-go run ./tools/gwc examples
-go run ./tools/gwc examples start
-go run ./tools/gwc examples restart
-go run ./tools/gwc examples status
-go run ./tools/gwc examples stop
-go run ./tools/gwc .\examples\server\ai-chat-wizard\cmd\server start -json
-go run ./tools/gwc .\examples\server\ai-chat-wizard\cmd\server restart -json
-go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
-go run ./tools/gwc dev -app .\path\to\main.go
-go run ./tools/gwc serve -root .\static -wasm-file .\bin\app\main.wasm
-go run ./tools/gwc build -app .\path\to\main.go -profile release
-go run ./tools/gwc build -app .\path\to\main.go -profile debug -out .\bin\debug\app.wasm
-go run ./tools/gwc build -app .\path\to\main.go -profile tinygo
-go run ./tools/gwc tailwind
-go run ./tools/gwc release -app .\path\to\main.go -out-dir .\bin\release
-go run ./tools/gwc test -lane unit -lane wasm -lane browser
-go run ./tools/gwc verify -app .\path\to\main.go -root . -audit
-go run ./tools/gwc lint -root . -json
-go run ./tools/gwc env
-go run ./tools/gwc env -json
-go run ./tools/gwc files -root . -ext go -exclude-dir .git
-go run ./tools/gwc import -src .\design\landing.html -out .\bin\landing\main.go
-go run ./tools/gwc bench -root .
-go run ./tools/gwc bench compare -baseline .\docs\benchmarks\reference.json -candidate .\docs\benchmarks\latest.json
-go run ./tools/gwc wasm measure -package .\examples\public\ui-render -out-dir .\bin\wasm-build-experiment
-go run ./tools/gwc wasm compare -baseline .\bin\wasm-build-experiment\baseline.json -candidate .\bin\wasm-build-experiment\candidate.json
-go run ./tools/gwc wasm compare-compression -package .\examples\public\ui-render
-go run ./tools/gwc wasm compare-cache -package .\examples\public\ui-render
-go run ./tools/gwc wasm compare-toolchain -package .\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0
+go -C tools run ./gwc doctor
+go -C tools run ./gwc start
+go -C tools run ./gwc init -root . -skip-runtime-assets
+go -C tools run ./gwc upgrade -root . -skip-runtime-assets
+go -C tools run ./gwc migrate -root . -skip-runtime-assets -apply -json
+go -C tools run ./gwc bootstrap -examples
+go -C tools run ./gwc examples
+go -C tools run ./gwc examples start
+go -C tools run ./gwc examples restart
+go -C tools run ./gwc examples status
+go -C tools run ./gwc examples stop
+go -C tools run ./gwc ..\examples\server\ai-chat-wizard\cmd\server start -json
+go -C tools run ./gwc ..\examples\server\ai-chat-wizard\cmd\server restart -json
+go -C tools run ./gwc examples ..\examples\server\ai-chat-wizard\cmd\server status -json
+go -C tools run ./gwc dev -app .\path\to\main.go
+go -C tools run ./gwc serve -root .\static -wasm-file .\bin\app\main.wasm
+go -C tools run ./gwc build -app .\path\to\main.go -profile release
+go -C tools run ./gwc build -app .\path\to\main.go -profile debug -out .\bin\debug\app.wasm
+go -C tools run ./gwc build -app .\path\to\main.go -profile tinygo
+go -C tools run ./gwc tailwind
+go -C tools run ./gwc release -app .\path\to\main.go -out-dir .\bin\release
+go -C tools run ./gwc test -lane unit -lane wasm -lane browser
+go -C tools run ./gwc verify -app .\path\to\main.go -root . -audit
+go -C tools run ./gwc lint -root . -json
+go -C tools run ./gwc env
+go -C tools run ./gwc env -json
+go -C tools run ./gwc files -root . -ext go -exclude-dir .git
+go -C tools run ./gwc import -src .\design\landing.html -out .\bin\landing\main.go
+go -C tools run ./gwc bench -root .
+go -C tools run ./gwc bench compare -baseline .\docs\benchmarks\reference.json -candidate .\docs\benchmarks\latest.json
+go -C tools run ./gwc wasm measure -package ..\examples\public\ui-render -out-dir .\bin\wasm-build-experiment
+go -C tools run ./gwc wasm compare -baseline .\bin\wasm-build-experiment\baseline.json -candidate .\bin\wasm-build-experiment\candidate.json
+go -C tools run ./gwc wasm compare-compression -package ..\examples\public\ui-render
+go -C tools run ./gwc wasm compare-cache -package ..\examples\public\ui-render
+go -C tools run ./gwc wasm compare-toolchain -package ..\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0
 ```
 
-Use `go run ./tools/gwc <command> -h` for the exact flag surface of a command.
+Use `go -C tools run ./gwc <command> -h` for the exact flag surface of a command.
 
 ## Core Docs
 
@@ -121,4 +121,4 @@ Use `go run ./tools/gwc <command> -h` for the exact flag surface of a command.
 - `tools/livereload/` contains the live-reload implementation used by `gwc dev`.
 - `tools/runnerconfig/` contains the config loader and resolver used by launcher-owned workflows.
 - Other files under `tools/` are implementation details or compatibility artifacts, not the documented primary workflow.
-- Legacy `tools/*.ps1` and `tools/*.sh` helper wrappers are deprecated compatibility shims. Use `go run ./tools/gwc ...` directly for new workflows.
+- Legacy `tools/*.ps1` and `tools/*.sh` helper wrappers are deprecated compatibility shims. Use `go -C tools run ./gwc ...` directly for new workflows.

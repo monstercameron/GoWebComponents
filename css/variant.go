@@ -3,6 +3,8 @@ package css
 import (
 	"strconv"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
 )
 
 // Variants wrap inner rules in a selector and/or at-rule scope. They compose by
@@ -28,7 +30,10 @@ func Disabled(rules ...Rule) []Rule { return applyVariant("&:disabled", "", rule
 // WhenDisabled scopes rules to :disabled.
 //
 // Deprecated: use Disabled, which matches the bare pseudo-class naming of the other variants.
-func WhenDisabled(rules ...Rule) []Rule { return Disabled(rules...) }
+func WhenDisabled(rules ...Rule) []Rule {
+	deprecation.Warn("css.WhenDisabled", "css.Disabled")
+	return Disabled(rules...)
+}
 
 // FirstChild scopes rules to the :first-child structural pseudo-class.
 func FirstChild(rules ...Rule) []Rule { return applyVariant("&:first-child", "", rules) }

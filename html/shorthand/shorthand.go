@@ -3,8 +3,8 @@ package shorthand
 import (
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type Props = html.Props
@@ -565,7 +565,7 @@ func DefaultProps(parseProps Props, parseDefaults Props) Props {
 }
 
 // Markdown delegates to [html.Markdown].
-func Markdown(parseSource string, parseOptions ...MarkdownRenderOptions) []ui.Node {
+func Markdown(parseSource string, parseOptions ...MarkdownOption) []ui.Node {
 	return html.Markdown(parseSource, parseOptions...)
 }
 
@@ -740,12 +740,6 @@ func OnClick(parseCallback any) PropOption { return html.OnClick(parseCallback) 
 func OnClickParallel(parseSlotID string, parseCallback any) PropOption {
 	return html.OnClickParallel(parseSlotID, parseCallback)
 }
-
-// OnInput delegates to [html.OnInput].
-func OnInput(parseCallback any) PropOption { return html.OnInput(parseCallback) }
-
-// OnChange delegates to [html.OnChange].
-func OnChange(parseCallback any) PropOption { return html.OnChange(parseCallback) }
 
 // OnSubmit delegates to [html.OnSubmit].
 func OnSubmit(parseCallback any) PropOption { return html.OnSubmit(parseCallback) }

@@ -45,15 +45,16 @@ func terminateSuiteProcessTree(parseCmd *exec.Cmd) {
 		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(parseCmd.Process.Pid)).Run()
 		return
 	}
-	_ = parseCmd.Process.Kill()
+	terminateSuiteProcessGroup(parseCmd)
 }
 
 func startCommand(parseT *testing.T, parseDir string, parseName string, parseArgs ...string) (parseStop func()) {
 	parseT.Helper()
 	parseCmd := exec.Command(parseName, parseArgs...)
 	parseCmd.Dir = parseDir
+	configureSuiteProcessGroup(parseCmd)
 	parseCmd.Stdout = io.Discard
-	parseCmd.Stderr = io.Discard
+	parseCmd.Stderr = os.Stderr
 	if parseErr := parseCmd.Start(); parseErr != nil {
 		parseT.Fatalf("start %s %v: %v", parseName, parseArgs, parseErr)
 	}
@@ -151,8 +152,8 @@ func startTestAppServer(parseT *testing.T, parseRepoRoot string, parsePort strin
 		parseT,
 		parseRepoRoot,
 		"go",
-		"run", "./tools/gwc", "serve",
-		"-root", "./test/testapp",
+		"-C", "tools", "run", "./gwc", "serve",
+		"-root", "../test/testapp",
 		"-host", "127.0.0.1",
 		"-port", parsePort,
 		"-wasm-route", "/main.wasm",
@@ -309,8 +310,8 @@ func TestBenchmark(parseT *testing.T) {
 		parseT,
 		parseRepoRoot,
 		"go",
-		"run", "./tools/gwc", "serve",
-		"-root", "./test/benchmark",
+		"-C", "tools", "run", "./gwc", "serve",
+		"-root", "../test/benchmark",
 		"-host", "127.0.0.1",
 		"-port", "18082",
 		"-wasm-route", "/bin/benchmark.wasm",

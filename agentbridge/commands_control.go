@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/events"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/events"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 // RegisterControlCommands installs bridge.wait-for and bridge.describe.
@@ -93,18 +93,7 @@ func controlHandleWaitFor(parsePayload json.RawMessage) (json.RawMessage, *Envel
 			return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("wait-for: malformed payload: %v", parseErr)}
 		}
 	}
-	parseTimeout := time.Duration(parseReq.TimeoutMs) * time.Millisecond
-	if parseTimeout <= 0 {
-		parseTimeout = 250 * time.Millisecond
-	}
-	// Clamp to a ceiling: RunLoop dispatches commands synchronously on the
-	// connection's single read/write goroutine, so an agent-supplied huge
-	// timeoutMs would busy-wait here and block every other frame on the
-	// session for that whole duration — a self-inflicted bridge DoS.
-	const controlWaitForMaxTimeout = 30 * time.Second
-	if parseTimeout > controlWaitForMaxTimeout {
-		parseTimeout = controlWaitForMaxTimeout
-	}
+	parseTimeout := controlWaitTimeout(parseReq.TimeoutMs)
 	parseDeadline := time.Now().Add(parseTimeout)
 	parseRt := runtime.GetGlobalRuntime()
 	for {
@@ -117,6 +106,26 @@ func controlHandleWaitFor(parsePayload json.RawMessage) (json.RawMessage, *Envel
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// controlWaitForMaxTimeout is the ceiling on bridge.wait-for. RunLoop dispatches
+// commands synchronously on the connection's single read/write goroutine, so an
+// agent-supplied huge timeoutMs would busy-wait and block every other frame on
+// the session for that whole duration — a self-inflicted bridge DoS.
+const controlWaitForMaxTimeout = 30 * time.Second
+
+// controlWaitTimeout converts the wire timeoutMs to a bounded duration. The
+// clamp happens in milliseconds, before the multiply: time.Duration is int64
+// nanoseconds, so a large timeoutMs would otherwise wrap to a tiny or negative
+// value and silently shorten (or default) the wait the agent asked for.
+func controlWaitTimeout(parseTimeoutMs int) time.Duration {
+	if parseTimeoutMs <= 0 {
+		return 250 * time.Millisecond
+	}
+	if int64(parseTimeoutMs) > controlWaitForMaxTimeout.Milliseconds() {
+		return controlWaitForMaxTimeout
+	}
+	return time.Duration(parseTimeoutMs) * time.Millisecond
 }
 
 func controlWaitSatisfied(parseRt *runtime.Runtime, parseReq controlWaitPayload) (bool, string) {

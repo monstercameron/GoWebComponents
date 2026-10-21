@@ -102,16 +102,32 @@ func TestBackoffDelaySequence(parseT *testing.T) {
 	}
 }
 
-func TestRetryDelayZeroMultiplierPinsZeroDelayFootGun(parseT *testing.T) {
-	parseRetry := RetryPolicy{
-		BaseDelay:  100 * time.Millisecond,
-		MaxDelay:   time.Second,
-		Multiplier: 0,
-		Jitter:     0,
-	}
+// TestRetryDelayZeroValuesUseDefaults verifies that zero Multiplier and zero
+// MaxDelay fall back to the documented defaults instead of pinning delays to 0.
+func TestRetryDelayZeroValuesUseDefaults(parseT *testing.T) {
+	parseRetry := RetryPolicy{BaseDelay: 100 * time.Millisecond}
 
-	if parseDelay := parseRetry.delay(3, parseZeroRand); parseDelay != 0 {
-		parseT.Fatalf("expected zero multiplier to compute zero delay for attempt 3, got %v", parseDelay)
+	if parseDelay := parseRetry.delay(2, parseDeterministicRand); parseDelay != 100*time.Millisecond {
+		parseT.Fatalf("delay(2) with zero MaxDelay: expected 100ms, got %v", parseDelay)
+	}
+	if parseDelay := parseRetry.delay(3, parseDeterministicRand); parseDelay != 200*time.Millisecond {
+		parseT.Fatalf("delay(3) with zero Multiplier: expected 200ms, got %v", parseDelay)
+	}
+	if parseDelay := parseRetry.delay(30, parseDeterministicRand); parseDelay != defaultRetryMaxDelay {
+		parseT.Fatalf("delay(30): expected default cap %v, got %v", defaultRetryMaxDelay, parseDelay)
+	}
+}
+
+// TestRetryDelayExplicitValuesUnchanged verifies that non-zero settings are
+// never replaced by defaults.
+func TestRetryDelayExplicitValuesUnchanged(parseT *testing.T) {
+	parseRetry := RetryPolicy{BaseDelay: 10 * time.Millisecond, MaxDelay: 25 * time.Millisecond, Multiplier: 1}
+	if parseDelay := parseRetry.delay(4, parseDeterministicRand); parseDelay != 10*time.Millisecond {
+		parseT.Fatalf("expected explicit multiplier 1 to keep a flat 10ms delay, got %v", parseDelay)
+	}
+	parseRetry.Multiplier = 10
+	if parseDelay := parseRetry.delay(4, parseDeterministicRand); parseDelay != 25*time.Millisecond {
+		parseT.Fatalf("expected explicit MaxDelay cap of 25ms, got %v", parseDelay)
 	}
 }
 
@@ -327,30 +343,114 @@ func TestCircuitBreakerHalfOpenReopen(parseT *testing.T) {
 	}
 }
 
-func TestCircuitBreakerHalfOpenZeroMaxCallsAllowsUnlimitedProbes(parseT *testing.T) {
-	parseConfig := BreakerConfig{
-		FailureThreshold: 1,
-		OpenDuration:     time.Second,
-		HalfOpenMaxCalls: 0,
-	}
+// parseOpenBreakerPastDuration returns a breaker that tripped and whose open
+// window has elapsed, so the next allow() is a half-open probe.
+func parseOpenBreakerPastDuration(parseConfig BreakerConfig) *CircuitBreaker {
 	parseBreaker := NewCircuitBreaker(parseConfig)
-
 	parseFakeNow := time.Now()
 	parseBreaker.setNow(func() time.Time { return parseFakeNow })
-	parseBreaker.recordFailure()
-	if parseBreaker.State() != StateOpen {
-		parseT.Fatal("expected breaker to open after one failure")
-	}
+	parseBreaker.mu.Lock()
+	parseBreaker.state = StateOpen
+	parseBreaker.openedAt = parseFakeNow.Add(-parseConfig.OpenDuration - time.Millisecond)
+	parseBreaker.mu.Unlock()
+	return parseBreaker
+}
 
-	parseFakeNow = parseFakeNow.Add(parseConfig.OpenDuration + time.Millisecond)
-	for parseI := 0; parseI < 100; parseI++ {
-		parseAllowed, parseErr := parseBreaker.allow()
-		if parseErr != nil || !parseAllowed {
-			parseT.Fatalf("expected unlimited half-open probe %d to be allowed, allowed=%t err=%v", parseI+1, parseAllowed, parseErr)
+// TestCircuitBreakerHalfOpenZeroMaxCallsDefaultsToOneProbe verifies that a zero
+// HalfOpenMaxCalls admits exactly the default number of probes.
+func TestCircuitBreakerHalfOpenZeroMaxCallsDefaultsToOneProbe(parseT *testing.T) {
+	parseBreaker := parseOpenBreakerPastDuration(BreakerConfig{FailureThreshold: 1, OpenDuration: time.Second})
+
+	if parseAllowed, parseErr := parseBreaker.allow(); !parseAllowed || parseErr != nil {
+		parseT.Fatalf("expected first probe allowed, allowed=%t err=%v", parseAllowed, parseErr)
+	}
+	if parseAllowed, parseErr := parseBreaker.allow(); parseAllowed || !errors.Is(parseErr, ErrCircuitOpen) {
+		parseT.Fatalf("expected second probe rejected with ErrCircuitOpen, allowed=%t err=%v", parseAllowed, parseErr)
+	}
+}
+
+// TestCircuitBreakerZeroThresholdUsesDefault verifies that a zero
+// FailureThreshold trips at the default instead of never opening.
+func TestCircuitBreakerZeroThresholdUsesDefault(parseT *testing.T) {
+	parseBreaker := NewCircuitBreaker(BreakerConfig{OpenDuration: time.Second})
+	for parseI := 1; parseI < defaultBreakerFailureThreshold; parseI++ {
+		parseBreaker.recordFailure()
+		if parseBreaker.State() != StateClosed {
+			parseT.Fatalf("breaker opened early after %d failures", parseI)
 		}
 	}
-	if parseBreaker.State() != StateHalfOpen {
-		parseT.Fatalf("expected breaker to stay half-open while probes remain unresolved, got %v", parseBreaker.State())
+	parseBreaker.recordFailure()
+	if parseBreaker.State() != StateOpen {
+		parseT.Fatalf("expected breaker open after %d failures, got %v", defaultBreakerFailureThreshold, parseBreaker.State())
+	}
+}
+
+// TestCircuitBreakerProbeReleasedOnPanic verifies that a panicking probe does
+// not leave the half-open slot consumed forever.
+func TestCircuitBreakerProbeReleasedOnPanic(parseT *testing.T) {
+	parseBreaker := parseOpenBreakerPastDuration(BreakerConfig{FailureThreshold: 1, OpenDuration: time.Second, HalfOpenMaxCalls: 1})
+	parsePolicy := parseTestPolicy(RetryPolicy{MaxAttempts: 1}, parseBreaker)
+
+	func() {
+		defer func() {
+			if parseRecovered := recover(); parseRecovered == nil {
+				parseT.Fatal("expected the op panic to propagate, not be swallowed")
+			}
+		}()
+		ExecuteWithPolicy(context.Background(), parsePolicy, func(_ context.Context) (int, error) { //nolint:errcheck
+			panic("op exploded")
+		})
+	}()
+
+	parseCalls := 0
+	_, parseErr := ExecuteWithPolicy(context.Background(), parsePolicy, func(_ context.Context) (int, error) {
+		parseCalls++
+		return 1, nil
+	})
+	if parseErr != nil || parseCalls != 1 {
+		parseT.Fatalf("expected a new probe after the panic, calls=%d err=%v", parseCalls, parseErr)
+	}
+	if parseBreaker.State() != StateClosed {
+		parseT.Fatalf("expected closed after successful probe, got %v", parseBreaker.State())
+	}
+}
+
+// TestCircuitBreakerProbeReleasedOnCancel verifies that a cancelled context
+// before the first attempt returns the half-open probe slot.
+func TestCircuitBreakerProbeReleasedOnCancel(parseT *testing.T) {
+	parseBreaker := parseOpenBreakerPastDuration(BreakerConfig{FailureThreshold: 1, OpenDuration: time.Second, HalfOpenMaxCalls: 1})
+	parsePolicy := parseTestPolicy(RetryPolicy{MaxAttempts: 1}, parseBreaker)
+
+	parseCtx, parseCancel := context.WithCancel(context.Background())
+	parseCancel()
+	_, parseErr := ExecuteWithPolicy(parseCtx, parsePolicy, func(_ context.Context) (int, error) { return 0, nil })
+	if !errors.Is(parseErr, context.Canceled) {
+		parseT.Fatalf("expected context.Canceled, got %v", parseErr)
+	}
+
+	_, parseErr = ExecuteWithPolicy(context.Background(), parsePolicy, func(_ context.Context) (int, error) { return 1, nil })
+	if parseErr != nil {
+		parseT.Fatalf("expected a new probe after cancellation, got %v", parseErr)
+	}
+}
+
+// TestRetryStopsOnceBreakerOpens verifies that retries stop hitting the
+// downstream after the breaker trips mid-sequence.
+func TestRetryStopsOnceBreakerOpens(parseT *testing.T) {
+	parseBreaker := NewCircuitBreaker(BreakerConfig{FailureThreshold: 2, OpenDuration: time.Minute, HalfOpenMaxCalls: 1})
+	parsePolicy := parseTestPolicy(RetryPolicy{MaxAttempts: 10, BaseDelay: time.Millisecond, MaxDelay: time.Millisecond, Multiplier: 1}, parseBreaker)
+
+	parseSentinel := errors.New("down")
+	parseCalls := 0
+	_, parseErr := ExecuteWithPolicy(context.Background(), parsePolicy, func(_ context.Context) (int, error) {
+		parseCalls++
+		return 0, parseSentinel
+	})
+	if parseCalls != 2 {
+		parseT.Fatalf("expected 2 calls before the breaker opened, got %d", parseCalls)
+	}
+	if !errors.Is(parseErr, parseSentinel) {
+		parseT.Fatalf("expected last op error, got %v", parseErr)
 	}
 }
 

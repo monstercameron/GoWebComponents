@@ -72,7 +72,9 @@ func buildLogFields(parseLogArgs []any) map[string]any {
 				continue
 			}
 		case error:
-			parseFields = storeLogFieldValue(parseFields, "error", parseTyped.Error())
+			// Through normalizeLogValue (not parseTyped.Error()) so a typed-nil error is logged as
+			// null instead of panicking on its nil receiver.
+			parseFields = storeLogFieldValue(parseFields, "error", parseTyped)
 			continue
 		}
 
@@ -293,13 +295,18 @@ func buildSlogValue(parseValue slog.Value) any {
 // infinite-loop and crash the logger.
 const maxLogValueDepth = 32
 
+// maxDepthPlaceholder replaces any value nested deeper than maxLogValueDepth.
+const maxDepthPlaceholder = "[max depth exceeded]"
+
 func normalizeLogValue(parseValue any) any {
 	return normalizeLogValueDepth(parseValue, 0)
 }
 
 func normalizeLogValueDepth(parseValue any, parseDepth int) any {
 	if parseDepth > maxLogValueDepth {
-		return fmt.Sprint(parseValue)
+		// A placeholder, not fmt.Sprint(parseValue): stringifying the remaining subtree would hand
+		// every nested secret to the sink as opaque text the key-based redaction cannot see.
+		return maxDepthPlaceholder
 	}
 	switch parseTyped := parseValue.(type) {
 	case nil:
@@ -337,12 +344,18 @@ func normalizeLogValueDepth(parseValue any, parseDepth int) any {
 	case time.Duration:
 		return parseTyped.String()
 	case error:
+		if isTypedNilPointer(parseValue) {
+			return nil
+		}
 		return parseTyped.Error()
 	// slog.Attr implements fmt.Stringer, so it must be matched before the
 	// Stringer case or Attrs collapse to their string form.
 	case slog.Attr:
 		return map[string]any{strings.TrimSpace(parseTyped.Key): buildSlogValue(parseTyped.Value)}
 	case fmt.Stringer:
+		if isTypedNilPointer(parseValue) {
+			return nil
+		}
 		return parseTyped.String()
 	case []any:
 		parseSlice := make([]any, 0, len(parseTyped))
@@ -383,6 +396,13 @@ func normalizeLogValueDepth(parseValue any, parseDepth int) any {
 	default:
 		return fmt.Sprint(parseValue)
 	}
+}
+
+// isTypedNilPointer reports whether parseValue is a nil pointer wrapped in a non-nil interface
+// (the "var err *MyErr" case), whose Error/String method would dereference a nil receiver.
+func isTypedNilPointer(parseValue any) bool {
+	parseReflected := reflect.ValueOf(parseValue)
+	return parseReflected.Kind() == reflect.Pointer && parseReflected.IsNil()
 }
 
 // buildMapValue converts one reflected map into one JSON-safe logging object.

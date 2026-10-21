@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 func setPWAServiceWorkerGlobal(parseName string, parseValue interface{}) func() {
@@ -294,5 +294,40 @@ func installMockServiceWorkerEnvironment(parseT *testing.T, isAssertSyncRegistra
 		parseRestoreContainer()
 		parseRestoreRegistration()
 		parseRestoreWaiting()
+	}
+}
+
+// TestAwaitServiceWorkerValueLateSettleAfterCancelCallsNoReleasedFunc pins that a promise settling
+// after its context ended does not invoke an already-released js.Func (which wasm_exec reports
+// through console.error as "call to released function").
+func TestAwaitServiceWorkerValueLateSettleAfterCancelCallsNoReleasedFunc(parseT *testing.T) {
+	parseGlobal := js.Global()
+	parseConsole := parseGlobal.Get("console")
+	parsePrevious := parseConsole.Get("error")
+	var parseErrorCount int
+	parseCapture := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseErrorCount++
+		return nil
+	})
+	defer parseCapture.Release()
+	parseConsole.Set("error", parseCapture)
+	defer parseConsole.Set("error", parsePrevious)
+
+	var parseResolve js.Value
+	parseExecutor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseResolve = parseArgs[0]
+		return nil
+	})
+	defer parseExecutor.Release()
+	parsePromise := parseGlobal.Get("Promise").New(parseExecutor)
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	defer parseCancel()
+	if _, parseErr := awaitServiceWorkerValue(parseCtx, "Await", "target", parsePromise); !interop.IsCode(parseErr, interop.CodeTimeout) {
+		parseT.Fatalf("expected timeout, got %v", parseErr)
+	}
+	parseResolve.Invoke("late")
+	time.Sleep(50 * time.Millisecond)
+	if parseErrorCount != 0 {
+		parseT.Fatalf("late settle produced %d console errors", parseErrorCount)
 	}
 }

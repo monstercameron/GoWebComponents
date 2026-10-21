@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -200,40 +201,42 @@ func TestStartResourceLoadPublishesSuccessAndErrors(parseT *testing.T) {
 }
 
 func TestStartResourceLoadCancelsPreviousAndIgnoresStaleCompletion(parseT *testing.T) {
-	parseSink := newTestResourceStateSink[string]()
-	parseCancelRef := &testResourceCancelRef{}
-	parseSeq := new(atomic.Int32)
-	parseFirstRelease := make(chan struct{})
-	parseFirstDone := make(chan struct{})
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseSink := newTestResourceStateSink[string]()
+		parseCancelRef := &testResourceCancelRef{}
+		parseSeq := new(atomic.Int32)
+		parseFirstRelease := make(chan struct{})
+		parseFirstDone := make(chan struct{})
 
-	startResourceLoad(func(parseCtx context.Context) (string, error) {
-		<-parseFirstRelease
-		close(parseFirstDone)
-		return "stale", parseCtx.Err()
-	}, parseSink, parseCancelRef, parseSeq)
-	waitResourceState(parseT, parseSink, func(parseState ResourceState[string]) bool { return parseState.Loading })
+		startResourceLoad(func(parseCtx context.Context) (string, error) {
+			<-parseFirstRelease
+			close(parseFirstDone)
+			return "stale", parseCtx.Err()
+		}, parseSink, parseCancelRef, parseSeq)
+		waitResourceState(parseT, parseSink, func(parseState ResourceState[string]) bool { return parseState.Loading })
 
-	startResourceLoad(func(parseCtx context.Context) (string, error) {
-		return "fresh", nil
-	}, parseSink, parseCancelRef, parseSeq)
-	parseFresh := waitResourceState(parseT, parseSink, func(parseState ResourceState[string]) bool {
-		return parseState.Ready && parseState.Value == "fresh"
+		startResourceLoad(func(parseCtx context.Context) (string, error) {
+			return "fresh", nil
+		}, parseSink, parseCancelRef, parseSeq)
+		parseFresh := waitResourceState(parseT, parseSink, func(parseState ResourceState[string]) bool {
+			return parseState.Ready && parseState.Value == "fresh"
+		})
+		if parseFresh.Error != nil {
+			parseT.Fatalf("fresh state = %+v, want no error", parseFresh)
+		}
+
+		close(parseFirstRelease)
+		select {
+		case <-parseFirstDone:
+		case <-time.After(time.Second):
+			parseT.Fatal("first loader did not unblock")
+		}
+		synctest.Wait() // the released stale loader has now run to completion or blocked
+		parseSink.parseMu.Lock()
+		parseFinal := parseSink.parseState
+		parseSink.parseMu.Unlock()
+		if parseFinal.Value != "fresh" || !parseFinal.Ready {
+			parseT.Fatalf("stale completion overwrote fresh state: %+v", parseFinal)
+		}
 	})
-	if parseFresh.Error != nil {
-		parseT.Fatalf("fresh state = %+v, want no error", parseFresh)
-	}
-
-	close(parseFirstRelease)
-	select {
-	case <-parseFirstDone:
-	case <-time.After(time.Second):
-		parseT.Fatal("first loader did not unblock")
-	}
-	time.Sleep(10 * time.Millisecond)
-	parseSink.parseMu.Lock()
-	parseFinal := parseSink.parseState
-	parseSink.parseMu.Unlock()
-	if parseFinal.Value != "fresh" || !parseFinal.Ready {
-		parseT.Fatalf("stale completion overwrote fresh state: %+v", parseFinal)
-	}
 }

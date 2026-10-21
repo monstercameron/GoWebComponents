@@ -3,8 +3,8 @@ package typedcsstokensdemo
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
-	"github.com/monstercameron/GoWebComponents/v6/css/u"
+	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v7/css/u"
 )
 
 // TestTypedTokensResolveAgainstTheme proves the gwc-css-gen'd constants resolve against the

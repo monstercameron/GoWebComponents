@@ -284,7 +284,7 @@ type Worker struct {
 	post      func(any) error
 	postPorts func(any, ...MessagePort) error
 	// postTransferable moves binary payloads instead of cloning them (v5 P3.1).
-	postTransferable func(any, []Transferable) error
+	postTransferable func(any, []Transferable) error //nolint:unused // read by interop_worker_shared_wasm.go.
 	subscribe        func(func(WorkerMessage, error)) (Subscription, error)
 	request          func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error)
 	terminate        func() error

@@ -533,8 +533,8 @@ func agenticLastNameSegment(parseName string) string {
 	if parseName == "" {
 		return ""
 	}
-	if parseDot := strings.LastIndex(parseName, "."); parseDot >= 0 {
-		return parseName[parseDot+1:]
+	if _, parseAfter, isDotFound := strings.CutLast(parseName, "."); isDotFound {
+		return parseAfter
 	}
 	return parseName
 }
@@ -677,8 +677,8 @@ func agenticCapabilityTagsForPackage(parseImportPath string) []string {
 		return nil
 	}
 	parseSuffix := parseImportPath
-	if parseSlash := strings.LastIndex(parseImportPath, "/"); parseSlash >= 0 {
-		parseSuffix = parseImportPath[parseSlash+1:]
+	if _, parseAfter, isSlashFound := strings.CutLast(parseImportPath, "/"); isSlashFound {
+		parseSuffix = parseAfter
 	}
 	parseTags := map[string]struct{}{}
 	switch parseSuffix {
@@ -789,8 +789,8 @@ func agenticImpactLookupName(parseSymbol string) string {
 	if parseSymbol == "" {
 		return ""
 	}
-	if parseDot := strings.LastIndex(parseSymbol, "."); parseDot >= 0 {
-		return parseSymbol[parseDot+1:]
+	if _, parseAfter, isDotFound := strings.CutLast(parseSymbol, "."); isDotFound {
+		return parseAfter
 	}
 	return parseSymbol
 }

@@ -61,7 +61,7 @@ Important boundary:
 
 ## ui
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/ui"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/ui"`.
 
 Source anchors:
 
@@ -95,7 +95,6 @@ Source anchors:
 | `MarshalSSRBootstrap`, `MarshalSSRBootstrapObserved`, `MarshalSSRBootstrapBinary`, `MarshalSSRBootstrapBinaryObserved`, `UnmarshalSSRBootstrap`, `UnmarshalSSRBootstrapBinary`, `RenderBootstrapScript`, `RenderBootstrapScriptObserved`, `RenderBootstrapReferenceScript`, `ReadBootstrapScript`, `ReadBootstrapReferenceScript`, `ReadBootstrapReference`, `UnmarshalSSRBootstrapReference` | SSR bootstrap encoding and script emission | [`SSRBootstrap`](../../ui/ssr_bootstrap.go), [`SSRBootstrapReference`](../../ui/ssr_bootstrap.go), [`SSRI18nBootstrap`](../../ui/ssr_bootstrap.go), [`SSRRouteBootstrap`](../../ui/ssr_bootstrap.go) | `scriptHTML, err := ui.RenderBootstrapScript(bootstrap, ui.DefaultBootstrapScriptID)` |
 | `RegisterBootstrapPayload`, `ReadBootstrapPayload`, `RegisterRouteBootstrapData`, `ReadRouteBootstrapData`, `RegisterFormBootstrapDefaults`, `ReadFormBootstrapDefaults`, `RegisterCacheBootstrapSeed`, `ReadCacheBootstrapSeed`, `RegisterSessionBootstrapHint`, `ReadSessionBootstrapHint`, `InspectBootstrapPayloads`, `RegisterStateUpdatePayload`, `MarshalSSRStateUpdateText`, `UnmarshalSSRStateUpdateText`, `MarshalSSRStateUpdateBinary`, `UnmarshalSSRStateUpdateBinary`, `ApplySSRStateUpdate`, `NewSSRBootstrapBudget`, `InspectSSRBootstrapSize` | typed payload registration, scoped bootstrap reads, state update envelopes, size budgeting | [`SSRPayloadOptions`](../../ui/ssr_transfer.go), [`SSRPayloadValue[T]`](../../ui/ssr_transfer.go), [`SSRPayloadFilter`](../../ui/ssr_transfer.go), [`SSRPayloadMetadata`](../../ui/ssr_transfer.go), [`SSRStateUpdate`](../../ui/ssr_transfer.go), [`SSRBootstrapBudget`](../../ui/ssr_transfer.go), [`SSRBootstrapSizeReport`](../../ui/ssr_transfer.go) | `err := ui.RegisterBootstrapPayload(&bootstrap, "session", sessionValue)` |
 | `RegisterSSRObserver`, `SSRObservabilityOptionsFromContext`, `WithCorrelationID`, `CorrelationIDFromContext`, `WithW3CTraceContext`, `TraceContextFromContext`, `ConfigureBootstrapCorrelation`, `GetSSRObservationAttributes`, `WrapSSRCorrelation` | SSR and hydration correlation, tracing, observability subscriptions | [`SSRObservation`](../../ui/ssr_observability.go), [`SSRObserverSubscription`](../../ui/ssr_observability.go), [`W3CTraceContext`](../../ui/correlation_native.go) | `subscription := ui.RegisterSSRObserver(func(observation ui.SSRObservation) {})` |
-| `RegisterParallelRegion`, `ParallelRegion`, `BuildParallelRegionSourceIDs`, `GetParallelRegionRuntimeStatus`, `UnsupportedOnServer` | parallel region registration, runtime bridge status, explicit server-only guardrails | [`ParallelRegionSpec[Props]`](../../ui/parallel_region.go), [`ParallelRegionStatus`](../../ui/parallel_region.go) | `return ui.ParallelRegion(ui.ParallelRegionSpec[props]{RendererID: "search-grid", Props: props})` |
 
 Key `ui` handles and objects:
 
@@ -125,7 +124,7 @@ Constants and sentinels you will search for:
 
 ## html
 
-Import with `import html "github.com/monstercameron/GoWebComponents/v6/html"`.
+Import with `import html "github.com/monstercameron/GoWebComponents/v7/html"`.
 
 Source anchors:
 
@@ -146,7 +145,7 @@ Source anchors:
 | `PropsOf`, `WithProps`, `Class`, `ID`, `Name`, `For`, `Title`, `Value`, `Placeholder`, `Type`, `Href`, `Src`, `Role`, `Rows`, `TabIndex`, `Disabled`, `Checked`, `Selected`, `Required`, `ReadOnly`, `AutoFocus`, `DisabledIf`, `ReadOnlyIf`, `SelectedIf`, `Style`, `Data`, `Dataset`, `Aria`, `AriaSet`, `Attr`, `Attrs`, `OnBlur`, `OnChange`, `OnClick`, `OnClickParallel`, `OnFocus`, `OnInput`, `OnKeyDown`, `OnKeyUp`, `OnMouseDown`, `OnMouseUp`, `OnScroll`, `OnSubmit` | prop assembly and event option helpers | [`Props`](../../html/html.go), [`PropOption`](../../html/html.go) | `buttonProps := html.PropsOf(html.Class("btn"), html.OnClick(handleSave))` |
 | `Prevent`, `Stop`, `Debounce`, `Throttle` | event wrapper helpers | event callbacks, [`PropOption`](../../html/html.go) | `html.Button(html.Props{OnClick: html.Debounce(250*time.Millisecond, handleSave)}, html.Text("Save"))` |
 | `Bind`, `BindTo`, `BindFunc` | two-way binding for a controlled input (`ui.State[string]`, any `Binding`, or getter/setter) | [`Binding`](../../html/bind.go), [`PropOption`](../../html/html.go) | `html.Input(html.BindTo(nameSignal))` |
-| `RenderMarkdown`, `ResolveMarkdownHref`, `DNSPrefetch`, `Preconnect`, `Prefetch`, `Preload`, `ModulePreload` | markdown rendering and resource hints | [`MarkdownRenderOptions`](../../html/markdown.go), [`MarkdownClasses`](../../html/markdown.go) | `nodes := html.RenderMarkdown(readmeText)` |
+| `RenderMarkdown`, `RegisterMarkdownEngine`, `ResolveMarkdownHref`, `DNSPrefetch`, `Preconnect`, `Prefetch`, `Preload`, `ModulePreload` | markdown rendering (opt-in: import `html/markdown` or call `markdown.Enable()`) and resource hints | [`MarkdownRenderOptions`](../../html/markdown.go), [`MarkdownClasses`](../../html/markdown.go) | `nodes := html.RenderMarkdown(readmeText)` |
 
 Important parameter objects:
 
@@ -158,7 +157,7 @@ Important parameter objects:
 
 ## html/shorthand
 
-Import with `import h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"`.
+Import with `import h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"`.
 
 Source anchors:
 
@@ -177,7 +176,7 @@ Source anchors:
 
 ## state
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/state"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/state"`.
 
 Source anchors:
 
@@ -207,7 +206,7 @@ Storage constants:
 
 ## fetch
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/fetch"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/fetch"`.
 
 Source anchors:
 
@@ -242,7 +241,7 @@ Constants and keys:
 
 ## flags
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/flags"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/flags"`.
 
 Use this package only for evaluated, non-secret decisions that are safe for
 browser-visible state.
@@ -255,7 +254,7 @@ browser-visible state.
 
 ## router
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/router"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/router"`.
 
 Source anchors:
 
@@ -288,7 +287,7 @@ Key router handles:
 
 ## interop
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/interop"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/interop"`.
 
 Source anchors:
 
@@ -320,7 +319,7 @@ Important public protocol types:
 
 ## i18n
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/i18n"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/i18n"`.
 
 Source anchors:
 
@@ -344,7 +343,7 @@ Key i18n objects:
 
 ## devtools
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/devtools"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/devtools"`.
 
 Source anchors:
 
@@ -385,7 +384,7 @@ Internal kernel note:
 
 ## head
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/head"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/head"`.
 
 Source anchors:
 
@@ -399,7 +398,7 @@ Source anchors:
 
 ## pwa
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/pwa"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/pwa"`.
 
 Source anchors:
 
@@ -427,7 +426,7 @@ Key PWA objects:
 
 ## plugin
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/plugin"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/plugin"`.
 
 Source anchors:
 
@@ -455,7 +454,7 @@ Boundary note:
 
 ## virtualization
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/virtualization"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/virtualization"`.
 
 Source anchors:
 
@@ -475,7 +474,7 @@ Key virtualization objects:
 
 ## prerender
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/prerender"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/prerender"`.
 
 Source anchors:
 
@@ -487,7 +486,7 @@ Source anchors:
 
 ## diagnostics
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/diagnostics"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/diagnostics"`.
 
 Source anchors:
 
@@ -499,7 +498,7 @@ Source anchors:
 
 ## hotreload
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/hotreload"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/hotreload"`.
 
 Source anchors:
 
@@ -514,7 +513,7 @@ Source anchors:
 
 ## logging
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/logging"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/logging"`.
 
 Source anchors:
 
@@ -542,7 +541,7 @@ Record shape notes:
 
 ## utils
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/utils"` in js/wasm builds.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/utils"` in js/wasm builds.
 
 Source anchors:
 
@@ -559,7 +558,7 @@ Source anchors:
 
 ## testkit/render
 
-Import with `import render "github.com/monstercameron/GoWebComponents/v6/testkit/render"`.
+Import with `import render "github.com/monstercameron/GoWebComponents/v7/testkit/render"`.
 
 Source anchors:
 
@@ -579,7 +578,7 @@ Important fixture surface:
 
 ## testkit/hooks
 
-Import with `import hooks "github.com/monstercameron/GoWebComponents/v6/testkit/hooks"`.
+Import with `import hooks "github.com/monstercameron/GoWebComponents/v7/testkit/hooks"`.
 
 Source anchors:
 
@@ -596,7 +595,7 @@ Key hook harness object:
 
 ## testkit/router
 
-Import with `import routertest "github.com/monstercameron/GoWebComponents/v6/testkit/router"`.
+Import with `import routertest "github.com/monstercameron/GoWebComponents/v7/testkit/router"`.
 
 Source anchors:
 
@@ -615,7 +614,7 @@ Important router fixture surface:
 
 ## testkit/ssr
 
-Import with `import ssr "github.com/monstercameron/GoWebComponents/v6/testkit/ssr"`.
+Import with `import ssr "github.com/monstercameron/GoWebComponents/v7/testkit/ssr"`.
 
 Source anchors:
 
@@ -635,7 +634,7 @@ Key SSR test objects:
 
 ## query
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/query"`. Source: [query/query.go](../../query/query.go). Consume in components via the `ui.UseQuery` / `ui.UseMutation` / `ui.UseSuspenseQuery` hooks.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/query"`. Source: [query/query.go](../../query/query.go). Consume in components via the `ui.UseQuery` / `ui.UseMutation` / `ui.UseSuspenseQuery` hooks.
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -646,7 +645,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/query"`. Sourc
 
 ## serverfn
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/serverfn"`. Source: [serverfn/serverfn.go](../../serverfn/serverfn.go). Generate stubs/wiring with `gwc server gen`.
+Import with `import "github.com/monstercameron/GoWebComponents/v7/serverfn"`. Source: [serverfn/serverfn.go](../../serverfn/serverfn.go). Generate stubs/wiring with `gwc server gen`.
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -656,7 +655,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/serverfn"`. So
 
 ## wholestack
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/wholestack"`. Source: [wholestack/wholestack.go](../../wholestack/wholestack.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v7/wholestack"`. Source: [wholestack/wholestack.go](../../wholestack/wholestack.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -664,7 +663,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/wholestack"`. 
 
 ## localfirst
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/localfirst"`. Source: [localfirst/localfirst.go](../../localfirst/localfirst.go), [localfirst/presence.go](../../localfirst/presence.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v7/localfirst"`. Source: [localfirst/localfirst.go](../../localfirst/localfirst.go), [localfirst/presence.go](../../localfirst/presence.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -676,7 +675,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/localfirst"`. 
 
 ## agentui
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/agentui"`. Source: [agentui/agentui.go](../../agentui/agentui.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v7/agentui"`. Source: [agentui/agentui.go](../../agentui/agentui.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -686,7 +685,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/agentui"`. Sou
 
 ## timetravel
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/timetravel"`. Source: [timetravel/timetravel.go](../../timetravel/timetravel.go), [timetravel/devpanel/devpanel.go](../../timetravel/devpanel/devpanel.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v7/timetravel"`. Source: [timetravel/timetravel.go](../../timetravel/timetravel.go), [timetravel/devpanel/devpanel.go](../../timetravel/devpanel/devpanel.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -696,7 +695,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/timetravel"`. 
 
 ## anim
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/anim"`. Source: [anim/anim.go](../../anim/anim.go), [anim/transitions.go](../../anim/transitions.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v7/anim"`. Source: [anim/anim.go](../../anim/anim.go), [anim/transitions.go](../../anim/transitions.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -707,7 +706,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/anim"`. Source
 
 ## ui/erroroverlay
 
-Import with `import "github.com/monstercameron/GoWebComponents/v6/ui/erroroverlay"`. Source: [ui/erroroverlay/erroroverlay.go](../../ui/erroroverlay/erroroverlay.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v7/ui/erroroverlay"`. Source: [ui/erroroverlay/erroroverlay.go](../../ui/erroroverlay/erroroverlay.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -718,23 +717,23 @@ Import with `import "github.com/monstercameron/GoWebComponents/v6/ui/erroroverla
 Use quick package-level checks rather than a full suite when you are validating this browser chapter:
 
 ```powershell
-go doc github.com/monstercameron/GoWebComponents/ui
-go doc github.com/monstercameron/GoWebComponents/html
-go doc github.com/monstercameron/GoWebComponents/fetch
-go doc github.com/monstercameron/GoWebComponents/state
-go doc github.com/monstercameron/GoWebComponents/router
-go doc github.com/monstercameron/GoWebComponents/interop
+go doc github.com/monstercameron/GoWebComponents/v7/ui
+go doc github.com/monstercameron/GoWebComponents/v7/html
+go doc github.com/monstercameron/GoWebComponents/v7/fetch
+go doc github.com/monstercameron/GoWebComponents/v7/state
+go doc github.com/monstercameron/GoWebComponents/v7/router
+go doc github.com/monstercameron/GoWebComponents/v7/interop
 ```
 
 For test support and companion packages:
 
 ```powershell
-go doc github.com/monstercameron/GoWebComponents/devtools
-go doc github.com/monstercameron/GoWebComponents/head
-go doc github.com/monstercameron/GoWebComponents/pwa
-go doc github.com/monstercameron/GoWebComponents/plugin
-go doc github.com/monstercameron/GoWebComponents/i18n
-go doc github.com/monstercameron/GoWebComponents/testkit/render
+go doc github.com/monstercameron/GoWebComponents/v7/devtools
+go doc github.com/monstercameron/GoWebComponents/v7/head
+go doc github.com/monstercameron/GoWebComponents/v7/pwa
+go doc github.com/monstercameron/GoWebComponents/v7/plugin
+go doc github.com/monstercameron/GoWebComponents/v7/i18n
+go doc github.com/monstercameron/GoWebComponents/v7/testkit/render
 ```
 
 ## Topic Pagination

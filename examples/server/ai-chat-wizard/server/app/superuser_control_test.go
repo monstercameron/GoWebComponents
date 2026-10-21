@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -1078,7 +1078,7 @@ func BenchmarkParseFilterSuperuserWorkspaceRows(parseB *testing.B) {
 		{ID: 2, WorkspaceKey: "beta-space", Slug: "beta-space", Name: "Beta Space", PlanCode: "team", Status: "active", OwnerUserID: 10, SettingsJSON: "{}"},
 		{ID: 3, WorkspaceKey: "zeta-space", Slug: "zeta-space", Name: "Zeta Space", PlanCode: "team", Status: "suspended", OwnerUserID: 10, SettingsJSON: "{}"},
 	}
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		_ = parseFilterSuperuserWorkspaceRows(parseRows, "active", "space")
 	}
 }

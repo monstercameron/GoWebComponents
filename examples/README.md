@@ -7,7 +7,7 @@ This directory contains the framework examples and shared static assets.
 ## Current Status
 
 - The example catalog is now a first-class documented surface rather than a loose folder listing.
-- `go run ./tools/gwc examples` is the primary current way to browse the catalog from the repo root.
+- `go -C tools run ./gwc examples` is the primary current way to browse the catalog from the repo root.
 
 ## Serve Examples
 
@@ -26,7 +26,7 @@ adapter, tooling, persistence, and platform milestones.
 From the repo root:
 
 ```powershell
-go run ./tools/gwc examples
+go -C tools run ./gwc examples
 ```
 
 Then open:
@@ -41,7 +41,7 @@ The `/examples` route redirects into the public examples site. If you need the r
 To refresh the public examples site shell and the first embedded example binary locally:
 
 ```powershell
-go run ./tools/gwc examples build-public-site
+go -C tools run ./gwc examples build-public-site
 ```
 
 That command builds:
@@ -80,7 +80,7 @@ Use the integrated apps to see how multiple primitives compose in one realistic 
 Every public API has a dedicated, slug-named example under `examples/public/<slug>/` (for example `examples/public/use-state`, `examples/public/route-loaders`, `examples/public/async-boundary`). The authoritative, generated catalog — title, API surface, tags, and source links for every example — is `examples/public-examples-site/assets/data/catalog.json`, browsable via:
 
 ```powershell
-go run ./tools/gwc examples
+go -C tools run ./gwc examples
 ```
 
 The catalog is generated from the example sources, so it never drifts from the on-disk set. Prefer it over a hand-maintained list: an enumerated inventory here would silently rot the next time an example is renamed — the failure this section used to demonstrate when it still listed the removed numbered (`NN-slug`) layout.
@@ -90,7 +90,7 @@ The catalog is generated from the example sources, so it never drifts from the o
 For a single app surface, enable the public `hotreload` package in that app and run the dev server:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\hot-reload\main.go -root .\examples\public\hot-reload
+go -C tools run ./gwc dev -app ..\examples\public\hot-reload\main.go -root ..\examples\public\hot-reload
 ```
 
 Use `gwc examples` when you want to browse many examples. Use `gwc dev` when you want rebuild-on-save and state-preserving reload for one specific app.
@@ -112,16 +112,16 @@ The `examples/` directory has dedicated browser smoke suites for example-oriente
 
 If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use these commands from the repo root:
 
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExamplesAll -v`
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestCatalog -v`
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestSSRServerRouting -v`
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestAtlasSSR -v`
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestStartup -v`
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestAtlasStartup -v`
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestChatWizard -v`
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReport -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestExamplesAll -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestCatalog -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestSSRServerRouting -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestAtlasSSR -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestStartup -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestAtlasStartup -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestChatWizard -v`
+- `go -C test/playwrightgo test -tags playwrightgo ../examples -run TestExample201BrowserBenchmarkReport -v`
 
-From the repo root, `go run ./tools/gwc test -lane browser` now runs the main browser lane.
+From the repo root, `go -C tools run ./gwc test -lane browser` now runs the main browser lane.
 
 For the developer-facing manual verification checklist that covers the example catalog, see `examples/MANUAL_TESTING.md`.
 

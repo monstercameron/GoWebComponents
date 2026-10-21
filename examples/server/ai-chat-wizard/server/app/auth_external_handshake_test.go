@@ -133,8 +133,7 @@ func BenchmarkAuthorizeExternalHandshakeCallback(parseB *testing.B) {
 		ParseSubject:     "subject-bench",
 		ParseNow:         parseNow,
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseDecision, parseErr := parseAuthorizeExternalHandshakeCallback(parseState, parseCallback)
 		if parseErr != nil {
 			parseB.Fatalf("parseAuthorizeExternalHandshakeCallback: %v", parseErr)

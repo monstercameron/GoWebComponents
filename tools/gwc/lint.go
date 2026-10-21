@@ -34,7 +34,7 @@ var getLintWorkingDir = os.Getwd
 
 // installLintExecutable installs golangci-lint through go install when it is missing.
 var installLintExecutable = func(parseRootPath string) error {
-	_, parseErr := launcherRunCommand("go", []string{"install", installLintTarget}, parseRootPath, buildNativeGoEnv())
+	_, parseErr := runLauncherGoCommand("go", []string{"install", installLintTarget}, parseRootPath, buildNativeGoEnv())
 	if parseErr != nil {
 		return fmt.Errorf("go install %s: %w", installLintTarget, parseErr)
 	}
@@ -324,8 +324,8 @@ func executeLintProcess(parseCommand string, parseArgs []string, parseWorkingDir
 	if parseErr == nil {
 		return parseResult, nil
 	}
-	var parseExitErr *exec.ExitError
-	if errors.As(parseErr, &parseExitErr) {
+	parseExitErr, parseOk := errors.AsType[*exec.ExitError](parseErr)
+	if parseOk {
 		parseResult.exitCode = parseExitErr.ExitCode()
 		return parseResult, nil
 	}
@@ -441,7 +441,7 @@ func parseLintInstallableTool(parseToolPath string) bool {
 
 // buildLintInstalledExecutablePath locates the installed golangci-lint binary in GOBIN or GOPATH/bin.
 func buildLintInstalledExecutablePath(parseRootPath string, parseToolPath string) (string, bool, error) {
-	parseOutput, parseErr := launcherRunCommand("go", []string{"env", "-json", "GOBIN", "GOPATH", "GOEXE"}, parseRootPath, buildNativeGoEnv())
+	parseOutput, parseErr := runLauncherGoCommand("go", []string{"env", "-json", "GOBIN", "GOPATH", "GOEXE"}, parseRootPath, buildNativeGoEnv())
 	if parseErr != nil {
 		return "", false, fmt.Errorf("resolve golangci-lint install location: %w", parseErr)
 	}

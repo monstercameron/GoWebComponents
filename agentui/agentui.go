@@ -9,6 +9,11 @@
 // therefore compose allow-listed components but can never inject behavior or markup. This
 // is the "allow-listed components, not raw code" guarantee the A2UI / MCP-UI space
 // converged on, and GoWebComponents' typed component model expresses it natively.
+//
+// DefaultRegistry components also confine the "class" prop to the "agentui-" namespace:
+// each token is prefixed (or dropped when it contains characters outside [A-Za-z0-9_-]),
+// so an agent cannot apply host utility classes to overlay or restyle the page. Custom
+// ComponentSpec.Render functions that read a "class" prop must scope it themselves.
 package agentui
 
 import (
@@ -16,10 +21,11 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // Node is the typed, JSON-serializable renderable schema an agent emits.
@@ -256,11 +262,39 @@ func DefaultRegistry() *Registry {
 	return parseRegistry
 }
 
-// mergeClass appends an optional agent-supplied class to the component's base class. A CSS
-// class string carries no behavior, so this stays within the safety boundary.
+// classScope is the prefix every agent-supplied class token is confined to.
+const classScope = "agentui-"
+
+// mergeClass appends the agent-supplied classes to the component's base class. A CSS class
+// string carries no behavior, but an unrestricted one can still overlay or restyle the host
+// page (utility classes such as "fixed inset-0 z-50" turn a card into a full-screen
+// overlay). So each token is confined to the "agentui-" namespace: a bare token such as
+// "ok" becomes "agentui-ok" (the host styles variants under that prefix), an already
+// prefixed token is kept, and a token with characters outside [A-Za-z0-9_-] is dropped.
 func mergeClass(parseBase, parseExtra string) string {
-	if parseExtra == "" {
-		return parseBase
+	parseOut := parseBase
+	for _, parseToken := range strings.Fields(parseExtra) {
+		if !isScopeableClassToken(parseToken) {
+			continue
+		}
+		if !strings.HasPrefix(parseToken, classScope) {
+			parseToken = classScope + parseToken
+		}
+		parseOut += " " + parseToken
 	}
-	return parseBase + " " + parseExtra
+	return parseOut
+}
+
+// isScopeableClassToken reports whether parseToken holds only letters, digits, '_' and '-'.
+// Anything else (variant colons, arbitrary-value brackets, slashes) is a utility-framework
+// escape hatch rather than a variant name, so it is rejected.
+func isScopeableClassToken(parseToken string) bool {
+	for _, parseR := range parseToken {
+		switch {
+		case parseR >= 'a' && parseR <= 'z', parseR >= 'A' && parseR <= 'Z', parseR >= '0' && parseR <= '9', parseR == '_', parseR == '-':
+		default:
+			return false
+		}
+	}
+	return parseToken != ""
 }

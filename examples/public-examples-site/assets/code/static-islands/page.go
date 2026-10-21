@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 var quoteCards = []quoteCard{
@@ -78,13 +78,6 @@ func renderNewsletterIsland(parseTier string, parseDemos int) ui.Node {
 func newsletterIsland() ui.Node {
 	parseTier := ui.UseState("Starter")
 	parseDemos := ui.UseState(3)
-	setTier := func(parseNext string) ui.Handler {
-		return ui.UseEvent(func() {
-			parseStarted := nowMillis()
-			parseTier.Set(parseNext)
-			writeMetric("metric-newsletter-interaction", fmt.Sprintf("%.2f ms", nowMillis()-parseStarted))
-		})
-	}
 	parseBookWalkthrough := ui.UseEvent(func() {
 		parseStarted2 := nowMillis()
 		parseDemos.Update(func(parsePrevious int) int { return parsePrevious + 1 })
@@ -100,15 +93,24 @@ func newsletterIsland() ui.Node {
 			metricPill("Booked demos", fmt.Sprintf("%d", parseDemos.Get()), "newsletter-demo-count"),
 		),
 		html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"},
-			islandButton("Starter", parseTier.Get() == "Starter", setTier("Starter")),
-			islandButton("Team", parseTier.Get() == "Team", setTier("Team")),
-			islandButton("Enterprise", parseTier.Get() == "Enterprise", setTier("Enterprise")),
+			tierButton("Starter", parseTier.Get() == "Starter", parseTier),
+			tierButton("Team", parseTier.Get() == "Team", parseTier),
+			tierButton("Enterprise", parseTier.Get() == "Enterprise", parseTier),
 		),
 		html.Button(html.Props{Class: "mt-5 w-full rounded-2xl border border-emerald-300/30 bg-emerald-300/15 px-5 py-4 font-semibold text-white", OnClick: parseBookWalkthrough},
 			html.Text("Book a walkthrough"),
 		),
 		html.P(html.Props{Class: "mt-3 text-xs leading-6 text-slate-400"}, html.Text("The button and tier chips become interactive after only this island resumes.")),
 	)
+}
+
+func tierButton(parseLabel string, parseSelected bool, parseTier ui.State[string]) ui.Node {
+	parseClick := ui.UseEvent(func() {
+		parseStarted := nowMillis()
+		parseTier.Set(parseLabel)
+		writeMetric("metric-newsletter-interaction", fmt.Sprintf("%.2f ms", nowMillis()-parseStarted))
+	})
+	return islandButton(parseLabel, parseSelected, parseClick)
 }
 
 func renderQuoteIsland(parseCard quoteCard, parseIndex int) ui.Node {

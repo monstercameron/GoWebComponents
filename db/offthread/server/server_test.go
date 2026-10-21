@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/db/offthread"
-	"github.com/monstercameron/GoWebComponents/v6/db/offthread/server"
-	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v7/db/offthread"
+	"github.com/monstercameron/GoWebComponents/v7/db/offthread/server"
+	"github.com/monstercameron/GoWebComponents/v7/db/sqlite"
 )
 
 // v5 P3.5 — the engine-side half, against a real SQLite database.
@@ -139,8 +139,8 @@ func TestQueryErrorsSurfaceAsRemoteErrors(parseT *testing.T) {
 	parseHandle, _ := buildTestHandle(parseT)
 
 	_, parseErr := parseHandle.Query(context.Background(), "SELECT nope FROM items")
-	var parseRemoteErr *offthread.RemoteError
-	if !errors.As(parseErr, &parseRemoteErr) {
+	_, parseOk := errors.AsType[*offthread.RemoteError](parseErr)
+	if !parseOk {
 		parseT.Fatalf("err = %v, want a *RemoteError from the database thread", parseErr)
 	}
 }
@@ -365,7 +365,11 @@ func TestMixedAppUsesBothModelsSideBySide(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("open local: %v", parseErr)
 	}
-	defer parseLocalDB.Close()
+	defer func() {
+		if parseCloseErr := parseLocalDB.Close(); parseCloseErr != nil {
+			parseT.Errorf("close local: %v", parseCloseErr)
+		}
+	}()
 
 	if _, parseErr := parseLocalDB.Exec(parseCtx, "CREATE TABLE local_only (v TEXT)"); parseErr != nil {
 		parseT.Fatalf("create local: %v", parseErr)
@@ -416,7 +420,11 @@ func TestBothModelsRunTransactionsIndependently(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("open local: %v", parseErr)
 	}
-	defer parseLocalDB.Close()
+	defer func() {
+		if parseCloseErr := parseLocalDB.Close(); parseCloseErr != nil {
+			parseT.Errorf("close local: %v", parseCloseErr)
+		}
+	}()
 	if _, parseErr := parseLocalDB.Exec(parseCtx, "CREATE TABLE t (v INTEGER)"); parseErr != nil {
 		parseT.Fatalf("create: %v", parseErr)
 	}

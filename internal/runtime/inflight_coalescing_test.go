@@ -45,3 +45,74 @@ func TestDirtyOwnerUpdatesRetainInflightReplay(parseT *testing.T) {
 		}
 	}
 }
+
+// TestUpdateAfterCommitTreePublicationSchedulesFollowUp covers a write between tree publication and clearing updateScheduled.
+func TestUpdateAfterCommitTreePublicationSchedulesFollowUp(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler:       parseScheduler,
+		currentRoot:     &Fiber{typeOf: "ROOT", props: map[string]any{}},
+		updateScheduled: true,
+	}
+	// commitRoot has published currentRoot and cleared wipRoot, but has not yet
+	// cleared updateScheduled. The next state write must receive its own pass.
+	schedulerMu.Lock()
+	parseRt.coalesceScheduledUpdateLocked(UpdateLaneDefault)
+	schedulerMu.Unlock()
+	parseRt.updateScheduled = false
+	parseRt.scheduleFollowUpForInFlightUpdate()
+	if !parseRt.updateScheduled || parseRt.wipRoot == nil || parseScheduler.getPendingTimeoutCount() != 1 {
+		parseT.Fatalf("late update lost: scheduled=%t wip=%t callbacks=%d", parseRt.updateScheduled, parseRt.wipRoot != nil, parseScheduler.getPendingTimeoutCount())
+	}
+}
+
+// TestUpdateDuringCommitSchedulesFollowUp covers a write after traversal ends but before the committed root is published.
+func TestUpdateDuringCommitSchedulesFollowUp(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler:       parseScheduler,
+		currentRoot:     &Fiber{typeOf: "ROOT", props: map[string]any{}},
+		wipRoot:         &Fiber{typeOf: "ROOT"},
+		updateScheduled: true,
+	}
+	// The work loop clears nextUnitOfWork before commitRoot mutates the DOM.
+	// A write during that mutation phase cannot be consumed by this pass.
+	schedulerMu.Lock()
+	parseRt.coalesceScheduledUpdateLocked(UpdateLaneDefault)
+	schedulerMu.Unlock()
+	parseRt.wipRoot = nil
+	parseRt.updateScheduled = false
+	parseRt.scheduleFollowUpForInFlightUpdate()
+	if !parseRt.updateScheduled || parseRt.wipRoot == nil || parseScheduler.getPendingTimeoutCount() != 1 {
+		parseT.Fatalf("commit-phase update lost: scheduled=%t wip=%t callbacks=%d", parseRt.updateScheduled, parseRt.wipRoot != nil, parseScheduler.getPendingTimeoutCount())
+	}
+}
+
+// TestOwnedUpdateDuringCommitTargetsWIP prevents a late hook update from
+// marking the old current tree after the WIP traversal has finished.
+func TestOwnedUpdateDuringCommitTargetsWIP(parseT *testing.T) {
+	parseRt := NewRuntime(Config{})
+	parseOldRoot := &Fiber{typeOf: "ROOT"}
+	parseOldOwner := &Fiber{parent: parseOldRoot}
+	parseOldRoot.child = parseOldOwner
+	parseWipRoot := &Fiber{typeOf: "ROOT", alternate: parseOldRoot}
+	parseWipOwner := &Fiber{parent: parseWipRoot, alternate: parseOldOwner}
+	parseWipRoot.child = parseWipOwner
+	parseOldOwner.alternate = parseWipOwner
+	parseRt.currentRoot = parseOldRoot
+	parseRt.wipRoot = parseWipRoot
+	parseRt.updateScheduled = true
+	// nextUnitOfWork == nil models the commit mutation window.
+	parseRt.nextUnitOfWork = nil
+
+	// Updated component hooks can still point at the old owner until the WIP
+	// tree is published; resolve that alternate onto the in-flight tree.
+	parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseOldOwner, "local-state")
+
+	if !parseWipOwner.dirty || !parseWipOwner.needsUpdate {
+		parseT.Fatal("late owned update did not mark the in-flight WIP owner")
+	}
+	if parseOldOwner.dirty || parseOldOwner.needsUpdate {
+		parseT.Fatal("late owned update marked the obsolete current owner")
+	}
+}

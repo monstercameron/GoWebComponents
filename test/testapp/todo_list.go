@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v7/state"
 )
 
 type Todo struct {

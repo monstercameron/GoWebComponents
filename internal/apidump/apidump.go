@@ -15,6 +15,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -199,6 +200,11 @@ func normalize(parseSource string) string {
 // any drift. Set UPDATE_API_BASELINE=1 to (re)write the golden after an intentional change.
 func Check(parseT testing.TB, parseDir, parseGolden string) {
 	parseT.Helper()
+	if runtime.GOOS == "js" {
+		// The API dump walks source files with os.ReadDir, which js/wasm under node on Windows rejects
+		// (O_DIRECTORY is not supported); the gate runs on the host lane, so skip it on wasm.
+		parseT.Skip("API baseline is checked on the host lane, not under js/wasm")
+	}
 	parseLines, parseErr := Extract(parseDir)
 	if parseErr != nil {
 		parseT.Fatalf("extract API: %v", parseErr)

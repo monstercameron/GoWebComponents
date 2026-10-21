@@ -5,15 +5,15 @@ package main
 import (
 	"context"
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
 	"strings"
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 var hydratedBootstrap = defaultBootstrapPayload()

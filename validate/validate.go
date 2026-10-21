@@ -3,7 +3,7 @@
 // It is built for the framework's one-language advantage: the SAME Go struct, with
 // the SAME `validate:"..."` tags, validates identically on the server (in an HTTP
 // handler) and on the client (in ui.UseForm), so client and server validation can
-// never drift. It uses only reflect/regexp/strconv/strings/fmt — no syscall, net,
+// never drift. It uses only reflect/strconv/strings/fmt — no syscall, net,
 // or filesystem — so it compiles to both `GOOS=js GOARCH=wasm` and native.
 //
 //	type Signup struct {
@@ -18,8 +18,8 @@ package validate
 
 import (
 	"fmt"
+	"math"
 	"reflect"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -82,13 +82,132 @@ func (parseR Result) Error() string {
 
 const maxValidateDepth = 16
 
-var (
-	reEmail    = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
-	reURL      = regexp.MustCompile(`^https?://[^\s]+$`)
-	reAlpha    = regexp.MustCompile(`^[A-Za-z]+$`)
-	reAlphanum = regexp.MustCompile(`^[A-Za-z0-9]+$`)
-	reNumeric  = regexp.MustCompile(`^[0-9]+$`)
-)
+// isSpaceByte reports whether parseB is one of the five bytes the RE2 \s class
+// matches: tab, line feed, form feed, carriage return and space. Unicode spaces
+// and vertical tab are NOT whitespace here.
+func isSpaceByte(parseB byte) bool {
+	return parseB == ' ' || parseB == '\t' || parseB == '\n' || parseB == '\f' || parseB == '\r'
+}
+
+// isEmailString reports whether parseS matches the grammar
+//
+//	local "@" domain
+//
+// where local is one or more characters other than '@' and whitespace, and domain
+// is characters other than '@' and whitespace that contain a '.' with at least one
+// character before it and one after it (so "a@b.c" and "a@..." match; "a@b." and
+// "a@.b" do not). Whitespace is ASCII only (see isSpaceByte); every other byte,
+// including invalid UTF-8, is an ordinary character. It is the hand-written
+// equivalent of ^[^@\s]+@[^@\s]+\.[^@\s]+$ and allocates nothing.
+func isEmailString(parseS string) bool {
+	parseAt := -1
+	for parseI := 0; parseI < len(parseS); parseI++ {
+		parseB := parseS[parseI]
+		if isSpaceByte(parseB) {
+			return false
+		}
+		if parseB == '@' {
+			if parseAt >= 0 {
+				return false
+			}
+			parseAt = parseI
+		}
+	}
+	if parseAt < 1 {
+		return false
+	}
+	// The domain is parseS[parseAt+1:]; it needs a '.' strictly inside it.
+	for parseI := parseAt + 2; parseI < len(parseS)-1; parseI++ {
+		if parseS[parseI] == '.' {
+			return true
+		}
+	}
+	return false
+}
+
+// isURLString reports whether parseS matches the grammar
+//
+//	("http" | "https") "://" rest
+//
+// where rest is one or more characters containing no ASCII whitespace (see
+// isSpaceByte). The scheme is case-sensitive and nothing else about the URL is
+// checked. It is the hand-written equivalent of ^https?://[^\s]+$ and allocates
+// nothing.
+func isURLString(parseS string) bool {
+	parseRest := ""
+	switch {
+	case strings.HasPrefix(parseS, "https://"):
+		parseRest = parseS[len("https://"):]
+	case strings.HasPrefix(parseS, "http://"):
+		parseRest = parseS[len("http://"):]
+	default:
+		return false
+	}
+	if parseRest == "" {
+		return false
+	}
+	for parseI := 0; parseI < len(parseRest); parseI++ {
+		if isSpaceByte(parseRest[parseI]) {
+			return false
+		}
+	}
+	return true
+}
+
+// isAlphaString reports whether parseS is one or more ASCII letters, A-Z or a-z.
+// It is the hand-written equivalent of ^[A-Za-z]+$ and allocates nothing.
+func isAlphaString(parseS string) bool {
+	if parseS == "" {
+		return false
+	}
+	for parseI := 0; parseI < len(parseS); parseI++ {
+		if !isLetterByte(parseS[parseI]) {
+			return false
+		}
+	}
+	return true
+}
+
+// isAlphanumString reports whether parseS is one or more ASCII letters or digits,
+// A-Z, a-z or 0-9. It is the hand-written equivalent of ^[A-Za-z0-9]+$ and
+// allocates nothing.
+func isAlphanumString(parseS string) bool {
+	if parseS == "" {
+		return false
+	}
+	for parseI := 0; parseI < len(parseS); parseI++ {
+		if !isLetterByte(parseS[parseI]) && !isDigitByte(parseS[parseI]) {
+			return false
+		}
+	}
+	return true
+}
+
+// isNumericString reports whether parseS is one or more ASCII digits, 0-9
+// (fullwidth and other Unicode digits do not count). It is the hand-written
+// equivalent of ^[0-9]+$ and allocates nothing.
+func isNumericString(parseS string) bool {
+	if parseS == "" {
+		return false
+	}
+	for parseI := 0; parseI < len(parseS); parseI++ {
+		if !isDigitByte(parseS[parseI]) {
+			return false
+		}
+	}
+	return true
+}
+
+// isLetterByte reports whether parseB is an ASCII letter, A-Z or a-z.
+func isLetterByte(parseB byte) bool {
+	return (parseB >= 'a' && parseB <= 'z') || (parseB >= 'A' && parseB <= 'Z')
+}
+
+// isDigitByte reports whether parseB is an ASCII digit, 0-9.
+func isDigitByte(parseB byte) bool {
+	return parseB >= '0' && parseB <= '9'
+}
+
 
 // Struct validates v — a struct or a (possibly nil) pointer to a struct — against
 // the `validate` tags on its exported fields, recursing into nested struct fields
@@ -316,27 +435,33 @@ func applyRule(parseField, parseRule, parseArg string, parseValue reflect.Value)
 		return applyNumericCompare(parseRule, parseArg, parseValue, parseFail)
 	case "oneof":
 		parseOptions := strings.Fields(parseArg)
-		if !stringInSet(fmt.Sprintf("%v", valueInterface(parseValue)), parseOptions) {
+		// Dereferenced so a *string/*int compares by value, not by the pointer's
+		// printed address. A nil pointer is left to `required`.
+		parseOneof := derefValidateValue(parseValue)
+		if !parseOneof.IsValid() {
+			break
+		}
+		if !stringInSet(fmt.Sprintf("%v", valueInterface(parseOneof)), parseOptions) {
 			return parseFail("must be one of: " + strings.Join(parseOptions, ", "))
 		}
 	case "email":
-		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !reEmail.MatchString(parseStr) {
+		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !isEmailString(parseStr) {
 			return parseFail("must be a valid email address")
 		}
 	case "url":
-		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !reURL.MatchString(parseStr) {
+		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !isURLString(parseStr) {
 			return parseFail("must be a valid URL")
 		}
 	case "alpha":
-		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !reAlpha.MatchString(parseStr) {
+		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !isAlphaString(parseStr) {
 			return parseFail("must contain only letters")
 		}
 	case "alphanum":
-		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !reAlphanum.MatchString(parseStr) {
+		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !isAlphanumString(parseStr) {
 			return parseFail("must contain only letters and numbers")
 		}
 	case "numeric":
-		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !reNumeric.MatchString(parseStr) {
+		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !isNumericString(parseStr) {
 			return parseFail("must contain only digits")
 		}
 	default:
@@ -455,7 +580,8 @@ func lessThanMeasure(parseValue reflect.Value, parseN float64) bool {
 		return float64(parseLen) < parseN
 	}
 	if parseV, parseOK := numericValue(parseValue); parseOK {
-		return parseV < parseN
+		// NaN compares false both ways, so it would satisfy min AND max.
+		return parseV < parseN || math.IsNaN(parseV)
 	}
 	return false
 }
@@ -465,7 +591,7 @@ func greaterThanMeasure(parseValue reflect.Value, parseN float64) bool {
 		return float64(parseLen) > parseN
 	}
 	if parseV, parseOK := numericValue(parseValue); parseOK {
-		return parseV > parseN
+		return parseV > parseN || math.IsNaN(parseV)
 	}
 	return false
 }
@@ -500,7 +626,11 @@ func numericValue(parseValue reflect.Value) (float64, bool) {
 }
 
 func stringValue(parseValue reflect.Value) (string, bool) {
-	if parseValue.Kind() == reflect.String {
+	// Through pointers/interfaces, like numericValue and measureLen: a *string
+	// field would otherwise skip every string rule and pass any input. A nil
+	// pointer yields no string, so the rule is skipped (`required` owns "unset").
+	parseValue = derefValidateValue(parseValue)
+	if parseValue.IsValid() && parseValue.Kind() == reflect.String {
 		return parseValue.String(), true
 	}
 	return "", false

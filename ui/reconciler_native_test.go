@@ -5,8 +5,8 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // These tests exercise GoWebComponents' full client reconciler natively by
@@ -43,7 +43,7 @@ func keyedUL(parseKeys ...string) *runtime.Element {
 // render commits one tree into the shared root and returns the ordered list of
 // (data-k, node-ID) pairs for the <ul>'s children.
 func (parseH *reconHarness) renderKeyed(parseKeys ...string) ([]string, map[string]int) {
-	parseH.rt.RenderInto(parseH.root, keyedUL(parseKeys...))
+	_ = parseH.rt.RenderInto(parseH.root, keyedUL(parseKeys...))
 	parseChildren := parseH.adapter.GetChildren(parseH.root)
 	if len(parseChildren) == 0 {
 		return nil, nil

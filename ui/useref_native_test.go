@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // Ported from React's useRef contract tests: a ref is a stable mutable container
@@ -22,7 +22,7 @@ func TestUseRefStableMutableAndDoesNotRerender(t *testing.T) {
 	var parseSet func(any)
 	parseRenders := 0
 
-	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
+	_ = rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseRenders++
 		parseRef := runtime.GoUseRef(7)
 		parseGet, parseSetter := runtime.GoUseState(rt, 0)

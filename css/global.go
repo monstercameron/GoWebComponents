@@ -139,8 +139,10 @@ func DataTheme(parseName string, parseRules ...Rule) []Rule {
 }
 
 // Inject installs an arbitrary CSS string as a managed <style> element, keyed by
-// id and idempotent (the first call for an id wins; later calls for the same id
-// are no-ops). It is the runtime counterpart to Global for CSS that must be a
+// id and first-wins: a later call for an id already injected is a no-op, whether
+// its body is identical or different (an id is a slot, not a content hash, so a
+// different body is never reported as a class-name collision). To change injected
+// CSS, use a new id. It is the runtime counterpart to Global for CSS that must be a
 // raw string rather than typed rules — `@font-face` blocks for user-uploaded
 // fonts, a third-party widget's stylesheet, etc.
 //
@@ -148,7 +150,7 @@ func DataTheme(parseName string, parseRules ...Rule) []Rule {
 //
 // On wasm it creates (once) a <style id="..."> in <head>; on native it records
 // the CSS into the buffer sink so SSR/tests can read it back. The CSS is hardened
-// against <style> breakout. To replace injected CSS, use a new id.
+// against <style> breakout.
 func Inject(parseID string, parseCSS string) {
 	if strings.TrimSpace(parseID) == "" || parseCSS == "" {
 		return

@@ -3,7 +3,7 @@ package agentbridge
 import (
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // writeRemount re-mounts a previously-mounted component, reversing a
@@ -24,15 +24,21 @@ func writeRemount(parseID string, parseComponent string, parseSelector string, p
 	writeMountedRoots[parseID] = writeMountedRoot{Component: parseComponent, Selector: parseSelector, Props: parseProps}
 	writeMountMu.Unlock()
 
+	// Release the reservation on every failure exit, including a factory panic.
+	parseSettled := false
+	defer func() {
+		if !parseSettled {
+			writeMountReleaseReservation(parseID)
+		}
+	}()
 	parseElement := parseFactory(parseProps)
 	if parseElement == nil {
-		writeMountReleaseReservation(parseID)
 		return &EnvelopeError{Code: ErrorCodeBadPayload, Message: "remount: component " + parseComponent + " rendered nil"}
 	}
 	if parseErr := writeRenderToSelector(parseSelector, parseElement); parseErr != nil {
-		writeMountReleaseReservation(parseID)
 		return &EnvelopeError{Code: ErrorCodeBadPayload, Message: "remount: " + parseErr.Error()}
 	}
+	parseSettled = true
 	runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
 	return nil
 }

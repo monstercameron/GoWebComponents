@@ -4,7 +4,6 @@
 package kernelplugindevtools_test
 
 import (
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -58,8 +57,8 @@ func startKernelPluginDevtoolsCommand(parseT *testing.T, parseDir string, parseN
 	parseT.Helper()
 	getCommand := exec.Command(parseName, parseArgs...)
 	getCommand.Dir = parseDir
-	getCommand.Stdout = io.Discard
-	getCommand.Stderr = io.Discard
+	getCommand.Stdout = os.Stdout
+	getCommand.Stderr = os.Stderr
 	if parseErr := getCommand.Start(); parseErr != nil {
 		parseT.Fatalf("start %s %v: %v", parseName, parseArgs, parseErr)
 	}
@@ -174,10 +173,10 @@ func buildKernelPluginDevtoolsExampleWasm(parseT *testing.T, parseRepoRoot strin
 	stageKernelPluginDevtoolsWasmExecScript(parseT, parseRepoRoot)
 	getCommand := exec.Command(
 		"go",
-		"run", "./tools/gwc", "build",
-		"-app", "./examples/testing/kernel-plugin-devtools/main.go",
-		"-root", "./examples/testing/kernel-plugin-devtools",
-		"-out", "./examples/static/bin/kernel-plugin-devtools.wasm",
+		"-C", "tools", "run", "./gwc", "build",
+		"-app", "../examples/testing/kernel-plugin-devtools/main.go",
+		"-root", "../examples/testing/kernel-plugin-devtools",
+		"-out", "../examples/static/bin/kernel-plugin-devtools.wasm",
 	)
 	getCommand.Dir = parseRepoRoot
 	if getOutput, parseErr := getCommand.CombinedOutput(); parseErr != nil {
@@ -227,8 +226,8 @@ func startKernelPluginDevtoolsServer(parseT *testing.T, parseRepoRoot string, pa
 		parseT,
 		parseRepoRoot,
 		"go",
-		"run", "./tools/gwc", "serve",
-		"-root", ".",
+		"-C", "tools", "run", "./gwc", "serve",
+		"-root", "..",
 		"-host", "127.0.0.1",
 		"-port", parsePort,
 	)

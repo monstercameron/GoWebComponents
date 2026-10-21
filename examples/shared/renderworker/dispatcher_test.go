@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 type parseDispatcherTestRequest struct {
@@ -107,7 +107,7 @@ func TestBuildRenderWorkerDecodedHandlerCallsTypedHandler(parseT *testing.T) {
 	parseHandler := BuildRenderWorkerDecodedHandler("demo", func(parseCtx context.Context, parseRequest parseDispatcherTestRequest) (parseDispatcherTestResult, error) {
 		_ = parseCtx
 		parseCalled = true
-		return parseDispatcherTestResult{GetValue: parseRequest.GetValue}, nil
+		return parseDispatcherTestResult(parseRequest), nil
 	})
 	parseHandler(interop.WorkerScope{}, interop.WorkerMessage{
 		ID:      "job-1",

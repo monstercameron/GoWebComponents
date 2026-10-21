@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/server/provider"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -108,6 +108,9 @@ func TestCapabilityStatusAndAssetHelpers(parseT *testing.T) {
 	}
 	if _, parseOk2 := parseResolveRelativeAssetPath("/../secret"); parseOk2 {
 		parseT.Fatal("expected parent traversal path to be rejected")
+	}
+	if _, parseOk3 := parseResolveRelativeAssetPath(`\\..\\secret`); parseOk3 {
+		parseT.Fatal("expected backslash parent traversal path to be rejected")
 	}
 }
 

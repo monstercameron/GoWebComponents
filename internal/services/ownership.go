@@ -277,7 +277,7 @@ func (parseArbiter *Arbiter) Restore(parseUnitID string, parseEpoch uint64) erro
 
 	getState, hasState := parseArbiter.stateByUnitID[parseUnitID]
 	if hasState {
-		if parseEpoch <= getState.fallback.Epoch || parseEpoch < getState.remoteEpochFloor {
+		if parseEpoch <= getState.fallback.Epoch || parseEpoch <= getState.remoteEpochFloor {
 			return fmt.Errorf(
 				"services: restoring unit %q requires an epoch newer than %d, got %d",
 				parseUnitID, maxUint64(getState.fallback.Epoch, getState.remoteEpochFloor), parseEpoch)

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // hookHarness mounts a function component natively and reads back the rendered
@@ -30,7 +30,7 @@ func newHookHarness() *hookHarness {
 }
 
 func (parseH *hookHarness) mount(parseComponent func() *runtime.Element) {
-	parseH.rt.RenderInto(parseH.root, runtime.CreateElement(parseComponent, map[string]any{}))
+	_ = parseH.rt.RenderInto(parseH.root, runtime.CreateElement(parseComponent, map[string]any{}))
 }
 
 // text returns the deepest first-child text content under the root.

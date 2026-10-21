@@ -1,13 +1,15 @@
 package telemetryredaction
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v7/diagnostics"
 )
 
 const RedactedValue = "[redacted]"
@@ -117,6 +119,18 @@ func currentPolicy(parsePath string, parseField string) (Policy, bool) {
 	}
 	_, parseMatched := state.fields[parseNormalizedField]
 	if !parseMatched {
+		// A flat key can itself be a dotted path ("http.request.header.authorization"): normalizing
+		// the whole key glues the segments together, so also test its final segment, which is what
+		// the policy contract matches against.
+		parseRawField := strings.TrimSpace(parseField)
+		if parseRawField == "" {
+			parseRawField = parsePath
+		}
+		if strings.Contains(parseRawField, ".") {
+			_, parseMatched = state.fields[normalizeField(lastPathSegment(parseRawField))]
+		}
+	}
+	if !parseMatched {
 		return Policy{}, false
 	}
 	parsePolicy := state.policy
@@ -151,6 +165,8 @@ func redactValue(parsePath string, parseValue any) any {
 		parseOut := make([]string, len(parseTyped))
 		copy(parseOut, parseTyped)
 		return parseOut
+	case string:
+		return redactJSONString(parsePath, parseTyped)
 	default:
 		// Contract: callers MUST pass JSON-decoded telemetry values — the shapes
 		// json.Unmarshal into `any` produces (map[string]any, []any, and scalars).
@@ -167,6 +183,55 @@ func redactValue(parsePath string, parseValue any) any {
 	}
 }
 
+// maxRedactJSONStringBytes bounds the JSON documents embedded in string values that are decoded
+// for redaction, so a huge string cannot turn the telemetry path into an unbounded parse.
+const maxRedactJSONStringBytes = 1 << 20
+
+// redactJSONString redacts secrets inside a string that is itself a JSON object or array (a
+// logged request body, a serialized payload): the key-based policy only sees the outer key, so
+// {"body":"{\"password\":\"x\"}"} would otherwise leak. Strings that are not JSON documents, or
+// JSON documents the policy does not change, are returned byte-for-byte untouched.
+func redactJSONString(parsePath string, parseValue string) string {
+	if len(parseValue) < 2 || len(parseValue) > maxRedactJSONStringBytes {
+		return parseValue
+	}
+	parseTrimmed := strings.TrimSpace(parseValue)
+	if len(parseTrimmed) < 2 || (parseTrimmed[0] != '{' && parseTrimmed[0] != '[') {
+		return parseValue
+	}
+	state.mu.RLock()
+	hasPolicy := len(state.fields) > 0
+	state.mu.RUnlock()
+	if !hasPolicy {
+		return parseValue
+	}
+	parseDecoder := json.NewDecoder(strings.NewReader(parseTrimmed))
+	// UseNumber keeps large integers exact instead of rounding them through float64.
+	parseDecoder.UseNumber()
+	var parseDecoded any
+	if parseErr := parseDecoder.Decode(&parseDecoded); parseErr != nil || parseDecoder.More() {
+		return parseValue
+	}
+	parseOriginal, parseOriginalOk := marshalRedactionJSON(parseDecoded)
+	parseRedacted, parseRedactedOk := marshalRedactionJSON(redactValue(parsePath, parseDecoded))
+	if !parseOriginalOk || !parseRedactedOk || bytes.Equal(parseOriginal, parseRedacted) {
+		return parseValue
+	}
+	return string(parseRedacted)
+}
+
+// marshalRedactionJSON encodes one decoded value without HTML escaping so the redacted text stays
+// readable and differs from the original only where a field was actually redacted.
+func marshalRedactionJSON(parseValue any) ([]byte, bool) {
+	var parseBuffer bytes.Buffer
+	parseEncoder := json.NewEncoder(&parseBuffer)
+	parseEncoder.SetEscapeHTML(false)
+	if parseErr := parseEncoder.Encode(parseValue); parseErr != nil {
+		return nil, false
+	}
+	return bytes.TrimRight(parseBuffer.Bytes(), "\n"), true
+}
+
 // isJSONScalar reports whether parseValue is a leaf that json.Unmarshal-into-any
 // can produce (or a common Go numeric/bool scalar), so the dev guard does not flag
 // ordinary passthrough values. Deliberately a cheap type switch — NO reflection —
@@ -176,7 +241,7 @@ func isJSONScalar(parseValue any) bool {
 	case nil, bool, string,
 		int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr,
-		float32, float64:
+		float32, float64, json.Number:
 		return true
 	default:
 		return false
@@ -256,8 +321,8 @@ func lastPathSegment(parsePath string) string {
 		return ""
 	}
 	parsePath = strings.TrimRight(parsePath, ".")
-	if parseIndex := strings.LastIndex(parsePath, "."); parseIndex >= 0 {
-		return parsePath[parseIndex+1:]
+	if _, parseAfter, isDotFound := strings.CutLast(parsePath, "."); isDotFound {
+		return parseAfter
 	}
 	return parsePath
 }

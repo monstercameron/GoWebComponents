@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	benchmarkshared "github.com/monstercameron/GoWebComponents/v6/examples/testing/render-benchmark/shared"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	benchmarkshared "github.com/monstercameron/GoWebComponents/v7/examples/testing/render-benchmark/shared"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 const (
-	getBenchmarkWorkerRuntimeURL     = "/examples/testing/render-benchmark/vendor/wasm_exec.js"
+	getBenchmarkWorkerRuntimeURL     = "/static/script/wasm_exec.js"
 	getBenchmarkWorkerWASMURL        = "/static/bin/render-benchmark-worker.wasm"
 	getBenchmarkWorkerReadyTimeout   = 5 * time.Second
 	getBenchmarkWorkerRequestTimeout = 5 * time.Second

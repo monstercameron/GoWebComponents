@@ -13,13 +13,13 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/devtools"
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/devtools"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type Attrs = router.Attrs
@@ -449,34 +449,7 @@ func DataContent() ui.Node {
 
 	parseCards := make([]ui.Node, 0, len(parseFiltered))
 	for _, parseRecord := range parseFiltered {
-		parseRecord2 := parseRecord
-		parseHookTags := make([]ui.Node, 0, len(parseRecord2.Hooks))
-		for _, parseHook := range parseRecord2.Hooks {
-			parseHookTags = append(parseHookTags, html.Code(html.Props{
-				Class: "rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1 text-xs text-slate-200",
-			}, html.Text(parseHook)))
-		}
-
-		parseCards = append(parseCards, html.Article(html.Props{
-			Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6",
-		},
-			html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-				html.Div(html.Props{},
-					html.H3(html.Props{Class: "text-2xl font-black"}, html.Text(parseRecord2.Name)),
-					html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(parseRecord2.Summary)),
-				),
-				html.Span(html.Props{
-					Class: "rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.25em] " + parseBadgeClass(parseRecord2.Category),
-				}, html.Text(parseRecord2.Category)),
-			),
-			html.Div(html.Props{
-				Class: "mt-5 flex flex-wrap gap-2",
-			}, parseHookTags...),
-			html.Button(html.Props{
-				OnClick: ui.UseEvent(func() { parseNav.Navigate("/data/" + recordSlug(parseRecord2.Name)) }),
-				Class:   "mt-5 rounded-full border border-cyan-900/80 bg-cyan-950/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80",
-			}, html.Text("Open detail")),
-		))
+		parseCards = append(parseCards, omiRecordCard(parseRecord, parseNav, parseBadgeClass))
 	}
 
 	parseStatusText := "Idle"
@@ -573,6 +546,19 @@ func DataContent() ui.Node {
 			Class: "grid gap-6 md:grid-cols-2",
 		}, parseCards...),
 	)
+}
+
+func omiRecordCard(parseRecord HookRecord, parseNav router.Navigator, parseBadgeClass func(string) string) ui.Node {
+	parseOpen := ui.UseEvent(func() { parseNav.Navigate("/data/" + recordSlug(parseRecord.Name)) })
+	parseHookTags := make([]ui.Node, 0, len(parseRecord.Hooks))
+	for _, parseHook := range parseRecord.Hooks {
+		parseHookTags = append(parseHookTags, html.Code(html.Props{Class: "rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1 text-xs text-slate-200"}, html.Text(parseHook)))
+	}
+	parseBadge := "rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.25em]"
+	if parseBadgeClass != nil {
+		parseBadge += " " + parseBadgeClass(parseRecord.Category)
+	}
+	return html.Article(html.Props{Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6"}, html.Div(html.Props{Class: "flex items-start justify-between gap-4"}, html.Div(html.Props{}, html.H3(html.Props{Class: "text-2xl font-black"}, html.Text(parseRecord.Name)), html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(parseRecord.Summary))), html.Span(html.Props{Class: parseBadge}, html.Text(parseRecord.Category))), html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-2"}, parseHookTags...), html.Button(html.Props{OnClick: parseOpen, Class: "mt-5 rounded-full border border-cyan-900/80 bg-cyan-950/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text("Open detail")))
 }
 
 func DataDetailContent(parseProps Attrs) ui.Node {
@@ -678,27 +664,7 @@ func SearchContent(parseProps Attrs) ui.Node {
 	parseCount := len(parseResults)
 	parseResultCards := make([]ui.Node, 0, parseCount)
 	for _, parseRecord := range parseResults {
-		parseRecord2 := parseRecord
-		parseHookTags := make([]ui.Node, 0, len(parseRecord2.Hooks))
-		for _, parseHook := range parseRecord2.Hooks {
-			parseHookTags = append(parseHookTags, html.Code(html.Props{
-				Class: "rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1 text-xs text-slate-200",
-			}, html.Text(parseHook)))
-		}
-
-		parseResultCards = append(parseResultCards, html.Article(html.Props{Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6"},
-			html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-				html.Div(html.Props{},
-					html.H3(html.Props{Class: "text-2xl font-black"}, html.Text(parseRecord2.Name)),
-					html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(parseRecord2.Summary)),
-				),
-				html.Button(html.Props{
-					OnClick: ui.UseEvent(func() { parseNav.Navigate("/data/" + recordSlug(parseRecord2.Name)) }),
-					Class:   "rounded-full border border-cyan-900/80 bg-cyan-950/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80",
-				}, html.Text("Open detail")),
-			),
-			html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-2"}, parseHookTags...),
-		))
+		parseResultCards = append(parseResultCards, omiRecordCard(parseRecord, parseNav, nil))
 	}
 
 	return html.Div(html.Props{Class: "space-y-8"},

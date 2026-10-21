@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/validate"
+	"github.com/monstercameron/GoWebComponents/v7/validate"
 )
 
 // TestRegisterRuleCustomValidation proves a registered custom rule participates in Struct
@@ -386,7 +386,7 @@ func TestFieldsReturnsFirstErrorPerField(parseT *testing.T) {
 		Name string `validate:"required,min=3"`
 	}
 	parseRes := validate.Struct(form{Name: ""})
-	var parseAsFieldErrors map[string]string = parseRes.Fields() // compile-time shape check
+	parseAsFieldErrors := parseRes.Fields() // compile-time shape check
 	if len(parseAsFieldErrors) != 1 || parseAsFieldErrors["Name"] != "is required" {
 		parseT.Fatalf("expected one first-error per field, got %v", parseAsFieldErrors)
 	}

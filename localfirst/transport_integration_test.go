@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/localfirst"
-	"github.com/monstercameron/GoWebComponents/v6/serverfn"
+	"github.com/monstercameron/GoWebComponents/v7/localfirst"
+	"github.com/monstercameron/GoWebComponents/v7/serverfn"
 )
 
 // pushReq/pushResp and pullReq/pullResp are the sync shape carried over the //gwc:server

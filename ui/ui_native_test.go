@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // TestNativeStateUpdaterCanReadState verifies updater callbacks may inspect current state.
@@ -289,7 +289,7 @@ func TestCreateElementInvalidTypePanicIncludesActionableGuidance(parseT *testing
 		parseT.Fatalf("expected empty markup for SSR failure, got %q", parseMarkup)
 	}
 	parseMessage := parseErr.Error()
-	if !strings.Contains(parseMessage, "GWC-UI-CREATE-ELEMENT-TYPE") || !strings.Contains(parseMessage, "ACTIONABLE_ERRORS.md#gwc-ui-create-element-type") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
+	if !strings.Contains(parseMessage, "GWC-UI-CREATE-ELEMENT-TYPE") || !strings.Contains(parseMessage, "docs/REFERENCE_MANUAL/error-codes.md#gwc-ui-create-element-type") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
 		parseT.Fatalf("expected actionable create-element error, got %q", parseMessage)
 	}
 }
@@ -301,7 +301,7 @@ func TestRenderUnsupportedOnServerPanicUsesUnifiedContract(parseT *testing.T) {
 			parseT.Fatal("expected Render to panic on server")
 		}
 		parseMessage := parseRecovered.(string)
-		if !strings.Contains(parseMessage, "GWC-UI-UNSUPPORTED-ON-SERVER") || !strings.Contains(parseMessage, "ui.Render") || !strings.Contains(parseMessage, "docs: ACTIONABLE_ERRORS.md#gwc-ui-unsupported-on-server") {
+		if !strings.Contains(parseMessage, "GWC-UI-UNSUPPORTED-ON-SERVER") || !strings.Contains(parseMessage, "ui.Render") || !strings.Contains(parseMessage, "docs: docs/REFERENCE_MANUAL/error-codes.md#gwc-ui-unsupported-on-server") {
 			parseT.Fatalf("expected unified server-only api panic output, got %q", parseMessage)
 		}
 	}()

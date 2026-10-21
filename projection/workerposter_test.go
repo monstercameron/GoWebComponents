@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/projection"
+	"github.com/monstercameron/GoWebComponents/v7/projection"
 )
 
 // The wire envelope between app.wasm and services.wasm.
@@ -41,7 +41,9 @@ func (parsePoster *envelopePoster) Post(parseRequestID uint64, parseName string,
 		if parseReplyErr != nil {
 			return
 		}
-		parsePoster.client.DeliverEncodedReply(parseReplyBytes)
+		if _, parseDeliverErr := parsePoster.client.DeliverEncodedReply(parseReplyBytes); parseDeliverErr != nil {
+			return
+		}
 	}()
 	return nil
 }

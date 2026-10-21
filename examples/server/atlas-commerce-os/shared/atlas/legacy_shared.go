@@ -5,6 +5,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type PreferenceStore struct {
@@ -341,7 +344,7 @@ type WarehousePromise struct {
 }
 
 func ResolveAtlasProductHeroState(parseProductSlug, parseFinish string) ProductHeroState {
-	parseState := ProductHeroState{Slug: parseProductSlug, Label: strings.Title(strings.ReplaceAll(parseProductSlug, "-", " ")), Finish: parseFinish, LeadTime: "2-4 days", Availability: "Low stock", AvailabilityTone: "warm", WarehousePromise: "Rebalanced from Illinois and New Jersey for east-coast installs."}
+	parseState := ProductHeroState{Slug: parseProductSlug, Label: cases.Title(language.English).String(strings.ReplaceAll(parseProductSlug, "-", " ")), Finish: parseFinish, LeadTime: "2-4 days", Availability: "Low stock", AvailabilityTone: "warm", WarehousePromise: "Rebalanced from Illinois and New Jersey for east-coast installs."}
 	switch parseFinish {
 	case "Drift ash":
 		parseState.LeadTime = "5-7 days"

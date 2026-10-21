@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 const (
@@ -98,7 +101,7 @@ func DefineRoute(parsePattern string) (RouteContract, error) {
 func MustDefineRoute(parsePattern string) RouteContract {
 	parseContract, parseErr := DefineRoute(parsePattern)
 	if parseErr != nil {
-		panic(parseErr)
+		panic(errcode.New(errcode.RouterRoutePatternInvalid, "MustDefineRoute("+strconv.Quote(parsePattern)+") rejected the pattern:", parseErr))
 	}
 	return parseContract
 }
@@ -149,7 +152,7 @@ func (parseC RouteContract) Path(parseParams map[string]string) (string, error) 
 func (parseC RouteContract) MustPath(parseParams map[string]string) string {
 	parsePath, parseErr := parseC.Path(parseParams)
 	if parseErr != nil {
-		panic(parseErr)
+		panic(errcode.New(errcode.RouterRouteParamsInvalid, "MustPath on route "+strconv.Quote(parseC.pattern)+" failed:", parseErr))
 	}
 	return parsePath
 }
@@ -171,7 +174,7 @@ func (parseC RouteContract) Href(parseParams map[string]string, parseQuery url.V
 func (parseC RouteContract) MustHref(parseParams map[string]string, parseQuery url.Values) string {
 	parseHref, parseErr := parseC.Href(parseParams, parseQuery)
 	if parseErr != nil {
-		panic(parseErr)
+		panic(errcode.New(errcode.RouterRouteParamsInvalid, "MustHref on route "+strconv.Quote(parseC.pattern)+" failed:", parseErr))
 	}
 	return parseHref
 }
@@ -185,7 +188,7 @@ func (parseC RouteContract) PathFor(parseParams RouteParamsProvider) (string, er
 func (parseC RouteContract) MustPathFor(parseParams RouteParamsProvider) string {
 	parsePath, parseErr := parseC.PathFor(parseParams)
 	if parseErr != nil {
-		panic(parseErr)
+		panic(errcode.New(errcode.RouterRouteParamsInvalid, "MustPathFor on route "+strconv.Quote(parseC.pattern)+" failed:", parseErr))
 	}
 	return parsePath
 }
@@ -199,7 +202,7 @@ func (parseC RouteContract) HrefFor(parseParams RouteParamsProvider, parseQuery 
 func (parseC RouteContract) MustHrefFor(parseParams RouteParamsProvider, parseQuery RouteQueryProvider) string {
 	parseHref, parseErr := parseC.HrefFor(parseParams, parseQuery)
 	if parseErr != nil {
-		panic(parseErr)
+		panic(errcode.New(errcode.RouterRouteParamsInvalid, "MustHrefFor on route "+strconv.Quote(parseC.pattern)+" failed:", parseErr))
 	}
 	return parseHref
 }

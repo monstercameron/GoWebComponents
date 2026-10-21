@@ -3,9 +3,10 @@ package desktop
 import (
 	"context"
 	"encoding/json"
+	"runtime"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 type parseSystemFake struct {
@@ -100,6 +101,9 @@ func TestSystemHostValidationPreventsEffects(parseTest *testing.T) {
 
 // TestFileManagerHostUsesExistingFixture verifies host validation reaches only the fake backend.
 func TestFileManagerHostUsesExistingFixture(parseTest *testing.T) {
+	if runtime.GOOS != "windows" {
+		parseTest.Skip("NativeHost file-manager validation requires a Windows absolute path")
+	}
 	parseFake := &parseSystemFake{parseNativeFake: parseNativeFake{parseFeatures: []Feature{FileManager}}}
 	parsePolicy, _ := ParseFeaturePolicy("all")
 	parsePath := parseTest.TempDir()

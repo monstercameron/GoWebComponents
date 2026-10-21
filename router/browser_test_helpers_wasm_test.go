@@ -344,6 +344,10 @@ func installRouterBrowserEnv(parseT testing.TB) {
 	parseDoc.Set("getElementById", parseDocGetElementByID)
 	parseDoc.Set("getElementsByClassName", parseDocGetElementsByClassName)
 	parseDoc.Set("getElementsByTagName", parseDocGetElementsByTagName)
+	// The wasm runtime dispatches the one-time gwc:ready event on document
+	// after the first commit. Keep the fake document event surface aligned with
+	// the fake window so deferred commits cannot panic during router tests.
+	parseDoc.Set("dispatchEvent", parseDispatchEvent)
 	parseDoc.Set("head", parseHead)
 	parseDoc.Set("body", parseBody)
 	parseDoc.Set("title", "")
@@ -492,6 +496,7 @@ func installRouterBrowserEnv(parseT testing.TB) {
 		parseReplaceChild.Release()
 		parseAddEventListener.Release()
 		parseRemoveEventListener.Release()
+		parseDispatchEvent.Release()
 		parseRemoveNode.Release()
 		parseElementCtor.Release()
 		parseDocCreateElement.Release()

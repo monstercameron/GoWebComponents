@@ -3,7 +3,7 @@ package events_test
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v6/events"
+	"github.com/monstercameron/GoWebComponents/v7/events"
 )
 
 // ExamplePublish shows the non-hook core: subscribe to a typed topic, publish to

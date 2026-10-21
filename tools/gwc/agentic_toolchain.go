@@ -493,7 +493,7 @@ func buildSizeSummary(parseArtifact string, parseLimit int) (sizeSummary, error)
 		return sizeSummary{OK: false, Artifact: parseAbs}, parseErr
 	}
 	parseSummary := sizeSummary{OK: true, Artifact: parseAbs, Bytes: parseInfo.Size()}
-	parseOutput, parseErr := launcherRunCommand("go", []string{"tool", "nm", "-size", parseAbs}, "", os.Environ())
+	parseOutput, parseErr := runLauncherGoCommand("go", []string{"tool", "nm", "-size", parseAbs}, "", os.Environ())
 	if parseErr != nil {
 		parseSummary.OK = false
 		parseSummary.Diagnostics = append(parseSummary.Diagnostics, buildAgenticCommandError("GWC-SIZE-NM", parseErr))
@@ -543,8 +543,8 @@ func buildSizeSummary(parseArtifact string, parseLimit int) (sizeSummary, error)
 
 func packageFromSymbolName(parseName string) string {
 	parseName = strings.TrimSpace(parseName)
-	if parseSlash := strings.LastIndex(parseName, "/"); parseSlash >= 0 {
-		parseName = parseName[parseSlash+1:]
+	if _, parseAfter, isSlashFound := strings.CutLast(parseName, "/"); isSlashFound {
+		parseName = parseAfter
 	}
 	if parseDot := strings.Index(parseName, "."); parseDot > 0 {
 		return parseName[:parseDot]
@@ -784,7 +784,7 @@ func buildDepsSummary(parseRoot string, isLatest bool) (depsSummary, error) {
 		parseArgs = append(parseArgs, "-u")
 	}
 	parseArgs = append(parseArgs, "all")
-	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRoot, os.Environ())
+	parseOutput, parseErr := runLauncherGoCommand("go", parseArgs, parseRoot, os.Environ())
 	parseSummary := depsSummary{OK: parseErr == nil, Root: parseRoot, Latest: isLatest}
 	if parseErr != nil {
 		parseSummary.Diagnostics = append(parseSummary.Diagnostics, buildAgenticCommandError("GWC-DEPS-LIST", parseErr))
@@ -831,9 +831,9 @@ func applyDepsUpdate(parseRoot string, parseModule string, parseTo string, isDry
 		return parseErr
 	}
 	parseGoSumBytes, _ := os.ReadFile(parseGoSum)
-	parseOutput, parseErr := launcherRunCommand("go", []string{"get", parseModule + "@" + parseTo}, parseRoot, os.Environ())
+	parseOutput, parseErr := runLauncherGoCommand("go", []string{"get", parseModule + "@" + parseTo}, parseRoot, os.Environ())
 	if parseErr == nil {
-		_, parseErr = launcherRunCommand("go", []string{"test", "./..."}, parseRoot, buildNativeGoEnv())
+		_, parseErr = runLauncherGoCommand("go", []string{"test", "./..."}, parseRoot, buildNativeGoEnv())
 	}
 	if parseErr != nil {
 		_ = os.WriteFile(parseGoMod, parseGoModBytes, 0o644)

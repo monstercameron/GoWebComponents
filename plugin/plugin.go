@@ -1,16 +1,19 @@
 package plugin
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"maps"
 	"os"
+	"runtime"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // PluginPanicHandler is invoked when a plugin-supplied callback panics during
@@ -130,6 +133,9 @@ type Host struct {
 	// to the matching Add* surface (per-plugin least privilege).
 	activePluginRequires map[Capability]struct{}
 	activePluginID       string
+	// setupGoroutine is the id of the goroutine running the active Setup, 0 when none. Register and
+	// Close called from that goroutine would wait on registerMu forever, so they fail instead.
+	setupGoroutine uint64
 
 	routeGuards              []RouteGuard
 	navigationObservers      []NavigationObserver
@@ -265,6 +271,9 @@ func (parseHost *Host) Register(parsePlugin Plugin) error {
 	if parsePlugin == nil {
 		return errors.New("plugin: plugin is nil")
 	}
+	if parseHost.isSetupGoroutine() {
+		return errors.New("plugin: Register called from inside a plugin Setup; register plugins before or after Setup, not during it")
+	}
 	// Serialize whole registrations so snapshot→Setup→finalize is atomic w.r.t.
 	// other Register/Close calls. Held across the Setup callback; the Add* calls
 	// Setup makes take stateMu (a different lock) individually, so no deadlock.
@@ -288,7 +297,7 @@ func (parseHost *Host) Register(parsePlugin Plugin) error {
 	// paths (including a Setup panic) via defer.
 	parseHost.beginSetup(parseManifest)
 	defer parseHost.endSetup()
-	parseCleanup, parseErr2 := parsePlugin.Setup(parseHost)
+	parseCleanup, parseErr2 := runPluginSetup(parsePlugin, parseHost, parseManifest.ID)
 	if parseErr2 != nil {
 		parseHost.rollback(parseSnapshot)
 		return fmt.Errorf("plugin: setup failed for %q: %w", parseManifest.ID, parseErr2)
@@ -303,10 +312,39 @@ func (parseHost *Host) Register(parsePlugin Plugin) error {
 	return nil
 }
 
+// runPluginSetup calls a plugin's Setup with panic isolation: a third-party Setup that panics is
+// reported through PluginPanicHandler and surfaces as an error, so Register can roll back whatever
+// the plugin had already installed instead of crashing the host with a half-registered plugin.
+func runPluginSetup(parsePlugin Plugin, parseHost *Host, parseID string) (parseCleanup CleanupFunc, parseErr error) {
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			PluginPanicHandler("setup of plugin "+parseID, parseRecovered)
+			parseCleanup = nil
+			parseErr = fmt.Errorf("panic: %v", parseRecovered)
+		}
+	}()
+	return parsePlugin.Setup(parseHost)
+}
+
+// runPluginCleanup calls one plugin cleanup with panic isolation so a panicking cleanup is joined
+// into Close's error and the remaining cleanups and the host reset still run.
+func runPluginCleanup(parseCleanup CleanupFunc) (parseErr error) {
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			PluginPanicHandler("plugin cleanup", parseRecovered)
+			parseErr = fmt.Errorf("plugin: cleanup panicked: %v", parseRecovered)
+		}
+	}()
+	return parseCleanup()
+}
+
 // Close runs all registered cleanup functions in reverse registration order.
 func (parseHost *Host) Close() error {
 	if parseHost == nil {
 		return nil
+	}
+	if parseHost.isSetupGoroutine() {
+		return errors.New("plugin: Close called from inside a plugin Setup")
 	}
 	parseHost.registerMu.Lock()
 	defer parseHost.registerMu.Unlock()
@@ -323,7 +361,7 @@ func (parseHost *Host) Close() error {
 		if parseCleanup == nil {
 			continue
 		}
-		if parseErr := parseCleanup(); parseErr != nil {
+		if parseErr := runPluginCleanup(parseCleanup); parseErr != nil {
 			parseJoined = errors.Join(parseJoined, parseErr)
 		}
 	}
@@ -428,6 +466,8 @@ func (parseHost *Host) AddNavigationObserver(parseObserver NavigationObserver) e
 }
 
 // EvaluateRoute runs all registered route guards and returns the first non-allow decision.
+// A guard that panics is recovered, reported through PluginPanicHandler and treated as having
+// no opinion, so navigation is allowed (fail-open) rather than blocked by one broken plugin.
 func (parseHost *Host) EvaluateRoute(parseRequest RouteRequest) GuardDecision {
 	if parseHost == nil {
 		return Allow("plugin host unavailable")
@@ -888,7 +928,30 @@ func (parseHost *Host) beginSetup(parseManifest Manifest) {
 	parseHost.stateMu.Lock()
 	parseHost.activePluginRequires = parseRequires
 	parseHost.activePluginID = parseManifest.ID
+	parseHost.setupGoroutine = getGoroutineID()
 	parseHost.stateMu.Unlock()
+}
+
+// isSetupGoroutine reports whether the calling goroutine is the one currently running a plugin
+// Setup, which is the only caller that could re-enter Register or Close and deadlock on registerMu.
+func (parseHost *Host) isSetupGoroutine() bool {
+	parseHost.stateMu.RLock()
+	parseOwner := parseHost.setupGoroutine
+	parseHost.stateMu.RUnlock()
+	return parseOwner != 0 && parseOwner == getGoroutineID()
+}
+
+// getGoroutineID returns the calling goroutine's id parsed from its stack header, or 0 when the
+// header is unreadable.
+func getGoroutineID() uint64 {
+	var parseBuf [64]byte
+	parseHeader := bytes.TrimPrefix(parseBuf[:runtime.Stack(parseBuf[:], false)], []byte("goroutine "))
+	if parseEnd := bytes.IndexByte(parseHeader, ' '); parseEnd > 0 {
+		if parseID, parseErr := strconv.ParseUint(string(parseHeader[:parseEnd]), 10, 64); parseErr == nil {
+			return parseID
+		}
+	}
+	return 0
 }
 
 // endSetup clears the active-Setup plugin scope.
@@ -896,6 +959,7 @@ func (parseHost *Host) endSetup() {
 	parseHost.stateMu.Lock()
 	parseHost.activePluginRequires = nil
 	parseHost.activePluginID = ""
+	parseHost.setupGoroutine = 0
 	parseHost.stateMu.Unlock()
 }
 
@@ -927,7 +991,9 @@ func (parseHost *Host) hasPlugin(parseId string) bool {
 	defer parseHost.stateMu.RUnlock()
 	parseTrimmed := strings.TrimSpace(parseId)
 	for _, parseManifest := range parseHost.plugins {
-		if parseManifest.ID == parseTrimmed {
+		// Trim the stored ID too: Register stores the manifest as supplied, so comparing against
+		// the raw stored value let " id " register twice.
+		if strings.TrimSpace(parseManifest.ID) == parseTrimmed {
 			return true
 		}
 	}

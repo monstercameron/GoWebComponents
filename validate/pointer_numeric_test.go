@@ -3,7 +3,7 @@ package validate_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/validate"
+	"github.com/monstercameron/GoWebComponents/v7/validate"
 )
 
 // TestNumericRulesApplyThroughPointers pins that min/max/gte/etc. actually fire on

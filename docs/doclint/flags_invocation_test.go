@@ -9,7 +9,7 @@ func TestScanFileFlagsRecognizesLauncherFormsWithoutGoToolFalsePositives(parseTe
 		"./gwc build -removed-flag",
 		"gwc.exe build -removed-flag",
 		`.\gwc.exe build -removed-flag`,
-		"$ go run ./tools/gwc build -removed-flag",
+		"$ go -C tools run ./gwc build -removed-flag",
 		`PS> go run .\tools\gwc build -removed-flag`,
 		"go run -tags gwc_desktop ./tools/gwc build -removed-flag",
 		"go run -tags=gwc_desktop -ldflags '-s -w' ./tools/gwc build -removed-flag",
@@ -22,10 +22,10 @@ func TestScanFileFlagsRecognizesLauncherFormsWithoutGoToolFalsePositives(parseTe
 		})
 	}
 	for _, parseCommand := range []string{
-		"go test ./tools/gwc -count=1 -v",
+		"go -C tools/gwc test ./... -count=1 -v",
 		"go vet ./tools/gwc -fake",
 		"echo 'gwc -fake'",
-		"go run ./tools/gwc-extra -fake",
+		"go -C tools run ./gwc-extra -fake",
 		"go run ./another ./tools/gwc -fake",
 		"go run -tags playwrightgo ./tools/gwc build -app main.go",
 	} {

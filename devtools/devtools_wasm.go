@@ -8,11 +8,12 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // SnapshotNow captures the current runtime, route, and diagnostic inspection state.
@@ -405,7 +406,7 @@ func collectOverlayIssues(parseSnapshot Snapshot) []ErrorOverlayIssue {
 		parseIssues = append(parseIssues, ErrorOverlayIssue{
 			Severity: SeverityError,
 			Source:   "hydration",
-			Code:     "GWC-HYDRATION-FAILED",
+			Code:     string(errcode.HydrationFailed),
 			Message:  emptyFallback(parseSnapshot.Hydration.Failure, "hydration failed during client resume"),
 			Docs:     "docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md#actionable-errors-and-troubleshooting",
 		})
@@ -421,7 +422,7 @@ func shouldShowOverlayDiagnostic(parseDiagnostic Diagnostic) bool {
 		return true
 	}
 	switch strings.TrimSpace(parseDiagnostic.Code) {
-	case "GWC-ROUTER-LOADER-FAILED":
+	case string(errcode.RouterLoaderFailed):
 		return true
 	}
 	return false

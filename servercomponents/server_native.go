@@ -2,7 +2,7 @@
 
 package servercomponents
 
-import "github.com/monstercameron/GoWebComponents/v6/ui"
+import "github.com/monstercameron/GoWebComponents/v7/ui"
 
 // ServerOnly renders its server implementation on non-wasm targets.
 func ServerOnly(parseProps Props) ui.Node {

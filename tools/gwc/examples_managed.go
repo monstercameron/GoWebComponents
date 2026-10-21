@@ -952,7 +952,7 @@ func buildExamplesManagedServerBinary(parseTargetPath string, parseBinaryPath st
 	if parseErr := os.MkdirAll(filepath.Dir(parseBinaryPath), 0755); parseErr != nil {
 		return fmt.Errorf("create managed server binary directory: %w", parseErr)
 	}
-	if _, parseErr := launcherRunCommand("go", []string{"build", "-o", parseBinaryPath, parseTargetPath}, parseWorkingDir, buildNativeGoEnv()); parseErr != nil {
+	if _, parseErr := runLauncherGoCommand("go", []string{"build", "-o", parseBinaryPath, parseTargetPath}, parseWorkingDir, buildNativeGoEnv()); parseErr != nil {
 		return fmt.Errorf("build managed server binary: %w", parseErr)
 	}
 	return nil
@@ -972,7 +972,7 @@ func buildExamplesManagedWASMArtifact(parseTargetPath string, parseOutputPath st
 	if parseErr := os.MkdirAll(filepath.Dir(parseOutputPath), 0755); parseErr != nil {
 		return fmt.Errorf("create managed wasm output directory: %w", parseErr)
 	}
-	if _, parseErr := launcherRunCommand("go", []string{"build", "-o", parseOutputPath, parseTargetPath}, parseWorkingDir, buildWasmGoEnv()); parseErr != nil {
+	if _, parseErr := runLauncherGoCommand("go", []string{"build", "-o", parseOutputPath, parseTargetPath}, parseWorkingDir, buildWasmGoEnv()); parseErr != nil {
 		return fmt.Errorf("build managed wasm artifact: %w", parseErr)
 	}
 	if parseErr := writeExamplesManagedBrotliSidecar(parseOutputPath, parseOutputPath+".br"); parseErr != nil {

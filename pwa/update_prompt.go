@@ -56,6 +56,11 @@ func (parsePrompt *UpdatePrompt) Start() error {
 
 	parseSubscription, parseErr := parsePrompt.registration.SubscribeLifecycle(parsePrompt.handleSnapshot)
 	if parseErr != nil {
+		// Not started after all: leaving started=true would make every later Start a silent no-op
+		// that never listens, so the update banner could never appear.
+		parsePrompt.mu.Lock()
+		parsePrompt.started = false
+		parsePrompt.mu.Unlock()
 		return parseErr
 	}
 	parsePrompt.mu.Lock()

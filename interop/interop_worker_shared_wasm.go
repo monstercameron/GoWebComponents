@@ -17,6 +17,9 @@ type browserWorkerState struct {
 	raw           js.Value
 	active        bool
 	nextRequestID int
+	// gone is closed when the live worker is terminated or restarted, so a
+	// request blocked on it fails promptly instead of waiting out its context.
+	gone chan struct{}
 }
 
 type goWASMWorkerState struct {

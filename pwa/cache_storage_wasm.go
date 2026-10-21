@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // OpenCacheStorageManager opens the browser Cache Storage API manager.

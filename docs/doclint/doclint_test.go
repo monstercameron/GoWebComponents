@@ -88,6 +88,27 @@ func TestDocsHaveNoBrokenRepoPaths(t *testing.T) {
 	}
 }
 
+// TestGeneratedArtifactPathsAreIgnored confirms that clean-checkout docs may
+// mention build outputs that are intentionally absent until a command runs.
+func TestGeneratedArtifactPathsAreIgnored(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "go.mod"), "module example.com/fixture\n")
+	mustMkdir(t, filepath.Join(root, "examples", "static"))
+	mustMkdir(t, filepath.Join(root, "examples", "testing", "v5-load-harness"))
+	mustWrite(t, filepath.Join(root, "README.md"), "```powershell\n"+
+		"New-Item -ItemType Directory -Path .\\examples\\static\\bin -Force\n"+
+		"Get-FileHash ./examples/testing/v5-load-harness/v5harness.wasm\n"+
+		"```\n")
+
+	refs, err := ScanRepo(root)
+	if err != nil {
+		t.Fatalf("scan fixture: %v", err)
+	}
+	if len(refs) != 0 {
+		t.Fatalf("generated artifact paths should be ignored, got %+v", refs)
+	}
+}
+
 // TestGuardCatchesPlantedBreakage proves the guard itself works: a fixture doc
 // with a known-dead repo path must be reported, and a fixture with a live path
 // must not. Without this, a green guard could mean "nothing broken" or "scanner
@@ -100,9 +121,9 @@ func TestGuardCatchesPlantedBreakage(t *testing.T) {
 	mustWrite(t, filepath.Join(root, "examples", "public", "counter", "main.go"), "package main\n")
 
 	dead := "# Doc\n\n```powershell\n" +
-		"go run ./tools/gwc dev -app .\\examples\\public\\counter\\main.go\n" + // live
-		"go run ./tools/gwc dev -app .\\examples\\01-counter\\main.go\n" + // dead
-		"go run ./tools/gwc build -app .\\main.go -out .\\bin\\x.wasm\n" + // placeholder + output, both skipped
+		"go -C tools run ./gwc dev -app .\\examples\\public\\counter\\main.go\n" + // live
+		"go -C tools run ./gwc dev -app .\\examples\\01-counter\\main.go\n" + // dead
+		"go -C tools run ./gwc build -app .\\main.go -out .\\bin\\x.wasm\n" + // placeholder + output, both skipped
 		"```\n"
 	mustWrite(t, filepath.Join(root, "README.md"), dead)
 
@@ -134,7 +155,7 @@ func TestSnapshotDocsAreExempt(t *testing.T) {
 	snapDir := filepath.Join(root, filepath.FromSlash(snapshotDocDir))
 	mustMkdir(t, snapDir)
 	mustWrite(t, filepath.Join(snapDir, "history.md"),
-		"```powershell\ngo run ./tools/gwc dev -app .\\examples\\01-counter\\main.go\n```\n")
+		"```powershell\ngo -C tools run ./gwc dev -app .\\examples\\01-counter\\main.go\n```\n")
 
 	refs, err := ScanRepo(root)
 	if err != nil {

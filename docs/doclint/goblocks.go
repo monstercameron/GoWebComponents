@@ -85,7 +85,7 @@ func scanGoBlocksInFile(absPath, docRel string) ([]GoBlock, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var blocks []GoBlock
 	scanner := bufio.NewScanner(file)
@@ -180,7 +180,7 @@ func compileSampleInModule(repoRoot string, block GoBlock, index int) string {
 	if err != nil {
 		return "mktemp: " + err.Error()
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	if err := os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(block.Source), 0o644); err != nil {
 		return "write sample: " + err.Error()
@@ -260,11 +260,10 @@ func readRepoModulePath(parseRepoRoot string) (string, error) {
 // Go rejects a require of ".../v5" at v0.0.0, so the version cannot be a
 // constant either — it has to track whatever major the path declares.
 func requireVersionForModulePath(parseModulePath string) string {
-	parseIndex := strings.LastIndex(parseModulePath, "/v")
-	if parseIndex < 0 {
+	_, parseSuffix, isMajorFound := strings.CutLast(parseModulePath, "/v")
+	if !isMajorFound {
 		return "v0.0.0"
 	}
-	parseSuffix := parseModulePath[parseIndex+2:]
 	if parseSuffix == "" {
 		return "v0.0.0"
 	}

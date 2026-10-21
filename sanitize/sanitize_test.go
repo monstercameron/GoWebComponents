@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/sanitize"
+	"github.com/monstercameron/GoWebComponents/v7/sanitize"
 )
 
 // xssMarkers are substrings that must never appear in sanitized output.
@@ -171,8 +171,7 @@ func BenchmarkSanitizeLargeDocument(b *testing.B) {
 		parseBuf.WriteString(parseSnippet)
 	}
 	parseDoc := parseBuf.String()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		sanitize.Sanitize(parseDoc)
 	}
 }

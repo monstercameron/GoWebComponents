@@ -167,10 +167,10 @@ func parseFrames(parseStack []byte, parseExtraSkip []string) []frame {
 	parseLines := strings.Split(strings.ReplaceAll(string(parseStack), "\r\n", "\n"), "\n")
 	parseSkipFunctions := []string{
 		"runtime/debug.Stack",
-		"github.com/monstercameron/GoWebComponents/v6/internal/diagnostics.parseFrames",
-		"github.com/monstercameron/GoWebComponents/v6/internal/diagnostics.Build",
-		"github.com/monstercameron/GoWebComponents/v6/internal/diagnostics.WriteHTTPError",
-		"github.com/monstercameron/GoWebComponents/v6/internal/diagnostics.Emit",
+		"github.com/monstercameron/GoWebComponents/v7/internal/diagnostics.parseFrames",
+		"github.com/monstercameron/GoWebComponents/v7/internal/diagnostics.Build",
+		"github.com/monstercameron/GoWebComponents/v7/internal/diagnostics.WriteHTTPError",
+		"github.com/monstercameron/GoWebComponents/v7/internal/diagnostics.Emit",
 	}
 	parseSkipFunctions = append(parseSkipFunctions, parseExtraSkip...)
 	parseFrames := make([]frame, 0, len(parseLines)/2)
@@ -192,10 +192,10 @@ func parseFrames(parseStack []byte, parseExtraSkip []string) []frame {
 		}
 		parseLocation = strings.TrimSpace(strings.SplitN(parseLocation, " +", 2)[0])
 		parseLine := 0
-		if parseLastColon := strings.LastIndex(parseLocation, ":"); parseLastColon > 0 {
-			if parseParsed, parseErr := strconv.Atoi(parseLocation[parseLastColon+1:]); parseErr == nil {
+		if parseBefore, parseAfter, isColonFound := strings.CutLast(parseLocation, ":"); isColonFound && parseBefore != "" {
+			if parseParsed, parseErr := strconv.Atoi(parseAfter); parseErr == nil {
 				parseLine = parseParsed
-				parseLocation = parseLocation[:parseLastColon]
+				parseLocation = parseBefore
 			}
 		}
 		parseFrames = append(parseFrames, frame{Function: parseFunction, File: parseLocation, Line: parseLine})

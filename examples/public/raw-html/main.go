@@ -6,8 +6,8 @@
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // App demonstrates safe rich-text nodes and replacement through GWC state.

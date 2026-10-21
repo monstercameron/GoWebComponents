@@ -11,7 +11,7 @@ import (
 func TestScanDocGwcCommandsParsesFencedCommands(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "README.md"), "# Doc\n\n```powershell\n"+
-		"go run ./tools/gwc build -app \".\\examples\\public\\counter\\main.go\" -profile development\n"+
+		"go -C tools run ./gwc build -app \".\\examples\\public\\counter\\main.go\" -profile development\n"+
 		"gwc dev -app ./examples/public/counter/main.go -dry-run\n"+
 		"go test ./...\n"+
 		"```\n\n```go\n"+
@@ -68,9 +68,9 @@ func TestPlanDocGwcCommandsClassifiesAndSandboxesOutputs(t *testing.T) {
 func TestRunDocGwcCommandsWithFakeRunnerReportsFailures(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "README.md"), "# Doc\n\n```powershell\n"+
-		"go run ./tools/gwc files -root . -ext go\n"+
-		"go run ./tools/gwc build -app .\\examples\\public\\counter\\main.go\n"+
-		"go run ./tools/gwc dev -app .\\examples\\public\\counter\\main.go\n"+
+		"go -C tools run ./gwc files -root . -ext go\n"+
+		"go -C tools run ./gwc build -app .\\examples\\public\\counter\\main.go\n"+
+		"go -C tools run ./gwc dev -app .\\examples\\public\\counter\\main.go\n"+
 		"```\n")
 
 	var ran []string

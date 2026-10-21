@@ -22,8 +22,7 @@ func BenchmarkParseReadTailLines(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseLines, parseErr2 := parseReadTailLines(parseLogPath, 500, logTailMaximumReadBytes)
 		if parseErr2 != nil {
 			parseB.Fatalf("parseReadTailLines: %v", parseErr2)
@@ -46,8 +45,7 @@ func BenchmarkParseFilterLogTailLines(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseFiltered := parseFilterLogTailLines(parseLines, "error")
 		if len(parseFiltered) == 0 {
 			parseB.Fatal("expected filtered lines")

@@ -150,7 +150,7 @@ func TestGoUseFunc_PanicsForNonFunction(parseT *testing.T) {
 			parseT.Fatal("expected GoUseFunc to panic for non-function input")
 		}
 		parseMessage := parseRecovered.(string)
-		if !strings.Contains(parseMessage, "GWC-RUNTIME-HOOK-FUNC-TYPE") || !strings.Contains(parseMessage, "path: GoUseFunc") || !strings.Contains(parseMessage, "docs: ACTIONABLE_ERRORS.md#gwc-runtime-hook-func-type") {
+		if !strings.Contains(parseMessage, "GWC-RUNTIME-HOOK-FUNC-TYPE") || !strings.Contains(parseMessage, "path: GoUseFunc") || !strings.Contains(parseMessage, "docs: docs/REFERENCE_MANUAL/error-codes.md#gwc-runtime-hook-func-type") {
 			parseT.Fatalf("expected unified GoUseFunc type panic output, got %q", parseMessage)
 		}
 	}()

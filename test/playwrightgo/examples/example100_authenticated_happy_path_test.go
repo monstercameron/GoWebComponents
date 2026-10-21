@@ -37,19 +37,21 @@ type example100HappyPathArtifact struct {
 // seedExample100HappyPathDatabase seeds one sqlite file with deterministic QA credentials and conversations.
 func seedExample100HappyPathDatabase(parseT *testing.T, parseRepoRoot string, parseDBPath string) {
 	parseT.Helper()
-	parseCommand := exec.Command("go", "run", "./examples/server/ai-chat-wizard/cmd/seed-test-db")
-	parseCommand.Dir = parseRepoRoot
-	parseCommand.Env = append(os.Environ(), "CHAT_DB_PATH="+parseDBPath)
-	if parseOutput, parseErr := parseCommand.CombinedOutput(); parseErr == nil {
-		return
-	} else {
-		parseFixtureDBPath := filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
-		parseFixtureBytes, parseReadErr := os.ReadFile(parseFixtureDBPath)
-		if parseReadErr != nil {
-			parseT.Fatalf("seed example 100 test db failed: %v\n%s\nfixture read failed: %v", parseErr, strings.TrimSpace(string(parseOutput)), parseReadErr)
+	for parseAttempt := 1; parseAttempt <= 3; parseAttempt++ {
+		parseCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "run", "./cmd/seed-test-db")
+		parseCommand.Dir = parseRepoRoot
+		parseCommand.Env = append(os.Environ(), "CHAT_DB_PATH="+parseDBPath)
+		parseOutput, parseErr := parseCommand.CombinedOutput()
+		if parseErr == nil {
+			return
 		}
-		if parseWriteErr := os.WriteFile(parseDBPath, parseFixtureBytes, 0o644); parseWriteErr != nil {
-			parseT.Fatalf("seed example 100 test db failed: %v\n%s\nfixture write failed: %v", parseErr, strings.TrimSpace(string(parseOutput)), parseWriteErr)
+		if parseAttempt == 3 {
+			parseT.Fatalf("seed example 100 test db failed after %d attempts: %v\n%s", parseAttempt, parseErr, strings.TrimSpace(string(parseOutput)))
+		}
+		for _, parseSuffix := range []string{"", "-wal", "-shm"} {
+			if parseRemoveErr := os.Remove(parseDBPath + parseSuffix); parseRemoveErr != nil && !os.IsNotExist(parseRemoveErr) {
+				parseT.Fatalf("remove incomplete example 100 seed database: %v", parseRemoveErr)
+			}
 		}
 	}
 }
@@ -57,7 +59,7 @@ func seedExample100HappyPathDatabase(parseT *testing.T, parseRepoRoot string, pa
 // buildExample100HappyPathServerBinary builds one local server executable for stable startup timing in browser tests.
 func buildExample100HappyPathServerBinary(parseT *testing.T, parseRepoRoot string, parseBinaryPath string) {
 	parseT.Helper()
-	parseBuildCommand := exec.Command("go", "build", "-o", parseBinaryPath, "./examples/server/ai-chat-wizard/cmd/server")
+	parseBuildCommand := exec.Command("go", "-C", "examples/server/ai-chat-wizard", "build", "-o", parseBinaryPath, "./cmd/server")
 	parseBuildCommand.Dir = parseRepoRoot
 	if parseBuildOutput, parseBuildErr := parseBuildCommand.CombinedOutput(); parseBuildErr != nil {
 		parseT.Fatalf("build example 100 server binary: %v\n%s", parseBuildErr, strings.TrimSpace(string(parseBuildOutput)))
@@ -65,7 +67,7 @@ func buildExample100HappyPathServerBinary(parseT *testing.T, parseRepoRoot strin
 }
 
 // startExample100HappyPathServer starts the example-100 server with one seeded test database.
-func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, parsePort string) string {
+func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, parsePort string, parseAfterSeed ...func(string)) string {
 	parseT.Helper()
 	parseRuntimeDir := parseT.TempDir()
 	parseDBPath := filepath.Join(parseRuntimeDir, "happy_path.db")
@@ -76,6 +78,9 @@ func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, par
 	}
 	parseAddress := "127.0.0.1:" + strings.TrimSpace(parsePort)
 	seedExample100HappyPathDatabase(parseT, parseRepoRoot, parseDBPath)
+	for _, parseSeedFixture := range parseAfterSeed {
+		parseSeedFixture(parseDBPath)
+	}
 	buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
 	parsePreviousPlatformFee, parseHadPlatformFee := os.LookupEnv("CHAT_PLATFORM_FEE_USD")
 	parsePreviousPremium, parseHadPremium := os.LookupEnv("CHAT_USAGE_PREMIUM_PERCENT")

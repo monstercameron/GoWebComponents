@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // SystemEnvironment identifies read-only OS, architecture, theme, and accent inspection.
@@ -317,7 +317,7 @@ func validateExternalURL(parseValue string) error {
 		return errors.New("invalid or oversized external URL")
 	}
 	parseURL, parseErr := url.ParseRequestURI(parseValue)
-	if parseErr != nil || parseURL.IsAbs() == false || (parseURL.Scheme != "https" && parseURL.Scheme != "http") || parseURL.Host == "" || parseURL.User != nil {
+	if parseErr != nil || !parseURL.IsAbs() || (parseURL.Scheme != "https" && parseURL.Scheme != "http") || parseURL.Host == "" || parseURL.User != nil {
 		return errors.New("external URL must be an absolute HTTP(S) URL without credentials")
 	}
 	return nil

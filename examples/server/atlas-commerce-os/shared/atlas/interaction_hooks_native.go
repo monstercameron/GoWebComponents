@@ -59,10 +59,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // atlasLocalState mirrors the wasm declaration field-for-field: it holds a
@@ -267,8 +267,8 @@ func (parseA atlasAtom[T]) Set(parseValue T) {
 // identical to the stub's; the difference is that a misplaced call now fails
 // loudly instead of quietly working.
 func useAtlasComputed[T any](parseCompute func() T, parseDeps ...any) atlasComputed[T] {
-	parseComputed := state.UseComputed(parseCompute, parseDeps...)
-	return atlasComputed[T]{get: parseComputed.Get}
+	parseValue := ui.UseMemo(parseCompute, parseDeps...)
+	return atlasComputed[T]{get: func() T { return parseValue }}
 }
 
 // Get returns the computed value, or the zero T for a zero-value handle.

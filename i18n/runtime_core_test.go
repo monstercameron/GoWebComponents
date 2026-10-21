@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func TestRuntimeMethodsAndProvider(parseT *testing.T) {
@@ -110,13 +110,13 @@ func TestFormatDateAdditionalLocaleBranches(parseT *testing.T) {
 	if parseGot := FormatDate("de-DE", parseDate, DateOptions{Style: DateStyleShort}); parseGot != "16.03.2026" {
 		parseT.Fatalf("expected german short date, got %q", parseGot)
 	}
-	if parseGot2 := FormatDate("de-DE", parseDate, DateOptions{Style: DateStyleLong}); parseGot2 != "16. March 2026" {
+	if parseGot2 := FormatDate("de-DE", parseDate, DateOptions{Style: DateStyleLong}); parseGot2 != "16. März 2026" {
 		parseT.Fatalf("expected german long date, got %q", parseGot2)
 	}
-	if parseGot3 := FormatDate("de-DE", parseDate); parseGot3 != "16. Mar 2026" {
+	if parseGot3 := FormatDate("de-DE", parseDate); parseGot3 != "16. März 2026" {
 		parseT.Fatalf("expected german medium date, got %q", parseGot3)
 	}
-	if parseGot4 := FormatDate("ar-EG", parseDate, DateOptions{Style: DateStyleLong}); parseGot4 != "16 Mar 2026" {
+	if parseGot4 := FormatDate("ar-EG", parseDate, DateOptions{Style: DateStyleLong}); parseGot4 != "16 مارس 2026" {
 		parseT.Fatalf("expected arabic long date format, got %q", parseGot4)
 	}
 	if parseGot5 := FormatDate("ar-EG", parseDate); parseGot5 != "16/03/2026" {

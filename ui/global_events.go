@@ -47,12 +47,20 @@ func UseGlobalKey(handler func(KeyboardEvent), deps ...any) {
 	UseDocumentEvent("keydown", handler, deps...)
 }
 
+// useGlobalEvent binds handler once per deps but dispatches through a latest-ref, so the listener
+// always runs the closure from the most recent render rather than the one captured at bind time.
 func useGlobalEvent(scope globalScope, eventType string, handler func(Event), deps ...any) {
+	parseLatest := UseRef(handler)
+	parseLatest.Set(handler)
 	UseEffect(func() func() {
 		if handler == nil {
 			return nil
 		}
-		return bindGlobalEvent(scope, eventType, handler)
+		return bindGlobalEvent(scope, eventType, func(parseEvent Event) {
+			if parseCurrent := parseLatest.Get(); parseCurrent != nil {
+				parseCurrent(parseEvent)
+			}
+		})
 	}, globalEventDeps(scope, eventType, deps)...)
 }
 

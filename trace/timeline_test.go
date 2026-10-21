@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/trace"
+	"github.com/monstercameron/GoWebComponents/v7/trace"
 )
 
 // v5 P4.3 — the two-runtime devtools timeline.
@@ -285,12 +285,10 @@ func TestMalformedParentChainDoesNotHang(parseT *testing.T) {
 	// Force a cycle by pointing the first span's parent at the second.
 	parseSpans := parseRecorder.Spans()
 	_ = parseSpans
-	parseTimeline := trace.Merge(parseRecorder)
-
 	// The real cycle case is a parent id that is not present at all, which
 	// resolveDepth must also survive.
 	parseThird, _ := parseRecorder.Start("c", "c", trace.SpanID("does-not-exist"), 2)
-	parseTimeline = trace.Merge(parseRecorder)
+	parseTimeline := trace.Merge(parseRecorder)
 
 	parseLifecycle := parseTimeline.Lifecycle("c")
 	if len(parseLifecycle) != 3 {

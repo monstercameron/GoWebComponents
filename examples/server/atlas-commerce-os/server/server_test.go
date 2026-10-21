@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/auth"
-	serverdb "github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/server/db"
+	serverauth "github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/server/auth"
+	serverdb "github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/server/db"
 )
 
 func TestAppRootRedirectsToDashboard(parseT *testing.T) {
@@ -1504,6 +1505,13 @@ func newTestAtlasServer(parseT *testing.T) (*atlasServer, func()) {
 	if parseErr != nil {
 		parseT.Fatalf("load config: %v", parseErr)
 	}
+	// The served-document tests exercise the module-present boot path. Keep the
+	// fixture self-contained: a clean checkout does not carry generated wasm
+	// artifacts, and the root native test lane should not depend on a prior build.
+	parseCfg.AtlasWASM = filepath.Join(parseT.TempDir(), "atlas-commerce-os.wasm")
+	if parseWriteErr := os.WriteFile(parseCfg.AtlasWASM, []byte("stub"), 0o600); parseWriteErr != nil {
+		parseT.Fatalf("write stub wasm: %v", parseWriteErr)
+	}
 	parseCfg.SQLitePath = filepath.Join(parseT.TempDir(), "atlas-commerce-os-test.db")
 
 	parseDatabase, parseErr := serverdb.Open(context.Background(), parseCfg.SQLitePath)
@@ -1511,11 +1519,11 @@ func newTestAtlasServer(parseT *testing.T) (*atlasServer, func()) {
 		parseT.Fatalf("open sqlite: %v", parseErr)
 	}
 	if parseErr2 := serverdb.Migrate(context.Background(), parseDatabase, parseCfg.MigrationsDir, parseCfg.FallbackSchema); parseErr2 != nil {
-		parseDatabase.Close()
+		_ = parseDatabase.Close()
 		parseT.Fatalf("migrate sqlite: %v", parseErr2)
 	}
 	if parseErr3 := serverdb.Seed(context.Background(), parseDatabase); parseErr3 != nil {
-		parseDatabase.Close()
+		_ = parseDatabase.Close()
 		parseT.Fatalf("seed sqlite: %v", parseErr3)
 	}
 

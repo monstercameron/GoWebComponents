@@ -12,7 +12,11 @@ func TestMemoryCRUD(t *testing.T) {
 	if parseErr != nil {
 		t.Fatalf("open: %v", parseErr)
 	}
-	defer parseDB.Close()
+	defer func() {
+		if parseCloseErr := parseDB.Close(); parseCloseErr != nil {
+			t.Errorf("close: %v", parseCloseErr)
+		}
+	}()
 
 	if _, parseErr := parseDB.Exec(parseCtx, `CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)`); parseErr != nil {
 		t.Fatalf("create: %v", parseErr)
@@ -32,13 +36,24 @@ func TestMemoryCRUD(t *testing.T) {
 
 func TestTxRollback(t *testing.T) {
 	parseCtx := context.Background()
-	parseDB, _ := Open(parseCtx, Options{Persistence: Memory})
-	defer parseDB.Close()
-	parseDB.Exec(parseCtx, `CREATE TABLE t(id INTEGER PRIMARY KEY)`)
+	parseDB, parseOpenErr := Open(parseCtx, Options{Persistence: Memory})
+	if parseOpenErr != nil {
+		t.Fatalf("open: %v", parseOpenErr)
+	}
+	defer func() {
+		if parseCloseErr := parseDB.Close(); parseCloseErr != nil {
+			t.Errorf("close: %v", parseCloseErr)
+		}
+	}()
+	if _, parseExecErr := parseDB.Exec(parseCtx, `CREATE TABLE t(id INTEGER PRIMARY KEY)`); parseExecErr != nil {
+		t.Fatalf("create: %v", parseExecErr)
+	}
 
 	parseWant := errSentinel
 	parseErr := parseDB.Tx(parseCtx, func(parseTx *sql.Tx) error {
-		parseTx.ExecContext(parseCtx, `INSERT INTO t(id) VALUES(1)`)
+		if _, parseExecErr := parseTx.ExecContext(parseCtx, `INSERT INTO t(id) VALUES(1)`); parseExecErr != nil {
+			return parseExecErr
+		}
 		return parseWant
 	})
 	if parseErr != parseWant {
@@ -46,7 +61,9 @@ func TestTxRollback(t *testing.T) {
 	}
 
 	var parseN int
-	parseDB.QueryRow(parseCtx, `SELECT COUNT(*) FROM t`).Scan(&parseN)
+	if parseScanErr := parseDB.QueryRow(parseCtx, `SELECT COUNT(*) FROM t`).Scan(&parseN); parseScanErr != nil {
+		t.Fatalf("count: %v", parseScanErr)
+	}
 	if parseN != 0 {
 		t.Fatalf("rollback failed: %d rows", parseN)
 	}

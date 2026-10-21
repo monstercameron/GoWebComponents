@@ -27,7 +27,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Compile gwc:build-marked doc samples
         run: go test -tags doccompile ./docs/doclint -run TestDocsMarkedSamplesCompile -count=1 -v -timeout 10m

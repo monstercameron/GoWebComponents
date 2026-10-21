@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v7/css"
 )
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -369,8 +369,7 @@ func TestAdversarial_DeterminismConflictingVariants(t *testing.T) {
 	c2 := css.New(set2...)
 
 	if string(c1) == string(c2) {
-		// Both win with Slate900 vs Red500 respectively — classes differ (that's fine)
-		// but each call on its own should be stable
+		t.Fatalf("distinct rule sets unexpectedly share class %q", c1)
 	}
 
 	// Re-running same set must give same class
@@ -471,7 +470,7 @@ func TestAdversarial_DeepVariantNesting(t *testing.T) {
 
 	// Build 50 layers of Hover nesting
 	rules := []css.Rule{css.Display.Flex}
-	var wrapped []css.Rule = rules
+	wrapped := rules
 	for i := 0; i < 50; i++ {
 		wrapped = css.Hover(wrapped...)
 	}
@@ -491,7 +490,7 @@ func TestAdversarial_DeepSelectorNesting(t *testing.T) {
 
 	// Build 50 layers of Child/Descendant nesting
 	rules := []css.Rule{css.Display.Flex}
-	var wrapped []css.Rule = rules
+	wrapped := rules
 	for i := 0; i < 50; i++ {
 		if i%2 == 0 {
 			wrapped = css.Child(css.El("div"), wrapped...)
@@ -590,12 +589,12 @@ func TestAdversarial_ConcurrentResetAndNew(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.Reset()
 		}()
 		go func(n int) {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.New(css.Bg(css.Slate800), css.Padding(css.Px(n%16)))
 		}(i)
 	}
@@ -610,17 +609,17 @@ func TestAdversarial_ConcurrentSetSink(t *testing.T) {
 		wg.Add(3)
 		go func() {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.SetSink(nil) // restore default
 		}()
 		go func(n int) {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.New(css.Display.Grid, css.Gap(css.Px(n%8)))
 		}(i)
 		go func() {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.Harvest()
 		}()
 	}
@@ -634,7 +633,7 @@ func TestAdversarial_ConcurrentSeed(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.Seed("c-fake" + strings.Repeat("x", n%10))
 			css.New(css.Display.Flex)
 		}(i)

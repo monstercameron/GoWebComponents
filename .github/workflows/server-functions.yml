@@ -40,10 +40,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Build gwc
-        run: go build -o gwc ./tools/gwc
+        run: go -C tools build -o ../gwc ./gwc
 
       # Every package that declares server functions must be listed here. Discovery
       # is deliberately explicit rather than a repo-wide scan: a scan that finds

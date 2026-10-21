@@ -4,12 +4,18 @@ on:
   push:
     tags:
       - "v*.*.*"
+      - "v*.*.*-rc.*"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Semver tag to release (vMAJOR.MINOR.PATCH)"
+        description: "Semver tag to release (vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N)"
         required: true
         type: string
+      validate_only:
+        description: "Run all release gates without creating a tag or GitHub release"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -36,7 +42,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          # The blocking govulncheck gate requires the crypto/x509 fix in 1.27.3.
+          go-version: "1.27.3"
 
       - name: Build Generated Test Assets
         run: |
@@ -55,12 +62,44 @@ jobs:
           go test -short -v -count=1 ./...
         shell: pwsh
 
+      - name: Run Nested Module Tests and Builds
+        run: |
+          $ErrorActionPreference = "Stop"
+          go -C tools test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "tools tests failed" }
+          go -C tools/agenthub test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "tools/agenthub tests failed" }
+          go -C tools/livereload test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "tools/livereload tests failed" }
+          go -C telemetry/otel test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "telemetry/otel tests failed" }
+          go -C examples/tests test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "examples/tests tests failed" }
+          go -C examples/v5-two-artifact test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "examples/v5-two-artifact tests failed" }
+          go -C examples/server/ai-chat-wizard test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "ai-chat-wizard tests failed" }
+          go -C desktop/wails test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "desktop/wails tests failed" }
+          go -C examples/desktop/wails-counter test -short -count=1 ./...
+          if ($LASTEXITCODE -ne 0) { throw "wails-counter tests failed" }
+          $env:GOOS = "js"
+          $env:GOARCH = "wasm"
+          try {
+            go -C examples/site build ./...
+            if ($LASTEXITCODE -ne 0) { throw "examples/site wasm build failed" }
+          } finally {
+            Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
+            Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
+          }
+        shell: pwsh
+
       - name: Reproducible-Build Gate
         # E2: the byte-identical reproducibility check is skipped under -short (it does two full
         # wasm builds), so run it explicitly on the release path — provenance attestation is only
         # meaningful if builds are actually reproducible. Not -short, scoped to the one package.
         run: |
-          go test -run TestReproducibleWasmBuild -count=1 ./tools/reprobuild
+          go -C tools test -run TestReproducibleWasmBuild -count=1 ./reprobuild
         shell: pwsh
 
       - name: Vulnerability Scan (govulncheck)
@@ -68,7 +107,7 @@ jobs:
         # This gate is blocking. Any accepted exception must be documented in
         # security/govulncheck-suppressions.md and should have a tracked expiry.
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           & "$(go env GOPATH)\bin\govulncheck.exe" ./...
         shell: pwsh
 
@@ -76,7 +115,7 @@ jobs:
         # Emits a dependency SBOM whose component list is derived from the
         # resolved module graph (go list -m -json all), attachable to the release.
         run: |
-          go run ./tools/sbom/cmd/sbom bin/sbom.cyclonedx.json
+          go -C tools run ./sbom/cmd/sbom ../bin/sbom.cyclonedx.json
         shell: pwsh
 
       - name: Upload CycloneDX SBOM
@@ -91,22 +130,33 @@ jobs:
         # blocking release gate so tags do not ship with generated notes only.
         run: |
           $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ github.event.inputs.release_tag }}" } else { $env:GITHUB_REF_NAME }
-          go run ./tools/changelogcheck/cmd/changelogcheck CHANGELOG.md $tag
+          go -C tools run ./changelogcheck/cmd/changelogcheck ../CHANGELOG.md $tag
         shell: pwsh
 
       - name: Run Golden-Path Verify Audit
         run: |
-          go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter -skip-tests -audit -audit-min-severity error
+          go -C tools run ./gwc verify -app ..\examples\public\counter\main.go -root ..\examples\public\counter -skip-tests -audit -audit-min-severity error
+        shell: pwsh
+
+      - name: Build Browser WASM Artifacts
+        run: |
+          go -C tools run ./gwc examples build-public-site -profile ci
+          if ($LASTEXITCODE -ne 0) { throw "public example wasm build failed" }
         shell: pwsh
 
       - name: Run Browser Smoke Suite (Playwright-Go)
         run: |
-          go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v
+          go -C test/playwrightgo test -tags playwrightgo . -run TestMainSuite -v
+        shell: pwsh
+
+      - name: Run Examples Browser Suite (Playwright-Go)
+        run: |
+          go -C test/playwrightgo test -tags playwrightgo ./examples -run '^TestExamplesAll$' -count=1 -v
         shell: pwsh
 
       - name: Run Browser Benchmark Suite (Playwright-Go)
         run: |
-          go test -tags playwrightgo ./test/playwrightgo -run TestBenchmark -v
+          go -C test/playwrightgo test -tags playwrightgo . -run TestBenchmark -v
         shell: pwsh
 
       - name: Run Canonical Go Get Smoke (Release Guard)
@@ -115,7 +165,7 @@ jobs:
           RELEASE_EVENT: ${{ github.event_name }}
         run: |
           $ErrorActionPreference = "Stop"
-          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release tag' }
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$') { throw 'Invalid release tag' }
           $parseCandidateRoot = $PWD.Path
           $workDir = Join-Path $env:TEMP ("gwc-release-smoke-" + [guid]::NewGuid().ToString("N"))
           New-Item -ItemType Directory -Path $workDir | Out-Null
@@ -129,16 +179,16 @@ jobs:
             # Manual releases have no tag yet, so validate the checked-out candidate.
             $main = @(
               'package main',
-              'import "github.com/monstercameron/GoWebComponents/v6/ui"',
+              'import "github.com/monstercameron/GoWebComponents/v7/ui"',
               'var _ = ui.Text("release-smoke")',
               'func main() {}'
             ) -join "`n"
             Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
             if ($env:RELEASE_EVENT -eq 'workflow_dispatch') {
-              go mod edit "-require=github.com/monstercameron/GoWebComponents/v6@$($env:RELEASE_TAG)" "-replace=github.com/monstercameron/GoWebComponents/v6=$parseCandidateRoot"
+              go mod edit "-require=github.com/monstercameron/GoWebComponents/v7@$($env:RELEASE_TAG)" "-replace=github.com/monstercameron/GoWebComponents/v7=$parseCandidateRoot"
               if ($LASTEXITCODE -ne 0) { throw 'Configure candidate consumer failed' }
             } else {
-              go get "github.com/monstercameron/GoWebComponents/v6@$($env:RELEASE_TAG)"
+              go get "github.com/monstercameron/GoWebComponents/v7@$($env:RELEASE_TAG)"
               if ($LASTEXITCODE -ne 0) { throw 'Fetch exact release candidate failed' }
             }
             # Populate go.sum for the full transitive closure so the consumer build resolves every
@@ -162,6 +212,7 @@ jobs:
 
   release:
     needs: build-and-test
+    if: github.event_name != 'workflow_dispatch' || !inputs.validate_only
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -184,11 +235,16 @@ jobs:
             release_tag="${GITHUB_REF_NAME}"
           fi
 
-          if ! [[ "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if ! [[ "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
             echo "invalid release tag: ${release_tag}"
             exit 1
           fi
           echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
+          if [[ "${release_tag}" =~ -rc\.[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download CycloneDX SBOM
         uses: actions/download-artifact@v6
@@ -231,7 +287,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Build Prebuilt gwc Binaries
         # A2: ship a prebuilt `gwc` for every supported platform so users skip a from-source
@@ -246,7 +302,7 @@ jobs:
             out="gwc_${release_tag}_${os}_${arch}"
             ext=""; [ "$os" = "windows" ] && ext=".exe"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-              go build -trimpath -ldflags "-s -w" -o "dist/${out}${ext}" ./tools/gwc
+              go -C tools build -trimpath -ldflags "-s -w" -o "../dist/${out}${ext}" ./gwc
           done
           ( cd dist && sha256sum gwc_* > SHA256SUMS )
           ls -l dist
@@ -285,4 +341,4 @@ jobs:
             - Prebuilt `gwc` binaries for linux/macOS/windows (amd64 + arm64) with SHA256SUMS
             - Includes GitHub build provenance attestation (source + binaries)
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.tag.outputs.prerelease == 'true' }}

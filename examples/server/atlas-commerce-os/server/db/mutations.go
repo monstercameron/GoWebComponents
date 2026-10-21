@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/repository"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/repository"
 )
 
 type CommentRecord struct {
@@ -149,7 +149,7 @@ func (parseS *Store) Comments(parseCtx context.Context, parseStatus string) ([]C
 	if parseErr != nil {
 		return nil, fmt.Errorf("query comments: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []CommentRecord{}
 	for parseRows.Next() {
 		var parseItem CommentRecord
@@ -328,7 +328,7 @@ func (parseS *Store) Transfers(parseCtx context.Context) ([]TransferRecord, erro
 	if parseErr != nil {
 		return nil, fmt.Errorf("query transfers: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []TransferRecord{}
 	for parseRows.Next() {
 		var parseItem TransferRecord
@@ -363,7 +363,7 @@ func (parseS *Store) ReceivingSessions(parseCtx context.Context) ([]ReceivingSes
 	if parseErr != nil {
 		return nil, fmt.Errorf("query receiving sessions: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ReceivingSessionRecord{}
 	for parseRows.Next() {
 		var parseItem ReceivingSessionRecord
@@ -453,7 +453,7 @@ func (parseS *Store) CreatePurchaseOrder(parseCtx context.Context, parseInput Cr
 	if parseErr != nil {
 		return PurchaseOrderDetailRecord{}, fmt.Errorf("begin purchase order transaction: %w", parseErr)
 	}
-	defer parseTx.Rollback()
+	defer func() { _ = parseTx.Rollback() }()
 	if _, parseErr2 := parseTx.ExecContext(parseCtx, `insert into purchase_orders(id, vendor_name, warehouse_id, status, priority_note, eta, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)`, parseRecord.ID, parseRecord.VendorName, parseRecord.WarehouseID, parseRecord.Status, parseRecord.PriorityNote, parseRecord.ETA, parseRecord.CreatedAt, parseRecord.UpdatedAt); parseErr2 != nil {
 		return PurchaseOrderDetailRecord{}, fmt.Errorf("insert purchase order: %w", parseErr2)
 	}

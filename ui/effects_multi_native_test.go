@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // Deepens the effects port toward React equivalency: several effects in one
@@ -41,7 +41,7 @@ func TestMultipleEffectsOrderingAndDeps(t *testing.T) {
 		return runtime.CreateElement("span", map[string]any{}, "x")
 	}
 
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
 		runtime.CreateElement(parseComponent, map[string]any{})))
 	if parseGot := strings.Join(parseLog, ","); parseGot != "setup-static,setup-dep,setup-nodeps" {
 		t.Fatalf("mount effect order = %q", parseGot)
@@ -57,7 +57,7 @@ func TestMultipleEffectsOrderingAndDeps(t *testing.T) {
 
 	// Unmount: cleanups run (the no-deps effect returned nil, so no cleanup-nodeps).
 	parseLog = nil
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
 	if parseGot := strings.Join(parseLog, ","); parseGot != "cleanup-static,cleanup-dep" {
 		t.Errorf("unmount cleanup order = %q, want cleanup-static,cleanup-dep", parseGot)
 	}

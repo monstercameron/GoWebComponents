@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
+	"github.com/monstercameron/GoWebComponents/v7/css"
 )
 
 // Variants in the u layer mirror Tailwind's prefix variants but compose as
@@ -16,7 +16,7 @@ import (
 func Hover(rules ...css.Rule) []css.Rule        { return css.Hover(rules...) }
 func Focus(rules ...css.Rule) []css.Rule        { return css.Focus(rules...) }
 func Active(rules ...css.Rule) []css.Rule       { return css.Active(rules...) }
-func WhenDisabled(rules ...css.Rule) []css.Rule { return css.WhenDisabled(rules...) }
+func WhenDisabled(rules ...css.Rule) []css.Rule { return css.Disabled(rules...) }
 
 // Group/Peer variants via parent/sibling state selectors. Mark the parent with
 // the "group"/"peer" class (plain html.Class("group")).
@@ -59,6 +59,8 @@ func ForcedColors(rules ...css.Rule) []css.Rule { return css.Media(css.ForcedCol
 func Print(rules ...css.Rule) []css.Rule { return css.Media(css.Print, rules...) }
 
 // Responsive variants resolve their breakpoint min-width from the active theme.
+// When the active theme defines no such breakpoint the variant is a no-op that
+// returns no rules, so a missing breakpoint never makes the rules always-on.
 func Sm(rules ...css.Rule) []css.Rule  { return breakpoint("sm", rules) }
 func Md(rules ...css.Rule) []css.Rule  { return breakpoint("md", rules) }
 func Lg(rules ...css.Rule) []css.Rule  { return breakpoint("lg", rules) }
@@ -68,7 +70,7 @@ func Xl2(rules ...css.Rule) []css.Rule { return breakpoint("2xl", rules) }
 func breakpoint(name string, rules []css.Rule) []css.Rule {
 	width, ok := css.BreakpointValue(name)
 	if !ok {
-		return rules
+		return nil
 	}
 	return css.Media(css.RawMedia("(min-width:"+normalizePx(width)+")"), rules...)
 }

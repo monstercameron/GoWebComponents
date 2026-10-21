@@ -34,7 +34,7 @@ func (parseA *optimizationTestAdapter) BatchSetAttributes(parseNode DOMNode, par
 // CreatePreparedElement records one compact host prepared mount for optimization coverage.
 func (parseA *optimizationTestAdapter) CreatePreparedElement(parseTag string, parseAttrs []HostAttr, parseText string) DOMNode {
 	parseA.createPreparedCount++
-	parseNode := parseA.testDOMAdapter.CreateElement(parseTag)
+	parseNode := parseA.CreateElement(parseTag)
 	for _, parseAttr := range parseAttrs {
 		parseA.testDOMAdapter.SetAttribute(parseNode, parseAttr.Name, parseAttr.Value)
 	}

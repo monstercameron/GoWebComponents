@@ -5,8 +5,8 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func benchmarkBootstrapPayload() ui.SSRBootstrap {
@@ -45,8 +45,7 @@ func benchmarkRenderNode() ui.Node {
 func BenchmarkRenderToStringPublicSSRSurface(parseB *testing.B) {
 	parseNode := benchmarkRenderNode()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseMarkup, parseErr := ui.RenderToString(parseNode)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -60,8 +59,7 @@ func BenchmarkRenderToStringPublicSSRSurface(parseB *testing.B) {
 func BenchmarkMarshalSSRBootstrapJSON(parseB *testing.B) {
 	parsePayload := benchmarkBootstrapPayload()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseData, parseErr := ui.MarshalSSRBootstrap(parsePayload)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -75,8 +73,7 @@ func BenchmarkMarshalSSRBootstrapJSON(parseB *testing.B) {
 func BenchmarkMarshalSSRBootstrapBinary(parseB *testing.B) {
 	parsePayload := benchmarkBootstrapPayload()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseData, parseErr := ui.MarshalSSRBootstrapBinary(parsePayload)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -93,8 +90,7 @@ func BenchmarkUnmarshalSSRBootstrapJSON(parseB *testing.B) {
 		parseB.Fatal(parseErr)
 	}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parsePayload, parseErr2 := ui.UnmarshalSSRBootstrap(parseEncoded)
 		if parseErr2 != nil {
 			parseB.Fatal(parseErr2)
@@ -111,8 +107,7 @@ func BenchmarkUnmarshalSSRBootstrapBinary(parseB *testing.B) {
 		parseB.Fatal(parseErr)
 	}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parsePayload, parseErr2 := ui.UnmarshalSSRBootstrapBinary(parseEncoded)
 		if parseErr2 != nil {
 			parseB.Fatal(parseErr2)
@@ -126,8 +121,7 @@ func BenchmarkUnmarshalSSRBootstrapBinary(parseB *testing.B) {
 func BenchmarkRenderBootstrapReferenceScript(parseB *testing.B) {
 	parseRef := ui.SSRBootstrapReference{URL: "/bootstrap.cbor", Format: ui.SSRBootstrapFormatCBOR}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseScript, parseErr := ui.RenderBootstrapReferenceScript(parseRef, "")
 		if parseErr != nil {
 			parseB.Fatal(parseErr)

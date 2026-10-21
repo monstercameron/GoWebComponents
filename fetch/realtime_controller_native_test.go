@@ -8,9 +8,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type realtimeTestTransport struct {
@@ -158,94 +159,98 @@ func TestRealtimeControllerStateMachineCallbacksAndStaleEvents(parseT *testing.T
 }
 
 func TestRealtimeControllerReconnectBackoffAndMaxAttempts(parseT *testing.T) {
-	parseNow := time.Date(2026, time.June, 13, 10, 0, 0, 0, time.UTC)
-	parseController, parseState, parseCalls := newRealtimeTestController("WebSocket", realtimeResolvedOptions{
-		reconnect:      true,
-		maxReconnects:  2,
-		initialBackoff: 5 * time.Millisecond,
-		maxBackoff:     20 * time.Millisecond,
-		backoffFactor:  2,
-		maxMessages:    4,
-		maxErrors:      4,
-		now:            func() time.Time { return parseNow },
-	})
-	parseT.Cleanup(func() { parseController.stop(true) })
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseNow := time.Date(2026, time.June, 13, 10, 0, 0, 0, time.UTC)
+		parseController, parseState, parseCalls := newRealtimeTestController("WebSocket", realtimeResolvedOptions{
+			reconnect:      true,
+			maxReconnects:  2,
+			initialBackoff: 5 * time.Millisecond,
+			maxBackoff:     20 * time.Millisecond,
+			backoffFactor:  2,
+			maxMessages:    4,
+			maxErrors:      4,
+			now:            func() time.Time { return parseNow },
+		})
+		parseT.Cleanup(func() { parseController.stop(true) })
 
-	parseController.start()
-	parseCalls.get(0).parseCallbacks.handleOpen()
-	parseCalls.get(0).parseCallbacks.handleClose()
-	parseGot := parseState.Get()
-	if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 1 || parseGot.Reconnects != 1 || parseGot.NextReconnectAt != parseNow.Add(5*time.Millisecond) {
-		parseT.Fatalf("expected first reconnect with initial backoff, got %+v", parseGot)
-	}
+		parseController.start()
+		parseCalls.get(0).parseCallbacks.handleOpen()
+		parseCalls.get(0).parseCallbacks.handleClose()
+		parseGot := parseState.Get()
+		if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 1 || parseGot.Reconnects != 1 || parseGot.NextReconnectAt != parseNow.Add(5*time.Millisecond) {
+			parseT.Fatalf("expected first reconnect with initial backoff, got %+v", parseGot)
+		}
 
-	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return parseCalls.count() == 2
-	})
-	parseCalls.get(1).parseCallbacks.handleOpen()
-	parseCalls.get(1).parseCallbacks.handleClose()
-	parseGot = parseState.Get()
-	if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 1 || parseGot.Reconnects != 2 || parseGot.NextReconnectAt != parseNow.Add(5*time.Millisecond) {
-		parseT.Fatalf("expected reconnect attempts to reset after open, got %+v", parseGot)
-	}
+		waitFetchTestCondition(parseT, time.Second, func() bool {
+			return parseCalls.count() == 2
+		})
+		parseCalls.get(1).parseCallbacks.handleOpen()
+		parseCalls.get(1).parseCallbacks.handleClose()
+		parseGot = parseState.Get()
+		if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 1 || parseGot.Reconnects != 2 || parseGot.NextReconnectAt != parseNow.Add(5*time.Millisecond) {
+			parseT.Fatalf("expected reconnect attempts to reset after open, got %+v", parseGot)
+		}
 
-	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return parseCalls.count() == 3
-	})
-	parseCalls.get(2).parseCallbacks.handleClose()
-	parseGot = parseState.Get()
-	if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 2 || parseGot.NextReconnectAt != parseNow.Add(10*time.Millisecond) {
-		parseT.Fatalf("expected second consecutive reconnect to use exponential backoff, got %+v", parseGot)
-	}
+		waitFetchTestCondition(parseT, time.Second, func() bool {
+			return parseCalls.count() == 3
+		})
+		parseCalls.get(2).parseCallbacks.handleClose()
+		parseGot = parseState.Get()
+		if parseGot.Status != RealtimeReconnecting || parseGot.ReconnectAttempts != 2 || parseGot.NextReconnectAt != parseNow.Add(10*time.Millisecond) {
+			parseT.Fatalf("expected second consecutive reconnect to use exponential backoff, got %+v", parseGot)
+		}
 
-	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return parseCalls.count() == 4
+		waitFetchTestCondition(parseT, time.Second, func() bool {
+			return parseCalls.count() == 4
+		})
+		parseErr := errors.New("open failed")
+		parseController.scheduleReconnect(parseErr)
+		parseGot = parseState.Get()
+		if parseGot.Status != RealtimeClosed || !parseGot.Closed || parseGot.Error != parseErr || !parseGot.NextReconnectAt.IsZero() {
+			parseT.Fatalf("expected max reconnect attempts to close permanently, got %+v", parseGot)
+		}
 	})
-	parseErr := errors.New("open failed")
-	parseController.scheduleReconnect(parseErr)
-	parseGot = parseState.Get()
-	if parseGot.Status != RealtimeClosed || !parseGot.Closed || parseGot.Error != parseErr || !parseGot.NextReconnectAt.IsZero() {
-		parseT.Fatalf("expected max reconnect attempts to close permanently, got %+v", parseGot)
-	}
 }
 
 func TestRealtimeControllerStopAndCloseCallbacksAreIdempotent(parseT *testing.T) {
-	parseController, parseState, parseCalls := newRealtimeTestController("WebSocket", realtimeResolvedOptions{
-		reconnect:      true,
-		maxReconnects:  1,
-		initialBackoff: time.Hour,
-		maxBackoff:     time.Hour,
-		backoffFactor:  2,
-		maxMessages:    4,
-		maxErrors:      4,
-		now:            time.Now,
-	})
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseController, parseState, parseCalls := newRealtimeTestController("WebSocket", realtimeResolvedOptions{
+			reconnect:      true,
+			maxReconnects:  1,
+			initialBackoff: time.Hour,
+			maxBackoff:     time.Hour,
+			backoffFactor:  2,
+			maxMessages:    4,
+			maxErrors:      4,
+			now:            time.Now,
+		})
 
-	parseController.start()
-	parseCalls.get(0).parseCallbacks.handleOpen()
-	parseController.stop(true)
-	parseController.stop(true)
-	if parseClosed := parseCalls.get(0).parseTransport.closeCount(); parseClosed != 1 {
-		parseT.Fatalf("expected manual stop to close transport once, got %d", parseClosed)
-	}
-	if parseGot := parseState.Get(); parseGot.Status != RealtimeClosed || !parseGot.Closed || !parseGot.NextReconnectAt.IsZero() {
-		parseT.Fatalf("expected closed state after manual stop, got %+v", parseGot)
-	}
+		parseController.start()
+		parseCalls.get(0).parseCallbacks.handleOpen()
+		parseController.stop(true)
+		parseController.stop(true)
+		if parseClosed := parseCalls.get(0).parseTransport.closeCount(); parseClosed != 1 {
+			parseT.Fatalf("expected manual stop to close transport once, got %d", parseClosed)
+		}
+		if parseGot := parseState.Get(); parseGot.Status != RealtimeClosed || !parseGot.Closed || !parseGot.NextReconnectAt.IsZero() {
+			parseT.Fatalf("expected closed state after manual stop, got %+v", parseGot)
+		}
 
-	parseController.start()
-	if parseCalls.count() != 2 {
-		parseT.Fatalf("expected reopen after manual stop, got %d opens", parseCalls.count())
-	}
-	parseCalls.get(1).parseCallbacks.handleOpen()
-	parseCalls.get(1).parseCallbacks.handleClose()
-	parseCalls.get(1).parseCallbacks.handleClose()
-	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return parseCalls.get(1).parseTransport.closeCount() == 1
+		parseController.start()
+		if parseCalls.count() != 2 {
+			parseT.Fatalf("expected reopen after manual stop, got %d opens", parseCalls.count())
+		}
+		parseCalls.get(1).parseCallbacks.handleOpen()
+		parseCalls.get(1).parseCallbacks.handleClose()
+		parseCalls.get(1).parseCallbacks.handleClose()
+		waitFetchTestCondition(parseT, time.Second, func() bool {
+			return parseCalls.get(1).parseTransport.closeCount() == 1
+		})
+		if parseGot := parseState.Get(); parseGot.Reconnects != 1 {
+			parseT.Fatalf("expected duplicate close callback to schedule one reconnect, got %+v", parseGot)
+		}
+		parseController.stop(true)
 	})
-	if parseGot := parseState.Get(); parseGot.Reconnects != 1 {
-		parseT.Fatalf("expected duplicate close callback to schedule one reconnect, got %+v", parseGot)
-	}
-	parseController.stop(true)
 }
 
 func TestRealtimeControllerSendAndHeartbeatErrorPaths(parseT *testing.T) {
@@ -297,32 +302,34 @@ func TestRealtimeControllerSendAndHeartbeatErrorPaths(parseT *testing.T) {
 }
 
 func TestRealtimeControllerHeartbeatTimeoutClosesAndReconnects(parseT *testing.T) {
-	parseNow := time.Date(2026, time.June, 13, 12, 0, 0, 0, time.UTC)
-	parseController, parseState, parseCalls := newRealtimeTestController("EventSource", realtimeResolvedOptions{
-		reconnect:         true,
-		maxReconnects:     1,
-		initialBackoff:    time.Hour,
-		maxBackoff:        time.Hour,
-		backoffFactor:     2,
-		heartbeatInterval: time.Hour,
-		heartbeatTimeout:  time.Millisecond,
-		maxMessages:       4,
-		maxErrors:         4,
-		now:               func() time.Time { return parseNow },
-	})
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseNow := time.Date(2026, time.June, 13, 12, 0, 0, 0, time.UTC)
+		parseController, parseState, parseCalls := newRealtimeTestController("EventSource", realtimeResolvedOptions{
+			reconnect:         true,
+			maxReconnects:     1,
+			initialBackoff:    time.Hour,
+			maxBackoff:        time.Hour,
+			backoffFactor:     2,
+			heartbeatInterval: time.Hour,
+			heartbeatTimeout:  time.Millisecond,
+			maxMessages:       4,
+			maxErrors:         4,
+			now:               func() time.Time { return parseNow },
+		})
 
-	parseController.start()
-	parseCalls.get(0).parseCallbacks.handleOpen()
-	parseNow = parseNow.Add(2 * time.Millisecond)
-	parseController.handleHeartbeat()
-	parseGot := parseState.Get()
-	if parseGot.Status != RealtimeReconnecting || parseGot.HeartbeatMisses != 1 || parseGot.Error == nil || !strings.Contains(parseGot.Error.Error(), "heartbeat timed out") {
-		parseT.Fatalf("expected heartbeat timeout to schedule reconnect and record miss, got %+v", parseGot)
-	}
-	waitFetchTestCondition(parseT, time.Second, func() bool {
-		return parseCalls.get(0).parseTransport.closeCount() == 1
+		parseController.start()
+		parseCalls.get(0).parseCallbacks.handleOpen()
+		parseNow = parseNow.Add(2 * time.Millisecond)
+		parseController.handleHeartbeat()
+		parseGot := parseState.Get()
+		if parseGot.Status != RealtimeReconnecting || parseGot.HeartbeatMisses != 1 || parseGot.Error == nil || !strings.Contains(parseGot.Error.Error(), "heartbeat timed out") {
+			parseT.Fatalf("expected heartbeat timeout to schedule reconnect and record miss, got %+v", parseGot)
+		}
+		waitFetchTestCondition(parseT, time.Second, func() bool {
+			return parseCalls.get(0).parseTransport.closeCount() == 1
+		})
+		parseController.stop(true)
 	})
-	parseController.stop(true)
 }
 
 func TestRealtimeHandlesZeroValueNoopMethods(parseT *testing.T) {
@@ -342,4 +349,105 @@ func TestRealtimeHandlesZeroValueNoopMethods(parseT *testing.T) {
 	}
 	parseEvents.Open()
 	parseEvents.Close()
+}
+
+// TestRealtimeControllerHeartbeatIgnoresPreviousConnectionMessage verifies that
+// heartbeat idle time is measured from the current connection, so a message
+// received before a reconnect cannot cause a false timeout on the first tick.
+func TestRealtimeControllerHeartbeatIgnoresPreviousConnectionMessage(parseT *testing.T) {
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseNow := time.Date(2026, time.June, 13, 12, 0, 0, 0, time.UTC)
+		parseController, parseState, parseCalls := newRealtimeTestController("WebSocket", realtimeResolvedOptions{
+			reconnect:         true,
+			maxReconnects:     3,
+			initialBackoff:    time.Millisecond,
+			maxBackoff:        time.Millisecond,
+			backoffFactor:     2,
+			heartbeatInterval: time.Hour,
+			heartbeatTimeout:  10 * time.Second,
+			maxMessages:       4,
+			maxErrors:         4,
+			now:               func() time.Time { return parseNow },
+		})
+
+		parseController.start()
+		parseCalls.get(0).parseCallbacks.handleOpen()
+		parseCalls.get(0).parseCallbacks.handleMessage(RealtimeMessage{Data: "hello"})
+		parseNow = parseNow.Add(time.Minute)
+		parseCalls.get(0).parseCallbacks.handleClose()
+		waitFetchTestCondition(parseT, time.Second, func() bool { return parseCalls.count() == 2 })
+		parseCalls.get(1).parseCallbacks.handleOpen()
+
+		parseNow = parseNow.Add(time.Second)
+		parseController.handleHeartbeat()
+		parseGot := parseState.Get()
+		if parseGot.HeartbeatMisses != 0 || parseGot.Status != RealtimeOpen {
+			parseT.Fatalf("expected no heartbeat timeout one second after reconnect, got misses=%d status=%s err=%v", parseGot.HeartbeatMisses, parseGot.Status, parseGot.Error)
+		}
+		parseController.stop(true)
+	})
+}
+
+// TestRealtimeControllerOpenAfterExhaustedRetriesGetsFreshBudget verifies that
+// an explicit start after retries were exhausted retries again.
+func TestRealtimeControllerOpenAfterExhaustedRetriesGetsFreshBudget(parseT *testing.T) {
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseNow := time.Date(2026, time.June, 13, 12, 0, 0, 0, time.UTC)
+		parseController, parseState, parseCalls := newRealtimeTestController("WebSocket", realtimeResolvedOptions{
+			reconnect:      true,
+			maxReconnects:  1,
+			initialBackoff: time.Millisecond,
+			maxBackoff:     time.Millisecond,
+			backoffFactor:  2,
+			maxMessages:    4,
+			maxErrors:      4,
+			now:            func() time.Time { return parseNow },
+		})
+
+		parseController.start()
+		parseCalls.get(0).parseCallbacks.handleClose()
+		waitFetchTestCondition(parseT, time.Second, func() bool { return parseCalls.count() == 2 })
+		parseCalls.get(1).parseCallbacks.handleClose()
+		if parseGot := parseState.Get(); parseGot.Status != RealtimeClosed {
+			parseT.Fatalf("expected retries exhausted and closed, got %+v", parseGot)
+		}
+
+		parseController.start()
+		waitFetchTestCondition(parseT, time.Second, func() bool { return parseCalls.count() == 3 })
+		parseCalls.get(2).parseCallbacks.handleClose()
+		if parseGot := parseState.Get(); parseGot.Status != RealtimeReconnecting {
+			parseT.Fatalf("expected a fresh reconnect budget after Open, got status=%s attempts=%d", parseGot.Status, parseGot.ReconnectAttempts)
+		}
+		parseController.stop(true)
+	})
+}
+
+// TestRealtimeControllerConsecutiveFailedReconnectsHonorMax verifies that
+// reconnects which never open stop at maxReconnects.
+func TestRealtimeControllerConsecutiveFailedReconnectsHonorMax(parseT *testing.T) {
+	synctest.Test(parseT, func(parseT *testing.T) {
+		parseNow := time.Date(2026, time.June, 13, 12, 0, 0, 0, time.UTC)
+		parseController, parseState, parseCalls := newRealtimeTestController("WebSocket", realtimeResolvedOptions{
+			reconnect:      true,
+			maxReconnects:  2,
+			initialBackoff: time.Millisecond,
+			maxBackoff:     time.Millisecond,
+			backoffFactor:  1,
+			maxMessages:    4,
+			maxErrors:      4,
+			now:            func() time.Time { return parseNow },
+		})
+
+		parseController.start()
+		parseCalls.get(0).parseCallbacks.handleOpen()
+		for parseI := 0; parseI < 2; parseI++ {
+			parseCalls.get(parseI).parseCallbacks.handleClose()
+			parseWant := parseI + 2
+			waitFetchTestCondition(parseT, time.Second, func() bool { return parseCalls.count() == parseWant })
+		}
+		parseCalls.get(2).parseCallbacks.handleClose()
+		if parseGot := parseState.Get(); parseGot.Status != RealtimeClosed || parseCalls.count() != 3 {
+			parseT.Fatalf("expected closed after 2 failed reconnects, status=%s opens=%d", parseGot.Status, parseCalls.count())
+		}
+	})
 }

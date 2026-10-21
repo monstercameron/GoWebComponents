@@ -5,16 +5,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/devtools"
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/devtools"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 func diagnosticsExample() ui.Node {

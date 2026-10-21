@@ -71,10 +71,12 @@ func ComputeViewportState(parseConfig ViewportConfig, parseScrollTop, parseViewp
 	if parseErr != nil {
 		return ViewportState{}, parseErr
 	}
-	if parseScrollTop < 0 {
+	// NaN and negative offsets mean "top"; +Inf is capped below by the index clamp.
+	// The negated comparisons are what catch NaN, which fails every ordering test.
+	if !(parseScrollTop > 0) {
 		parseScrollTop = 0
 	}
-	if parseViewportHeight < 0 {
+	if !(parseViewportHeight > 0) {
 		parseViewportHeight = 0
 	}
 
@@ -92,11 +94,14 @@ func ComputeViewportState(parseConfig ViewportConfig, parseScrollTop, parseViewp
 		return parseState, nil
 	}
 
-	parseVisibleStart := clampIndex(int(math.Floor(parseScrollTop/parseNormalized.RowHeight)), parseNormalized.TotalItems)
-	parseVisibleEnd := max(clampIndex(int(math.Ceil((parseScrollTop+parseViewportHeight)/parseNormalized.RowHeight)), parseNormalized.TotalItems), parseVisibleStart)
+	parseVisibleStart := clampFloatIndex(math.Floor(parseScrollTop/parseNormalized.RowHeight), parseNormalized.TotalItems)
+	parseVisibleEnd := max(clampFloatIndex(math.Ceil((parseScrollTop+parseViewportHeight)/parseNormalized.RowHeight), parseNormalized.TotalItems), parseVisibleStart)
 
-	parseRenderedStart := clampIndex(parseVisibleStart-parseNormalized.Overscan, parseNormalized.TotalItems)
-	parseRenderedEnd := max(clampIndex(parseVisibleEnd+parseNormalized.Overscan, parseNormalized.TotalItems), parseRenderedStart)
+	// Overscan beyond the list size adds nothing, and an unclamped huge value would
+	// overflow the int addition below and wrap the rendered window to empty.
+	parseOverscan := min(parseNormalized.Overscan, parseNormalized.TotalItems)
+	parseRenderedStart := clampIndex(parseVisibleStart-parseOverscan, parseNormalized.TotalItems)
+	parseRenderedEnd := max(clampIndex(parseVisibleEnd+parseOverscan, parseNormalized.TotalItems), parseRenderedStart)
 
 	parseState.Visible = Range{Start: parseVisibleStart, End: parseVisibleEnd}
 	parseState.Rendered = Range{Start: parseRenderedStart, End: parseRenderedEnd}
@@ -147,6 +152,19 @@ func normalizeConfig(parseConfig ViewportConfig) (ViewportConfig, error) {
 		return ViewportConfig{}, errors.New("virtualization: overscan must be >= 0")
 	}
 	return parseConfig, nil
+}
+
+// clampFloatIndex clamps a float row index into [0, parseTotal] BEFORE converting
+// to int, so +Inf or a value beyond the int range cannot hit the
+// implementation-defined float-to-int conversion.
+func clampFloatIndex(parseValue float64, parseTotal int) int {
+	if !(parseValue > 0) {
+		return 0
+	}
+	if parseValue >= float64(parseTotal) {
+		return parseTotal
+	}
+	return int(parseValue)
 }
 
 func clampIndex(parseValue, parseTotal int) int {

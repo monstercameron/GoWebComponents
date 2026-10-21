@@ -8,11 +8,11 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/hotreload"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/hotreload"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func shouldCrash(parseMode string) bool {

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 func TestUseWebSocketReceivesBoundedMessagesAndSends(parseT *testing.T) {
@@ -84,6 +84,7 @@ func TestUseWebSocketReconnectsWithBoundedBackoff(parseT *testing.T) {
 	if parseState.Reconnects != 1 || parseState.ConnectAttempts != 2 {
 		parseT.Fatalf("expected one reconnect attempt and two connects, got %+v", parseState)
 	}
+	parseSocket.Close()
 }
 
 func TestUseWebSocketHeartbeatSendsConfiguredMessage(parseT *testing.T) {
@@ -147,6 +148,7 @@ func TestUseEventSourceReceivesMessagesAndReconnectsOnError(parseT *testing.T) {
 	if parseState.Reconnects != 1 || parseState.Error == nil || !strings.Contains(parseState.Error.Error(), "network dropped") {
 		parseT.Fatalf("expected EventSource reconnect state with error, got %+v", parseState)
 	}
+	parseEvents.Close()
 }
 
 func installRealtimeMockConstructor(parseT *testing.T, parseName string, shouldSupportSend bool) (*[]js.Value, func()) {
@@ -220,10 +222,34 @@ func installRealtimeMockConstructor(parseT *testing.T, parseName string, shouldS
 	parseFuncs = append(parseFuncs, parseCtor)
 	parseRestore := setGlobalJSValue(parseName, parseCtor)
 	return &parseInstances, func() {
+		// Transport teardown runs on a timer (handleCloseLocked defers close by
+		// AfterFunc(0)), so a mock released right after the test body would be
+		// invoked from JS afterwards and log "call to released function". Drain
+		// until every instance the code under test closed has reported it.
+		drainRealtimeMockInstances(parseInstances)
 		parseRestore()
 		for _, parseFn := range parseFuncs {
 			parseFn.Release()
 		}
+	}
+}
+
+// drainRealtimeMockInstances waits briefly for every mock instance to be closed
+// by the code under test, so released mock callbacks are never invoked later.
+func drainRealtimeMockInstances(parseInstances []js.Value) {
+	parseDeadline := time.Now().Add(time.Second)
+	for time.Now().Before(parseDeadline) {
+		isPending := false
+		for _, parseInstance := range parseInstances {
+			if !parseInstance.Get("__closed").Truthy() {
+				isPending = true
+				break
+			}
+		}
+		if !isPending {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
 }
 

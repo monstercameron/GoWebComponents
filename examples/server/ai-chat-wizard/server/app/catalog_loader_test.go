@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v6/i18n"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v7/i18n"
 )
 
 type parseCatalogSourceStub struct {
@@ -145,7 +145,7 @@ func BenchmarkCatalogLaunchTruthFilterWithConfig(parseB *testing.B) {
 	}
 	parseConfig := parseBuildCatalogLaunchTruthConfig()
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseFiltered := parseApplyCatalogLaunchTruthFilterWithConfig(parseMessages, "en", parseConfig)
 		if len(parseFiltered) == 0 {
 			parseB.Fatalf("unexpected empty launch-truth filter result")

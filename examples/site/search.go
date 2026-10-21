@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // searchEntry is one searchable record built from chapters and the catalog.
@@ -122,13 +122,7 @@ func renderSearchModal(parseOpen ui.State[bool]) ui.Node {
 		parseResultNodes = append(parseResultNodes, Div(ClassStr("search-empty"), Text(parseEmptyText)))
 	}
 	for _, parseResult := range parseResults {
-		parseHref := parseResult.Href
-		parseResultNodes = append(parseResultNodes, A(ClassStr("search-result"), Href(parseHref),
-			OnClick(func() { parseOpen.Set(false) }),
-			Span(ClassStr("result-kind"), Text(parseResult.Kind)),
-			Text(parseResult.Title),
-			Span(ClassStr("result-snippet"), Text(parseResult.Snippet)),
-		))
+		parseResultNodes = append(parseResultNodes, searchResultLink(parseResult, parseOpen))
 	}
 
 	return Div(ID("search-overlay"), ClassStr("search-overlay"), Attr("data-open", "true"),
@@ -148,6 +142,11 @@ func renderSearchModal(parseOpen ui.State[bool]) ui.Node {
 			Div(parseResultNodes...),
 		),
 	)
+}
+
+func searchResultLink(parseResult searchEntry, parseOpen ui.State[bool]) ui.Node {
+	parseClose := ui.UseEvent(func() { parseOpen.Set(false) })
+	return A(ClassStr("search-result"), Href(parseResult.Href), OnClick(parseClose), Span(ClassStr("result-kind"), Text(parseResult.Kind)), Text(parseResult.Title), Span(ClassStr("result-snippet"), Text(parseResult.Snippet)))
 }
 
 // renderCopyButton copies text to the clipboard through the Go interop layer.

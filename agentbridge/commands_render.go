@@ -3,8 +3,9 @@ package agentbridge
 import (
 	"encoding/json"
 	"strings"
+	"unicode"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // RegisterRenderCommands installs bridge.render-tree, which interprets a JSON
@@ -118,7 +119,7 @@ func renderBuildElement(parseNode renderTreeNode, parseDepth int, parseNodeBudge
 		if strings.HasPrefix(parseLowerKey, "on") {
 			continue // behavior cannot be injected
 		}
-		if (parseLowerKey == "href" || parseLowerKey == "src") && renderUnsafeURL(parseValue) {
+		if renderIsURLAttr(parseLowerKey) && renderUnsafeURL(parseValue) {
 			continue
 		}
 		parseProps[parseKey] = parseValue
@@ -138,9 +139,32 @@ func renderBuildElement(parseNode renderTreeNode, parseDepth int, parseNodeBudge
 	return runtime.CreateElement(parseTag, parseProps, parseChildren...), nil
 }
 
-// renderUnsafeURL reports whether a URL uses a script-bearing scheme.
+// renderIsURLAttr reports whether an attribute (lower-cased) holds a URL the
+// browser can navigate to or fetch, and so must pass renderUnsafeURL.
+func renderIsURLAttr(parseLowerKey string) bool {
+	switch parseLowerKey {
+	case "href", "src", "formaction", "action", "xlink:href", "poster", "srcset", "background":
+		return true
+	default:
+		return false
+	}
+}
+
+// renderUnsafeURL reports whether a URL uses a script-bearing scheme. It
+// normalizes the way a browser's URL parser does before matching: ASCII tab,
+// CR and LF are removed anywhere in the string and leading/trailing C0 control
+// characters and spaces are stripped, so an embedded-tab or leading-control-
+// character spelling of the javascript scheme is still caught.
 func renderUnsafeURL(parseValue string) bool {
-	parseTrimmed := strings.ToLower(strings.TrimSpace(parseValue))
+	parseStripped := strings.Map(func(parseR rune) rune {
+		if parseR == '\t' || parseR == '\n' || parseR == '\r' {
+			return -1
+		}
+		return parseR
+	}, parseValue)
+	parseTrimmed := strings.ToLower(strings.TrimFunc(parseStripped, func(parseR rune) bool {
+		return parseR <= 0x20 || unicode.IsSpace(parseR)
+	}))
 	return strings.HasPrefix(parseTrimmed, "javascript:") ||
 		strings.HasPrefix(parseTrimmed, "data:") ||
 		strings.HasPrefix(parseTrimmed, "vbscript:")

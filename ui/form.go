@@ -6,7 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 type FieldErrors map[string]string
@@ -224,7 +225,12 @@ func (parseF Form[T]) SetField(parseName string, parseValue interface{}) bool {
 		return false
 	}
 
-	isParseUpdated := false
+	// Whether the name and value are acceptable depends only on T and the value's type, so decide it
+	// now. The updater below may run later (inside a transition or an async post), and a result
+	// captured from it would read false for a perfectly valid field.
+	if _, parseValidOk := assignNamedField(parseF.state.Get().value, parseName, parseValue); !parseValidOk {
+		return false
+	}
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
 		if parsePrev.touched == nil {
 			parsePrev.touched = map[string]bool{}
@@ -240,7 +246,6 @@ func (parseF Form[T]) SetField(parseName string, parseValue interface{}) bool {
 		if !parseOk {
 			return parsePrev
 		}
-		isParseUpdated = true
 		parsePrev.value = parseNextValue
 		parsePrev.touched[parseName] = true
 		if parseInitialField, parseOk2 := readNamedField(parsePrev.initial, parseName); parseOk2 {
@@ -252,7 +257,7 @@ func (parseF Form[T]) SetField(parseName string, parseValue interface{}) bool {
 		parsePrev.formError = ""
 		return parsePrev
 	})
-	return isParseUpdated
+	return true
 }
 
 // HasField reports whether T has a field addressable by name (the same names SetField/Touch use).
@@ -272,7 +277,7 @@ func (parseF Form[T]) HasField(parseName string) bool {
 // development. Prefer it where the field name is a hardcoded literal.
 func (parseF Form[T]) MustSetField(parseName string, parseValue interface{}) {
 	if !parseF.SetField(parseName, parseValue) {
-		panic("ui: MustSetField: unknown field or mismatched value type: " + parseName)
+		panic(errcode.New(errcode.UIFormFieldInvalid, "ui: MustSetField: unknown field or mismatched value type: "+parseName+" (the field must be an exported field of the form struct and the value must be assignable to its type)"))
 	}
 }
 
@@ -481,8 +486,7 @@ func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string),
 	}
 
 	parseSnapshot := parseF.Get()
-	parseStateSnapshot := parseF.state.Get()
-	parseSequence := parseStateSnapshot.validateSeq + 1
+	parseSequence := nextFormValidateSeq()
 	parseF.state.Update(func(parsePrev formState[T]) formState[T] {
 		parsePrev.validating = true
 		parsePrev.validated = false
@@ -493,7 +497,7 @@ func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string),
 
 	go func(parseValue T, parseExpectedSeq int) {
 		defer runtime.RecoverContainedPanic("ui", "UseForm validator")
-		parseErrors, parseFormError := parseValidate(parseValue)
+		parseErrors, parseFormError := callFormValidator(parseValidate, parseValue)
 		isParseValid := len(parseErrors) == 0 && parseFormError == ""
 		parseF.state.Update(func(parsePrev2 formState[T]) formState[T] {
 			if parsePrev2.validateSeq != parseExpectedSeq {
@@ -527,7 +531,7 @@ func (parseF Form[T]) Submit(parseRun func(T) error) {
 	})
 	go func(parseValue T) {
 		defer runtime.RecoverContainedPanic("ui", "UseForm submit runner")
-		parseErr := parseRun(parseValue)
+		parseErr := callFormRunner("UseForm submit runner", func() error { return parseRun(parseValue) })
 		parseF.state.Update(func(parsePrev2 formState[T]) formState[T] {
 			parsePrev2.submitting = false
 			parsePrev2.submitError = parseErr
@@ -560,7 +564,7 @@ func (parseF Form[T]) SubmitWithIntent(parseIntent string, parseRun func(T, stri
 	})
 	go func(parseValue T, parseActiveIntent string) {
 		defer runtime.RecoverContainedPanic("ui", "UseForm intent runner")
-		parseErr := parseRun(parseValue, parseActiveIntent)
+		parseErr := callFormRunner("UseForm intent runner", func() error { return parseRun(parseValue, parseActiveIntent) })
 		parseF.state.Update(func(parsePrev2 formState[T]) formState[T] {
 			parsePrev2.submitting = false
 			parsePrev2.submitError = parseErr
@@ -644,7 +648,7 @@ func (parseF Form[T]) Reset(parseNext ...T) {
 		parsePrev.formError = ""
 		parsePrev.validating = false
 		parsePrev.validated = false
-		parsePrev.validateSeq = 0
+		parsePrev.validateSeq = nextFormValidateSeq()
 		parsePrev.submitting = false
 		parsePrev.submitted = false
 		parsePrev.submitError = nil

@@ -13,7 +13,9 @@ type Selector string
 func (s Selector) String() string { return string(s) }
 
 // El targets an HTML element by tag name: css.El("h3") -> "h3".
-func El(parseTag string) Selector { return Selector(parseTag) }
+// The tag is sanitized to CSS-identifier characters (plus the universal "*") so it
+// cannot restructure the selector, like ClassSel and AttrSel.
+func El(parseTag string) Selector { return Selector(cssIdentSanitize(parseTag, "*")) }
 
 // SheetRef targets another generated class, composing one Sheet against another with
 // full type-safety: css.SheetRef(titleSheet) -> ".c-abc".

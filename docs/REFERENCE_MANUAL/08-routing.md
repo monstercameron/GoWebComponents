@@ -100,10 +100,10 @@ Start with one router, a couple of routes, and imperative navigation from a norm
 package main
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 type routePageProps struct {
@@ -167,9 +167,9 @@ import (
 	"fmt"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // RenderReportsPage reads params, query state, and loader data from the matched route.
@@ -231,10 +231,10 @@ func BuildReportsLoader(getCtx context.Context, getRouteCtx router.RouteContext)
 package main
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 
 	"my-app/internal/reports"
 )
@@ -284,7 +284,7 @@ package routes
 import (
 	"net/url"
 
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 var (
@@ -311,9 +311,9 @@ func BuildAppGuard(getIsAuthenticated func() bool) router.GuardFunc {
 package shell
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // RenderWorkspaceLayout keeps app-level chrome mounted while nested child routes swap through the outlet.
@@ -340,9 +340,9 @@ func RenderProjectPage() ui.Node {
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 
 	"my-app/internal/routes"
 	"my-app/internal/shell"
@@ -399,6 +399,20 @@ Practical rule:
 - query state identifies the current view of that resource
 - contracts keep the route definition itself from drifting across the codebase
 
+## Reactive Reads, Base Path, And Router Options
+
+`UseParams`, `UseQuery`, `UseSearchParams` and `UseRouteData` subscribe to the same location source as `UseRoute`, so a component that calls them re-renders when the URL changes, even when a memoized parent does not. Call them in a component body: inside a route factory or outside a render (an event handler, a guard, a test) they still return the current value but do not subscribe. They exist in the `js/wasm` build only (`router/router_api.go`); there is no native equivalent. Two generic methods in the same file decode without manual parsing: `Params.As[V](name)` returns a typed path parameter plus an error for an absent or unparsable value (`Int` and `Bool` return a silent false), and `Query.Decode[T]()` decodes the query string into a struct using `query:"name"` tags and `validate:"..."` rules.
+
+A history router can be mounted under a URL prefix with `router.WithBasePath("/app")`:
+
+- route patterns stay prefix-free: the URL `/app/x` matches the pattern `/x`
+- `Href("/x")` returns `/app/x`, and `Navigate("/x")` pushes `/app/x`
+- hash routers ignore the base path, because the route lives in the fragment
+
+History routing needs the server to answer deep links. `router.SPAFallbackHandler(indexHTML, staticDir, basePath)` (native build only) serves a file that exists under `staticDir`, and otherwise serves `indexHTML` for any other GET or HEAD request, so refreshing `/app/users/9` boots the app and the router resolves the route in the browser. Pass the same base path you gave `WithBasePath`, or `""` at the root. It answers 404 for requests outside the base path, for requests that are not GET or HEAD (405), and for a missing path whose last segment has a file extension, so a missing asset does not come back as HTML.
+
+Router and route configuration both accept option values. `RouterOption` is satisfied by the existing `RouterOptions` struct and by `WithDefaultRoute` and `WithBasePath`; `RouteOption` is satisfied by the existing `Options` struct and by the `With*` constructors such as `WithTitle`, `WithLoader` and `WithBeforeEnter`. Struct values keep working, and only their non-zero fields are applied, so existing registrations do not need to change.
+
 ## Metadata And Hydration Attach
 
 Route-managed metadata in the router is intentionally narrow:
@@ -438,6 +452,7 @@ Use this table before you add more route machinery.
 | Reactive location | `UseRoute`, `UseLocation` | `Stable` | a memoized component (active-nav highlight, breadcrumb) must re-render on navigation without threading the path as a prop | the route component already re-renders and can read `UseParams` |
 | Navigation lifecycle | `OnNavigate(fn)` | `Stable` | run a side effect after each navigation (scroll-reset, analytics page view) | the effect belongs to one route component |
 | Mode-safe links | `Href(path)`, `FragmentHref(fragment)` | `Stable` | build an href that is correct for the active router mode / safe under `<base href>` (in-page anchors) | a static literal href is unambiguous |
+| Base path, SPA fallback, options | `WithBasePath`, `SPAFallbackHandler`, `RouterOption`, `RouteOption`, `Params.As`, `Query.Decode` | `Stable` | a history router lives under a prefix, the server must answer deep links, or typed param and query decoding is wanted | a hash router already avoids server rewrites |
 | Route contracts | `DefineRoute`, `MustDefineRoute`, `Path`, `Href`, `PathFor`, `HrefFor` | `Stable` | larger apps need validated reverse routing | the app is still small and string literals remain obvious |
 | Redirects | `router.Options{Redirect: ...}`, `RedirectNavigation` | core redirects are `Stable` | a matched route should hand off to another route cleanly | the page should stay mounted and render a manual fallback |
 | Nested layouts | `router.Options{Layout: true}`, `UseOutlet` (`GetOutlet` is a deprecated alias) | `Stable` | one shell should stay mounted while child routes swap | there is no shared shell between the routes |
@@ -474,28 +489,28 @@ Use the smallest examples that prove the routing family you are adopting.
 Core router setup, navigation, params, and query:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\browser-router\main.go
-go run ./tools/gwc dev -app .\examples\public\use-navigate\main.go
-go run ./tools/gwc dev -app .\examples\public\route-params\main.go
-go run ./tools/gwc dev -app .\examples\public\route-query\main.go
+go -C tools run ./gwc dev -app ..\examples\public\browser-router\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-navigate\main.go
+go -C tools run ./gwc dev -app ..\examples\public\route-params\main.go
+go -C tools run ./gwc dev -app ..\examples\public\route-query\main.go
 ```
 
 Loader-backed routes, revalidation, metadata, and redirects:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\route-loaders\main.go
-go run ./tools/gwc dev -app .\examples\public\use-revalidator\main.go
-go run ./tools/gwc dev -app .\examples\public\router-redirects\main.go
-go run ./tools/gwc dev -app .\examples\public\router-metadata\main.go
+go -C tools run ./gwc dev -app ..\examples\public\route-loaders\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-revalidator\main.go
+go -C tools run ./gwc dev -app ..\examples\public\router-redirects\main.go
+go -C tools run ./gwc dev -app ..\examples\public\router-metadata\main.go
 ```
 
 Nested shells, guards, and hydration-aware attach:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\nested-layout-routes\main.go
-go run ./tools/gwc dev -app .\examples\public\router-guards\main.go
-go run ./tools/gwc dev -app .\examples\public\router-hydrate-mount\main.go
-go run ./tools/gwc dev -app .\examples\public\single-shell-auth\main.go
+go -C tools run ./gwc dev -app ..\examples\public\nested-layout-routes\main.go
+go -C tools run ./gwc dev -app ..\examples\public\router-guards\main.go
+go -C tools run ./gwc dev -app ..\examples\public\router-hydrate-mount\main.go
+go -C tools run ./gwc dev -app ..\examples\public\single-shell-auth\main.go
 ```
 
 ## Typed Search Params (`DecodeQuery` / `EncodeQuery`)

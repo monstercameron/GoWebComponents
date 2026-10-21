@@ -5,8 +5,8 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 func keyedListWithData(parseKeys ...string) *runtime.Element {
@@ -56,11 +56,11 @@ func TestKeyedComplexMoves(t *testing.T) {
 		return true
 	}
 
-	rt.RenderInto(root, keyedListWithData("a", "b", "c", "d", "e"))
+	_ = rt.RenderInto(root, keyedListWithData("a", "b", "c", "d", "e"))
 	parseIDA, parseIDE := idOfKey("a"), idOfKey("e")
 
 	// Full reverse: order flips, every node is moved (not recreated).
-	rt.RenderInto(root, keyedListWithData("e", "d", "c", "b", "a"))
+	_ = rt.RenderInto(root, keyedListWithData("e", "d", "c", "b", "a"))
 	if !equal(order(), []string{"e", "d", "c", "b", "a"}) {
 		t.Fatalf("reverse order = %v", order())
 	}
@@ -69,19 +69,19 @@ func TestKeyedComplexMoves(t *testing.T) {
 	}
 
 	// Simultaneous insert (x, y) and remove (b, d).
-	rt.RenderInto(root, keyedListWithData("e", "x", "c", "y", "a"))
+	_ = rt.RenderInto(root, keyedListWithData("e", "x", "c", "y", "a"))
 	if !equal(order(), []string{"e", "x", "c", "y", "a"}) {
 		t.Errorf("insert+remove order = %v, want [e x c y a]", order())
 	}
 
 	// Collapse to a single survivor.
-	rt.RenderInto(root, keyedListWithData("c"))
+	_ = rt.RenderInto(root, keyedListWithData("c"))
 	if !equal(order(), []string{"c"}) {
 		t.Errorf("collapse order = %v, want [c]", order())
 	}
 
 	// Grow back from one.
-	rt.RenderInto(root, keyedListWithData("c", "z", "w"))
+	_ = rt.RenderInto(root, keyedListWithData("c", "z", "w"))
 	if !equal(order(), []string{"c", "z", "w"}) {
 		t.Errorf("grow order = %v, want [c z w]", order())
 	}

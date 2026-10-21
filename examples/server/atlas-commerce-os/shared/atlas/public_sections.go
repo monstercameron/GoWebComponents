@@ -86,11 +86,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/api"
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/api"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // =============================================================================
@@ -396,7 +396,7 @@ func renderCatalogContent(parsePage catalogPage) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		parseSearch := useAtlasSearchParams()
 		parseInitial := atlasCatalogFilterState(parsePage.Query)
-		parseForm := ui.UseForm(parseInitial)
+		parseForm := useAtlasForm(parseInitial)
 		useAtlasEffect(func() func() {
 			if !atlasSameListFilterState(parseForm.Get(), parseInitial) {
 				parseForm.Reset(parseInitial)
@@ -404,8 +404,8 @@ func renderCatalogContent(parsePage catalogPage) ui.Node {
 			return nil
 		}, parseInitial)
 		parseValue := parseForm.Get()
-		parseDeferred := ui.UseDeferredValue(parseValue)
-		parseDebounced := ui.UseDebounced(parseValue, atlasFilterSyncDelay)
+		parseDeferred := useAtlasDeferredValue(parseValue)
+		parseDebounced := useAtlasDebounced(parseValue, atlasFilterSyncDelay)
 		useAtlasEffect(func() func() {
 			parseNext := atlasBuildListFilterQuery(parseSearch.Values(), parseDebounced.Get())
 			if parseNext.Encode() != parseSearch.Values().Encode() {
@@ -413,7 +413,7 @@ func renderCatalogContent(parsePage catalogPage) ui.Node {
 			}
 			return nil
 		}, parseDebounced.Get())
-		parseSubmit := ui.UseEvent(func(parseEvent ui.FormEvent) {
+		parseSubmit := useAtlasEvent(func(parseEvent ui.FormEvent) {
 			parseEvent.PreventDefault()
 			parseSearch.ReplaceAll(atlasBuildListFilterQuery(parseSearch.Values(), parseForm.Get()))
 		})
@@ -842,7 +842,7 @@ func publicProductPromiseLanesError(parseProduct productCard, parseErr error, pa
 				html.Button(html.Props{
 					Type:    "button",
 					Class:   design.Class(design.ButtonSecondary()),
-					OnClick: ui.UseEvent(func() { parseRetry() }),
+					OnClick: useAtlasEvent(func() { parseRetry() }),
 				}, html.Text("Retry lane panel")),
 				html.Span(html.Props{Class: design.Class(design.Data(design.StepFine))}, html.Text(parseProduct.Title)),
 			),
@@ -855,12 +855,12 @@ func publicProductPromiseLanesError(parseProduct productCard, parseErr error, pa
 func publicProductActionRail(parseProduct productCard, parsePayload Payload) ui.Node {
 	parseProductSupportTitle, parseProductSupportCopy, parseProductSupportPoints := publicBuyerNextStep(parseProduct.Status)
 	return ui.CreateElement(func() ui.Node {
-		parseOpen := ui.UseState(false)
-		parseSheetID := ui.UseId() + "-public-action-rail"
+		parseOpen := useAtlasUIState(false)
+		parseSheetID := useAtlasID() + "-public-action-rail"
 		parseTitleID := parseSheetID + "-title"
 		parseDescriptionID := parseSheetID + "-description"
 		parseCloseID := parseSheetID + "-close"
-		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
+		parseOpenDrawer := useAtlasEvent(func() { parseOpen.Set(true) })
 		parseCloseDrawer := func() { parseOpen.Set(false) }
 		// buildRailChildren is invoked TWICE per render — once for the desktop column
 		// and once for the mobile drawer — so everything it returns must be a COMPONENT.
@@ -900,7 +900,7 @@ func publicProductActionRail(parseProduct productCard, parsePayload Payload) ui.
 						html.H3(html.Props{ID: parseTitleID, Class: design.Class(design.SectionTitle())}, html.Text(parseProductSupportTitle)),
 						html.P(html.Props{ID: parseDescriptionID, Class: design.Class(design.Prose(design.StepFine), design.Measure())}, html.Text(parseProductSupportCopy)),
 					),
-					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: design.Class(design.ButtonQuiet()), OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: design.Class(design.ButtonQuiet()), OnClick: useAtlasEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
 				html.Div(html.Props{Class: design.Class(design.Stack(design.Space5))}, buildRailChildren()...),
 			)),
@@ -942,10 +942,10 @@ func publicBuyerNextStep(parseStatus string) (string, string, []string) {
 
 func publicProductFeedbackSection(parseProduct productCard, parseComments []commentRecord, parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseForm := ui.UseForm(publicCommentFormState{Reaction: "up"})
-		parsePendingCommentsState := useAtlasState([]commentRecord{})
-		parseSubmittingState := useAtlasState(false)
-		parseSubmissionMessageState := useAtlasState("")
+		parseForm := useAtlasForm(publicCommentFormState{Reaction: "up"})
+		parsePendingCommentsState := useAtlasUIState([]commentRecord{})
+		parseSubmittingState := useAtlasUIState(false)
+		parseSubmissionMessageState := useAtlasUIState("")
 		parseCommentsResource := useAtlasCachedResource(CachedRequestResourceKey("/api/public/products/"+parseProduct.Slug+"/comments", "items"), func(parseCtx context.Context) ([]commentRecord, error) {
 			return fetchPublicProductComments(parseCtx, parseProduct.Slug)
 		})
@@ -970,11 +970,11 @@ func publicProductFeedbackSection(parseProduct productCard, parseComments []comm
 		if len(parseVisibleComments) == 1 {
 			parseCountLabel = "1 buyer note"
 		}
-		setAuthorName := ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField("AuthorName", parseEvent.GetValue()) })
-		setSubject := ui.UseEvent(func(parseEvent2 ui.InputEvent) { parseForm.SetField("Subject", parseEvent2.GetValue()) })
-		setBody := ui.UseEvent(func(parseEvent3 ui.InputEvent) { parseForm.SetField("Body", parseEvent3.GetValue()) })
-		setReaction := ui.UseEvent(func(parseEvent4 ui.ChangeEvent) { parseForm.SetField("Reaction", parseEvent4.GetValue()) })
-		parseSubmit := ui.UseEvent(func(parseEvent5 ui.FormEvent) {
+		setAuthorName := useAtlasEvent(func(parseEvent ui.InputEvent) { parseForm.SetField("AuthorName", parseEvent.GetValue()) })
+		setSubject := useAtlasEvent(func(parseEvent2 ui.InputEvent) { parseForm.SetField("Subject", parseEvent2.GetValue()) })
+		setBody := useAtlasEvent(func(parseEvent3 ui.InputEvent) { parseForm.SetField("Body", parseEvent3.GetValue()) })
+		setReaction := useAtlasEvent(func(parseEvent4 ui.ChangeEvent) { parseForm.SetField("Reaction", parseEvent4.GetValue()) })
+		parseSubmit := useAtlasEvent(func(parseEvent5 ui.FormEvent) {
 			parseEvent5.PreventDefault()
 			if !parseForm.Validate(validatePublicCommentForm) {
 				return
@@ -1163,13 +1163,13 @@ func validatePublicCommentForm(parseValue publicCommentFormState) ui.FieldErrors
 // today. Only the classes changed.
 func publicProductFeedbackForm(parseProduct productCard, parsePayload Payload, parseForm ui.Form[publicCommentFormState], parseValue publicCommentFormState, isSubmitting bool, parseSubmissionMessage string, setAuthorName ui.Handler, setSubject ui.Handler, setBody ui.Handler, setReaction ui.Handler, parseSubmit ui.Handler) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		parseAuthorInputID := ui.UseId()
+		parseAuthorInputID := useAtlasID()
 		parseAuthorErrorID := parseAuthorInputID + "-error"
-		parseReactionFieldID := ui.UseId()
+		parseReactionFieldID := useAtlasID()
 		parseReactionErrorID := parseReactionFieldID + "-error"
-		parseSubjectInputID := ui.UseId()
+		parseSubjectInputID := useAtlasID()
 		parseSubjectErrorID := parseSubjectInputID + "-error"
-		parseBodyInputID := ui.UseId()
+		parseBodyInputID := useAtlasID()
 		parseBodyErrorID := parseBodyInputID + "-error"
 		parseChildren := []ui.Node{
 			html.Span(html.Props{Class: design.Class(design.Eyebrow())}, html.Text("Share your review or question")),

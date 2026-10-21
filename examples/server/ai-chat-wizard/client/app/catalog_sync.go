@@ -6,11 +6,11 @@ import (
 	"context"
 	"strings"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v6/i18n"
-	"github.com/monstercameron/GoWebComponents/v6/logging"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v7/i18n"
+	"github.com/monstercameron/GoWebComponents/v7/logging"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // chatCatalogVersionAtomKey is the shared atom key that signals when the server catalog has been merged.

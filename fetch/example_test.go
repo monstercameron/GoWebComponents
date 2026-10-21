@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
 )
 
 func ExampleUseFetch() {

@@ -6,10 +6,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 func TestFetchNativeMutationQueueHelpers(parseT *testing.T) {
@@ -304,5 +305,98 @@ func TestFetchNativeMutationQueueReplayFailureSchedulesRetryAndDefers(parseT *te
 	})
 	if parseErr != nil || parseAttempts != 2 || parseReport.Succeeded != 1 || parseReport.Remaining != 0 {
 		parseT.Fatalf("expected due retry to replay exactly once and clear, attempts=%d report=%+v err=%v", parseAttempts, parseReport, parseErr)
+	}
+}
+
+// openFetchTestMutationQueue opens a queue over an in-memory persistent store.
+func openFetchTestMutationQueue(parseT *testing.T) MutationQueue {
+	parseT.Helper()
+	parseStore, _ := buildFetchTestPersistentStore(parseT)
+	parseQueue, parseErr := OpenMutationQueue(MutationQueueOptions{
+		StorageKey:  "replay-conflict-error",
+		MaxAttempts: 3,
+		StoreResolver: func(parseCtx context.Context) (interop.PersistentStore, error) {
+			return parseStore, nil
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("open queue: %v", parseErr)
+	}
+	return parseQueue
+}
+
+// TestMutationQueueReplayConflictHandlerErrorKeepsOnlyUnfinishedEntries verifies
+// that entries which already succeeded are not replayed again after a conflict
+// handler error aborts the pass.
+func TestMutationQueueReplayConflictHandlerErrorKeepsOnlyUnfinishedEntries(parseT *testing.T) {
+	parseQueue := openFetchTestMutationQueue(parseT)
+	if _, parseErr := parseQueue.Enqueue(MutationDraft{URL: "/a", Kind: "a"}); parseErr != nil {
+		parseT.Fatal(parseErr)
+	}
+	if _, parseErr := parseQueue.Enqueue(MutationDraft{URL: "/b", Kind: "b"}); parseErr != nil {
+		parseT.Fatal(parseErr)
+	}
+
+	parseRuns := map[string]int{}
+	parseExecutor := func(parseCtx context.Context, parseMutation QueuedMutation) error {
+		parseRuns[parseMutation.URL]++
+		if parseMutation.URL == "/b" {
+			return NewMutationConflict(errors.New("conflict"), MutationConflict{Code: "409"})
+		}
+		return nil
+	}
+	parseHandlerErr := errors.New("handler failed")
+	parseOptions := MutationReplayOptions{
+		ConflictHandler: func(context.Context, QueuedMutation, MutationConflict) (MutationConflictResolution, error) {
+			return MutationConflictResolution{}, parseHandlerErr
+		},
+	}
+
+	for parsePass := 0; parsePass < 2; parsePass++ {
+		if _, parseErr := parseQueue.ReplayWithOptions(context.Background(), parseExecutor, parseOptions); !errors.Is(parseErr, parseHandlerErr) {
+			parseT.Fatalf("pass %d: expected handler error, got %v", parsePass, parseErr)
+		}
+	}
+	if parseRuns["/a"] != 1 {
+		parseT.Fatalf("expected the already-succeeded entry to run once, ran %d times", parseRuns["/a"])
+	}
+	parseEntries, parseErr := parseQueue.List()
+	if parseErr != nil || len(parseEntries) != 1 || parseEntries[0].URL != "/b" {
+		parseT.Fatalf("expected only the unfinished entry to remain, got %+v err=%v", parseEntries, parseErr)
+	}
+}
+
+// TestMutationQueueClearIsSerializedWithEnqueue verifies Clear takes the same
+// storage-key lock as Enqueue and Remove by holding that lock and expecting Clear to wait.
+func TestMutationQueueClearIsSerializedWithEnqueue(parseT *testing.T) {
+	parseQueue := openFetchTestMutationQueue(parseT)
+	if _, parseErr := parseQueue.Enqueue(MutationDraft{URL: "/a"}); parseErr != nil {
+		parseT.Fatal(parseErr)
+	}
+
+	parseMu := parseQueue.lock()
+	parseMu.Lock()
+	parseDone := make(chan error, 1)
+	go func() { parseDone <- parseQueue.Clear() }()
+	select {
+	case parseClearErr := <-parseDone:
+		parseMu.Unlock()
+		parseT.Fatalf("Clear completed while the queue lock was held: %v", parseClearErr)
+	case <-time.After(50 * time.Millisecond):
+	}
+	parseMu.Unlock()
+	if parseErr := <-parseDone; parseErr != nil {
+		parseT.Fatalf("Clear: %v", parseErr)
+	}
+
+	var parseWG sync.WaitGroup
+	for parseI := 0; parseI < 20; parseI++ {
+		parseWG.Add(2)
+		go func() { defer parseWG.Done(); _, _ = parseQueue.Enqueue(MutationDraft{URL: "/x"}) }()
+		go func() { defer parseWG.Done(); _ = parseQueue.Clear() }()
+	}
+	parseWG.Wait()
+	if _, parseErr := parseQueue.List(); parseErr != nil {
+		parseT.Fatalf("queue unreadable after concurrent Enqueue/Clear: %v", parseErr)
 	}
 }

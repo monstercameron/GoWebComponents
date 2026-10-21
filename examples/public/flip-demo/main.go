@@ -10,10 +10,10 @@ package main
 import (
 	"strconv"
 
-	"github.com/monstercameron/GoWebComponents/v6/anim"
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/anim"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func toAnimRect(parseRect interop.Rect) anim.Rect {

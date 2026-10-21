@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 	playwright "github.com/mxschmitt/playwright-go"
 )
 
@@ -173,6 +173,9 @@ func parseAssertExample100AdminOpsWorkflowRoutes(parseT *testing.T, parsePage pl
 		}
 		if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
 			parseT.Fatalf("wait chat input on ops workflow route %s: %v", parseRoute, parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction(`() => !document.getElementById("boot-shell")`, nil); parseErr != nil {
+			parseT.Fatalf("wait for completed boot on ops workflow route %s: %v", parseRoute, parseErr)
 		}
 	}
 	parseAssertExample100AdminListURLStateNavigation(parseT, parsePage, parseBaseURL, parseRoutes)

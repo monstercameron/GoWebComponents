@@ -3,9 +3,9 @@ package design
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/css"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // The page shell: the frame every Atlas route renders inside.

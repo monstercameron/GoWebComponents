@@ -14,7 +14,11 @@ func SetCSRFProtection(parseEnabled bool)
 func SetClient(parseClient *http.Client)
 func SetErrorLogger(parseLogger func(parseName string, parseErr error))
 func SetMaxRequestBytes(parseLimit int64)
+func SetServerSpanHook(parseHook ServerSpanFunc)
+func SetTracePropagator(parsePropagator TracePropagator)
 func Unauthorized(parseMessage string) *StatusError
 func UnprocessableEntity(parseMessage string) *StatusError
 type ServerError struct { Status int Message string }
+type ServerSpanFunc func(parseCtx context.Context, parseName string, parseHeader http.Header) (context.Context, func(parseStatus int, parseErr error))
 type StatusError struct { Status int Message string }
+type TracePropagator interface { Extract(parseCtx context.Context, parseHeader http.Header) context.Context Inject(parseCtx context.Context, parseHeader http.Header) }

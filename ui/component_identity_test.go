@@ -16,10 +16,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // identityField is the shape the framework recommends for fixing
@@ -134,7 +134,7 @@ func expectNames(parseT *testing.T, parseLabel string, parseGot []string, parseW
 // handle whose implementation had been overwritten by the last closure created.
 func TestComponentIdentitySiblingClosuresKeepTheirOwnPropsOnTheReconciler(parseT *testing.T) {
 	parseH := newIdentityHarness()
-	parseH.rt.RenderInto(parseH.root, html.Form(html.Props{},
+	_ = parseH.rt.RenderInto(parseH.root, html.Form(html.Props{},
 		identityField(parseH.rt, "email"),
 		identityField(parseH.rt, "warehouse"),
 		identityField(parseH.rt, "quantity"),
@@ -177,7 +177,7 @@ func TestComponentIdentityLoopBuiltClosuresKeepTheirOwnProps(parseT *testing.T) 
 	for _, parseName := range parseWant {
 		parseChildren = append(parseChildren, identityField(parseH.rt, parseName))
 	}
-	parseH.rt.RenderInto(parseH.root, html.Form(html.Props{}, parseChildren...))
+	_ = parseH.rt.RenderInto(parseH.root, html.Form(html.Props{}, parseChildren...))
 
 	expectNames(parseT, "loop-built fields", parseH.names(), parseWant...)
 }
@@ -241,6 +241,14 @@ func TestComponentIdentitySameFunctionValueReusesOneCachedHandle(parseT *testing
 	}
 }
 
+// identitySwapTarget is a package-level component reserved for the implementation
+// swap test. SetImplementationRenderer mutates the process-wide cached handle,
+// so sharing identityTopLevel would leave that handle holding a foreign body and
+// break the cached-handle test on every repeat run (-count=2).
+func identitySwapTarget(parseAttrs runtime.Attrs) ui.Node {
+	return html.Span(html.Props{Text: "swap-target"})
+}
+
 // TestComponentIdentityDeliberateImplementationSwapStillApplies keeps hot
 // reload working. The bug was that SetImplementationRenderer fired
 // ACCIDENTALLY, between unrelated siblings; swapping an implementation on
@@ -248,7 +256,7 @@ func TestComponentIdentitySameFunctionValueReusesOneCachedHandle(parseT *testing
 // still take effect on elements already built from that handle.
 func TestComponentIdentityDeliberateImplementationSwapStillApplies(parseT *testing.T) {
 	parseH := newIdentityHarness()
-	parseElement := ui.CreateElement(identityTopLevel)
+	parseElement := ui.CreateElement(identitySwapTarget)
 	parseHandle, parseOk := parseElement.Type.(*runtime.ComponentType)
 	if !parseOk {
 		parseT.Fatalf("expected a component handle, got %T", parseElement.Type)
@@ -261,7 +269,7 @@ func TestComponentIdentityDeliberateImplementationSwapStillApplies(parseT *testi
 		},
 	)
 
-	parseH.rt.RenderInto(parseH.root, parseElement)
+	_ = parseH.rt.RenderInto(parseH.root, parseElement)
 	if parseGot := parseH.allText(); !strings.Contains(parseGot, "hot-reloaded") {
 		parseT.Errorf("a deliberate SetImplementationRenderer swap must still render the new body; got %q", parseGot)
 	}
@@ -293,7 +301,7 @@ func TestComponentIdentityReRenderPicksUpTheCurrentElementsClosure(parseT *testi
 	var parseBumpParent func(any)
 	var parseBumpChild func(any)
 
-	parseH.rt.RenderInto(parseH.root, ui.CreateElement(func() ui.Node {
+	_ = parseH.rt.RenderInto(parseH.root, ui.CreateElement(func() ui.Node {
 		parseGet, parseSet := runtime.GoUseState(parseH.rt, "first")
 		parseBumpParent = parseSet
 		return html.Div(html.Props{}, identityLabel(parseH.rt, parseGet(), &parseBumpChild))

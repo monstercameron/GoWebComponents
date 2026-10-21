@@ -83,7 +83,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/v6/pwa"
+	"github.com/monstercameron/GoWebComponents/v7/pwa"
 )
 
 // buildInstallableManifest returns the app-owned manifest that will be linked from HTML.
@@ -146,8 +146,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/pwa"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/pwa"
 )
 
 // loadReleaseCachePlan converts one emitted release manifest into service-worker and Cache Storage plans.
@@ -234,10 +234,10 @@ package export
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v6/head"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/head"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // getExportedAssetManifest returns the logical-to-emitted asset map for the current export.
@@ -384,7 +384,7 @@ Keep these related but distinct:
   `gwc release -profile debug`; do not infer debug flags from an ad hoc
   `go build` command that is not recorded in the release summary
 - TinyGo is an opt-in compiler profile, not a silent fallback; use
-  `go run ./tools/gwc build -app .\main.go -profile tinygo` only when CI proves
+  `go -C tools run ./gwc build -app .\main.go -profile tinygo` only when CI proves
   the app's runtime and package dependencies are TinyGo-compatible
 
 When in doubt, prove the output through `gwc build`, `gwc release`, and the `gwc wasm ...` comparison tools instead of hand-assembling release conclusions from one ad hoc `go build`.
@@ -443,11 +443,11 @@ That split is what keeps the PWA helpers useful at scale:
 Use the smallest commands that prove the deployment slice you changed:
 
 - installability and service-worker wiring:
-  `go run ./tools/gwc serve -root .\\examples\\public\\pwa-installability -port 8097`
+  `go -C tools run ./gwc serve -root ../examples/public/progressive-web-app-installability -port 8097`
 - offline cache, queue, and diagnostics helpers:
-  `go run ./tools/gwc serve -root .\\examples\\public\\pwa-offline-cache -port 8098`
+  `go -C tools run ./gwc serve -root ../examples/public/progressive-web-app-offline-cache -port 8098`
 - release artifact and manifest emission:
-  `go run ./tools/gwc release -app .\\examples\\public\\pwa-offline-cache\\main.go -root .\\examples\\public\\pwa-offline-cache -out-dir .\\bin\\pwa-offline-cache -validate-smoke`
+  `go -C tools run ./gwc release -app ../examples/public/progressive-web-app-offline-cache/main.go -root ../examples/public/progressive-web-app-offline-cache -out-dir ../bin/pwa-offline-cache -validate-smoke`
 - static export output shape:
   `go run ./examples/server/static-export-site`
 

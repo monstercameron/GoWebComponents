@@ -1,8 +1,8 @@
 package components
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // TabItem is one tab and its panel content.
@@ -42,36 +42,7 @@ func Tabs(parseProps TabsProps) ui.Node {
 		parsePanelID := parseTab.ID + "-panel"
 		parseIsActive := parseIndex == parseSelected
 
-		parseIndexCopy := parseIndex
-		parseSelect := ui.UseEvent(func() {
-			parseActive.Set(parseIndexCopy)
-		})
-		// Arrow-key roving (WAI-ARIA tabs): Left/Right move selection with wrap-around, Home/End
-		// jump to the first/last tab. Selection follows focus; the newly-active tab becomes the
-		// single roving tab stop (tabindex 0) on re-render.
-		parseKeyNav := ui.UseEvent(func(parseEvent ui.KeyboardEvent) {
-			parseNext := tabsNextIndex(parseEvent.GetKey(), parseIndexCopy, len(parseProps.Tabs))
-			if parseNext != parseIndexCopy {
-				parseEvent.PreventDefault()
-				parseActive.Set(parseNext)
-			}
-		})
-
-		parseTabButtons = append(parseTabButtons, html.Button(html.Props{
-			ID:        parseTabID,
-			Class:     "gwc-tabs-tab",
-			Type:      "button",
-			Role:      "tab",
-			OnClick:   parseSelect,
-			OnKeyDown: parseKeyNav,
-			// tabindex must always render (0 and -1), so it goes through Raw — Props.TabIndex==0
-			// is intentionally omitted by the serializer, which would erase the roving tab stop.
-			Raw: map[string]any{"tabindex": tabsTabIndex(parseIsActive)},
-			Aria: map[string]string{
-				"selected": tabsBoolAttr(parseIsActive),
-				"controls": parsePanelID,
-			},
-		}, html.Text(parseTab.Label)))
+		parseTabButtons = append(parseTabButtons, tabButton(tabButtonProps{Active: parseIsActive, ActiveState: parseActive, Index: parseIndex, Count: len(parseProps.Tabs), TabID: parseTabID, PanelID: parsePanelID, Label: parseTab.Label}))
 
 		parsePanels = append(parsePanels, html.Tag("div", html.Props{
 			ID:     parsePanelID,
@@ -91,6 +62,25 @@ func Tabs(parseProps TabsProps) ui.Node {
 	parseChildren = append(parseChildren, parsePanels...)
 
 	return html.Div(html.Props{Class: "gwc-tabs"}, parseChildren...)
+}
+
+type tabButtonProps struct {
+	Active                bool
+	ActiveState           ui.State[int]
+	Index, Count          int
+	TabID, PanelID, Label string
+}
+
+func tabButton(parseProps tabButtonProps) ui.Node {
+	parseSelect := ui.UseEvent(func() { parseProps.ActiveState.Set(parseProps.Index) })
+	parseKeyNav := ui.UseEvent(func(parseEvent ui.KeyboardEvent) {
+		parseNext := tabsNextIndex(parseEvent.GetKey(), parseProps.Index, parseProps.Count)
+		if parseNext != parseProps.Index {
+			parseEvent.PreventDefault()
+			parseProps.ActiveState.Set(parseNext)
+		}
+	})
+	return html.Button(html.Props{ID: parseProps.TabID, Class: "gwc-tabs-tab", Type: "button", Role: "tab", OnClick: parseSelect, OnKeyDown: parseKeyNav, Raw: map[string]any{"tabindex": tabsTabIndex(parseProps.Active)}, Aria: map[string]string{"selected": tabsBoolAttr(parseProps.Active), "controls": parseProps.PanelID}}, html.Text(parseProps.Label))
 }
 
 // tabsBoolAttr renders a Go bool as an ARIA "true"/"false" string.

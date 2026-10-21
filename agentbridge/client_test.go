@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // fakeSocket is an in-memory AgentSocket for testing the client loop. Frames
@@ -135,7 +135,9 @@ func TestHelloIsFirstFrame(t *testing.T) {
 		t.Errorf("hello payload.commands does not include %q; got %v", parseCmd, parseHello.Commands)
 	}
 
-	parseSock.Close()
+	if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+		t.Errorf("close socket: %v", parseCloseErr)
+	}
 	<-parseDone
 }
 
@@ -168,7 +170,9 @@ func TestEventQueuedBeforeHello(t *testing.T) {
 	if parseEvent.Kind != KindEvent || parseEvent.Name != "console.error" {
 		t.Fatalf("queued event = %#v", parseEvent)
 	}
-	parseSock.Close()
+	if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+		t.Errorf("close socket: %v", parseCloseErr)
+	}
 	<-parseDone
 }
 
@@ -268,7 +272,9 @@ func TestCommandRoundTrip(t *testing.T) {
 	if parseAck.AckSeq != parseCommandSeq {
 		t.Errorf("ack ackSeq = %d, want %d", parseAck.AckSeq, parseCommandSeq)
 	}
-	parseSock.Close()
+	if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+		t.Errorf("close socket: %v", parseCloseErr)
+	}
 	<-parseDone
 }
 
@@ -305,7 +311,9 @@ func TestCommandAckCarriesRuntimeStateVersion(t *testing.T) {
 	if parseAck.StateVersion <= parseBefore {
 		t.Fatalf("ack stateVersion = %d, want > %d", parseAck.StateVersion, parseBefore)
 	}
-	parseSock.Close()
+	if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+		t.Errorf("close socket: %v", parseCloseErr)
+	}
 	<-parseDone
 }
 
@@ -343,7 +351,9 @@ func TestUnknownCommandAcksError(t *testing.T) {
 	if parseAck.AckSeq != parseCommandSeq {
 		t.Errorf("ackSeq = %d, want %d", parseAck.AckSeq, parseCommandSeq)
 	}
-	parseSock.Close()
+	if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+		t.Errorf("close socket: %v", parseCloseErr)
+	}
 	<-parseDone
 }
 
@@ -383,7 +393,9 @@ func TestMalformedFrameDoesNotStopLoop(t *testing.T) {
 	if parseAck.OK == nil || !*parseAck.OK {
 		t.Fatalf("ok = %v, want true", parseAck.OK)
 	}
-	parseSock.Close()
+	if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+		t.Errorf("close socket: %v", parseCloseErr)
+	}
 	<-parseDone
 }
 
@@ -413,7 +425,9 @@ func TestOutboundSeqStrictlyIncreasing(t *testing.T) {
 		parseSock.pushRead(buildTestCommandFrame(uint64(parseI+1), parseCmd, nil))
 		parseCollected = append(parseCollected, parseSock.readWritten())
 	}
-	parseSock.Close()
+	if parseCloseErr := parseSock.Close(); parseCloseErr != nil {
+		t.Errorf("close socket: %v", parseCloseErr)
+	}
 	<-parseDone
 
 	parsePrevSeq := uint64(0)

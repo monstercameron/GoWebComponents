@@ -5,16 +5,18 @@ package routertest
 import (
 	stdtesting "testing"
 
-	appRouter "github.com/monstercameron/GoWebComponents/v6/router"
-	base "github.com/monstercameron/GoWebComponents/v6/testkit/router"
+	appRouter "github.com/monstercameron/GoWebComponents/v7/router"
+	base "github.com/monstercameron/GoWebComponents/v7/testkit/router"
 )
 
 type Fixture = base.Fixture
 
-func NewHash(parseTb stdtesting.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+// NewHash creates a hash-router fixture with v7 router options.
+func NewHash(parseTb stdtesting.TB, parseOptions ...appRouter.RouterOption) *Fixture {
 	return base.NewHash(parseTb, parseOptions...)
 }
 
-func NewHistory(parseTb stdtesting.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+// NewHistory creates a history-router fixture with v7 router options.
+func NewHistory(parseTb stdtesting.TB, parseOptions ...appRouter.RouterOption) *Fixture {
 	return base.NewHistory(parseTb, parseOptions...)
 }

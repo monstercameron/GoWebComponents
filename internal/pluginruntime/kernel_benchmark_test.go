@@ -11,7 +11,7 @@ func BenchmarkKernelResolveService(parseB *testing.B) {
 		parseB.Fatalf("NewKernel() error = %v", parseErr)
 	}
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		if _, hasService := buildKernel.ResolveService(ServiceKeyDiagnostics); !hasService {
 			parseB.Fatal("expected diagnostics service")
 		}
@@ -46,7 +46,7 @@ func BenchmarkKernelListDevtoolsSections(parseB *testing.B) {
 		parseB.Fatalf("NewKernel() error = %v", parseErr)
 	}
 	parseB.ReportAllocs()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		if len(buildKernel.ListDevtoolsSections()) != 1 {
 			parseB.Fatal("expected one devtools section")
 		}

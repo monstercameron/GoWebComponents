@@ -1,0 +1,410 @@
+{
+  "root": "/home/runner/work/_temp/fair-v6-v7/v6-ref",
+  "old_loop_count": 248,
+  "replacement_count": 248,
+  "remaining_old_loop_count": 0,
+  "files": [
+    {
+      "path": "css/fold_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "devtools/micro_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "diagnostics/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/public/portfolio-site/site_content_benchmark_test.go",
+      "count": 5
+    },
+    {
+      "path": "examples/public/static-server-side-rendering-routing/ssr_routing_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "examples/public-examples-site/assets/code/portfolio-site/site_content_benchmark_test.go",
+      "count": 5
+    },
+    {
+      "path": "examples/public-examples-site/assets/code/static-server-side-rendering-routing/ssr_routing_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/admin_billing_ops_test.go",
+      "count": 2
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/admin_control_ops_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/admin_list_query_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/admin_mutation_effects_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/admin_readonly_report_ops_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/admin_support_ops_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/auth_external_handshake_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/auth_google_oidc_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/auth_identity_linking_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/auth_lifecycle_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/auth_privileged_policy_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/auth_workspace_policy_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/auth_workspace_provisioning_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/authz_entitlement_test.go",
+      "count": 2
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/benchmark_test.go",
+      "count": 7
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/billing_formula_guard_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/catalog_loader_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/catalog_publish_guard_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/client_logging_benchmark_test.go",
+      "count": 4
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/job_flows_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/log_tail_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/logging_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/logging_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/server_tool_stub_test.go",
+      "count": 2
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/store_auth_external_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/superuser_control_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/superuser_pricing_ops_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/superuser_reliability_ops_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/app/traceability_contract_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/provider/anthropic_memory_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/ai-chat-wizard/server/provider/cerebras_memory_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "examples/server/server-side-rendering-routing/server_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "examples/server/server-side-rendering-secure-forms/server_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "examples/testing/atlas-perf/atlas_perf_render_test.go",
+      "count": 5
+    },
+    {
+      "path": "examples/testing/render-benchmark/shared/progressive_bench_test.go",
+      "count": 10
+    },
+    {
+      "path": "fetch/fetch_wasm_test.go",
+      "count": 1
+    },
+    {
+      "path": "fetch/micro_benchmark_wasm_test.go",
+      "count": 1
+    },
+    {
+      "path": "head/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "hotreload/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "html/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "html/sugar_compose_test.go",
+      "count": 1
+    },
+    {
+      "path": "i18n/i18n_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "i18n/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "internal/platform/jsdom/adapters_benchmark_test.go",
+      "count": 17
+    },
+    {
+      "path": "internal/pluginruntime/kernel_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "internal/runtime/events_benchmark_test.go",
+      "count": 5
+    },
+    {
+      "path": "internal/runtime/fine_grained_benchmark_test.go",
+      "count": 7
+    },
+    {
+      "path": "internal/runtime/globalruntime_bench_test.go",
+      "count": 1
+    },
+    {
+      "path": "internal/runtime/hooks_benchmark_test.go",
+      "count": 13
+    },
+    {
+      "path": "internal/runtime/hooks_fetch_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "internal/runtime/hooks_fetch_stub_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "internal/runtime/html_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "internal/runtime/hydration_benchmark_test.go",
+      "count": 4
+    },
+    {
+      "path": "internal/runtime/interfaces_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "internal/runtime/layout_benchmark_test.go",
+      "count": 4
+    },
+    {
+      "path": "internal/runtime/perf_reconciler_batch_scan_compare_bench_test.go",
+      "count": 2
+    },
+    {
+      "path": "internal/runtime/perf_reconciler_child_order_compare_bench_test.go",
+      "count": 2
+    },
+    {
+      "path": "internal/runtime/portal_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "internal/runtime/props_storage_prototype_test.go",
+      "count": 0
+    },
+    {
+      "path": "internal/runtime/reconciler_benchmark_test.go",
+      "count": 14
+    },
+    {
+      "path": "internal/runtime/runtime_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "internal/runtime/scheduler_benchmark_test.go",
+      "count": 6
+    },
+    {
+      "path": "internal/runtime/shim_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "internal/runtime/ssr_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "internal/runtime/state_benchmark_test.go",
+      "count": 10
+    },
+    {
+      "path": "internal/runtime/types_benchmark_test.go",
+      "count": 4
+    },
+    {
+      "path": "interop/interop_wasm_test.go",
+      "count": 2
+    },
+    {
+      "path": "interop/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "interop/worker_fanout_bench_test.go",
+      "count": 2
+    },
+    {
+      "path": "logging/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "plugin/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "prerender/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "projection/apply_scaling_test.go",
+      "count": 1
+    },
+    {
+      "path": "pwa/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "router/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "router/router_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "sanitize/sanitize_test.go",
+      "count": 1
+    },
+    {
+      "path": "state/micro_benchmark_wasm_test.go",
+      "count": 2
+    },
+    {
+      "path": "test/render/hooks_mirror_benchmark_test.go",
+      "count": 3
+    },
+    {
+      "path": "test/render/hydration_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "test/render/subject_mirror_benchmark_test.go",
+      "count": 4
+    },
+    {
+      "path": "testkit/hooks/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "testkit/hooks/micro_benchmark_wasm_test.go",
+      "count": 2
+    },
+    {
+      "path": "testkit/render/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "testkit/router/micro_benchmark_native_test.go",
+      "count": 1
+    },
+    {
+      "path": "testkit/router/micro_benchmark_wasm_test.go",
+      "count": 2
+    },
+    {
+      "path": "testkit/ssr/micro_benchmark_test.go",
+      "count": 1
+    },
+    {
+      "path": "ui/micro_benchmark_test.go",
+      "count": 2
+    },
+    {
+      "path": "ui/ui_native_benchmark_test.go",
+      "count": 6
+    },
+    {
+      "path": "utils/micro_benchmark_wasm_test.go",
+      "count": 2
+    },
+    {
+      "path": "virtualization/micro_benchmark_test.go",
+      "count": 1
+    }
+  ],
+  "transformations": [
+    {
+      "path": "internal/runtime/hydration_benchmark_test.go",
+      "hydration_drain_replacements": 5
+    },
+    {
+      "path": "internal/runtime/props_storage_prototype_test.go",
+      "props_sort_insertions": 1
+    }
+  ]
+}

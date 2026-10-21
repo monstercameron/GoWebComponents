@@ -86,12 +86,13 @@ func BenchmarkFineGrainedKeyedDashboardComponentUpdate16(parseB *testing.B) {
 	parseRt, parseScheduler := benchmarkKeyedDashboardComponentUpdate(16)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		if parseErr := parseRt.SetAtomValue("dashboard-hot-count", parseI); parseErr != nil {
 			parseB.Fatalf("unexpected atom update error: %v", parseErr)
 		}
 		drainBenchmarkScheduler(parseScheduler)
+		parseI++
 	}
 }
 
@@ -99,12 +100,13 @@ func BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16(parseB *testing.B) {
 	parseRt, parseScheduler := benchmarkKeyedDashboardReactiveTextUpdate(16)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		if parseErr := parseRt.SetAtomValue("dashboard-hot-count", parseI); parseErr != nil {
 			parseB.Fatalf("unexpected atom update error: %v", parseErr)
 		}
 		drainBenchmarkScheduler(parseScheduler)
+		parseI++
 	}
 }
 
@@ -233,14 +235,15 @@ func BenchmarkFineGrainedSelectorDashboardComponentUpdate16(parseB *testing.B) {
 	parseBase := parsePanelsValue.(benchmarkDashboardModel)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseNext := parseBase
 		parseNext.Hot = parseI
 		if parseErr := parseRt.SetAtomValue("dashboard-model", parseNext); parseErr != nil {
 			parseB.Fatalf("unexpected model atom update error: %v", parseErr)
 		}
 		drainBenchmarkScheduler(parseScheduler)
+		parseI++
 	}
 }
 
@@ -250,14 +253,15 @@ func BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16(parseB *testing.B
 	parseBase := parsePanelsValue.(benchmarkDashboardModel)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseNext := parseBase
 		parseNext.Hot = parseI
 		if parseErr := parseRt.SetAtomValue("dashboard-model", parseNext); parseErr != nil {
 			parseB.Fatalf("unexpected model atom update error: %v", parseErr)
 		}
 		drainBenchmarkScheduler(parseScheduler)
+		parseI++
 	}
 }
 
@@ -266,12 +270,13 @@ func BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16(parseB *testing.B
 	parseHotAtomID := "signal-style-panel-" + strconv.Itoa(16/2)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		if parseErr := parseRt.SetAtomValue(parseHotAtomID, strconv.Itoa(parseI)); parseErr != nil {
 			parseB.Fatalf("unexpected signal-style atom update error: %v", parseErr)
 		}
 		drainBenchmarkScheduler(parseScheduler)
+		parseI++
 	}
 }
 
@@ -354,10 +359,11 @@ func BenchmarkFineGrainedAncestorRerenderStaticLeaves64(parseB *testing.B) {
 	setTick, parseScheduler := benchmarkAncestorRerenderStaticLeaves(64)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		setTick(parseI)
 		drainBenchmarkScheduler(parseScheduler)
+		parseI++
 	}
 }
 
@@ -365,9 +371,10 @@ func BenchmarkFineGrainedAncestorRerenderReactiveRegions64(parseB *testing.B) {
 	setTick, parseScheduler := benchmarkAncestorRerenderReactiveRegions(64)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		setTick(parseI)
 		drainBenchmarkScheduler(parseScheduler)
+		parseI++
 	}
 }

@@ -664,11 +664,17 @@ func TestExecuteBuildDirectBranches(parseT *testing.T) {
 // heavy stdlib packages in a real wasm dependency graph and stay silent for
 // packages that are not linked.
 func TestDetectHeavyWASMImports(parseT *testing.T) {
-	parseRepoRoot, parseErr := resolveRepoRoot()
-	if parseErr != nil {
-		parseT.Fatalf("resolve repo root: %v", parseErr)
+	// Keep this fixture independent of the framework's application graph. The
+	// v7 runtime no longer imports regexp, so using test/testapp would make this
+	// advisory check silently stop exercising its warning path.
+	parseAppDir := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseAppDir, "go.mod"), []byte("module example.com/heavy-wasm\n\ngo 1.27.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write fixture go.mod: %v", parseErr)
 	}
-	parseWarnings := detectHeavyWASMImports(filepath.Join(parseRepoRoot, "test", "testapp"))
+	if parseErr := os.WriteFile(filepath.Join(parseAppDir, "main.go"), []byte("package main\n\nimport \"regexp\"\n\nvar heavy = regexp.MustCompile(`x`)\n\nfunc main() { _ = heavy.MatchString(\"x\") }\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write fixture main.go: %v", parseErr)
+	}
+	parseWarnings := detectHeavyWASMImports(parseAppDir)
 
 	parseHasRegexp := false
 	for _, parseWarning := range parseWarnings {

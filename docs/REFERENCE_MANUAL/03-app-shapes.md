@@ -61,9 +61,9 @@ Choose this shape when one browser-mounted shell and local state are enough.
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // renderClientOnlyApp renders the smallest useful product-shaped browser app.
@@ -109,10 +109,10 @@ Choose this shape when the app needs multiple screens, route params, clean navig
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 type routePageProps struct {
@@ -221,8 +221,8 @@ package main
 import (
 	"net/http"
 
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderSSRPage renders one request-time HTML tree for the current request.
@@ -292,7 +292,7 @@ Choose this shape when the delivery model matters as much as the component tree.
 ```go
 package main
 
-import "github.com/monstercameron/GoWebComponents/v6/pwa"
+import "github.com/monstercameron/GoWebComponents/v7/pwa"
 
 // buildInstallabilityManifest returns the app-owned manifest for installable delivery.
 func buildInstallabilityManifest() pwa.Manifest {
@@ -357,20 +357,20 @@ Use the smallest commands that prove the chosen shape.
 Client-only:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\counter\main.go
+go -C tools run ./gwc dev -app ..\examples\public\counter\main.go
 ```
 
 Routed SPA:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\browser-router\main.go
-go run ./tools/gwc verify -app .\examples\public\browser-router\main.go -root .\examples\public\browser-router
+go -C tools run ./gwc dev -app ..\examples\public\browser-router\main.go
+go -C tools run ./gwc verify -app ..\examples\public\browser-router\main.go -root ..\examples\public\browser-router
 ```
 
 SSR and hydration:
 
 ```powershell
-go run ./tools/gwc verify -app .\examples\server\server-side-rendering-routing\main.go -root .\examples\server\server-side-rendering-routing
+go -C tools run ./gwc verify -app ..\examples\server\server-side-rendering-routing\main.go -root ..\examples\server\server-side-rendering-routing
 ```
 
 Forms-heavy:
@@ -382,7 +382,7 @@ go run ./examples/server/server-side-rendering-secure-forms
 Static/PWA-oriented:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\progressive-web-app-installability\main.go
+go -C tools run ./gwc dev -app ..\examples\public\progressive-web-app-installability\main.go
 ```
 
 ## Topic Pagination

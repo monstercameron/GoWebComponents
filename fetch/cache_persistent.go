@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 const CacheBootstrapDataKey = "fetchCache"
@@ -250,7 +250,14 @@ func startPersistentCachedRestore(parseKey string, parseEntry *cachedResourceEnt
 					if parseValueErr != nil {
 						parseErr = parseValueErr
 					} else {
+						isApplied := false
 						updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+							// A value set or loaded while the restore was reading storage
+							// is newer than the persisted record; keep it.
+							if parsePrev.Ready && !parsePrev.UpdatedAt.Before(parseRecord.UpdatedAt) {
+								return parsePrev
+							}
+							isApplied = true
 							return cachedResourceSnapshot{
 								Value:     parseValue,
 								Loading:   false,
@@ -260,13 +267,15 @@ func startPersistentCachedRestore(parseKey string, parseEntry *cachedResourceEnt
 								UpdatedAt: parseRecord.UpdatedAt,
 							}
 						})
-						parseEntry.mu.Lock()
-						parseEntry.lastLoaded = parseRecord.LastLoaded
-						if parseEntry.lastLoaded.IsZero() {
-							parseEntry.lastLoaded = parseRecord.UpdatedAt
+						if isApplied {
+							parseEntry.mu.Lock()
+							parseEntry.lastLoaded = parseRecord.LastLoaded
+							if parseEntry.lastLoaded.IsZero() {
+								parseEntry.lastLoaded = parseRecord.UpdatedAt
+							}
+							parseEntry.lastAccess = time.Now()
+							parseEntry.mu.Unlock()
 						}
-						parseEntry.lastAccess = time.Now()
-						parseEntry.mu.Unlock()
 					}
 				}
 			}

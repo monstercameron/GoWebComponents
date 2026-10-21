@@ -132,7 +132,6 @@ func findPlaygroundReturnExpr(parseFset *token.FileSet, parseFile *ast.File) (as
 		if !parseOk || parseFunc.Name == nil || parseFunc.Name.Name != "App" || parseFunc.Body == nil {
 			continue
 		}
-		parseFallback = parseFset.Position(parseFunc.Pos())
 		for _, parseStmt := range parseFunc.Body.List {
 			parseReturn, parseReturnOK := parseStmt.(*ast.ReturnStmt)
 			if !parseReturnOK {

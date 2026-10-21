@@ -116,9 +116,7 @@ func Prop(parseName string) TransitionProperty { return TransitionProperty(parse
 func TransitionProps(parseProps ...TransitionProperty) TransitionProperty {
 	parts := make([]string, 0, len(parseProps))
 	for _, p := range parseProps {
-		for _, name := range splitCommaList(string(p)) {
-			parts = append(parts, name)
-		}
+		parts = append(parts, splitCommaList(string(p))...)
 	}
 	return TransitionProperty(strings.Join(parts, ", "))
 }
@@ -167,7 +165,12 @@ const (
 )
 
 // CubicBezier builds a typed cubic-bezier easing.
+//
+// The x coordinates (p1, p3) must lie in [0,1] or the browser drops the whole
+// declaration; they are clamped so the result is always a live easing.
 func CubicBezier(p1, p2, p3, p4 float64) Easing {
+	p1 = min(max(p1, 0), 1)
+	p3 = min(max(p3, 0), 1)
 	return Easing("cubic-bezier(" + trimFloat(p1) + "," + trimFloat(p2) + "," + trimFloat(p3) + "," + trimFloat(p4) + ")")
 }
 

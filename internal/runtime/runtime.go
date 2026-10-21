@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 var (
@@ -140,6 +142,11 @@ type Runtime struct {
 	updateScheduled         bool
 	continueWorkFn          func()
 	pendingBoundaryRecovery bool
+	// effectErroredBoundaries lists boundaries that caught an effect or cleanup
+	// failure and have not yet re-rendered into their fallback; see
+	// findPendingRecoveryBoundary.
+	effectErroredBoundaries []*Fiber
+	isEffectErroredAged     bool
 	// fiberSlab batches mount-path fiber allocation; see acquireMountFiber.
 	fiberSlab          []Fiber
 	fiberSlabNext      int
@@ -605,7 +612,7 @@ func (parseRt *Runtime) RenderInto(parseTarget any, parseElement *Element) error
 	parseContainer := parseRt.resolveContainer(parseTarget)
 	if IsDOMNodeNull(parseContainer) {
 		ReportDiagnostic("runtime", DiagnosticError, "RenderInto failed because the target node could not be resolved")
-		return fmt.Errorf("RenderInto: target node could not be resolved")
+		return errcode.New(errcode.RuntimeContainerNotFound, "RenderInto: target node could not be resolved (pass a selector or node that exists in the document)")
 	}
 	parseRt.Render(parseElement, parseContainer)
 	return nil
@@ -616,7 +623,7 @@ func (parseRt *Runtime) HydrateInto(parseTarget any, parseElement *Element) erro
 	parseContainer := parseRt.resolveContainer(parseTarget)
 	if IsDOMNodeNull(parseContainer) {
 		ReportDiagnostic("runtime", DiagnosticError, "HydrateInto failed because the target node could not be resolved")
-		return fmt.Errorf("HydrateInto: target node could not be resolved")
+		return errcode.New(errcode.RuntimeContainerNotFound, "HydrateInto: target node could not be resolved (pass a selector or node that exists in the document)")
 	}
 	parseRt.Hydrate(parseElement, parseContainer)
 	return nil

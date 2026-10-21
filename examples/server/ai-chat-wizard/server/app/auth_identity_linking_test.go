@@ -153,8 +153,7 @@ func BenchmarkResolveExternalIdentityLinkDecision(parseB *testing.B) {
 		},
 	}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseDecision, parseErr := parseResolveExternalIdentityLinkDecision(parseRequest)
 		if parseErr != nil {
 			parseB.Fatalf("parseResolveExternalIdentityLinkDecision: %v", parseErr)

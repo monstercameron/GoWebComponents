@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // Ported from React's ReactEffectOrdering-test.js ("unmounts on deletion are
@@ -37,12 +37,12 @@ func TestEffectCleanupParentBeforeChildOnDeletion(t *testing.T) {
 	}
 
 	// Mount the parent/child tree under a host wrapper.
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
 		runtime.CreateElement(parseParent, map[string]any{})))
 	parseLog = nil
 
 	// Delete the whole subtree by re-rendering the wrapper empty.
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
 
 	parseGot := strings.Join(parseLog, ",")
 	if parseGot != "cleanup parent,cleanup child" {
@@ -67,13 +67,13 @@ func TestEffectCleanupOrderAcrossSiblings(t *testing.T) {
 		}
 	}
 
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
 		runtime.CreateElement(makeLeaf("a"), map[string]any{}),
 		runtime.CreateElement(makeLeaf("b"), map[string]any{}),
 		runtime.CreateElement(makeLeaf("c"), map[string]any{})))
 	parseLog = nil
 
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
 
 	parseGot := strings.Join(parseLog, ",")
 	if parseGot != "cleanup a,cleanup b,cleanup c" {

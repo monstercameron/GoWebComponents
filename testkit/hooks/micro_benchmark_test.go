@@ -8,7 +8,7 @@ func BenchmarkHarnessStubMethodsMicro(parseB *testing.B) {
 	var parseHarness Harness[int]
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseHarness.Current()
 		parseHarness.Rerender()
 		parseHarness.Flush()

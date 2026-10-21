@@ -6,8 +6,8 @@ import (
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
-	"github.com/monstercameron/GoWebComponents/v6/sanitize"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/sanitize"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // Raw / markup nodes (G3).
@@ -122,7 +122,7 @@ func markupAttrsToProps(parseAttrs []xhtml.Attribute) Props {
 // parseInlineStyle splits a "prop: value; prop: value" string into a map.
 func parseInlineStyle(parseValue string) map[string]string {
 	var parseStyle map[string]string
-	for parseDecl := range strings.SplitSeq(parseValue, ";") {
+	for _, parseDecl := range splitStyleDeclarations(parseValue) {
 		parseKey, parseRawVal, parseFound := strings.Cut(parseDecl, ":")
 		if !parseFound {
 			continue
@@ -138,4 +138,40 @@ func parseInlineStyle(parseValue string) map[string]string {
 		parseStyle[parseProp] = parseVal
 	}
 	return parseStyle
+}
+
+// splitStyleDeclarations splits a style string on ';' while ignoring semicolons
+// inside parentheses (url(data:...;base64,...)) and quoted strings.
+func splitStyleDeclarations(parseValue string) []string {
+	var parseParts []string
+	parseDepth := 0
+	var parseQuote byte
+	parseStart := 0
+	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
+		parseByte := parseValue[parseIndex]
+		switch {
+		case parseQuote != 0:
+			switch parseByte {
+			case '\\':
+				parseIndex++
+			default:
+				if parseByte != parseQuote {
+					break
+				}
+				parseQuote = 0
+			}
+		case parseByte == '"' || parseByte == '\'':
+			parseQuote = parseByte
+		case parseByte == '(':
+			parseDepth++
+		case parseByte == ')':
+			if parseDepth > 0 {
+				parseDepth--
+			}
+		case parseByte == ';' && parseDepth == 0:
+			parseParts = append(parseParts, parseValue[parseStart:parseIndex])
+			parseStart = parseIndex + 1
+		}
+	}
+	return append(parseParts, parseValue[parseStart:])
 }

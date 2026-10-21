@@ -2,6 +2,7 @@ package pwa
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -260,7 +261,9 @@ func wasmRolloutBucket(parseClientID string, parseSalt string) int {
 		parseClientID = "anonymous"
 	}
 	parseSum := sha256.Sum256([]byte(strings.TrimSpace(parseSalt) + "\x00" + parseClientID))
-	return int(parseSum[0]) % 100
+	// Four bytes, not one: a single byte (0..255) mod 100 hits buckets 0..55 three times and 56..99
+	// twice, so a "50%" canary routed ~58.6% of clients. Mod 100 over 32 bits is uniform to ~1e-8.
+	return int(binary.BigEndian.Uint32(parseSum[:4]) % 100)
 }
 
 // BuildServiceWorkerAssetPlan builds a ServiceWorkerAssetPlan from a validated WasmReleaseManifest.

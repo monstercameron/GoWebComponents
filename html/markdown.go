@@ -4,13 +4,11 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/extension"
-	extast "github.com/yuin/goldmark/extension/ast"
-	"github.com/yuin/goldmark/text"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // MarkdownClasses configures optional class names applied to rendered markdown nodes.
@@ -54,6 +52,10 @@ type MarkdownRenderOptions struct {
 	// without the trailing colon (for example []string{"http", "https",
 	// "mailto", "data"} to additionally permit inline data: images).
 	AllowedURLSchemes []string
+
+	// isSchemeOverride is set by WithURLSchemes so an explicit empty list means
+	// "allow no schemes" instead of falling back to the default allowlist.
+	isSchemeOverride bool
 }
 
 // defaultMarkdownSchemes is the scheme allowlist used when a caller does not
@@ -61,23 +63,13 @@ type MarkdownRenderOptions struct {
 // every other active scheme.
 var defaultMarkdownSchemes = map[string]bool{"http": true, "https": true, "mailto": true}
 
-// RenderMarkdown parses markdown text and returns semantic ui.Node values.
-func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions) []ui.Node {
-	parseConfig := MarkdownRenderOptions{}
-	if len(parseOptions) > 0 {
-		parseConfig = parseOptions[0]
-	}
-	parseSource := []byte(parseMarkdown)
-	parseRoot := goldmark.New(goldmark.WithExtensions(extension.GFM)).Parser().Parse(text.NewReader(parseSource))
-	return renderMarkdownBlocks(parseRoot, parseSource, parseConfig, 0)
+// ResolveSafeHref resolves a markdown destination against SourcePath (through
+// ResolveHref when set) and then drops it when its URL scheme is not on the
+// configured allowlist, so dangerous schemes never reach an href or src attribute.
+// Markdown engines call it for every link and image destination.
+func (parseOptions MarkdownRenderOptions) ResolveSafeHref(parseDestination string) string {
+	return SanitizeMarkdownHref(resolveMarkdownHref(parseOptions, parseDestination), parseOptions.GetAllowedSchemes())
 }
-
-// maxMarkdownRenderDepth bounds the recursive AST walk. goldmark does not cap
-// blockquote/list nesting, so adversarial input like "> " repeated tens of
-// thousands of times yields an AST deep enough to overflow the render stack.
-// The cap sits far above any real document (deeply nested lists rarely exceed
-// a few dozen levels) while stopping pathological input from crashing the process.
-const maxMarkdownRenderDepth = 512
 
 // ResolveMarkdownHref resolves a markdown destination against the source document path.
 func ResolveMarkdownHref(parseSourcePath, parseDestination string) string {
@@ -109,328 +101,12 @@ func ResolveMarkdownHref(parseSourcePath, parseDestination string) string {
 	return parseResolved.String()
 }
 
-// renderMarkdownBlocks is a core package helper.
-func renderMarkdownBlocks(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) []ui.Node {
-	if parseDepth > maxMarkdownRenderDepth {
-		// Adversarially deep nesting: truncate with a visible marker rather than
-		// recursing until the stack overflows.
-		return []ui.Node{P(propsWithClass(parseConfig.Classes.Paragraph), Text("[markdown nesting too deep — truncated]"))}
-	}
-	parseNodes := make([]ui.Node, 0)
-	for parseChild := parseParent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
-		if parseRendered, parseOk := renderMarkdownBlock(parseChild, parseSource, parseConfig, parseDepth); parseOk {
-			parseNodes = append(parseNodes, parseRendered)
-		}
-	}
-	return parseNodes
-}
-
-// renderMarkdownBlock is a core package helper.
-func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) (ui.Node, bool) {
-	parseClasses := parseConfig.Classes
-	switch parseTyped := parseNode.(type) {
-	case *ast.Heading:
-		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth)
-		switch parseTyped.Level {
-		case 1:
-			return H1(propsWithClass(parseClasses.Heading1), parseChildren...), true
-		case 2:
-			return H2(propsWithClass(parseClasses.Heading2), parseChildren...), true
-		case 3:
-			return H3(propsWithClass(parseClasses.Heading3), parseChildren...), true
-		case 4:
-			return H4(propsWithClass(parseClasses.Heading4), parseChildren...), true
-		case 5:
-			return H5(propsWithClass(parseClasses.Heading5), parseChildren...), true
-		default:
-			return H6(propsWithClass(parseClasses.Heading6), parseChildren...), true
-		}
-	case *ast.Paragraph:
-		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth)...), true
-	case *ast.TextBlock:
-		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth)...), true
-	case *ast.Blockquote:
-		return Blockquote(propsWithClass(parseClasses.Blockquote), renderMarkdownBlocks(parseTyped, parseSource, parseConfig, parseDepth+1)...), true
-	case *ast.List:
-		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig, parseDepth+1)
-		parseClassName := strings.TrimSpace(parseClasses.List)
-		if parseTyped.IsOrdered() {
-			parseClassName = joinMarkdownClasses(parseClassName, parseClasses.OrderedList)
-			parseProps := propsWithClass(parseClassName)
-			if parseTyped.Start != 1 {
-				parseProps.Raw = map[string]any{"start": parseTyped.Start}
-			}
-			return Tag("ol", parseProps, parseItems...), true
-		}
-		parseClassName = joinMarkdownClasses(parseClassName, parseClasses.UnorderedList)
-		return Ul(propsWithClass(parseClassName), parseItems...), true
-	case *ast.ListItem:
-		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig, parseDepth+1)
-		if !markdownNodeContainsTaskCheckBox(parseTyped) {
-			if isParseChecked, isParseTask := markdownTaskListItemState(parseTyped, parseSource); isParseTask {
-				parseItems = append([]ui.Node{renderMarkdownTaskCheckBox(&extast.TaskCheckBox{IsChecked: isParseChecked})}, parseItems...)
-			}
-		}
-		return Li(propsWithClass(parseClasses.ListItem), parseItems...), true
-	case *ast.FencedCodeBlock:
-		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(parseTyped.Lines(), parseSource), "\n"), parseConfig), true
-	case *ast.CodeBlock:
-		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(parseTyped.Lines(), parseSource), "\n"), parseConfig), true
-	case *ast.ThematicBreak:
-		return Hr(propsWithClass(parseClasses.HorizontalRule)), true
-	case *ast.HTMLBlock:
-		parseRaw := strings.TrimSpace(markdownRawHTMLBlockText(parseTyped, parseSource))
-		if parseRaw == "" {
-			return nil, false
-		}
-		return P(propsWithClass(parseClasses.Paragraph), Text(parseRaw)), true
-	case *extast.TaskCheckBox:
-		return renderMarkdownTaskCheckBox(parseTyped), true
-	case *extast.Table:
-		return renderMarkdownTable(parseTyped, parseSource, parseConfig, parseDepth+1), true
-	default:
-		parseTextValue := strings.TrimSpace(markdownPlainText(parseNode, parseSource))
-		if parseTextValue == "" {
-			return nil, false
-		}
-		return P(propsWithClass(parseClasses.Paragraph), Text(parseTextValue)), true
-	}
-}
-
-// renderMarkdownTable converts a GFM table into thead/tbody markup.
-func renderMarkdownTable(parseTable *extast.Table, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) ui.Node {
-	var parseHeadRows []ui.Node
-	var parseBodyRows []ui.Node
-	for parseChild := parseTable.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
-		switch parseRow := parseChild.(type) {
-		case *extast.TableHeader:
-			parseHeadRows = append(parseHeadRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, true, parseDepth))
-		case *extast.TableRow:
-			parseBodyRows = append(parseBodyRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, false, parseDepth))
-		}
-	}
-	parseSections := make([]ui.Node, 0, 2)
-	if len(parseHeadRows) > 0 {
-		parseSections = append(parseSections, Tag("thead", Props{}, parseHeadRows...))
-	}
-	if len(parseBodyRows) > 0 {
-		parseSections = append(parseSections, Tag("tbody", Props{}, parseBodyRows...))
-	}
-	return Tag("table", Props{}, parseSections...)
-}
-
-// renderMarkdownTableRow converts one table row's cells into th/td nodes.
-func renderMarkdownTableRow(parseRow ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, isParseHeader bool, parseDepth int) ui.Node {
-	parseCellTag := "td"
-	if isParseHeader {
-		parseCellTag = "th"
-	}
-	var parseCells []ui.Node
-	for parseCell := parseRow.FirstChild(); parseCell != nil; parseCell = parseCell.NextSibling() {
-		parseCells = append(parseCells, Tag(parseCellTag, Props{}, renderMarkdownInlines(parseCell, parseSource, parseConfig, parseDepth)...))
-	}
-	return Tag("tr", Props{}, parseCells...)
-}
-
-// renderMarkdownCodeBlock is a core package helper.
-func renderMarkdownCodeBlock(parseCode string, parseConfig MarkdownRenderOptions) ui.Node {
-	parseChildren := make([]ui.Node, 0, 2)
-	if strings.TrimSpace(parseConfig.CodeBlockLabel) != "" {
-		parseChildren = append(parseChildren, Div(propsWithClass(parseConfig.Classes.CodeBlockLabel), Text(parseConfig.CodeBlockLabel)))
-	}
-	parseChildren = append(parseChildren, Pre(propsWithClass(parseConfig.Classes.CodeBlockPre), Code(Props{}, Text(parseCode))))
-	return Div(propsWithClass(parseConfig.Classes.CodeBlockContainer), parseChildren...)
-}
-
-// renderMarkdownInlines is a core package helper.
-func renderMarkdownInlines(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) []ui.Node {
-	if parseDepth > maxMarkdownRenderDepth {
-		// Adversarially deep inline nesting (e.g. runaway emphasis/link nesting):
-		// stop recursing before the stack overflows.
-		return nil
-	}
-	parseNodes := make([]ui.Node, 0)
-	for parseChild := parseParent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
-		parseNodes = append(parseNodes, renderMarkdownInline(parseChild, parseSource, parseConfig, parseDepth)...)
-	}
-	return parseNodes
-}
-
-// renderMarkdownInline is a core package helper.
-func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) []ui.Node {
-	parseClasses := parseConfig.Classes
-	switch parseTyped := parseNode.(type) {
-	case *ast.Text:
-		parseTextValue := string(parseTyped.Segment.Value(parseSource))
-		parseNodes := []ui.Node{Text(parseTextValue)}
-		if parseTyped.HardLineBreak() || parseTyped.SoftLineBreak() {
-			parseNodes = append(parseNodes, Br(Props{}))
-		}
-		return parseNodes
-	case *ast.CodeSpan:
-		return []ui.Node{Code(propsWithClass(parseClasses.InlineCode), Text(markdownPlainText(parseTyped, parseSource)))}
-	case *ast.Emphasis:
-		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth+1)
-		if parseTyped.Level == 2 {
-			return []ui.Node{Tag("strong", propsWithClass(parseClasses.Strong), parseChildren...)}
-		}
-		return []ui.Node{Em(propsWithClass(parseClasses.Emphasis), parseChildren...)}
-	case *ast.Link:
-		parseChildren2 := renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth+1)
-		parseProps := propsWithClass(parseClasses.Link)
-		parseProps.Href = safeMarkdownHref(parseConfig, string(parseTyped.Destination))
-		parseProps.Target = parseConfig.LinkTarget
-		parseProps.Rel = parseConfig.LinkRel
-		return []ui.Node{A(parseProps, parseChildren2...)}
-	case *ast.Image:
-		parseProps3 := propsWithClass(parseClasses.Link)
-		parseProps3.Src = safeMarkdownHref(parseConfig, string(parseTyped.Destination))
-		parseProps3.Alt = markdownPlainText(parseTyped, parseSource)
-		return []ui.Node{Img(parseProps3)}
-	case *ast.AutoLink:
-		parseHref := string(parseTyped.URL(parseSource))
-		parseProps2 := propsWithClass(parseClasses.Link)
-		parseProps2.Href = SanitizeMarkdownHref(parseHref, parseConfig.AllowedURLSchemes)
-		parseProps2.Target = parseConfig.LinkTarget
-		parseProps2.Rel = parseConfig.LinkRel
-		return []ui.Node{A(parseProps2, Text(parseHref))}
-	case *ast.RawHTML:
-		parseRaw := strings.TrimSpace(string(parseTyped.Segments.Value(parseSource)))
-		if parseRaw == "" {
-			return nil
-		}
-		return []ui.Node{Text(parseRaw)}
-	case *extast.Strikethrough:
-		return []ui.Node{Del(Props{}, renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth+1)...)}
-	case *extast.TaskCheckBox:
-		return []ui.Node{renderMarkdownTaskCheckBox(parseTyped)}
-	default:
-		parseTextValue2 := markdownPlainText(parseTyped, parseSource)
-		if parseTextValue2 == "" {
-			return nil
-		}
-		return []ui.Node{Text(parseTextValue2)}
-	}
-}
-
-func renderMarkdownTaskCheckBox(parseNode *extast.TaskCheckBox) ui.Node {
-	parseProps := Props{Type: "checkbox", Disabled: true}
-	if parseNode != nil && parseNode.IsChecked {
-		parseProps.Checked = true
-	}
-	return Input(parseProps)
-}
-
-func markdownNodeContainsTaskCheckBox(parseNode ast.Node) bool {
-	if parseNode == nil {
-		return false
-	}
-	for parseChild := parseNode.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
-		if _, parseOk := parseChild.(*extast.TaskCheckBox); parseOk {
-			return true
-		}
-		if markdownNodeContainsTaskCheckBox(parseChild) {
-			return true
-		}
-	}
-	return false
-}
-
-func markdownTaskListItemState(parseItem *ast.ListItem, parseSource []byte) (bool, bool) {
-	if parseItem == nil || parseItem.FirstChild() == nil {
-		return false, false
-	}
-	parseLines := parseItem.FirstChild().Lines()
-	if parseLines == nil || parseLines.Len() == 0 {
-		return false, false
-	}
-	parseStart := parseLines.At(0).Start
-	if parseStart > len(parseSource) {
-		return false, false
-	}
-	parseLineStart := parseStart
-	for parseLineStart > 0 && parseSource[parseLineStart-1] != '\n' && parseSource[parseLineStart-1] != '\r' {
-		parseLineStart--
-	}
-	parsePrefix := string(parseSource[parseLineStart:parseStart])
-	parseMarkerStart := strings.LastIndex(parsePrefix, "[")
-	if parseMarkerStart < 0 {
-		return false, false
-	}
-	switch strings.TrimSpace(parsePrefix[parseMarkerStart:]) {
-	case "[x]", "[X]":
-		return true, true
-	case "[ ]":
-		return false, true
-	default:
-		return false, false
-	}
-}
-
-func markdownRawHTMLBlockText(parseBlock *ast.HTMLBlock, parseSource []byte) string {
-	if parseBlock == nil {
-		return ""
-	}
-	parseValue := markdownLinesText(parseBlock.Lines(), parseSource)
-	if parseBlock.HasClosure() {
-		parseValue += string(parseBlock.ClosureLine.Value(parseSource))
-	}
-	return parseValue
-}
-
-// markdownLinesText is a core package helper.
-func markdownLinesText(parseLines *text.Segments, parseSource []byte) string {
-	if parseLines == nil {
-		return ""
-	}
-	var parseBuilder strings.Builder
-	for parseIndex := 0; parseIndex < parseLines.Len(); parseIndex++ {
-		parseSegment := parseLines.At(parseIndex)
-		parseBuilder.Write(parseSegment.Value(parseSource))
-	}
-	return parseBuilder.String()
-}
-
-// markdownPlainText is a core package helper.
-func markdownPlainText(parseNode ast.Node, parseSource []byte) string {
-	var parseBuilder strings.Builder
-	var parseWalk func(ast.Node)
-	parseWalk = func(parseCurrent ast.Node) {
-		if parseCurrent == nil {
-			return
-		}
-		switch parseTyped := parseCurrent.(type) {
-		case *ast.Text:
-			parseBuilder.Write(parseTyped.Segment.Value(parseSource))
-			if parseTyped.HardLineBreak() || parseTyped.SoftLineBreak() {
-				parseBuilder.WriteString("\n")
-			}
-		case *ast.FencedCodeBlock:
-			parseBuilder.WriteString(markdownLinesText(parseTyped.Lines(), parseSource))
-		case *ast.CodeBlock:
-			parseBuilder.WriteString(markdownLinesText(parseTyped.Lines(), parseSource))
-		default:
-			for parseChild := parseCurrent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
-				parseWalk(parseChild)
-			}
-		}
-	}
-	parseWalk(parseNode)
-	return strings.TrimSpace(parseBuilder.String())
-}
-
 // resolveMarkdownHref is a core package helper.
 func resolveMarkdownHref(parseConfig MarkdownRenderOptions, parseDestination string) string {
 	if parseConfig.ResolveHref != nil {
 		return parseConfig.ResolveHref(parseConfig.SourcePath, parseDestination)
 	}
 	return ResolveMarkdownHref(parseConfig.SourcePath, parseDestination)
-}
-
-// safeMarkdownHref resolves a destination and then drops it if its URL scheme is
-// not allowed, so dangerous schemes never reach an href or src attribute.
-func safeMarkdownHref(parseConfig MarkdownRenderOptions, parseDestination string) string {
-	return SanitizeMarkdownHref(resolveMarkdownHref(parseConfig, parseDestination), parseConfig.AllowedURLSchemes)
 }
 
 // SanitizeMarkdownHref returns destination unchanged when it carries no scheme
@@ -498,23 +174,56 @@ func markdownAllowedSchemes(parseAllowed []string) map[string]bool {
 	return parseSet
 }
 
-// propsWithClass is a core package helper.
-func propsWithClass(parseClassName string) Props {
-	parseClassName = strings.TrimSpace(parseClassName)
-	if parseClassName == "" {
-		return Props{}
-	}
-	return Props{Class: parseClassName}
+// MarkdownEngine converts markdown source into nodes using a resolved
+// configuration. Engines must honor MarkdownRenderOptions, route every link and
+// image destination through MarkdownRenderOptions.ResolveSafeHref (autolinks
+// through SanitizeMarkdownHref with GetAllowedSchemes), and never emit raw HTML.
+type MarkdownEngine func(parseMarkdown string, parseConfig MarkdownRenderOptions) []ui.Node
+
+var (
+	markdownEngineMu    sync.RWMutex
+	markdownEngine      MarkdownEngine
+	markdownMissingOnce sync.Once
+)
+
+// RegisterMarkdownEngine installs the engine used by Markdown and RenderMarkdown.
+// It is safe for concurrent use and last registration wins; passing nil removes
+// the engine so rendering falls back to escaped plain text. Import
+// html/markdown to register the bundled goldmark engine.
+func RegisterMarkdownEngine(parseEngine MarkdownEngine) {
+	markdownEngineMu.Lock()
+	markdownEngine = parseEngine
+	markdownEngineMu.Unlock()
 }
 
-// joinMarkdownClasses is a core package helper.
-func joinMarkdownClasses(parseValues ...string) string {
-	parseParts := make([]string, 0, len(parseValues))
-	for _, parseValue := range parseValues {
-		parseValue = strings.TrimSpace(parseValue)
-		if parseValue != "" {
-			parseParts = append(parseParts, parseValue)
-		}
+// getMarkdownEngine returns the registered engine, or nil when none is installed.
+func getMarkdownEngine() MarkdownEngine {
+	markdownEngineMu.RLock()
+	defer markdownEngineMu.RUnlock()
+	return markdownEngine
+}
+
+// RenderMarkdown parses markdown text and returns semantic ui.Node values. It
+// needs a registered engine (import html/markdown); without one the source is
+// rendered as escaped plain text inside a div marked data-gwc-markdown-unavailable
+// and one GWC-UI-MARKDOWN-ENGINE-MISSING warning is reported.
+func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions) []ui.Node {
+	parseConfig := MarkdownRenderOptions{}
+	if len(parseOptions) > 0 {
+		parseConfig = parseOptions[0]
 	}
-	return strings.Join(parseParts, " ")
+	return renderMarkdownConfig(parseMarkdown, parseConfig)
+}
+
+// renderMarkdownConfig dispatches to the registered engine or the plain-text fallback.
+func renderMarkdownConfig(parseMarkdown string, parseConfig MarkdownRenderOptions) []ui.Node {
+	if parseEngine := getMarkdownEngine(); parseEngine != nil {
+		return parseEngine(parseMarkdown, parseConfig)
+	}
+	markdownMissingOnce.Do(func() {
+		runtime.ReportDiagnostic("html", runtime.DiagnosticWarning, errcode.New(errcode.UIMarkdownEngineMissing,
+			"html.Markdown has no engine; import _ \"github.com/monstercameron/GoWebComponents/v7/html/markdown\"").Error())
+	})
+	// Escaped text node only: the unregistered path must never interpret markup.
+	return []ui.Node{Div(Props{Data: map[string]string{"gwc-markdown-unavailable": ""}}, Text(parseMarkdown))}
 }

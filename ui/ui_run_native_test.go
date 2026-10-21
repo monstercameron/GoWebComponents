@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // TestRunUnsupportedOnServerPanicUsesUnifiedContract verifies ui.Run mirrors
@@ -24,7 +24,7 @@ func TestRunUnsupportedOnServerPanicUsesUnifiedContract(parseT *testing.T) {
 		}
 		if !strings.Contains(parseMessage, "GWC-UI-UNSUPPORTED-ON-SERVER") ||
 			!strings.Contains(parseMessage, "ui.Run") ||
-			!strings.Contains(parseMessage, "docs: ACTIONABLE_ERRORS.md#gwc-ui-unsupported-on-server") {
+			!strings.Contains(parseMessage, "docs: docs/REFERENCE_MANUAL/error-codes.md#gwc-ui-unsupported-on-server") {
 			parseT.Fatalf("unexpected unsupported-on-server message: %q", parseMessage)
 		}
 	}()

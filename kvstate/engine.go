@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v7/db/sqlite"
 )
 
 // engine bundles a PersistenceBackend with the durable flush it is paced by.
@@ -72,7 +72,9 @@ func acquireEngine(parseCtx context.Context, parseOptions Options) (*engine, err
 			" (k TEXT PRIMARY KEY, v BLOB NOT NULL, version INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 	); parseErr != nil {
 		if len(parseEntry.engines) == 0 {
-			parseEntry.db.Close()
+			if parseCloseErr := parseEntry.db.Close(); parseCloseErr != nil {
+				return nil, fmt.Errorf("%w (close sqlite: %v)", parseErr, parseCloseErr)
+			}
 			delete(engines, parseOptions.Name)
 		}
 		return nil, parseErr
@@ -85,19 +87,6 @@ func acquireEngine(parseCtx context.Context, parseOptions Options) (*engine, err
 	}
 	parseEntry.engines[parseOptions.Table] = parseEngine
 	return parseEngine, nil
-}
-
-// resetEnginesForTest drops the shared engine cache (closing databases). Used by
-// tests to start clean; not part of the public API.
-func resetEnginesForTest() {
-	enginesMu.Lock()
-	defer enginesMu.Unlock()
-	for parseName, parseEntry := range engines {
-		if parseEntry.db != nil {
-			parseEntry.db.Close()
-		}
-		delete(engines, parseName)
-	}
 }
 
 // sqliteBackend is the default PersistenceBackend, storing each value as a row
@@ -147,7 +136,7 @@ func (parseB *sqliteBackend) Keys(parseCtx context.Context) ([]string, error) {
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	var parseKeys []string
 	for parseRows.Next() {
 		var parseKey string

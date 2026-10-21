@@ -4,11 +4,17 @@ import (
 	"encoding/json"
 	"strconv"
 	"sync"
+	"unicode/utf8"
 )
 
 // auditCap bounds the in-memory audit ring so a long agent session cannot grow
 // it without limit.
 const auditCap = 256
+
+// auditSummaryMax bounds one audit summary in bytes. Summaries embed
+// agent-supplied topics, paths and ids, so without a cap the ring could pin
+// auditCap frame-sized strings.
+const auditSummaryMax = 256
 
 // auditMu guards the audit log and the undo stack.
 var auditMu sync.Mutex
@@ -43,6 +49,7 @@ type agentUndoOp struct {
 // returns the assigned audit sequence number. parseUndo must restore the exact
 // prior state and is safe to call once.
 func RecordAgentMutation(parseCommand string, parseSummary string, parseUndo func() *EnvelopeError) uint64 {
+	parseSummary = truncateAuditSummary(parseSummary)
 	auditMu.Lock()
 	defer auditMu.Unlock()
 	auditSeq++
@@ -89,6 +96,19 @@ func RecordAgentMutation(parseCommand string, parseSummary string, parseUndo fun
 		}
 	}
 	return auditSeq
+}
+
+// truncateAuditSummary shortens a summary to auditSummaryMax bytes on a rune
+// boundary, marking the cut with an ellipsis.
+func truncateAuditSummary(parseSummary string) string {
+	if len(parseSummary) <= auditSummaryMax {
+		return parseSummary
+	}
+	parseCut := auditSummaryMax
+	for parseCut > 0 && !utf8.RuneStart(parseSummary[parseCut]) {
+		parseCut--
+	}
+	return parseSummary[:parseCut] + "..."
 }
 
 // AgentAuditEntries returns up to parseMax most-recent audit entries, oldest

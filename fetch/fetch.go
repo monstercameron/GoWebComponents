@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/monstercameron/GoWebComponents/v6/deprecation"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // Options represents configuration for HTTP fetch operations.
@@ -21,6 +21,10 @@ type Options struct {
 	// always plain strings.
 	Headers map[string]any
 	Body    any
+	// TracePropagationOrigins lists extra origins (scheme://host[:port]) that receive a generated
+	// W3C traceparent header. The zero value propagates to the page origin only; a caller-set
+	// traceparent header is never overwritten.
+	TracePropagationOrigins []string
 }
 
 // MultipartFile describes one browser file to append to a multipart form-data body.
@@ -140,6 +144,7 @@ type resourceCancelRef interface {
 // Deprecated: prefer the typed UseResource[T] (a Go loader returning a typed value) or ui.UseQuery
 // (cache + dedupe + stale-while-revalidate). UseFetch remains for a quick untyped URL GET.
 func UseFetch(parseUrl string, parseOptions ...Options) Resource {
+	deprecation.Warn("fetch.UseFetch", "fetch.UseResource")
 	parseArgs := make([]any, len(parseOptions))
 	for parseI, parseOpt := range parseOptions {
 		parseArgs[parseI] = parseOpt

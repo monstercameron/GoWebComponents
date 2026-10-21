@@ -1,12 +1,13 @@
-module agenthub
+module github.com/monstercameron/GoWebComponents/v7/tools/agenthub
 
-go 1.26.0
+go 1.27.0
 
-require github.com/monstercameron/GoWebComponents/v6 v6.0.0
+replace github.com/monstercameron/GoWebComponents/v7 => ../..
 
-replace github.com/monstercameron/GoWebComponents/v6 => ../..
-
-require github.com/gorilla/websocket v1.5.3
+require (
+	github.com/gorilla/websocket v1.5.3
+	github.com/monstercameron/GoWebComponents/v7 v7.0.0
+)
 
 require (
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect

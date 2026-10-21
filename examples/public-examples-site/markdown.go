@@ -4,9 +4,9 @@
 package main
 
 import (
-	gwchtml "github.com/monstercameron/GoWebComponents/v6/html"
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	gwchtml "github.com/monstercameron/GoWebComponents/v7/html"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func markdownRenderOptions(parseSourcePath string) gwchtml.MarkdownRenderOptions {

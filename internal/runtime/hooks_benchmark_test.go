@@ -4,7 +4,7 @@ import "testing"
 
 func BenchmarkIsNilableTypeCachedPointer(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if !isNilableType[*int]() {
 			parseB.Fatal("expected pointer type to be nilable")
 		}
@@ -13,7 +13,7 @@ func BenchmarkIsNilableTypeCachedPointer(parseB *testing.B) {
 
 func BenchmarkFastEqualInt(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if !fastEqual(42, 42) {
 			parseB.Fatal("expected equal ints")
 		}
@@ -22,7 +22,7 @@ func BenchmarkFastEqualInt(parseB *testing.B) {
 
 func BenchmarkFastEqualString(parseB *testing.B) {
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if !fastEqual("alpha", "alpha") {
 			parseB.Fatal("expected equal strings")
 		}
@@ -34,7 +34,7 @@ func BenchmarkAreDepsEqual3Primitives(parseB *testing.B) {
 	parseNext := []any{1, "two", true}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		if !areDepsEqual(parsePrev, parseNext) {
 			parseB.Fatal("expected equal deps")
 		}
@@ -51,11 +51,12 @@ func BenchmarkGoUseStateIntDirectUpdate(parseB *testing.B) {
 	_, set := GoUseState(parseRt, 0)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseRt.updateScheduled = false
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
 		set(parseI)
+		parseI++
 	}
 }
 
@@ -70,8 +71,8 @@ func BenchmarkGoUseStatePointerNilReset(parseB *testing.B) {
 	_, set := GoUseState(parseRt, &parseInitial)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		parseRt.updateScheduled = false
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
 		if parseI%2 == 0 {
@@ -80,6 +81,7 @@ func BenchmarkGoUseStatePointerNilReset(parseB *testing.B) {
 			parseValue := parseI
 			set(&parseValue)
 		}
+		parseI++
 	}
 }
 
@@ -92,8 +94,7 @@ func BenchmarkGoUseMemoSameDeps(parseB *testing.B) {
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		resetHookRenderState(parseFiber)
 		if parseValue := GoUseMemo(func() any { return 42 }, "dep"); parseValue != 42 {
 			parseB.Fatal("expected memoized value")
@@ -107,7 +108,7 @@ func BenchmarkHookHeavyInitialRender(parseB *testing.B) {
 	parseMemo := func(parseDep int) int { return parseDep * 2 }
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseFiber := &Fiber{typeOf: "test"}
 		SetCurrentFiber(parseFiber)
 		for parseHook := 0; parseHook < 20; parseHook++ {
@@ -129,8 +130,7 @@ func BenchmarkGoUseCallbackSameDeps(parseB *testing.B) {
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		resetHookRenderState(parseFiber)
 		if parseValue := GoUseCallback(parseHandler, "dep"); parseValue == nil {
 			parseB.Fatal("expected callback")
@@ -147,8 +147,7 @@ func BenchmarkGoUseRefStable(parseB *testing.B) {
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		resetHookRenderState(parseFiber)
 		if parseCurrent := GoUseRef(nil); parseCurrent != parseRef {
 			parseB.Fatal("expected stable ref")
@@ -168,8 +167,7 @@ func BenchmarkGoUseIdStable(parseB *testing.B) {
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		resetHookRenderState(parseFiber)
 		if parseId := GoUseId(); parseId != parseExpected {
 			parseB.Fatal("expected stable id")
@@ -197,8 +195,7 @@ func BenchmarkGoUseFuncWrap(parseB *testing.B) {
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		resetHookRenderState(parseFiber)
 		if parseWrapped := GoUseFunc(parseHandler); parseWrapped == nil {
 			parseB.Fatal("expected wrapped handler")
@@ -215,8 +212,7 @@ func BenchmarkGoUseEffectSameDeps(parseB *testing.B) {
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		resetHookRenderState(parseFiber)
 		GoUseEffect(func() func() { return nil }, "dep")
 	}

@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Access classifies what a call site does to the database.
@@ -189,9 +190,65 @@ func buildFinding(parseFile string, parseLine int, parseMethod string, parseRece
 // worth testing directly: a write misclassified as a read becomes a command a
 // caller believes is safe to retry.
 func ClassifySQL(parseSQL string) Access {
+	// A string can hold several statements, and only the first keyword is
+	// visible to leadingKeyword: "SELECT 1; DROP TABLE t" must not read as a
+	// read. Any write wins, then any statement that cannot be read.
+	parseStatements := splitStatements(parseSQL)
+	if len(parseStatements) == 0 {
+		return classifyStatement(parseSQL)
+	}
+	parseResult := AccessRead
+	for _, parseStatement := range parseStatements {
+		switch classifyStatement(parseStatement) {
+		case AccessWrite:
+			return AccessWrite
+		case AccessUnknown:
+			parseResult = AccessUnknown
+		}
+	}
+	return parseResult
+}
+
+// splitStatements splits on semicolons that are outside quotes and drops empty
+// statements. It is deliberately naive about comments: a stray fragment can only
+// make the result more conservative (unknown), never less.
+func splitStatements(parseSQL string) []string {
+	var parseStatements []string
+	var parseQuote rune
+	parseStart := 0
+	for parseIndex, parseRune := range parseSQL {
+		switch {
+		case parseQuote != 0:
+			if parseRune == parseQuote {
+				parseQuote = 0
+			}
+		case parseRune == '\'' || parseRune == '"' || parseRune == '`':
+			parseQuote = parseRune
+		case parseRune == ';':
+			if parseText := strings.TrimSpace(parseSQL[parseStart:parseIndex]); parseText != "" {
+				parseStatements = append(parseStatements, parseText)
+			}
+			parseStart = parseIndex + 1
+		}
+	}
+	if parseText := strings.TrimSpace(parseSQL[parseStart:]); parseText != "" {
+		parseStatements = append(parseStatements, parseText)
+	}
+	return parseStatements
+}
+
+// classifyStatement classifies exactly one statement by its leading keyword.
+func classifyStatement(parseSQL string) Access {
 	parseKeyword := leadingKeyword(parseSQL)
 	switch parseKeyword {
-	case "SELECT", "PRAGMA", "EXPLAIN":
+	case "PRAGMA":
+		// "PRAGMA name = value" changes connection or database state; only the
+		// query forms ("PRAGMA table_info(t)") are reads.
+		if strings.Contains(parseSQL, "=") {
+			return AccessWrite
+		}
+		return AccessRead
+	case "SELECT", "EXPLAIN":
 		return AccessRead
 	case "WITH":
 		// A CTE can end in either. Reading to the end of the statement to decide
@@ -230,10 +287,20 @@ func leadingKeyword(parseSQL string) string {
 
 // containsWriteKeyword reports whether a statement contains a write verb.
 func containsWriteKeyword(parseSQL string) bool {
-	parseUpper := strings.ToUpper(parseSQL)
-	for _, parseVerb := range []string{"INSERT ", "UPDATE ", "DELETE ", "REPLACE "} {
-		if strings.Contains(parseUpper, parseVerb) {
+	// Whole tokens, split on anything that is not part of a word, so a verb
+	// followed by a newline, tab or parenthesis is still seen. REPLACE counts
+	// only as "REPLACE INTO": elsewhere it is the string function.
+	parseTokens := strings.FieldsFunc(strings.ToUpper(parseSQL), func(parseRune rune) bool {
+		return parseRune != '_' && (parseRune < 'A' || parseRune > 'Z') && (parseRune < '0' || parseRune > '9')
+	})
+	for parseIndex, parseToken := range parseTokens {
+		switch parseToken {
+		case "INSERT", "UPDATE", "DELETE":
 			return true
+		case "REPLACE":
+			if parseIndex+1 < len(parseTokens) && parseTokens[parseIndex+1] == "INTO" {
+				return true
+			}
 		}
 	}
 	return false
@@ -300,9 +367,12 @@ func exportedIdentifier(parseName string) string {
 		if parsePart == "" {
 			continue
 		}
-		parseBuilder.WriteString(strings.ToUpper(parsePart[:1]))
-		if len(parsePart) > 1 {
-			parseBuilder.WriteString(strings.ToLower(parsePart[1:]))
+		// First RUNE, not first byte: slicing [:1] splits a multi-byte leading
+		// character and yields replacement characters in the proposed name.
+		parseFirst, parseSize := utf8.DecodeRuneInString(parsePart)
+		parseBuilder.WriteString(strings.ToUpper(string(parseFirst)))
+		if len(parsePart) > parseSize {
+			parseBuilder.WriteString(strings.ToLower(parsePart[parseSize:]))
 		}
 	}
 	if parseBuilder.Len() == 0 {
@@ -339,7 +409,8 @@ func lowerFirst(parseText string) string {
 	if parseText == "" {
 		return parseText
 	}
-	return strings.ToLower(parseText[:1]) + parseText[1:]
+	parseFirst, parseSize := utf8.DecodeRuneInString(parseText)
+	return strings.ToLower(string(parseFirst)) + parseText[parseSize:]
 }
 
 // renderExpr renders a receiver expression approximately as written.

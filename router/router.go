@@ -12,9 +12,10 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/deprecation"
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/jsdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/deprecation"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 const (
@@ -58,9 +59,197 @@ type Options struct {
 	Error            interface{}
 }
 
-// RouterOptions configures router defaults.
+// RouterOptions configures router defaults. It also implements RouterOption, so
+// a RouterOptions literal can still be passed to NewHashRouter / NewHistoryRouter;
+// functional options (WithDefaultRoute, WithBasePath) are the preferred form.
 type RouterOptions struct {
 	DefaultRoute string
+	// BasePath is the URL prefix a history router is mounted under (for
+	// example "/app"). Hash routers ignore it.
+	BasePath string
+}
+
+// RouterOption configures a router at construction time. Build one with
+// WithDefaultRoute or WithBasePath; a RouterOptions struct value also satisfies it.
+type RouterOption interface {
+	applyRouterOption(*RouterOptions)
+}
+
+// applyRouterOption overlays the non-zero fields of the struct onto the config.
+func (parseO RouterOptions) applyRouterOption(parseCfg *RouterOptions) {
+	if parseO.DefaultRoute != "" {
+		parseCfg.DefaultRoute = parseO.DefaultRoute
+	}
+	if parseO.BasePath != "" {
+		parseCfg.BasePath = parseO.BasePath
+	}
+}
+
+type routerOptionFunc func(*RouterOptions)
+
+// applyRouterOption runs the option function against the config.
+func (parseF routerOptionFunc) applyRouterOption(parseCfg *RouterOptions) { parseF(parseCfg) }
+
+// WithDefaultRoute sets the route rendered when the current location is empty
+// or matches nothing.
+func WithDefaultRoute(parsePath string) RouterOption {
+	return routerOptionFunc(func(parseCfg *RouterOptions) { parseCfg.DefaultRoute = parsePath })
+}
+
+// WithBasePath mounts a history router under a URL prefix such as "/app". Route
+// patterns stay prefix-free: a router with base "/app" matches the URL /app/x
+// against the pattern /x, Href("/x") returns "/app/x", and Navigate("/x") pushes
+// /app/x. Hash routers ignore the base path because the route lives in the fragment.
+func WithBasePath(parseBase string) RouterOption {
+	return routerOptionFunc(func(parseCfg *RouterOptions) { parseCfg.BasePath = parseBase })
+}
+
+// RouteOption configures one route at registration time. Build one with
+// WithTitle, WithLoader, WithBeforeEnter and friends; an Options struct value
+// also satisfies it.
+type RouteOption interface {
+	applyRouteOption(*Options)
+}
+
+// applyRouteOption overlays the non-zero fields of the struct onto the route config.
+func (parseO Options) applyRouteOption(parseCfg *Options) {
+	if parseO.Title != "" {
+		parseCfg.Title = parseO.Title
+	}
+	if parseO.Redirect != "" {
+		parseCfg.Redirect = parseO.Redirect
+	}
+	if parseO.Description != "" {
+		parseCfg.Description = parseO.Description
+	}
+	if parseO.CanonicalURL != "" {
+		parseCfg.CanonicalURL = parseO.CanonicalURL
+	}
+	if parseO.Layout {
+		parseCfg.Layout = true
+	}
+	if !parseO.Chunk.empty() || parseO.Chunk.Loading != nil || parseO.Chunk.Error != nil {
+		parseCfg.Chunk = parseO.Chunk
+	}
+	if parseO.BeforeEnter != nil {
+		parseCfg.BeforeEnter = parseO.BeforeEnter
+	}
+	if parseO.BeforeLeave != nil {
+		parseCfg.BeforeLeave = parseO.BeforeLeave
+	}
+	if parseO.BeforeEnterAsync != nil {
+		parseCfg.BeforeEnterAsync = parseO.BeforeEnterAsync
+	}
+	if parseO.BeforeLeaveAsync != nil {
+		parseCfg.BeforeLeaveAsync = parseO.BeforeLeaveAsync
+	}
+	if parseO.GuardPending != nil {
+		parseCfg.GuardPending = parseO.GuardPending
+	}
+	if parseO.Unauthorized != nil {
+		parseCfg.Unauthorized = parseO.Unauthorized
+	}
+	if parseO.Authorizing != nil {
+		parseCfg.Authorizing = parseO.Authorizing
+	}
+	if parseO.Loader != nil {
+		parseCfg.Loader = parseO.Loader
+	}
+	if parseO.Loading != nil {
+		parseCfg.Loading = parseO.Loading
+	}
+	if parseO.Error != nil {
+		parseCfg.Error = parseO.Error
+	}
+}
+
+type routeOptionFunc func(*Options)
+
+// applyRouteOption runs the option function against the route config.
+func (parseF routeOptionFunc) applyRouteOption(parseCfg *Options) { parseF(parseCfg) }
+
+// WithTitle sets the document title applied while the route is active.
+func WithTitle(parseTitle string) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.Title = parseTitle })
+}
+
+// WithDescription sets the meta description applied while the route is active.
+func WithDescription(parseDescription string) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.Description = parseDescription })
+}
+
+// WithCanonicalURL sets the canonical link applied while the route is active.
+func WithCanonicalURL(parseURL string) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.CanonicalURL = parseURL })
+}
+
+// WithRedirect makes the route redirect to another path.
+func WithRedirect(parsePath string) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.Redirect = parsePath })
+}
+
+// WithLayout marks the route as a layout that renders child routes through the outlet.
+func WithLayout() RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.Layout = true })
+}
+
+// WithLoader attaches a data loader that runs before the route renders.
+func WithLoader(parseLoader LoaderFunc) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.Loader = parseLoader })
+}
+
+// WithBeforeEnter attaches a guard evaluated before navigating into the route.
+func WithBeforeEnter(parseGuard GuardFunc) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.BeforeEnter = parseGuard })
+}
+
+// WithBeforeLeave attaches a guard evaluated before navigating away from the route.
+func WithBeforeLeave(parseGuard LeaveGuardFunc) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.BeforeLeave = parseGuard })
+}
+
+// WithLoading sets the component shown while the route loader is pending.
+func WithLoading(parseComponent interface{}) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.Loading = parseComponent })
+}
+
+// WithError sets the component shown when the route loader fails.
+func WithError(parseComponent interface{}) RouteOption {
+	return routeOptionFunc(func(parseCfg *Options) { parseCfg.Error = parseComponent })
+}
+
+// buildRouteOptions folds every option into one Options value in order, so
+// extra options are applied instead of silently dropped.
+func buildRouteOptions(parseOptions []RouteOption) Options {
+	parseCfg := Options{}
+	for _, parseOption := range parseOptions {
+		if parseOption != nil {
+			parseOption.applyRouteOption(&parseCfg)
+		}
+	}
+	return parseCfg
+}
+
+// buildRouterOptions folds every option into one RouterOptions value in order.
+func buildRouterOptions(parseOptions []RouterOption) RouterOptions {
+	parseCfg := RouterOptions{}
+	for _, parseOption := range parseOptions {
+		if parseOption != nil {
+			parseOption.applyRouterOption(&parseCfg)
+		}
+	}
+	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
+	parseCfg.BasePath = normalizeBasePath(parseCfg.BasePath)
+	return parseCfg
+}
+
+// normalizeBasePath returns "" for no base, else a path with a leading slash and no trailing slash.
+func normalizeBasePath(parseBase string) string {
+	parseTrimmed := strings.TrimSpace(parseBase)
+	if parseTrimmed == "" || parseTrimmed == "/" {
+		return ""
+	}
+	return normalizePath(parseTrimmed)
 }
 
 // Router manages routes and navigation for single-page applications.
@@ -69,7 +258,8 @@ type Router struct {
 	routeOptions           map[string]Options
 	patterns               []routePattern
 	defaultRoute           string
-	notFound               routeFactory
+	basePath               string // URL prefix for history routers ("" or "/app"); see WithBasePath
+	notFound              routeFactory
 	notFoundOption         Options
 	targetSelector         string
 	targetElement          js.Value
@@ -368,12 +558,12 @@ func normalizeHistoryFragment(parseFragment string) string {
 }
 
 // buildCurrentHistoryTarget returns the current history-router path plus search string.
-func buildCurrentHistoryTarget() string {
+func (parseR *Router) buildCurrentHistoryTarget() string {
 	parseLoc := getLocationValue()
 	if !parseLoc.Truthy() {
 		return rootRoutePath
 	}
-	parsePath := normalizePath(parseLoc.Get("pathname").String())
+	parsePath := parseR.stripBasePath(normalizePath(parseLoc.Get("pathname").String()))
 	parseSearch := strings.TrimSpace(parseLoc.Get("search").String())
 	if parseSearch == "?" {
 		parseSearch = ""
@@ -387,12 +577,8 @@ var currentRouteData Attrs
 var currentRouteOutlet *Element
 
 // NewHashRouter creates a hash-based router that reads from window.location.hash.
-func NewHashRouter(parseOptions ...RouterOptions) *Router {
-	parseCfg := RouterOptions{DefaultRoute: rootRoutePath}
-	if len(parseOptions) > 0 {
-		parseCfg = parseOptions[0]
-	}
-	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
+func NewHashRouter(parseOptions ...RouterOption) *Router {
+	parseCfg := buildRouterOptions(parseOptions)
 
 	parseRouter := &Router{
 		routes:          make(map[string]routeFactory),
@@ -417,22 +603,15 @@ func NewHashRouter(parseOptions ...RouterOptions) *Router {
 // NewHistoryRouter creates a history-based router using the HTML5 History API.
 // This router uses window.location.pathname instead of hash fragments.
 // Requires server to redirect all routes to the app's entry point.
-func NewHistoryRouter(parseOptions ...RouterOptions) *Router {
-	// Use provided options or defaults
-	var parseCfg RouterOptions
-	if len(parseOptions) > 0 {
-		parseCfg = parseOptions[0]
-	}
-	if parseCfg.DefaultRoute == "" {
-		parseCfg.DefaultRoute = rootRoutePath
-	}
-	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
+func NewHistoryRouter(parseOptions ...RouterOption) *Router {
+	parseCfg := buildRouterOptions(parseOptions)
 
 	parseRouter := &Router{
 		routes:          make(map[string]routeFactory),
 		routeOptions:    make(map[string]Options),
 		patterns:        []routePattern{},
 		defaultRoute:    parseCfg.DefaultRoute,
+		basePath:        parseCfg.BasePath,
 		routerType:      routerTypeHistory,
 		viewTransitions: true,
 		focusManagement: true,
@@ -528,13 +707,15 @@ func (parseR *Router) teardownHistoryListener() {
 //
 // Deprecated: Use Register instead. GoRegisterRoute exists for compatibility with
 // earlier API consumers and delegates directly to Register.
-func (parseR *Router) GoRegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...Options) {
+func (parseR *Router) GoRegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...RouteOption) {
 	deprecation.Warn("router.Router.GoRegisterRoute", "router.Router.Register")
 	parseR.Register(parsePath, parseComponent, parseOptions...)
 }
 
 // Register registers a route using either a component function or a static node.
-func (parseR *Router) Register(parsePath string, parseComponent interface{}, parseOptions ...Options) {
+// Every option is applied in order (an Options struct value or WithTitle,
+// WithLoader and friends), so a later option overrides an earlier one.
+func (parseR *Router) Register(parsePath string, parseComponent interface{}, parseOptions ...RouteOption) {
 	if parseR.routes == nil {
 		parseR.routes = make(map[string]routeFactory)
 	}
@@ -547,10 +728,7 @@ func (parseR *Router) Register(parsePath string, parseComponent interface{}, par
 
 	parseNormalize := normalizePath(parsePath)
 	parseFactory := makeRouteFactory(parseComponent)
-	parseOption := Options{}
-	if len(parseOptions) > 0 {
-		parseOption = parseOptions[0]
-	}
+	parseOption := buildRouteOptions(parseOptions)
 
 	if parseNormalize == catchAllRoutePath {
 		if parseR.notFound != nil {
@@ -705,7 +883,7 @@ func (parseR *Router) Revalidate() {
 func (parseR *Router) RetryLoader(parseKey string) error {
 	parseTrimmed := strings.TrimSpace(parseKey)
 	if parseTrimmed == "" {
-		return fmt.Errorf("router: loader key is required")
+		return errcode.New(errcode.RouterLoaderKeyInvalid, "router: loader key is required (pass the key of a loader on the current route)")
 	}
 	parseR.loaderState.mu.Lock()
 	parseEntry := parseR.loaderState.entries[parseTrimmed]
@@ -713,7 +891,7 @@ func (parseR *Router) RetryLoader(parseKey string) error {
 	if parseEntry == nil && !hasActive {
 		parseR.loaderState.mu.Unlock()
 		runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "route loader retry failed because the loader key was not active: "+parseTrimmed)
-		return fmt.Errorf("router: loader key %q is not active", parseTrimmed)
+		return errcode.New(errcode.RouterLoaderKeyInvalid, fmt.Sprintf("router: loader key %q is not active (it is only active while its route is mounted)", parseTrimmed))
 	}
 	if parseEntry != nil && parseEntry.cancel != nil {
 		parseEntry.cancel()
@@ -877,7 +1055,7 @@ func (parseR *Router) restoreCommittedURL(parsePath string) {
 	if parseR.routerType == routerTypeHistory {
 		parseHistory := getHistoryValue()
 		if parseHistory.Truthy() && parseHistory.Get("pushState").Truthy() {
-			parseHistory.Call("pushState", nil, "", parsePath)
+			parseHistory.Call("pushState", nil, "", parseR.addBasePath(parsePath))
 			return
 		}
 	}
@@ -951,8 +1129,36 @@ func (parseR *Router) teardownHashListener() {
 }
 
 // RegisterRoute registers a route with the global router.
-func RegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...Options) {
+func RegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...RouteOption) {
 	GetRouter().Register(parsePath, parseComponent, parseOptions...)
+}
+
+// stripBasePath maps a browser pathname to the logical route path by removing the
+// router base path, so route patterns never mention the mount prefix. A pathname
+// outside the base is returned unchanged and simply matches nothing.
+func (parseR *Router) stripBasePath(parsePath string) string {
+	if parseR.basePath == "" || parseR.routerType != routerTypeHistory {
+		return parsePath
+	}
+	if parsePath == parseR.basePath {
+		return rootRoutePath
+	}
+	if strings.HasPrefix(parsePath, parseR.basePath+"/") {
+		return parsePath[len(parseR.basePath):]
+	}
+	return parsePath
+}
+
+// addBasePath maps a logical target ("/x", "/x?q=1", "/x#f") to the browser URL
+// by prefixing the base path of a history router.
+func (parseR *Router) addBasePath(parseTarget string) string {
+	if parseR.basePath == "" || parseR.routerType != routerTypeHistory {
+		return parseTarget
+	}
+	if strings.HasPrefix(parseTarget, "/") {
+		return parseR.basePath + parseTarget
+	}
+	return parseTarget
 }
 
 // GetCurrentPath returns the current route path from this router instance. It mirrors the
@@ -965,6 +1171,7 @@ func (parseR *Router) GetCurrentPath() string {
 //
 // Deprecated: use GetCurrentPath, which mirrors the package-level GetCurrentPath name.
 func (parseR *Router) GetCurrentRouterPath() string {
+	deprecation.Warn("router.Router.GetCurrentRouterPath", "router.Router.GetCurrentPath")
 	parseLoc := getLocationValue()
 	if !parseLoc.Truthy() {
 		return rootRoutePath
@@ -972,7 +1179,7 @@ func (parseR *Router) GetCurrentRouterPath() string {
 
 	if parseR.routerType == routerTypeHistory {
 		// For history router, use pathname
-		return normalizePath(parseLoc.Get("pathname").String())
+		return parseR.stripBasePath(normalizePath(parseLoc.Get("pathname").String()))
 	}
 
 	// For hash router, use hash fragment
@@ -992,7 +1199,7 @@ func (parseR *Router) buildNavigationTarget(parseTarget string) string {
 		// Preserve hash-only targets against the current history entry instead of treating
 		// "#plans" as a route path. That regression caused history-router apps to lose
 		// in-page anchor behavior on click and on browser back/forward.
-		return buildCurrentHistoryTarget() + normalizeHistoryFragment(parseTrimmed)
+		return parseR.buildCurrentHistoryTarget() + normalizeHistoryFragment(parseTrimmed)
 	}
 	parsePathTarget, parseFragment := splitNavigationTarget(parseTrimmed)
 	// Keep fragments attached to full history-router targets as well. This is the core
@@ -1025,9 +1232,9 @@ func (parseR *Router) Navigate(parsePath string) {
 		// For history router, use pushState
 		parseHistory := getHistoryValue()
 		if parseHistory.Truthy() && parseHistory.Get("pushState").Truthy() {
-			parseHistory.Call("pushState", nil, "", parseNormalized)
+			parseHistory.Call("pushState", nil, "", parseR.addBasePath(parseNormalized))
 		} else if parseLoc := getLocationValue(); parseLoc.Truthy() {
-			parseLoc.Set("pathname", parseNormalized)
+			parseLoc.Set("pathname", parseR.addBasePath(parseNormalized))
 		}
 	} else {
 		// Hash routers re-render through the hashchange listener.
@@ -1068,9 +1275,9 @@ func (parseR *Router) NavigateReplace(parsePath string) {
 		// For history router, use replaceState
 		parseHistory := getHistoryValue()
 		if parseHistory.Truthy() && parseHistory.Get("replaceState").Truthy() {
-			parseHistory.Call("replaceState", nil, "", parseNormalized)
+			parseHistory.Call("replaceState", nil, "", parseR.addBasePath(parseNormalized))
 		} else if parseLoc := getLocationValue(); parseLoc.Truthy() {
-			parseLoc.Set("pathname", parseNormalized)
+			parseLoc.Set("pathname", parseR.addBasePath(parseNormalized))
 		}
 	} else {
 		// Hash routers re-render through the hashchange listener.

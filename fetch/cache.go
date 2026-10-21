@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 const cachedResourceAtomPrefix = "__fetch_cached_resource:"
@@ -96,6 +97,17 @@ type cachedResourceEntry struct {
 	persist      bool
 	restored     bool
 	restore      *cachedResourceWaiters
+	// optimistic lists the unresolved optimistic updates on this key, oldest
+	// first, with optimisticBase the snapshot beneath the first of them, so a
+	// rollback can replay the updates that are still active.
+	optimistic     []*optimisticRecord
+	optimisticBase cachedResourceSnapshot
+}
+
+// optimisticRecord is one ApplyOptimisticUpdate call tracked on its entry.
+type optimisticRecord struct {
+	apply       func(any) any
+	isCommitted bool
 }
 
 var cachedResourceRegistry sync.Map
@@ -460,7 +472,7 @@ func SweepCachedResources() int {
 func LoadCached[T any](parseCtx context.Context, parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...CacheOptions) (T, error) {
 	var parseZero T
 	if parseLoader == nil {
-		return parseZero, fmt.Errorf("fetch: loader cannot be nil")
+		return parseZero, errcode.New(errcode.FetchLoaderNil, "fetch: LoadCached loader cannot be nil (pass the function that fetches the value)")
 	}
 	if parseKey == "" {
 		return parseLoader(resolveCachedContext(parseCtx))
@@ -802,7 +814,11 @@ func startCachedLoad(parseKey string, parseEntry *cachedResourceEntry, parseLoad
 		parseValue, parseErr := parseLoader(parseRequestCtx)
 
 		parseEntry.mu.Lock()
-		if parseRequestSeq != parseEntry.requestSeq {
+		// A DisposeResource that ran while the loader was in flight removed this
+		// entry from the registry; a later load of the same key owns a NEW entry
+		// and snapshot, which this stale goroutine must not write to.
+		parseRegistered, _ := cachedResourceRegistry.Load(parseKey)
+		if parseRegistered != any(parseEntry) || parseRequestSeq != parseEntry.requestSeq {
 			if parseEntry.done == parseDone {
 				parseEntry.done = nil
 			}
@@ -880,8 +896,14 @@ func shouldLoadCachedEntry(parseSnapshot cachedResourceSnapshot, parseEntry *cac
 		}
 		return !parseSnapshot.Loading
 	}
-	if parseEntry.invalidated || parseSnapshot.Stale {
+	if parseEntry.invalidated {
 		return true
+	}
+	if parseSnapshot.Stale {
+		// A revalidation that already failed keeps the last good value stale with
+		// its error; retrying on every effect re-fire would loop forever against
+		// a persistently failing loader. A new Invalidate or Reload retries.
+		return parseSnapshot.Error == nil || parseSnapshot.Loading
 	}
 	if parseEntry.staleAfter > 0 && !parseEntry.lastLoaded.IsZero() && time.Since(parseEntry.lastLoaded) >= parseEntry.staleAfter {
 		return true

@@ -4,6 +4,7 @@ import (
 	"maps"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -1079,84 +1080,88 @@ func TestRunEffects_NilFiber(parseT *testing.T) {
 }
 
 func TestRunEffects_ReportsSlowEffectDiagnostic(parseT *testing.T) {
-	if !hookThreadingGuardEnabled {
-		parseT.Skip("dev-only diagnostic; stripped from production builds")
-	}
-	ClearDiagnostics()
-	defer ClearDiagnostics()
-
-	parseMockDOM := newTestDOMAdapter()
-	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseMockDOM, Scheduler: parseScheduler})
-
-	parseFiber := &Fiber{
-		typeOf: "div",
-		props:  make(map[string]any),
-		effects: []Effect{{
-			Fn: func() func() {
-				time.Sleep(5 * time.Millisecond)
-				return nil
-			},
-			CleanupIndex: 0,
-		}},
-		hooks: &Hooks{cleanups: make([]func(), 1)},
-	}
-
-	parseRt.runEffects(parseFiber)
-	if parseFiber.effectDurationNs < slowOperationDiagnosticThresholdNs {
-		parseT.Fatalf("expected effect duration to be recorded, got %d", parseFiber.effectDurationNs)
-	}
-	if parseRt.profiling.effectExecutions != 1 {
-		parseT.Fatalf("expected effect execution counter to increment, got %d", parseRt.profiling.effectExecutions)
-	}
-	isParseFound := false
-	for _, parseDiagnostic := range GetDiagnostics() {
-		if strings.Contains(parseDiagnostic.Message, "slow effect") {
-			isParseFound = true
-			break
+	synctest.Test(parseT, func(parseT *testing.T) {
+		if !hookThreadingGuardEnabled {
+			parseT.Skip("dev-only diagnostic; stripped from production builds")
 		}
-	}
-	if !isParseFound {
-		parseT.Fatal("expected slow effect diagnostic to be reported")
-	}
+		ClearDiagnostics()
+		defer ClearDiagnostics()
+
+		parseMockDOM := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseMockDOM, Scheduler: parseScheduler})
+
+		parseFiber := &Fiber{
+			typeOf: "div",
+			props:  make(map[string]any),
+			effects: []Effect{{
+				Fn: func() func() {
+					time.Sleep(5 * time.Millisecond)
+					return nil
+				},
+				CleanupIndex: 0,
+			}},
+			hooks: &Hooks{cleanups: make([]func(), 1)},
+		}
+
+		parseRt.runEffects(parseFiber)
+		if parseFiber.effectDurationNs < slowOperationDiagnosticThresholdNs {
+			parseT.Fatalf("expected effect duration to be recorded, got %d", parseFiber.effectDurationNs)
+		}
+		if parseRt.profiling.effectExecutions != 1 {
+			parseT.Fatalf("expected effect execution counter to increment, got %d", parseRt.profiling.effectExecutions)
+		}
+		isParseFound := false
+		for _, parseDiagnostic := range GetDiagnostics() {
+			if strings.Contains(parseDiagnostic.Message, "slow effect") {
+				isParseFound = true
+				break
+			}
+		}
+		if !isParseFound {
+			parseT.Fatal("expected slow effect diagnostic to be reported")
+		}
+	})
 }
 
 func TestRunCleanups_ReportsSlowCleanupDiagnostic(parseT *testing.T) {
-	if !hookThreadingGuardEnabled {
-		parseT.Skip("dev-only diagnostic; stripped from production builds")
-	}
-	ClearDiagnostics()
-	defer ClearDiagnostics()
-
-	parseMockDOM := newTestDOMAdapter()
-	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseMockDOM, Scheduler: parseScheduler})
-
-	parseFiber := &Fiber{
-		typeOf: "div",
-		props:  make(map[string]any),
-		hooks: &Hooks{cleanups: []func(){func() {
-			time.Sleep(5 * time.Millisecond)
-		}}},
-	}
-
-	parseRt.runCleanups(parseFiber)
-	if parseFiber.cleanupDurationNs < slowOperationDiagnosticThresholdNs {
-		parseT.Fatalf("expected cleanup duration to be recorded, got %d", parseFiber.cleanupDurationNs)
-	}
-	if parseRt.profiling.cleanupExecutions != 1 {
-		parseT.Fatalf("expected cleanup execution counter to increment, got %d", parseRt.profiling.cleanupExecutions)
-	}
-	isParseFound := false
-	for _, parseDiagnostic := range GetDiagnostics() {
-		if strings.Contains(parseDiagnostic.Message, "slow cleanup") {
-			isParseFound = true
-			break
+	synctest.Test(parseT, func(parseT *testing.T) {
+		if !hookThreadingGuardEnabled {
+			parseT.Skip("dev-only diagnostic; stripped from production builds")
 		}
-	}
-	if !isParseFound {
-		parseT.Fatal("expected slow cleanup diagnostic to be reported")
-	}
+		ClearDiagnostics()
+		defer ClearDiagnostics()
+
+		parseMockDOM := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseMockDOM, Scheduler: parseScheduler})
+
+		parseFiber := &Fiber{
+			typeOf: "div",
+			props:  make(map[string]any),
+			hooks: &Hooks{cleanups: []func(){func() {
+				time.Sleep(5 * time.Millisecond)
+			}}},
+		}
+
+		parseRt.runCleanups(parseFiber)
+		if parseFiber.cleanupDurationNs < slowOperationDiagnosticThresholdNs {
+			parseT.Fatalf("expected cleanup duration to be recorded, got %d", parseFiber.cleanupDurationNs)
+		}
+		if parseRt.profiling.cleanupExecutions != 1 {
+			parseT.Fatalf("expected cleanup execution counter to increment, got %d", parseRt.profiling.cleanupExecutions)
+		}
+		isParseFound := false
+		for _, parseDiagnostic := range GetDiagnostics() {
+			if strings.Contains(parseDiagnostic.Message, "slow cleanup") {
+				isParseFound = true
+				break
+			}
+		}
+		if !isParseFound {
+			parseT.Fatal("expected slow cleanup diagnostic to be reported")
+		}
+	})
 }
 
 func TestRunCleanups_ExecutesAllCleanups(parseT *testing.T) {

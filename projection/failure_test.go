@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/projection"
+	"github.com/monstercameron/GoWebComponents/v7/projection"
 )
 
 // v5 P3.8a/b — the command failure model.
@@ -302,8 +302,8 @@ func TestRetryStopsAtMaxAttemptsAndReportsTheCount(parseT *testing.T) {
 		parseT.Errorf("calls = %d, want exactly the 3 allowed attempts", parseClient.calls)
 	}
 
-	var parseCommandErr *projection.CommandError
-	if !errors.As(parseErr, &parseCommandErr) {
+	parseCommandErr, parseOk := errors.AsType[*projection.CommandError](parseErr)
+	if !parseOk {
 		parseT.Fatalf("err = %v, want a *CommandError", parseErr)
 	}
 	// The attempt count lets a UI distinguish "the network blipped" from "this

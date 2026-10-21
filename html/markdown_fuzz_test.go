@@ -9,8 +9,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	_ "github.com/monstercameron/GoWebComponents/v7/html/markdown"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 var (

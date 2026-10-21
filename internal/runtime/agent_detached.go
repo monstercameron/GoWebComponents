@@ -118,6 +118,7 @@ func RenderDetached(parseSelector string, parseElement *Element) error {
 		if len(detachedRuntimes) >= maxDetachedRuntimes {
 			parseEvictedSelector, parseEvictedRt, hasEviction = evictOldestDetachedRuntimeLocked()
 		}
+		multiRootActive.Store(true)
 		parseRt = NewRuntime(Config{
 			DOMAdapter:   parseGlobal.domAdapter,
 			EventAdapter: parseGlobal.eventAdapter,

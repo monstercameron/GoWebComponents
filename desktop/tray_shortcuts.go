@@ -6,7 +6,7 @@ import (
 	"errors"
 	"image/png"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // SystemTray identifies caller-owned Windows notification-area icons.
@@ -262,7 +262,7 @@ func validateNativeID(parseID string) error {
 		return errors.New("native identifier must contain 1 to 64 characters")
 	}
 	for _, parseRune := range parseID {
-		if !((parseRune >= 'a' && parseRune <= 'z') || (parseRune >= 'A' && parseRune <= 'Z') || (parseRune >= '0' && parseRune <= '9') || parseRune == '-' || parseRune == '_' || parseRune == '.') {
+		if (parseRune < 'a' || parseRune > 'z') && (parseRune < 'A' || parseRune > 'Z') && (parseRune < '0' || parseRune > '9') && parseRune != '-' && parseRune != '_' && parseRune != '.' {
 			return errors.New("native identifier contains an invalid character")
 		}
 	}

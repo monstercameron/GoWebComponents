@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"testing"
 
-	appRouter "github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/test/browser"
-	"github.com/monstercameron/GoWebComponents/v6/testkit/render"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	appRouter "github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/test/browser"
+	"github.com/monstercameron/GoWebComponents/v7/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // Fixture wraps one router plus a rendered route fixture.
@@ -25,7 +25,7 @@ type Fixture struct {
 }
 
 // NewHash creates a hash-router test fixture.
-func NewHash(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+func NewHash(parseTb testing.TB, parseOptions ...appRouter.RouterOption) *Fixture {
 	parseTb.Helper()
 	parseFixture := &Fixture{
 		tb:     parseTb,
@@ -44,7 +44,7 @@ func NewHash(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fixtu
 }
 
 // NewHistory creates a history-router test fixture.
-func NewHistory(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+func NewHistory(parseTb testing.TB, parseOptions ...appRouter.RouterOption) *Fixture {
 	parseTb.Helper()
 	parseFixture := &Fixture{
 		tb:     parseTb,
@@ -53,7 +53,7 @@ func NewHistory(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fi
 		isHash: false,
 	}
 	if len(parseOptions) > 0 {
-		parseFixture.router = appRouter.NewHistoryRouter(parseOptions[0])
+		parseFixture.router = appRouter.NewHistoryRouter(parseOptions...)
 	} else {
 		parseFixture.router = appRouter.NewHistoryRouter(appRouter.RouterOptions{})
 	}
@@ -67,7 +67,7 @@ func NewHistory(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fi
 }
 
 // Register adds a route to the underlying router.
-func (parseF *Fixture) Register(parsePath string, parseComponent interface{}, parseOptions ...appRouter.Options) {
+func (parseF *Fixture) Register(parsePath string, parseComponent interface{}, parseOptions ...appRouter.RouteOption) {
 	parseF.requireActive()
 	parseF.router.Register(parsePath, parseComponent, parseOptions...)
 }

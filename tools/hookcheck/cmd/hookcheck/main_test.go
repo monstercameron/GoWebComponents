@@ -6,12 +6,45 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+// useRetryingDir creates a scratch directory whose removal retries with backoff, because
+// on Windows a freshly built and run *.exe stays locked for a moment (file scanner) and
+// the stock t.TempDir cleanup fails with "Access is denied". A lock that outlives the
+// window is logged rather than failed; it does not affect what the test asserts.
+func useRetryingDir(t *testing.T) string {
+	t.Helper()
+	parseDir, parseErr := os.MkdirTemp("", "hookcheck-e2e-")
+	if parseErr != nil {
+		t.Fatal(parseErr)
+	}
+	t.Cleanup(func() {
+		parseDeadline := time.Now().Add(10 * time.Second)
+		parseDelay := 50 * time.Millisecond
+		for {
+			parseRemoveErr := os.RemoveAll(parseDir)
+			if parseRemoveErr == nil {
+				return
+			}
+			if time.Now().Add(parseDelay).After(parseDeadline) {
+				t.Logf("scratch dir %s not fully removed: %v", parseDir, parseRemoveErr)
+				return
+			}
+			time.Sleep(parseDelay)
+			if parseDelay < time.Second {
+				parseDelay *= 2
+			}
+		}
+	})
+	return parseDir
+}
 
 // TestCmdEndToEnd builds and runs the hookcheck binary against a fixture tree,
 // asserting the exit code and report — the analyzer working as a real CLI.
 func TestCmdEndToEnd(t *testing.T) {
-	parseDir := t.TempDir()
+	parseDir := useRetryingDir(t)
+	t.Setenv("GOTMPDIR", useRetryingDir(t))
 
 	// Build the binary.
 	parseBin := filepath.Join(parseDir, "hookcheck.exe")

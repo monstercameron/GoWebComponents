@@ -16,8 +16,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type noOpScheduler struct{}
@@ -1018,7 +1018,11 @@ func TestUploadSuccessPreservesResponseMetadataAndIgnoresLateCancel(parseT *test
 
 	setRequestHeaderFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
 		if len(parseArgs3) >= 2 {
-			setHeaders = append(setHeaders, parseArgs3[0].String()+"="+parseArgs3[1].String())
+			// traceparent is injected by same-origin trace propagation; it is asserted by the
+			// propagation tests, so this upload test tracks only caller-visible headers.
+			if parseArgs3[0].String() != "traceparent" {
+				setHeaders = append(setHeaders, parseArgs3[0].String()+"="+parseArgs3[1].String())
+			}
 		}
 		return nil
 	})
@@ -1224,7 +1228,7 @@ func BenchmarkBuildMultipartFormData(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseForm, parseErr := buildMultipartFormData(parseBody)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)

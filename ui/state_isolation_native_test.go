@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // childTextByMarker finds the text of the node carrying data-r="child".
@@ -65,7 +65,7 @@ func TestChildStateIsolationAndBailout(t *testing.T) {
 			runtime.CreateElement(parseChild, map[string]any{"key": "c", "label": "L"}))
 	}
 
-	rt.RenderInto(root, runtime.CreateElement(parseParent, map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement(parseParent, map[string]any{}))
 	if parseChildTextByMarker := childTextByMarker(adapter, root); parseChildTextByMarker != "L:100" {
 		t.Fatalf("mount child = %q, want L:100", parseChildTextByMarker)
 	}

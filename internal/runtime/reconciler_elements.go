@@ -128,7 +128,7 @@ const hostAttrSlabSize = 512
 // A fresh backing array is used whenever a slab fills; no slot is ever reused,
 // so retaining a Node remains safe.
 func acquireRenderHostElement() *Element {
-	parseFiber := GetCurrentFiber()
+	parseFiber := activeSlabFiber()
 	if parseFiber == nil {
 		return new(Element)
 	}
@@ -146,7 +146,7 @@ func acquireRenderHostElement() *Element {
 }
 
 func acquireRenderComponentProps(parseValue any) *componentPropsBox {
-	parseFiber := GetCurrentFiber()
+	parseFiber := activeSlabFiber()
 	if parseFiber == nil {
 		return &componentPropsBox{value: parseValue}
 	}
@@ -173,7 +173,7 @@ func AcquireRenderHostAttrs(parseCapacity int) []HostAttr {
 	if parseCapacity <= 0 {
 		return nil
 	}
-	parseFiber := GetCurrentFiber()
+	parseFiber := activeSlabFiber()
 	if parseFiber == nil {
 		return make([]HostAttr, 0, parseCapacity)
 	}
@@ -936,12 +936,14 @@ func flattenFragments(parseElements []any) ([]any, bool) {
 	for _, parseElement2 := range parseElements {
 		parseElem2, parseOk3 := parseElement2.(*Element)
 		if !parseOk3 {
-			if parseElement2 != nil {
-				parseFlattened = append(parseFlattened, parseElement2)
-			}
+			// A nil child keeps its slot: reconcileChildren aligns old and new
+			// siblings by slot (Fiber.slotGap), and dropping the nil here only
+			// when a Fragment forced flattening shifted every later sibling.
+			parseFlattened = append(parseFlattened, parseElement2)
 			continue
 		}
 		if parseElem2 == nil {
+			parseFlattened = append(parseFlattened, nil)
 			continue
 		}
 		if parseT2, parseOk4 := parseElem2.Type.(string); parseOk4 && parseT2 == "FRAGMENT" {
@@ -1014,6 +1016,7 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			underFineGrained:       parseParent.fineGrained || parseParent.underFineGrained,
 			ancestorFlagsValid:     true,
 			serializedUnbound:      parseOldFiber.serializedUnbound,
+			slotGap:                parseOldFiber.slotGap,
 			updateOrigin:           parseOldFiber.updateOrigin,
 			// Same reason as buildUpdatedFiber: the bailout clone is the OTHER
 			// way a marked fiber reaches the work loop, so dropping the lane
@@ -1029,7 +1032,7 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		}
 		ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
 		parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
-		if parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved {
+		if (parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved) && !parseParent.subtreeCommit {
 			markFiberCommitPath(parseParent)
 		}
 

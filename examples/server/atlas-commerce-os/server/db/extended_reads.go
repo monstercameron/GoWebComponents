@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/atlas-commerce-os/shared/repository"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/repository"
 )
 
 type RelatedProductRecord struct {
@@ -130,7 +130,7 @@ func (parseS *Store) ProductComments(parseCtx context.Context, parseProductSlug 
 	if parseErr != nil {
 		return nil, fmt.Errorf("query product comments: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []CommentRecord{}
 	for parseRows.Next() {
 		var parseItem CommentRecord
@@ -152,7 +152,7 @@ func (parseS *Store) RelatedProducts(parseCtx context.Context, parseProductSlug 
 	if parseErr != nil {
 		return nil, fmt.Errorf("query related products: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	for parseRows.Next() {
 		var parseItem repository.Product
 		if parseErr2 := parseRows.Scan(&parseItem.SKU, &parseItem.Slug, &parseItem.Title, &parseItem.Category, &parseItem.PriceCents, &parseItem.Status, &parseItem.Summary, &parseItem.SEODescription); parseErr2 != nil {
@@ -165,7 +165,7 @@ func (parseS *Store) RelatedProducts(parseCtx context.Context, parseProductSlug 
 		if parseErr3 != nil {
 			return nil, fmt.Errorf("query fallback related products: %w", parseErr3)
 		}
-		defer parseFallbackRows.Close()
+		defer func() { _ = parseFallbackRows.Close() }()
 		for parseFallbackRows.Next() {
 			var parseItem2 repository.Product
 			if parseErr4 := parseFallbackRows.Scan(&parseItem2.SKU, &parseItem2.Slug, &parseItem2.Title, &parseItem2.Category, &parseItem2.PriceCents, &parseItem2.Status, &parseItem2.Summary, &parseItem2.SEODescription); parseErr4 != nil {
@@ -238,7 +238,7 @@ func (parseS *Store) ThresholdHistory(parseCtx context.Context, parseSku string)
 	if parseErr != nil {
 		return nil, fmt.Errorf("query threshold history: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ThresholdHistoryRecord{}
 	for parseRows.Next() {
 		var parseItem ThresholdHistoryRecord
@@ -255,7 +255,7 @@ func (parseS *Store) TransferRecommendations(parseCtx context.Context, parseSku 
 	if parseErr != nil {
 		return nil, fmt.Errorf("query transfer recommendations: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	type lane struct {
 		warehouseID string
 		available   int
@@ -317,7 +317,7 @@ func (parseS *Store) TransferLines(parseCtx context.Context, parseTransferID str
 	if parseErr != nil {
 		return nil, fmt.Errorf("query transfer lines: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []TransferLineRecord{}
 	for parseRows.Next() {
 		var parseItem TransferLineRecord
@@ -346,7 +346,7 @@ func (parseS *Store) ReceivingLines(parseCtx context.Context, parseSessionID str
 	if parseErr != nil {
 		return nil, fmt.Errorf("query receiving lines: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ReceivingLineRecord{}
 	for parseRows.Next() {
 		var parseItem ReceivingLineRecord
@@ -375,7 +375,7 @@ func (parseS *Store) PurchaseOrders(parseCtx context.Context) ([]PurchaseOrderRe
 	if parseErr != nil {
 		return nil, fmt.Errorf("query purchase orders: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []PurchaseOrderRecord{}
 	for parseRows.Next() {
 		var parseItem PurchaseOrderRecord
@@ -392,7 +392,7 @@ func (parseS *Store) PurchaseOrdersByWarehouse(parseCtx context.Context, parseWa
 	if parseErr != nil {
 		return nil, fmt.Errorf("query purchase orders by warehouse: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []PurchaseOrderRecord{}
 	for parseRows.Next() {
 		var parseItem PurchaseOrderRecord
@@ -418,7 +418,7 @@ func (parseS *Store) PurchaseOrderLines(parseCtx context.Context, parsePurchaseO
 	if parseErr != nil {
 		return nil, fmt.Errorf("query purchase order lines: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []PurchaseOrderLineRecord{}
 	for parseRows.Next() {
 		var parseItem PurchaseOrderLineRecord

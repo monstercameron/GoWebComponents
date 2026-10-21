@@ -13,7 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // ---------------------------------------------------------------------------
@@ -117,7 +117,16 @@ func Subscribe[T any](parseTopic string, parseHandler func(T)) (parseUnsubscribe
 func subscribeInternal[T any](parseTopic string, parseHandler func(T), parseReplay bool) (parseUnsubscribe func()) {
 	parseID := nextID()
 
+	// isActive flips to false the moment this subscription is cancelled, so a handler removed by
+	// an earlier handler of the same Publish (or by a component unmount) is not invoked from the
+	// already-taken delivery snapshot.
+	var isActive atomic.Bool
+	isActive.Store(true)
+
 	parseWrapper := func(parseValue any) {
+		if !isActive.Load() {
+			return
+		}
 		parseTyped, parseOk := parseValue.(T)
 		if !parseOk {
 			return
@@ -153,6 +162,7 @@ func subscribeInternal[T any](parseTopic string, parseHandler func(T), parseRepl
 	}
 
 	return func() {
+		isActive.Store(false)
 		parseState.mu.Lock()
 		parsePrev := parseState.entries
 		parseNext := make([]entry, 0, len(parsePrev))

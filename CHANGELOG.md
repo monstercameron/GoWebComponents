@@ -1,5 +1,85 @@
 # Changelog
 
+## v7.0.0 — stable
+
+GoWebComponents v7 moves the public module to
+`github.com/monstercameron/GoWebComponents/v7` and raises the Go floor to
+1.27. It includes the API, tooling, hydration, router, telemetry, error
+reporting, and dependency-graph changes described in the v7 development log.
+
+### Upgrade notes
+
+- Change the module requirement and Go imports from `/v6` to `/v7`, then run
+  `go mod tidy`. Pin `v7.0.0` for the stable release.
+- Follow [`docs/MIGRATION_V7.md`](docs/MIGRATION_V7.md) for typed handlers,
+  opt-in Markdown registration, router options, tracing headers, reconnect
+  defaults, and the `kvstate` identifier migration.
+- Invoke the CLI from its nested `tools/` module; browser tests, telemetry SDK
+  tests, and dependency-heavy examples also live in separate modules.
+
+### Verification and accepted performance costs
+
+The [`v7.0.0-rc.1` release workflow](https://github.com/monstercameron/GoWebComponents/actions/runs/39595468422)
+passed its Windows build, tests, browser suites, vulnerability scan, SBOM,
+reproducible build, and candidate consumer guard. A fresh external module
+fetched the published RC and compiled public packages natively and for
+js/wasm. The exact-source CashFlux migration passed its full short Go suite,
+Wasm build, and production browser suite; pinned GoGRPCBridge stress and P0
+browser health probes passed.
+
+The dedicated v6/v7 production comparison matched 179 native entries with a
+6.11% faster v7 geometric mean and 148 Wasm entries with a 0.12% faster v7
+geometric mean. `TransitionListRefresh250` was 22.72% slower on Wasm against
+the 15% per-entry limit. The React 19 Example 201 browser comparison had no
+scenario beyond its +30% noise limit, but its final geometric mean was 4.27%
+slower. The maintainer reviewed and accepted both measured costs for this
+release on 2026-10-21. Raw runs and the size caveats are recorded in
+[`docs/benchmarks/V7-RELEASE-EVIDENCE.md`](docs/benchmarks/V7-RELEASE-EVIDENCE.md).
+
+Windows v6.1 manual acceptance remains deferred; v7 is released first by
+maintainer decision. The v6 line retains its support window under
+[`VERSIONING.md`](VERSIONING.md).
+
+## v7.0.0-rc.1 — release candidate (pending final release gates)
+
+This candidate packages the v7 module-path migration and the API, tooling,
+hydration, router, telemetry, and error-reporting changes recorded in the v7
+development log. It is intended for explicit RC testing with Go 1.27;
+the stable `v7.0.0` tag has not been published.
+
+### Upgrade notes
+
+- Change consumer imports and the module requirement from `/v6` to `/v7`.
+- Use Go 1.27.3 or newer and follow [`docs/MIGRATION_V7.md`](docs/MIGRATION_V7.md)
+  for typed input handlers, opt-in Markdown registration, router options,
+  tracing headers, reconnect defaults, and the `kvstate` identifier migration.
+- Nested tools, browser tests, telemetry SDK tests, and dependency-heavy
+  examples are separate modules; run their checks from their module directory.
+
+### Verification and release status
+
+This is a documentation and packaging checkpoint for the RC. An isolated
+CashFlux `/v7` migration against exact source `5a2ce15b` passed its Wasm
+build, full short Go suite, and production browser suite (27 passed, 2 skipped,
+2 timing-sensitive retries). Go 1.27 required regenerating CashFlux's eight
+icon fixtures; the same mismatch occurs on its v5 source with Go 1.27.
+Repeated v5/v7 route timings did not show a consistent v7 slowdown. The
+final-runtime validation-only release workflow passed its Windows build and
+test gates. Dedicated fair v6/v7 production comparisons completed; native was
+6.11% faster by geometric mean, and Wasm was 0.12% faster overall.
+Published-RC `go get` consumer verification remains a release gate. The
+Example 201 browser comparison stayed within its
+per-scenario noise limit but missed the positive geomean target, and the
+transition-list Wasm benchmark exceeded the 15% per-entry limit. The
+maintainer accepted both measured costs for v7 on 2026-10-21; see
+`docs/benchmarks/V7-RELEASE-EVIDENCE.md`. Windows v6.1 manual acceptance is
+deferred; v7 may release before v6.1 after its own gates pass.
+
+### Documentation
+
+- Migration guide: [`docs/MIGRATION_V7.md`](docs/MIGRATION_V7.md)
+- Versioning policy: [`VERSIONING.md`](VERSIONING.md)
+
 ## Unreleased — v6.1.0 in progress
 
 ### Added
@@ -31,6 +111,604 @@ release checks are open. Windows only is targeted. Wails remains beta.17 plus
 fork commit `0965e9db574e7b14a447b0ae2bf7ed36a5406462`; the separate adapter is
 not independently published. No v6.1.0 tag or production deployment exists yet.
 See `docs/plans/v6.1-windows-api-parity.md` and its manual evidence record.
+
+### v7 development log (branch v7/dev)
+
+200 fixes across 34 areas; 22 security.
+
+Running notes for the unreleased v7 line, taken from the verified wave logs in
+`todos.md`. This work is not tagged or released yet; the module path is now
+`/v7`, and these notes will be folded into the v7.0.0
+entry. Each item below passed its own tests; the Known issues list says what did
+not.
+
+The buffered/template/worker interop experiment remains on `v7/interop-exp` and
+is not part of this release. Its partial measurements did not establish a
+reliable end-to-end win, so the full experiment verdict remains future research.
+
+The release changelog check now distinguishes stable and RC headings: a
+`v7.0.0-rc.1` section cannot satisfy the later `v7.0.0` tag gate.
+
+The router WASM browser test fixture now supports `document.dispatchEvent`,
+preventing a deferred first-commit panic from interrupting query-loader tests.
+
+#### Added
+
+- Error-code registry: tag-free `internal/errcode` (72 entries covering runtime,
+  ui, router, state, fetch, css, devtools and 14 `GWC-INTEROP-*` codes) with
+  `errcode.New`, `Is` by code and `CodeOf`. `docs/REFERENCE_MANUAL/error-codes.md`
+  and `gwc explain` are generated from it, every docs link now resolves to that
+  page (the old `ACTIONABLE_ERRORS.md` anchors were dead), and panic reports read a
+  leading `[GWC-...]` token. `interop.Error.GWCCode()` was added, `ErrCircuitOpen`
+  is now an `*errcode.Error` (`errors.Is` still works), and a ratchet test
+  (`TestNoNewUncodedErrors`) stops uncoded `Errorf` sites from growing.
+- Development diagnostics: component `(file:line)` in error-boundary and hook-order
+  stacks (empty in production wasm); `GWC-RUNTIME-HOOK-ORDER` for hook count or
+  kind changes between renders; `GWC-RUNTIME-HOOK-DEP-UNSTABLE` when a dependency
+  changes identity every render (a new closure, or a map or slice that is deeply
+  equal but a different object); `GWC-RUNTIME-HOOK-IN-LIST` for handlers created in
+  a list render; the `ui.Always` sentinel for an effect that should run every
+  render. All of these are development-only. `gwc lint` and `hookcheck` flag inline
+  `On*(func...)` handlers in loops and `Map` callbacks.
+- OpenTelemetry: native-only `telemetry/otel` (`NewBridge`, `Install`, `Middleware`
+  with a `gwc.ssr.render` server span, `ExportRecorderSpans`, `ExportRUMEvents`,
+  metrics through `Options.MeterProvider`). `ui.SetTracePropagator`,
+  `serverfn.SetTracePropagator` and `serverfn.SetServerSpanHook` are the hooks it
+  fills in; the `serverfn` client injects trace headers and the handler records a
+  `gwc.serverfn.<name>` span. Core packages and the wasm build import no
+  `go.opentelemetry.io/*` (guarded by `test/wasmdeps`). `go.mod` gained direct
+  requires on `otel/metric`, `otel/sdk` and `otel/sdk/metric` v1.43.0.
+- Browser telemetry: `telemetry` OTLP JSON now validates trace and span IDs,
+  derives deterministic ones, and sets span kind, status, parent span ID, resource
+  and scope attributes; `BatchExporter` retries with backoff and honors
+  `Retry-After`, `EventQueue` bounds memory, and the queue flushes on `pagehide`.
+  `interop` gained `NewTraceID`, `NewSpanID`, `ParseTraceparent` and a formatter.
+- `fetch` (wasm, fetch and XHR paths) adds a W3C `traceparent` header and
+  `fetch.Options.TracePropagationOrigins` for extra origins.
+- API: typed `OnInput`/`OnChange` with `OnInputHandler`/`OnChangeHandler`;
+  46-48 generated attribute builders (`html/internal/attrtable` and `attrgen`,
+  run with `go generate`); `CheckedIf`, `RequiredIf`, `IfProp`, `UnlessProp`;
+  `Markdown(src, ...MarkdownOption)` with `WithURLSchemes`; `Params.As[V]` and
+  `Query.Decode[T]` generic methods.
+- Router: `UseParams`, `UseQuery`, `UseSearchParams` and `UseRouteData` subscribe
+  like `UseRoute`; `WithBasePath` for history routers; native
+  `SPAFallbackHandler`; `RouterOption` and `RouteOption` interfaces that the old
+  option structs still satisfy, plus `With*` constructors.
+- Hydration: several islands on one page. The first container keeps the global
+  runtime, the others get isolated runtimes that share adapters
+  (`ResolveHydrationRuntime`).
+- Tooling: `gwc bench suite` and `gwc bench suite compare` (schema
+  `gwc.bench.suite/v1`; lanes native, wasm, size, build; `-resume`,
+  `-target-timeout`, progress log and partial report); `gwc bench` records a
+  `machine` block and takes `-stat` and `-include`; the shell-free wasm test
+  runner `bin/gowasmexec.exe` (built from `tools/gowasmexec`); `tools/binarycheck`
+  and a workflow that fails on tracked binaries; `api_baseline.txt` files and tests
+  for `ui`, `html`, `router` and `fetch` (add with `git add -f`; `*.txt` is
+  ignored); `api_compat_guard check` runs in `api-baseline.yml`; a `wasm-vet` job.
+- Tests: 26 sleep-based tests moved to `testing/synctest` bubbles (about 0.70 s of
+  real delay in the out-of-order SSR stream tests became about 0.01 s); wasm tests
+  now execute for the first time and pass for jsdom, state, internal/runtime,
+  interop, utils, testkit, devtools, pwa, hotreload, db/sqlite, css, desktop,
+  logging, validate, virtualization and test/{browser,hooks,render,ssr}.
+
+#### Changed
+
+- Go 1.27 is required: root, `tools/livereload`, `tools/agenthub` and
+  `desktop/wails` use `go 1.27.0` with `toolchain go1.27.1`; workflows run 1.27.x.
+  go1.27.1 did not change component identity, vet or unit-test results on the 27
+  core packages that were compared with go1.26.3. `strings.CutLast` is used at 9
+  sites.
+- The module path is now `/v7`. The CLI and tooling, Playwright browser suite,
+  SDK-backed OTel tests, and dependency-heavy examples have nested modules;
+  the root `go.sum` dropped from 213 to 112 lines. A fresh external `/v7/ui`
+  consumer builds natively and for wasm with a six-line `go.sum`. Full release
+  validation remains open.
+- `fetch` resilience: a zero `RetryPolicy.MaxDelay`, `RetryPolicy.Multiplier`,
+  `BreakerConfig.FailureThreshold` and `BreakerConfig.HalfOpenMaxCalls` now means
+  the documented default instead of a trap (see Migration notes).
+- `UsePersistedState` re-reads when its key changes; realtime connections use a
+  `MinStableDuration` (default 1 s) before a reconnect counter resets, and a
+  negative value restores the old reset-on-open behavior.
+- `Map` and `MapKeyed` mark list renders so the in-list diagnostic can fire.
+- `state.UseComputed` now calls `deprecation.Warn`.
+- Markdown is opt-in. `html.RenderMarkdown` and `html.Markdown` dispatch to an
+  engine installed with `html.RegisterMarkdownEngine` (type `html.MarkdownEngine`).
+  The goldmark engine moved to the new package `html/markdown` (blank import or
+  `markdown.Enable()`). With no engine the source renders as escaped text in
+  `<div data-gwc-markdown-unavailable>` plus one `GWC-UI-MARKDOWN-ENGINE-MISSING`
+  warning. `MarkdownRenderOptions.ResolveSafeHref` and `GetAllowedSchemes` are now
+  exported so other engines can share the link policy.
+- Binary size: `validate` uses hand-written matchers instead of `regexp`
+  (differential-tested against the old patterns), so goldmark and `regexp` are out
+  of the default wasm dependency graph. Go 1.27 enables `GOEXPERIMENT=jsonv2` by
+  default, which added about 976 KB raw (248 KB gzip) to the counter wasm;
+  `gwc` now sets `GOEXPERIMENT=nojsonv2` for wasm builds while preserving other
+  caller-selected experiments (test: `TestBuildWasmGoEnvDisablesJSONV2`). Direct
+  `go build` commands still need the setting. See `docs/V5_SIZE_STORY.md`.
+- `internal/apidump.Check` skips under `js` (`os.ReadDir` cannot open directories
+  there on Windows).
+- Native SSR host construction skips goroutine-indexed hook lookup for the three
+  client-only slab helpers. SSR entry captures the owner once and component
+  scopes reuse it; concurrent request isolation remains covered by
+  `TestSSRConcurrentHookFibersIsolateRequests` and the new
+  `TestSSRSlabLookupSkipsHookOwner`. Focused default and production tests, full
+  `internal/runtime` and `ui` tests, vet, and wasm compilation pass. The planned
+  A/B benchmark and CPU-profile acceptance are pending an idle host.
+- The experimental `gwcworker` SharedArrayBuffer transport clears padding bytes
+  before publishing a JSON record; reused ring slots could otherwise append
+  stale bytes and strand a commit. Focused worker tests and a browser run at
+  10,000 rows pass. Worker RPC commands now use the discrete lane so synchronous
+  commits apply immediately; a short 20-action diagnostic fell from about
+  164 ms to 31 ms. The full interop performance verdict remains open.
+- The interop experiment now has an opt-in phase profile lane that reports
+  action-to-commit, encoder, flush, applier, and separately forced layout times
+  for legacy/buffered/template comparisons. Its focused builds and browser
+  semantics pass; controlled measurements and a CPU profile remain pending.
+- The `/v7` root-module test rerun passes (`go test -p 2 ./... -count=1`).
+  Documentation lint now parses `go -C tools run ./gwc` and recognizes generated
+  Atlas/v5 harness paths; Atlas table CSS preserves compound selectors, and its
+  server script test creates a local wasm fixture. The release workflow's
+  counter `gwc verify -audit` command passed with the corrected tools-relative
+  path. Nested-module and browser release lanes are still being checked.
+- Nested v7 module checks now pass for OTel integration tests, example tests,
+  the tool agent hub, and the Windows desktop adapter and counter; the site
+  builds for js/wasm. The v5 two-artifact size test uses `nojsonv2`, matching
+  `gwc`'s wasm CI profile, and passes at 1,617,303 B gzipped against its
+  1,800,000 B ratchet. The AI chat wizard rejects parent traversal in asset
+  paths; its `server/app` test suite passes. The full tools module suite now
+  passes after updating Windows root discovery and split-module fixtures.
+  Release CI checks the split modules and recognizes RC tags. Browser lanes
+  remain open.
+- Browser test servers now launch the CLI from the nested `tools` module and
+  preserve startup errors in test output. The release workflow runs
+  `TestExamplesAll`, and the PR browser workflow runs both `TestMainSuite` and
+  `TestExamplesAll`. On the local v7 tree, the full root and tools tests,
+  `TestMainSuite`, `TestBenchmark`, `TestExamplesAll` (Chromium, Firefox,
+  WebKit), and `gwc lint` (zero findings) pass. Performance acceptance and the
+  v6.1 prerequisite remain open.
+- The wasm test lane now passes all 28 discovered packages after the router
+  fixture shim accepted the v7 `RouterOption` interface. The counter app's
+  `gwc verify` CI wasm build also passes.
+
+#### Fixed
+
+Every bullet is one defect and its repair: `- area: what was wrong -> what
+happens now (test: name)`. `[security]` marks a fix that closes an injection,
+traversal, redaction or denial-of-service hole, and `[behavior]` marks a fix that
+changes what existing code observes. Each fix was written test first; a bullet
+says `diff only` where no dedicated test exists. Tests are native unless the
+package name says wasm.
+
+##### Rendering and reconciler (internal/runtime)
+
+- internal/runtime: lists with more than about 5,000 siblings overflowed the JS stack because commit, deletion, portal-move and effect walks recursed once per sibling -> they loop over siblings and recurse only for child depth; allocations for a 100-sibling re-render are unchanged (test: TestCommitWideSiblingListsDoNotRecursePerSibling)
+- internal/runtime: freshly created elements were given `class=""` and `style=""` (1,000 empty `class` writes when mounting a 1,000-row table) -> empty `class` and `style` are skipped on create only; hydration, updates, `value=""`, ARIA and `data-*` are unchanged (test: TestCreateSkipsEmptyClassAndStyleAttributes)
+- internal/runtime: a nil child (`If(false, ...)`) did not hold its slot, so the next unkeyed sibling remounted and lost its state -> the slot is kept (test: TestP7NilChildKeepsSiblingSlot)
+- internal/runtime: `Fragment` siblings dropped nil slots the same way -> they keep their slots (test: TestFragmentSiblingKeepsNilSlotForStatefulNeighbour)
+- internal/runtime: a ref was never published on a node adopted during hydration -> the ref is set (test: TestDOMRefPublishesOnHydratedNode)
+- internal/runtime: a surviving element kept publishing to its old ref sink after the ref changed -> the ref moves to the new sink (test: TestDOMRefMovesToNewSinkOnSurvivingElement)
+- internal/runtime: a derived atom whose re-registration was refused (cycle) was unlinked from the old atom -> the existing registration stays intact (test: TestRegisterDerivedAtomRejectedCycleKeepsExistingRegistration)
+- internal/runtime: `RestoreSnapshot` did not notify dependents, so derived atoms and `UseDerived` stayed stale after `ApplySnapshot` or a hydration bootstrap -> dependents recompute (test: TestP7RestoreSnapshotRecomputesDerivedDependents)
+
+##### SSR and streaming
+
+- internal/runtime: the streamed boundary replacement `<script>` never wrote the closing quote of `data-gwc-stream-boundary="..."`, so no streamed `AsyncBoundary` replacement ever ran in a browser -> the attribute is closed and the script executes (test: TestStreamBoundaryPatchScriptClosesItsAttributes)
+- internal/runtime: SSR `ErrorBoundary` swallowed a suspension and rendered its fallback instead of waiting -> suspensions pass through in string rendering (test: TestRenderToStringErrorBoundaryDoesNotSwallowSuspension)
+- internal/runtime: the same swallowing in streaming render -> suspensions pass through (test: TestRenderToStreamErrorBoundaryDoesNotSwallowSuspension)
+- [security] internal/runtime: a hostile `BoundaryIDPrefix` was written raw into the stream and could close the HTML comment around the boundary marker -> the prefix is filtered to `[A-Za-z0-9_.-]` (test: TestRenderToStreamBoundaryIDPrefixCannotBreakOutOfComment)
+- [security] [behavior] internal/runtime: `serializeStyleMap` wrote style keys verbatim (so `overflowY:` was emitted in SSR) and passed through values that could break out of the attribute -> keys are kebab-cased and declarations with a top-level `;`, braces, `/*`, `</style` or unbalanced quotes or parentheses are dropped (tests: TestSerializeStyleMapKebabCasesKeys, TestSerializeStyleMapDropsInjection)
+- testkit/ssr: the static-export bootstrap sidecar was chosen by map iteration order, so `about.json.br` could win over `about.json` -> the shortest matching name wins deterministically (test: TestStaticExportRouteBootstrapIsDeterministic)
+
+##### Hooks and effects
+
+- internal/runtime: a state update arriving after commit published the new tree but before it cleared `updateScheduled` was coalesced without a follow-up render, leaving effects such as Example 100 auth bootstrap at a 0% loading shell -> that commit window now records an owed pass (test: TestUpdateAfterCommitTreePublicationSchedulesFollowUp; TestExample100AdminJourneyRegression browser rerun twice)
+- internal/runtime: component-owned state written during commit could mark the old fiber tree and lose the update when its alternate was reused -> the scheduler records a follow-up and targets the in-flight tree (tests: TestUpdateDuringCommitSchedulesFollowUp, TestOwnedUpdateDuringCommitTargetsWIP; focused Example 100 Admin Ops browser regression)
+- internal/runtime: a panicking effect cleanup was not recovered, skipped the remaining effects (whose deps were already stored) and bypassed the error boundary -> the panic is contained and reported to the boundary (test: TestP7EffectCleanupPanicIsContained)
+- internal/runtime: a second panic in the same error boundary during one commit escaped it -> it is handled (test: TestP7SecondPanicInSameBoundaryIsHandled)
+- internal/runtime: typed `GoUseEffectOf` ran the previous cleanup during render, even for a discarded render -> cleanup runs at commit only (test: TestP7TypedEffectCleanupNotRunDuringDiscardedRender)
+- internal/runtime: `Render` and `Hydrate` did not flush deferred passive effects first, so the router's per-route `RenderTo` could run effects late -> passive effects flush before the new render (test: TestP7RenderFlushesDeferredPassiveEffects)
+- internal/runtime: deprecated `GoUseFetch` had no sequence guard, so an older slow response overwrote a newer one -> stale responses are ignored (test: TestGoUseFetch_StaleResponseDoesNotOverwriteNewer, wasm)
+
+##### ui hooks and forms
+
+- ui: `UsePersistedState` kept the value of the first key after the key changed -> it re-reads storage for the new key (test: TestUsePersistedStateReReadsStoredValueWhenKeyChanges, wasm)
+- ui: `UseRevalidateOnFocus` never refetched a mounted query -> focus triggers a refetch (test: TestUseRevalidateOnFocusRefetchesMountedQuery, wasm)
+- ui: `MustSetField` and `SetField` misreported the field as invalid when the update was deferred -> the result reflects the field (test: TestFormSetFieldReportsValidFieldWhenUpdateIsDeferred, wasm)
+- ui: `Reset` reused a per-form `validateSeq`, so an in-flight async validation could land after a reset -> a process-wide counter invalidates it (test: TestFormResetInvalidatesInFlightAsyncValidation)
+- ui: `UseWindowEvent` handlers kept the first render's closure -> they see the latest render (test: TestUseWindowEventHandlerSeesLatestRender, wasm)
+- ui: `UseInterval` callbacks kept the first render's closure -> they see the latest render (test: TestUseIntervalCallbackSeesLatestRender, wasm)
+- ui: `UsePointerEvents` handlers were stale -> they see the latest render (test: TestUsePointerEventsHandlerSeesLatestRender, wasm)
+- ui: `UseWheel` handlers were stale -> they see the latest render (test: TestUseWheelHandlerSeesLatestRender, wasm)
+- ui: timer triggers lost their timer across re-renders -> they survive re-renders (test: TestUseTimerTriggerSurvivesRerenders, wasm)
+- ui: native `UseState[any]` ignored `Update` and `Set(nil)` -> the updater applies (test: TestNativeStateAnyUpdateAppliesUpdater)
+- [behavior] ui: native `UseId` produced ids that were not CSS-safe -> ids use the `gwc-native-N` format (test: TestNativeUseIDIsCSSSafe)
+- ui: `UseTaskCtx` did not settle when its parent context was cancelled -> it settles as Cancelled (test: TestUseTaskCtxParentCancelSettlesState, wasm)
+- ui: composite-navigation typeahead reacted to Ctrl, Meta and Alt chords -> modifier shortcuts are ignored (test: TestCompositeTypeaheadIgnoresModifierShortcuts, wasm)
+- ui: the focus trap focused the container instead of the first focusable element -> it focuses the first focusable (test: TestUseFocusTrapFocusesFirstFocusableNotContainer, wasm)
+- ui: `UseSpring` stopped near its target -> it settles exactly on the target (test: TestSpringSettlesExactlyOnTarget)
+- ui: a panicking `UseAsyncMutation` body left the hook wedged and the optimistic state unrolled -> it settles and rolls back (test: TestUseAsyncMutationFnPanicRollsBack)
+- ui: a panicking form submit or validate body left the form stuck submitting -> the state settles with the error (test: TestFormRunnerPanicSettlesState)
+- ui: a panicking `UseTask` runner wedged the hook -> it settles with the error (test: TestUseTaskRunnerPanicSettlesWithError, wasm)
+
+##### Router
+
+- router: a route loader that finished without a path change did not republish the location, so subscribed route hooks kept stale data -> the location revision bumps and subscribers re-render (test: TestLoaderCompletionRepublishesLocation, wasm)
+
+##### Data fetching and cache (fetch, query)
+
+- fetch: a failed revalidation of a Ready cached resource retried forever because the effect depended on Loading and Stale stayed true -> the failure is not retried in a loop (test: TestFetchNativeCachedResourceFailedRevalidationDoesNotLoop)
+- fetch: `LoadNext` on a mounted infinite query reset to page 1 and discarded the appended page -> the appended page is kept (test: TestFetchNativeInfiniteQueryMountedLoadNextKeepsAppendedPage)
+- fetch: a disposed key's late loader goroutine wrote `Loading=false` onto a new entry for the same key -> late loaders no longer touch the new entry (test: TestFetchNativeDisposedKeyLateLoaderDoesNotTouchNewEntry)
+- fetch: overlapping optimistic updates rolled back to the wrong state -> a rollback restores the pre-update state and keeps a still-pending overlapping update (tests: TestFetchNativeOptimisticUpdatesOverlapRollBackToPreUpdateState, TestFetchNativeOptimisticRollbackKeepsOverlappingUpdate)
+- query: overlapping failed `Mutate` calls rolled back to an intermediate state -> they roll back to the pre-mutation state (test: TestMutateOverlappingFailuresRollBackToPreMutationState)
+- query: an earlier successful mutation was undone by a later failure -> the earlier success survives (test: TestMutateOverlappingEarlierSuccessSurvivesLaterFailure)
+- query: `Invalidate` did not bump the generation, so an in-flight fetch committed stale data as fresh -> the in-flight result is discarded (test: TestInvalidateDiscardsInFlightFetchResult)
+- fetch: a persistent-cache restore overwrote a newer `Set` made while it loaded -> the newer value wins (test: TestFetchNativePersistentCacheRestoreDoesNotOverwriteNewerSet)
+- fetch: a mutation-queue replay whose conflict handler returned an error left already-succeeded mutations persisted, so they replayed again -> only unfinished entries are kept (test: TestMutationQueueReplayConflictHandlerErrorKeepsOnlyUnfinishedEntries)
+- fetch: `MutationQueue.Clear` took no lock and raced `Enqueue` -> it is serialized with enqueue (test: TestMutationQueueClearIsSerializedWithEnqueue)
+
+##### Resilience
+
+- [behavior] fetch: `RetryPolicy.MaxDelay` and `Multiplier` of zero produced degenerate delays -> zero means the documented default, 5 s and 2.0 (test: TestRetryDelayZeroValuesUseDefaults; explicit values unchanged: TestRetryDelayExplicitValuesUnchanged)
+- [behavior] fetch: `BreakerConfig.HalfOpenMaxCalls` of zero allowed unlimited half-open calls -> zero means one probe (test: TestCircuitBreakerHalfOpenZeroMaxCallsDefaultsToOneProbe)
+- [behavior] fetch: `BreakerConfig.FailureThreshold` of zero opened or never opened the breaker by accident -> zero means 5 (test: TestCircuitBreakerZeroThresholdUsesDefault)
+- fetch: a half-open breaker stayed stuck when the probe operation panicked -> the probe slot is released (test: TestCircuitBreakerProbeReleasedOnPanic)
+- fetch: a half-open breaker stayed stuck when the probe was cancelled -> the probe slot is released (test: TestCircuitBreakerProbeReleasedOnCancel)
+- fetch: retries kept hitting the downstream after the circuit breaker opened -> retries stop once it opens (test: TestRetryStopsOnceBreakerOpens)
+
+##### Realtime
+
+- fetch: a heartbeat timeout fired right after a reconnect because the previous connection's last message was still counted -> the previous connection's message is ignored (test: TestRealtimeControllerHeartbeatIgnoresPreviousConnectionMessage)
+- fetch: `Open` after the retry budget was exhausted did not get a fresh budget -> it starts with a full budget (test: TestRealtimeControllerOpenAfterExhaustedRetriesGetsFreshBudget)
+- fetch: consecutive failed reconnects did not honor `MaxReconnectAttempts` -> they stop at the maximum (test: TestRealtimeControllerConsecutiveFailedReconnectsHonorMax)
+- [behavior] fetch: the attempt counter reset on every open, so a server that accepts and drops connections was retried forever -> the counter resets only after `MinStableDuration` (default 1 s; negative restores reset-on-open) (tests: TestRealtimeControllerShortLivedConnectionsExhaustReconnectBudget, TestRealtimeControllerStableConnectionResetsAfterShortLivedOnes)
+
+##### State and atoms
+
+- state: a panic inside an auto-tracked computed left dependency tracking active for the next reader -> tracking unwinds on panic (test: TestP7AutoComputedPanicUnwindsTracking)
+- state: state hooks inside a second island and in `RenderDetached` bound to the global runtime instead of their own -> they bind to the rendering runtime (test: TestHydrateIntoSecondIslandStateUpdateRepaintsOnlyThatIsland, wasm)
+
+##### Hydration
+
+- internal/runtime: an empty text child consumed the next node during hydration and misaligned the cursor -> the empty text fiber is skipped without consuming a node (test: TestP7HydrationEmptyTextChildDoesNotConsumeNextNode)
+- ui: a second hydration island clobbered the first because both shared one runtime root -> the first container keeps the global runtime and later ones get isolated runtimes (tests: TestHydrateIntoTwoContainersKeepsFirstIsland, TestHydrateIntoSecondIslandStateUpdateRepaintsOnlyThatIsland, wasm)
+
+##### HTML, markdown and sanitize (security)
+
+- [security] sanitize: URL checks kept interior spaces, so a scheme split by whitespace could pass -> interior spaces are handled (test: TestSanitizePreservesInteriorSpaceInURL)
+- [security] sanitize: only some URL attributes were checked -> `poster`, `cite`, `background`, `ping`, `data`, `longdesc` and every `srcset` candidate are checked (test: TestSanitizeURLVectors, 19 vectors)
+- [security] html: markdown link destinations with dangerous schemes were not filtered consistently -> `SanitizeMarkdownHref` drops them and relative destinations resolve (tests: TestSanitizeMarkdownHrefDropsDangerousSchemes, TestResolveMarkdownHrefResolvesRelativeDestinations, TestResolveMarkdownHrefEdgeCases)
+- html/markdown: email autolinks rendered without a scheme, so the link was relative -> they get `mailto:` (test: TestRenderMarkdownAutolinkHref)
+- html: typed-nil nodes and typed-nil Stringers were kept as children or panicked -> they are skipped (test: TestChildrenSkipsTypedNilNodeAndNilStringer)
+- html: `MergeProps` and `PropsOf(Value(""), Value("x"))` let an empty value win by ordering -> the last write wins (test: TestValueOptionLastWriteWins)
+- html: `RawHTMLUnsafe` style parsing split on a `;` inside `url(data:...)` -> semicolons inside values are kept (test: TestParseInlineStyleKeepsSemicolonsInsideValues)
+- html: virtual lists with NaN, Inf or overflowing overscan, or scrolled past the end, computed a bad range -> the visible range is clamped (test: TestVisibleRangeSurvivesHostileNumbers)
+
+##### CSS
+
+- css: `-0` and `0` minted two different classes -> they fold to one (test: TestNegativeZeroFoldsToZero)
+- css: `CubicBezier`, `Repeat` and `GridSpan` accepted NaN, infinite or out-of-range arguments -> arguments are clamped and invalid values stay live CSS (test: TestInvalidNumericArgumentsStayLiveCSS)
+- [security] css: `DynamicVar` and `El` names were not validated, so a name could inject CSS -> names that could inject are rejected (test: TestDynamicAndElementNamesCannotInjectCSS)
+- css/u: `MtN` with a negative index produced invalid CSS -> it produces valid CSS (test: TestNegateLengthProducesValidCSS)
+- css/u: `Sm` through `Xl2` were always on when the theme lacked the breakpoint -> a missing breakpoint is a no-op (test: TestMissingBreakpointIsNoOp)
+- [behavior] css: `Inject` of the same id raised a false collision -> the first call for an id wins and a repeat with a different body is ignored silently (test: TestInjectSameIDSemantics)
+- css: `GridLineAt(0)` produced the invalid line 0 -> it clamps to 1 (test: TestGridLineAtZeroClamped)
+
+##### Head
+
+- head: merging layers duplicated repeated alternate links, resource hints and JSON-LD blocks, and client `UseHead` skipped twitter tags -> entries merge by identity and override (test: TestMergeDedupesRepeatedHeadEntries; the twitter tags are diff only)
+- head: a client navigation left the previous page's `robots`, canonical and social tags in place (a stale `noindex` persisted) -> tags the next page omits are removed (test: TestDiffHeadStaleTagsFindsOmittedRobots; the DOM removal itself is browser-only and untested)
+
+##### Animation
+
+- anim: a NaN delta time poisoned a spring permanently -> NaN is ignored (test: TestSpringNaNDtDoesNotPoison)
+- anim: a stiff, light spring diverged to infinity -> large steps are substepped and the value stays finite (test: TestSpringStaysFiniteForStiffLightConfig)
+- anim: a zero-value `Spring` misbehaved -> it is inert (test: TestZeroValueSpringIsInert)
+- anim: `Interpolate(..., 1, ...)` was not exact and a nil easing panicked -> exact end value and a default easing (test: TestEasingAndInterpolateEdges)
+- anim: transitions with a NaN delta or zero duration produced NaN or never finished -> they finish immediately and ignore NaN (tests: TestTransitionNaNAndZeroDuration, TestZeroDurationTransitionIgnoresNaNDelta)
+
+##### Virtualization
+
+- virtualization: hostile numbers (NaN, Inf, overflow) in `ComputeViewportState` gave a bad window -> the state is clamped (test: TestComputeViewportStateHostileNumbers)
+- virtualization: fractional row heights were rounded, drifting the offset -> `pxExact` keeps them (test: TestPxExactKeepsFractionalRowHeights)
+
+##### i18n
+
+- i18n: CLDR plural categories were wrong for fractions and edge values -> categories follow CLDR (test: TestPluralCategoryFractionsAndEdgeValues)
+- i18n: `FormatNumber` broke on very large and non-finite numbers (1e19, NaN, Inf) -> they format (test: TestFormatNumberLargeAndNonFinite)
+- i18n: relative time was wrong at boundaries and for a zero time -> boundaries and zero time are handled (test: TestFormatRelativeTimeBoundariesAndZeroTime)
+- [security] i18n: `PrefixPath` with `//evil.com` produced a protocol-relative URL, an open redirect -> it can no longer produce one (test: TestPrefixPathCannotProduceProtocolRelativeURL)
+- i18n: `PrefixPath` dropped the query or trailing slash -> both are kept (test: TestPrefixPathKeepsQueryTrailingSlash)
+- i18n: `LazyBundle` could load a locale twice under concurrency -> it loads each locale once (test: TestLazyBundleLoadsEachLocaleOnceUnderConcurrency)
+- i18n: a failed `LazyBundle` load was cached forever, and an empty locale was not a no-op -> a failed load is retried and an empty locale does nothing (test: TestLazyBundleFailedLoadIsRetriedAndEmptyLocaleIsNoop)
+- i18n: `zh-Hant-TW` did not fall back through its script subtag -> fallback walks script subtags (test: TestLocaleFallbackWalksScriptSubtags)
+- i18n: text direction came from the language only -> it uses the script (test: TestDirectionForLocaleUsesScript)
+- i18n: interpolating a typed-nil Stringer panicked -> it does not (test: TestInterpolateTypedNilStringerDoesNotPanic)
+- i18n: `FormatDate` and `FormatList` ignored the locale -> they use per-locale tables (tests: TestFormatDateLocaleTables, TestFormatDateLocaleAllMonths, TestFormatListLocales)
+- i18n: an SSR bootstrap namespace containing a dot did not round-trip -> it round-trips (test: TestSSRBootstrapNamespaceWithDotRoundTrips)
+- i18n: `ResolvePath` without supported locales failed -> it resolves (test: TestResolvePathWithoutSupportedLocales)
+- i18n/extract: escaped string literals (`"tab\tkey"`, `"say \"hi\""`) were extracted with the raw escapes, not the runtime key -> they are unquoted (test: TestExtractUnquotesEscapedStringLiterals)
+
+##### PWA
+
+- [behavior] pwa: canary bucketing was biased (a 50 percent route reached 58.7 percent of clients) -> the share matches the percent and is monotonic; cohorts reshuffle once on first deploy (tests: TestWasmRolloutCanaryShareMatchesPercent, TestWasmRolloutIsMonotonicInPercent)
+- pwa: the update prompt never retried after a failed service-worker subscribe -> it retries (test: TestUpdatePromptStartRetriesAfterSubscribeFailure)
+- pwa: a `statechange` listener was attached again for the same worker object and leaked -> it attaches once per worker (test: TestSubscribeLifecycleAttachesOncePerWorkerObject, wasm)
+- pwa: `awaitServiceWorkerValue` called a released `js.Func` when a promise settled after cancel -> a late settle calls nothing released (test: TestAwaitServiceWorkerValueLateSettleAfterCancelCallsNoReleasedFunc, wasm)
+
+##### Flags
+
+- flags: total variant weight of exactly 2^32 truncated to a zero modulus and panicked with a divide by zero -> the modulus reduces in 64 bits (test: TestBucketStabilityAndDistribution; existing buckets unchanged)
+- flags: huge or overflowing weights overflowed the total to a negative -> weights saturate at `math.MaxInt` (tests: TestAssignmentHugeWeightsDoNotPanic, TestAssignmentOverflowingWeightsStillAssign)
+- flags: an out-of-order stale refresh response re-enabled a killed flag -> the stale response is discarded (test: TestRefreshDiscardsStaleOutOfOrderResponse)
+- flags: `Poll` swallowed its sleep error -> it returns it (test: TestPollReturnsSleepError)
+
+##### Events
+
+- events: a subscriber cancelled by an earlier handler of the same publish (or by an unmount) was still delivered -> removed subscribers are skipped (test: TestUnsubscribeDuringDispatchSkipsRemovedSubscriber)
+- [behavior] events: a subscriber added during a publish could receive the current publish -> it receives only later ones (test: TestSubscribeDuringDispatchIsNotDeliveredCurrentPublish)
+- events: a panicking handler skipped its siblings and delivery was not exactly once -> siblings still run (test: TestPanickingHandlerDoesNotSkipSiblingsAndFanOutIsExactlyOnce)
+- events: re-entrant publish and a double unsubscribe misbehaved -> both are safe (test: TestReentrantPublishAndDoubleUnsubscribe)
+
+##### Local-first and CRDT
+
+- localfirst: text merge did not converge under reordering and duplicate delivery -> merge converges and is associative (tests: TestTextMergeConvergesUnderAnyOrderAndDuplicates, TestTextAssociativity)
+- localfirst: a duplicate insert op resurrected a deleted character -> tombstones survive duplicate ops (test: TestTextRestoreKeepsTombstoneOnDuplicateOps)
+- localfirst: local inserts after a merge lost causal order -> causal order is kept (test: TestTextLocalInsertsAfterMergeKeepCausalOrder)
+- localfirst: counter merge and replica authority did not converge under random sync order -> they converge (tests: TestCounterMergeProperties, TestReplicaAuthorityConvergesUnderRandomSyncOrder)
+- localfirst: a huge remote counter saturated the local clock -> the replica keeps working (test: TestReplicaSurvivesHugeRemoteCounter)
+- localfirst: `Text.Delete` with a negative index panicked -> it clamps (test: TestTextDeleteClampsNegativeIndex)
+
+##### Delta
+
+- delta: a failed `Apply` left the engine half-modified -> the engine is rolled back to its prior state (test: TestApplyFailureLeavesEngineUnchanged)
+
+##### Logging and redaction
+
+- [security] logging: the depth limit for nested values returned the raw value, leaking secrets below it -> secrets are redacted at the limit (test: TestNormalizeLogValueDepthLimitDoesNotLeakSecrets)
+- logging: a typed-nil log value panicked -> it does not (test: TestNormalizeLogValueTypedNilDoesNotPanic)
+- [security] telemetryredaction: a dotted key such as `user.password` was not matched -> the final segment is matched (test: TestFieldMatchesFinalSegmentOfDottedKey)
+- [security] telemetryredaction: secrets inside JSON strings were not redacted -> they are (test: TestValueRedactsSecretsInsideJSONStrings)
+
+##### Plugin
+
+- plugin: a panic in `Setup` left a half-registered plugin -> registration rolls back and the panic is isolated (test: TestRegisterIsolatesSetupPanic)
+- plugin: duplicate IDs differing by whitespace both registered -> the duplicate is rejected (test: TestRegisterRejectsDuplicateIDWithWhitespace)
+- plugin: a cleanup panic skipped later cleanups and left state set -> every cleanup runs and the state resets (test: TestCloseRunsEveryCleanupDespitePanicAndResetsState)
+- plugin: `Register` called from inside `Setup` deadlocked -> it fails with an error (test: TestRegisterFromInsideSetupFailsInsteadOfDeadlocking)
+- internal/pluginruntime: a failed plugin start did not run the cleanups it had registered -> they run (test: TestFailedStartRunsCleanupsItRegistered)
+- internal/pluginruntime: a failed kernel build left already-started plugins running -> they are stopped (test: TestNewKernelFailureStopsAlreadyStartedPlugins)
+
+##### Prerender (path traversal)
+
+- [security] prerender: a route with backslashes (`..\..\x`) escaped the output directory on Windows -> it is rejected (test: TestExportRejectsBackslashTraversalRoute)
+- [security] prerender: output paths were not confined to the output directory -> every output stays inside it (test: TestExportKeepsEveryOutputInsideOutputDir)
+
+##### Interop (cookies, workers, crypto, persistence)
+
+- [security] interop: cookie `Path`, `Domain` and `SameSite` values containing CR, LF or `;` could inject attributes -> they are stripped (test: TestBuildCookieStringStripsAttributeInjection)
+- interop: a cookie name that sanitized to empty was accepted -> `SetCookie` rejects it (test: TestSetCookieRejectsNameThatSanitizesToEmpty)
+- interop: `WorkerPool.Drain` hung when a worker was disposed mid-drain -> it returns (test: TestWorkerPoolDrainDoesNotHangWhenWorkerDisposedMidDrain)
+- interop: `Decrypt` reported a cancelled context as an auth-tag mismatch (tampering) -> it reports the cancellation (test: TestDecryptCanceledContextIsNotReportedAsTampering, wasm)
+- interop: IndexedDB `SetItem` reported success before the transaction committed -> a commit-time quota failure is reported (test: TestPersistentStoreSetItemReportsCommitTimeQuotaFailure, wasm)
+- interop: IndexedDB `SetItem` did not wait for the commit -> it waits (test: TestPersistentStoreSetItemWaitsForCommit, wasm)
+- interop: `Worker.Request` hung after `Terminate` -> in-flight requests fail (test: TestWorkerTerminateFailsInFlightRequest, wasm)
+
+##### Devtools (redaction)
+
+- [security] devtools: support-bundle redaction missed JSON-quoted keys, `Authorization: Basic`, multiple Cookie headers, compound names, URL userinfo and `#access_token=` -> they are redacted and plain text is untouched (tests: TestRedactSupportStringCatchesQuotedAndSchemeSecrets, TestRedactSupportStringKeepsPlainText)
+- [security] devtools: route, stack, diagnostic prose and peer fields in snapshots were not redacted -> they are (test: TestSanitizeSnapshotForSupportCoversRoutePathAndDiagnosticProse)
+- [security] devtools: the extension panel payload skipped telemetry redaction -> it is redacted (test: TestExtensionPanelPayloadJSONIsRedacted)
+- devtools: host-extension cleanup released twice -> cleanup is idempotent (test: TestApplyHostExtensionsCleanupIsIdempotent)
+
+##### A11y
+
+- a11y: an empty `aria-activedescendant` was rendered -> it is omitted (test: TestEmptyActiveDescendantIsOmitted)
+- a11y: the combobox popup listbox was an extra tab stop -> it is not focusable by tab (test: TestComboboxPopupListboxIsNotATabStop)
+
+##### Agent bridge and agentui
+
+- [security] agentbridge: `javascript:` filtering was bypassed by tabs, control characters and attributes such as `formaction`, `action`, `xlink:href`, `poster`, `srcset`, `background` -> they are dropped (test: TestRenderBuildElementDropsObfuscatedAndSecondaryUnsafeURLs)
+- [security] agentbridge: console and window-error capture, and `set-atom` dry runs, bypassed redaction -> redaction applies (tests: TestConsolePayloadRedactsSecretsUnderPolicy, TestWriteSetAtomDryRunRedactsCurrentValue)
+- [security] agentbridge: the wasm bridge used `ws` on https pages -> it follows the page scheme (`wss`) (test: TestBuildBridgeWSURLFollowsPageScheme)
+- agentbridge: concurrent socket writes interleaved and the backlog lost order -> writes are serialized in order (test: TestSendEventSerializesWritesAndKeepsBacklogOrder)
+- agentbridge: a panicking mount factory leaked its mount id -> the reservation is released (test: TestWriteMountPanickingFactoryReleasesReservation)
+- agentbridge: a huge `timeoutMs` overflowed `Duration` -> it is bounded (test: TestControlWaitTimeoutDoesNotOverflow)
+- agentbridge: the audit summary had no length cap -> it is bounded (test: TestRecordAgentMutationBoundsSummaryLength)
+- agentbridge: the run loop leaked goroutines after the socket closed -> none remain (test: TestRunLoopLeavesNoGoroutinesAfterSocketCloses)
+- agentui: the `class` prop could use any class -> class tokens are confined to the `agentui-` namespace (test: TestClassPropIsConfinedToAgentUINamespace)
+
+##### kvstate, projection, db, escalate, validate and desktop
+
+- kvstate: `BindAtom` lost a `Set` made before hydration finished -> the earlier `Set` wins and is persisted (tests: TestBindAtomSetBeforeHydrationWinsAndPersists, TestPersistedHydrationKeepsSetMadeBeforeHydration)
+- kvstate: `BindAtom` goroutines were not released on cancel -> they are (test: TestBindAtomCancelReleasesGoroutines)
+- [behavior] kvstate: `sanitizeIdent` mapped distinct names to the same table (`a-b` and `a_b`) -> names that contained a replaced character get a hash suffix (test: TestSanitizeIdentKeepsDistinctNamesDistinct; existing tables for such names need a one-time rename, see Migration notes)
+- projection: inserting an already-resident key duplicated it -> it is refused (test: TestInsertOfResidentKeyIsRefused)
+- projection: retry backoff overflowed -> it saturates (test: TestRetryBackoffSaturatesInsteadOfOverflowing)
+- projection: retries continued after the caller's deadline expired -> they stop (test: TestRetryStopsWhenCallerDeadlineExpired)
+- [behavior] projection: a failed `Post` was a silent drop and optimistic state stayed -> it is a transport failure and optimistic state rolls back (tests: TestAFailedPostIsATransportFailureNotASilentDrop, TestOptimisticRollsBackWhenPostFails)
+- db/offthread/server: an exec without a transaction id hung while a transaction was open -> it is refused (test: TestAutocommitStatementIsRefusedWhileTransactionOpen)
+- db/offthread/server: `Begin` used the cancellable request context, so the transaction died with the request -> it survives a cancelled begin context (test: TestTransactionSurvivesCancelledBeginContext)
+- db/sqlite: the default pragma override was case-sensitive -> it is case-insensitive (test: TestDefaultPragmasHonorsCaseInsensitiveOverride)
+- db/sqlite: `persist_wasm.go` returned an empty database on an IndexedDB error and then overwrote the stored image (diff only, compile-checked on wasm, no test) -> an error is returned and the stored image is kept
+- [security] escalate: `ClassifySQL` read `WITH ... DELETE`, `INSERT` followed by a tab, `PRAGMA x=y` and multi-statement input as reads -> any write wins and unreadable statements are unknown (test: TestClassifySQLNeverCallsAWriteARead)
+- escalate: proposed names split a multi-byte first character into invalid UTF-8 -> they stay valid (test: TestProposedNamesStayValidUTF8)
+- validate: string rules skipped `*string` and `oneof` on pointers -> they apply through pointers (test: TestStringRulesApplyThroughPointers)
+- validate: NaN passed min and max rules -> NaN fails range rules (test: TestNaNFailsRangeRules)
+- desktop: a panic in a backend `Execute` crashed the caller -> it is contained (test: TestNativeExecuteContainsBackendPanic)
+
+##### serverfn
+
+- [security] serverfn: `statusForError` accepted 200 and out-of-range codes, so an error could be sent as success -> non-error statuses clamp to a server fault (test: TestHandleClampsNonErrorStatusToServerFault)
+- [security] serverfn: the client read an unlimited remote error body -> it reads at most 1 MiB (test: TestCallBoundsErrorBodyRead)
+
+##### Other platform packages
+
+- internal/services: a dispatcher heartbeat timeout promoted a dead worker to degraded -> health only worsens (test: TestHeartbeatTimeoutNeverImprovesDeadWorker)
+- internal/services: ownership restore accepted an epoch equal to the floor after the death fallback -> it is rejected (test: TestRestoreRejectsEpochEqualToFloorAfterDeathFallback)
+- hotreload: `SchemaFingerprint` collided for keys that embed separators -> keys are quoted (test: TestSchemaChangedDistinguishesKeysThatEmbedSeparators)
+- gcpacing: a negative memory limit was reported as-is -> it is reported as 0 (off) (test: TestApplyReportsNegativeMemoryLimitAsOff)
+- internal/platform/mockdom: `InsertBefore(n, n)` removed the node, and `ReplaceChild` duplicated or mis-parented nodes -> both follow browser behavior (tests: TestInsertBeforeSelfKeepsNode, TestReplaceChildDetachesNewNodeFromOldParent, TestReplaceChildWithSiblingDoesNotDuplicate, TestReplaceChildIgnoresNonChild)
+- testkit/render: cancelling a superseded attempt was not recorded and `Await(nil)` panicked -> both are handled (tests: TestResourceControllerRecordsCancelOfSupersededAttempt, TestResourceControllerAwaitNilContext)
+
+##### Diagnostics and docs
+
+- docs and errcode: every `Docs` link pointed at `ACTIONABLE_ERRORS.md`, which does not exist, and `gwc explain` read the source tree at runtime so it broke on an installed binary -> links resolve to `docs/REFERENCE_MANUAL/error-codes.md` and the page and `gwc explain` are generated from the registry (tests: TestRenderPageCoversEveryRegisteredCode, TestRegistryEntriesHaveDocsText)
+- telemetry: OTLP ids were hex-padded indexes that were only length-checked -> ids are validated, all-zero ids are rejected and span kind, status and parent are set (tests: TestBuildOTLPJSONRejectsInvalidIDs, TestBuildOTLPJSONErrorStatus)
+- telemetry: attributes and status messages were exported unredacted -> they pass through redaction (test: TestBuildOTLPJSONRedactsAttributesAndStatusMessage)
+- telemetry: the package did not build for js/wasm because `ui.GetSSRObservationAttributes` was native-only (diff only; vet and build were the check) -> it builds
+- build: `go build ./...` failed on the host because 10 wasm-only example packages had no native entry point (diff only) -> `main_native.go` stubs were added
+
+##### Tooling and test infrastructure
+
+- tools/gowasmexec and tools/gwc: `go_js_wasm_exec.bat` mangled `-test.run=^$` under cmd.exe, so the wasm bench lane ran the whole suite -> the shell-free `bin/gowasmexec.exe` forwards arguments verbatim and `gwc` prefers it on Windows (tests: TestWasmExecForwardsArgsVerbatim, TestResolveWasmExecPrefersGoHelperOnWindows)
+- tools/gowasmexec: a failure to start node was not reported -> it is (test: TestWasmExecReportsStartFailure)
+- tools/gwc: on Windows, a passing run whose only error was "Access is denied" deleting a freshly built `*.test.exe` failed `gwc bench` -> a pass with only that cleanup error is ok with a recorded warning; real failures, panics and unknown errors stay failed (tests: TestBenchBenignExitPassWithUnlinkat, TestBenchBenignExitRealFailStaysFailed, TestBenchBenignExitPanicStaysFailed, TestBenchBenignExitUnknownErrorStaysFailed, TestBenchRunPackagePassWithUnlinkatRecordsWarning)
+- tools/gwc: the same cleanup failure failed `gwc test`, `verify`, `examples` and the warm and lint launchers -> `isBenignGoCleanupFailure` and `runLauncherGoCommand` tolerate it and add `Warnings` to the summary (tests: TestGoCleanupBenignPassWithUnlinkat, TestGoCleanupBenignRejectsRealFailures, TestGoCleanupBenignIsWindowsOnly, TestGoCleanupRunnerToleratesAndWarns, TestGoCleanupRunnerKeepsRealFailure, TestGoCleanupBuildOnlyUnlinkatIsBenign)
+- tools/gwc: temp directories could not be removed on Windows after a test -> removal retries (tests: TestRemoveAllWithRetryRemovesDir, TestBenignGoCleanupPassWithUnlinkat, TestBenignGoCleanupRealFailureStaysFailed)
+- tools/gwc: `bench suite` `-out` resolved against the wrong directory and startup lines printed relative paths -> `-out` resolves against the working directory and lines print absolute paths (tests: TestBenchSuiteOutPathResolvesAgainstWorkingDirectory, TestBenchSuiteStartupLinesPrintAbsolutePaths; uncommitted)
+- tools/gwc: a requested `GOARCH` was not passed to native benchmark runs, and the machine block recorded the wrong arch -> the env carries `GOARCH`, the arch is read from the benchmark header, and a mismatch fails the target with the observed arch (tests: TestBuildBenchmarkNativeEnvPassesRequestedGoarch, TestBenchmarkPackageRunPassesGoarchAndReadsHeader, TestBenchSuiteGoarchMismatchFailsTargetAndRecordsObservedArch, TestBenchSuiteMachineArchComesFromBenchmarkHeader, TestBenchmarkMachineRecordsEffectiveAndHostArch via TestBuildBenchmarkMachineRecordsEffectiveAndHostArch; the first four uncommitted)
+- tools/gwc: the machine block took the toolchain and version from the wrong place and the git SHA from an enclosing repository -> it uses the root toolchain and sources and ignores an enclosing repository (tests: TestBuildBenchSuiteMachineUsesRootToolchainAndSources, TestGetBenchmarkRootGitShaIgnoresEnclosingRepository; uncommitted)
+- tools/gwc: suite output was unbounded and a failed target lost its output -> output is clipped to head and tail, a failed target writes full output to a file and benign warnings are clipped (tests: TestClipBenchSuiteOutputKeepsHeadAndTail, TestBenchSuiteFailedTargetWritesFullOutputToFile, TestBenchSuiteBenignWarningsAreClipped; uncommitted)
+- tools/gwc: a timed-out target lost its completed benchmark lines and overrunning commands were not killed -> partial complete lines are kept, per-target timeouts apply and the process is killed (tests: TestBenchSuiteTimeoutKeepsPartialEntries, TestBenchmarkPackageTimeoutParsesCompleteLinesOnly, TestBenchSuiteTargetTimeoutOverrides, TestBenchSuiteTimedRunnerKillsOverrunningCommand, TestBenchSuiteTimeoutClassificationContinues)
+- tools/gwc: reports from several partial runs could not be combined -> `bench suite` merge combines them with provenance and refuses mismatched machines unless forced (tests: TestMergeBenchSuiteReportsOverridesAndProvenance, TestMergeBenchSuiteReportsRefusesMismatchUnlessForced, TestRunBenchSuiteMergeCommandWritesReport; uncommitted)
+- tools/gwc: a resumed or partial suite report could be corrupted by a crash or a mismatched resume -> partial reports are written atomically and a mismatched resume is refused (test: TestBenchSuitePartialAtomicWriteAndResumeMismatch)
+- tools/gwc: a target without entries was dropped from the suite JSON -> it is kept (test: TestBenchSuiteReportJSONKeepsTargetsWithoutEntries)
+- tools/binarycheck: tracked binaries were not detected in CI -> `FindTracked` lists them and a workflow fails on any (test: TestFindTracked)
+- tools/changelogcheck: it was out of sync with the docs mirror of the top changelog entry -> it matches (diff only)
+- repo: three zero-byte files left at the root (`metrics.go`, `middleware.go`, `otel.go`) broke `go build ./...`, and a stray ignored 3.8 MB wasm file `backgroundworker` sat at the root -> all removed (housekeeping, no test)
+
+##### Build and CI
+
+- build: wasm `go vet` had no job -> a `wasm-vet` job runs; `api_compat_guard check` now runs in `api-baseline.yml`; `tools/binarycheck` guards tracked binaries (diff only)
+- build: `internal/apidump.Check` failed under js because `os.ReadDir` cannot open directories there on Windows -> it skips under js (diff only)
+
+#### Repairs to tests and tooling
+
+- Wasm keyed-list transition commits no longer return an unchanged DOM parent from every sibling commit helper call. The iterative sibling walk remains stack-safe; focused native commit/portal tests and the Wasm wide-sibling, portal-retry, and keyed-order tests pass. The dedicated fair Wasm benchmark is being rerun before release disposition.
+- The PR benchmark screen now treats a module-path-changing major upgrade as advisory per entry while still requiring both suites and matched coverage. Same-module PRs retain the 15% per-entry gate; the full fair production comparison remains the v7 release gate.
+- Both strict hydration mismatch tests now disable the scheduler wall-clock slice budget, matching the single-task hydration helper contract; the focused WASM cases passed 20 repeats and the full WASM runtime package passed.
+- The Example 100 agent dogfood test now checks prompt text with `bridge.query` and verifies it in the user message bubble; it still exercises `bridge.snapshot` after send and reload, but no longer treats its 2,000-node budget as a complete text search. The focused browser test passes.
+- Windows WebView CI now exits successfully after validating both intentionally failing startup fault runs. All three normal smoke variants passed on the hosted runner, and both injected faults returned their expected exit code 1.
+- The composed hydration correctness test now disables the scheduler's wall-clock slice budget while draining one task; its state setter no longer remains unset on slow WASM runners (20 focused WASM repeats, full WASM runtime package). The bridge Root Integration Smoke now checks module replacement wiring in the Example 100 module that actually requires the bridge.
+- Bridge CI: the nested WASM client now has dependency metadata aligned with the patched bridge module, fixing read-only Go 1.26/1.27 builds. Server keepalive has an independent pong watchdog because the HTTP/2 server can replace the WebSocket read deadline (test: `TestKeepaliveWatchdogSurvivesReadDeadlineReset`, 20 repeats). The browser compatibility workflow builds public example and Atlas WASM assets before `TestExamplesAll` and installs Playwright system dependencies for WebKit; the release workflow builds the public example assets before its browser suite.
+- Example 100's snapshot cache test treated the refresh callback as proof that its asynchronous storage write had finished -> it now waits for the stored record (test: `TestReadCachedResourceSnapshotGuardrail`, 100 repeats; full Example 100 native suite passed).
+- Example 100 browser seeding silently copied an older fixture with different login accounts when `go run ./cmd/seed-test-db` failed -> it retries seeding and reports the original error instead (test: `TestExample100AdminChatsWorkflowRegression` focused browser rerun).
+- Bridge integration: the parent CI uses the nested Example 100 module for agent builds, cleans up Unix browser child process groups, and pins the GoGRPCBridge security update from draft PR #8. The blocking vulnerability scans use Go 1.27.3 and govulncheck v1.9.0: that Go patch fixes the reachable `crypto/x509` advisory reported on Go 1.26.9, and the newer scanner handles Go 1.27 ASTs. Bridge's large-dataset benchmark still reports cumulative `B/op`, but no longer treats that metric as a peak-memory gate after the same negative result reproduced on bridge `main`; its other performance thresholds remain enforced. The local bridge dogfood browser case and patched-toolchain vulnerability scan passed; refreshed CI checks are pending.
+- Example 100: auth route resolution now waits until the admin role is applied; emergency pricing/FAQ copy covers first paint; the billing regression seeds a paid plan; browser helpers wait for Wasm boot completion between hard navigations and log bounded failure diagnostics. Eight previously affected browser cases pass together; the full browser suite remains open.
+- PR CI: API and agent test commands now use the repository root; desktop host fixture runs on Windows; fetch test cleanup preserves shared maps during late loaders; the bridge analyzer lane uses its declared Go toolchain; the Windows Wasm runner limits the Node environment; reachable `x/net` and `x/text` advisories use fixed versions. Fresh PR checks remain pending.
+- Flaky wasm hydration tests (`TestHydrationRoundTripFuzz`, `TestHydrateEffectStateUpdatesScheduleAfterCommit` and a third): the runtime's default 5 ms wall-clock slice budget made the first pass yield before commit on slow wasm -> the tests build their runtimes with `FrameBudgetMs: -1` (300 green runs); `BenchmarkHydrateMediumTreeFirstUpdate` now drains continuations instead of assuming one scheduler slice.
+- `state` wasm tests lacked `Reset: true`, so atoms leaked between runs -> they reset.
+- jsdom benchmark mock nodes lacked `setAttribute`, `removeAttribute` and `listeners` -> the mock implements them, and benchmarks use `B.Loop`.
+- `fetch` wasm upload test counted the injected `traceparent` header -> it ignores it; router wasm tests leaked route-location subscriptions -> they call `CleanupAtomSubscriptions`.
+- `ui.TestComponentIdentitySameFunctionValueReusesOneCachedHandle` failed on the second `-count=2` repeat because the swap test mutated the shared cached handle -> it uses its own `identitySwapTarget` component.
+- `gwc bench` with `-test.run=^$` lost its caret under cmd.exe -> replaced by `bin/gowasmexec.exe` (see Tooling).
+- Windows temp-exe deletion failures ("Access is denied") -> tolerated with a warning by `gwc` (see Tooling).
+- Benchmark harness: architecture, environment, toolchain version, output clipping and timeout handling fixes in `gwc bench suite` (see Tooling).
+- 26 sleep-based tests moved to `testing/synctest` bubbles (about 0.70 s of real delay in the out-of-order SSR stream tests became about 0.01 s) with exact timing assertions, stable at `-count=20`.
+- Wasm tests now execute for the first time and pass for jsdom, state, internal/runtime, interop, utils, testkit, devtools, pwa, hotreload, db/sqlite, css, desktop, logging, validate, virtualization and test/{browser,hooks,render,ssr}.
+- Tests that pinned old behavior were replaced: `projection` failed `Post`; router and ui `Docs` assertions moved to the new error-codes page.
+- Verification-only tests added with no defect found: `trace` ring and lifecycle ordering (TestRecorderRingMatchesReferenceModel, TestLifecycleOrdersParentsBeforeChildrenAcrossThreadsAndSurvivesCycles) and deep memoized context consumers (TestContextValueChangeReachesDeepMemoizedConsumer).
+
+#### BREAKING
+
+- `html.OnInput` and `html.OnChange` are generic: an untyped value, `nil` or a
+  function of the wrong signature no longer compiles. `ui.Handler` is still
+  accepted. `OnClick`, `OnSubmit` and `OnKeyDown` still take `any`.
+- Markdown rendering needs an engine: without the `html/markdown` import,
+  `html.Markdown` and `html.RenderMarkdown` no longer render markdown.
+- `html.Markdown(src, ...MarkdownOption)`: spreading a `[]MarkdownRenderOptions`
+  into it no longer compiles, and `WithURLSchemes()` with no arguments now allows
+  no schemes (the default stays http, https, mailto).
+- New dot-import names (`D`, `R`, `Fill`, `Stroke`, `Points`, `Part`, `Scope` and
+  others) can collide with package-level declarations in code that dot-imports
+  `html/shorthand`.
+- The `Slot` attribute builder is named `SlotAttr` because `shorthand.Slot`
+  (named slots) already exists.
+- Resilience zero values changed meaning (see below), `kvstate` table names can
+  change, and the Go floor is 1.27.
+
+#### Migration notes
+
+- Go: set `go 1.27.0` in `go.mod` and use Go 1.27.1 or newer. The `gofmt` on
+  `PATH` can be older than the toolchain and reject generic methods; run the
+  1.27 `gofmt`.
+- Resilience: `fetch.RetryPolicy{MaxDelay: 0}` now means 5 s and
+  `Multiplier: 0` means 2.0 (use `Multiplier: 1` for a constant delay).
+  `BreakerConfig{FailureThreshold: 0}` now means 5, and `HalfOpenMaxCalls: 0`
+  now means one probe; it used to allow unlimited calls in the half-open state.
+  Set explicit values if you relied on the old behavior.
+- Tracing: wasm `fetch` and XHR requests to the page origin now carry a generated
+  `traceparent` header unless the caller sets one. List cross-origin targets in
+  `Options.TracePropagationOrigins`; a cross-origin request with a new header
+  triggers a CORS preflight, so the server must allow `traceparent`. Tests that
+  compare request headers exactly must ignore it.
+- Inputs: change `OnInput(x)` calls with `any` values to a `func()`,
+  `func(string)` or `func(ui.Event)`, or wrap a `ui.Handler` with
+  `OnInputHandler`. Do the same for `OnChange` and `OnChangeHandler`.
+- Markdown engine: an app that renders markdown must now register an engine, with
+  `import _ "github.com/monstercameron/GoWebComponents/v7/html/markdown"` or
+  `markdown.Enable()`. Without it, `Markdown` and `RenderMarkdown` show the source
+  as escaped text and report `GWC-UI-MARKDOWN-ENGINE-MISSING` in development.
+- Markdown: call `Markdown(src, html.WithURLSchemes(...))`. A single
+  `MarkdownRenderOptions` value is still accepted as an option; pass it first.
+- Dot imports: rename a package-level identifier that collides with a new
+  shorthand name, or switch that file to a named import.
+- Router: pass `RouterOption` and `RouteOption` values (`WithBasePath`,
+  `WithDefaultRoute`); the old option structs still satisfy the interfaces.
+  Pair `WithBasePath` with `SPAFallbackHandler(indexHTML, staticDir, basePath)`
+  for deep-link refresh.
+- `kvstate`: `sanitizeIdent` is now injective. A name that contained a replaced
+  character (for example `a-b`) gets a hash suffix and maps to a different table,
+  so an existing table with such a name is not found. A one-time rename or row
+  copy into the new table is needed; there is no automatic migration yet. The
+  suffix is the FNV-1a 32-bit hash of the original name, as eight hex digits
+  after an underscore (see `kvstate/options.go`). Names made only of letters,
+  digits and underscores are unchanged. `123abc` and `_123abc` still collide.
+- `pwa`: canary bucketing was biased (a 50 percent route reached 58.7 percent of
+  clients). The fix reshuffles cohorts once on the first deploy; expect clients
+  to change canary side a single time.
+- `projection`: a failed `Post` is now a transport failure, so optimistic state
+  rolls back where it previously stayed.
+- `css.Inject`: the first call for an id wins; a repeat with a different body is
+  ignored silently.
+- SSR inline styles: `serializeStyleMap` kebab-cases keys and drops declarations
+  whose value could break out of the attribute (top-level `;`, braces, `/*`,
+  `</style`, unbalanced quotes or parentheses). A malformed declaration now
+  disappears instead of being written.
+- No deprecated symbol has been removed yet. `state.UseComputed` gained a
+  `deprecation.Warn`; the other listed deprecated symbols already had one
+  (`css/u.BgToken`, `css/u.TextToken` and `agentbridge.Build*Envelope` were not
+  verified). Most replacements are not named in earlier entries, so the v7.0.0
+  entry will name each one before anything is removed.
+
+#### Known issues and decisions pending
+
+Follow-up investigations carried from the 2026-10-03 audit. The current RC gate
+status is above; later checkpoints in `todos.md` supersede historical plan states.
+
+- Wasm test noise: fetch wasm tests print "call to released function" (a `js.Func` released while still in use). The hydration flakes and the `-count=2` component-identity failure listed earlier are fixed (see Repairs).
+- Islands have separate atom registries, isolated island runtimes are never torn down (there is no unmount API), and island event dispatch was verified by reading only.
+- Streaming: a nested `AsyncBoundary` inside streamed resolved content bakes its fallback (no nested streaming); an unmounted, still-suspended boundary leaves its watcher goroutine parked. `todos.md` still asks to re-check that `writeSSRStreamBoundaryStart/End` never write `BoundaryIDPrefix` raw (the prefix itself is filtered and tested).
+- Not reviewed in the bug hunt: scheduler lanes and timers, hydration mismatch recovery, `state/` selectors and migrations, keyed-diff key-type changes.
+- Native `fetch` client trace injection is not implemented (`fetch/fetch_native.go` is a stub); `tracetest`-based cross-boundary tests are not written. Decision pending: wasm `fetch` now adds `traceparent` to every same-origin request; make it opt-in or keep the default.
+- `fetch/realtime_wasm.go:122`: an EventSource reconnect drops `Last-Event-ID` (bug-hunt candidate, no test yet).
+- `internal/runtime/panic_report.go:465` filters frames by the literal `SetTimeout.func1`; make it robust before relying on closure names under 1.27.
+- A raw string `style=` prop is only attribute-escaped, and the client DOM style path was not audited. `UseHead` tag removal is browser-only with no mock-DOM test.
+- Native `UseId` ids still differ across repeated SSR renders (needs a per-render counter; see `docs/ATLAS_PERF_BASELINE.md` 2.6).
+- `kvstate.sanitizeIdent`: `123abc` and `_123abc` still collide, and there is no automatic migration for tables renamed by the injective mapping.
+- Decisions needed in interop, found and not changed: `goValueToJS` loses int64 and uint64 precision beyond 2^53 (an error could break nanosecond-timestamp callers); an IndexedDB `blocked` open clears `onupgradeneeded`; `Subscription.Cancel` is not idempotent; `awaitValue` maps context errors to `CodePromiseRejected` (wasm tests pin it); `EncryptedStore` does not bind the storage key as GCM additional data (fixing breaks existing data); `db/sqlite.sanitizeName` collides (`a b` vs `a_b`).
+- `internal/services.Dispatcher`: the fallback sticks after a later `Start` and `Cancel` drops a queued Start.
+- devtools: `UseSnapshot` snapshots on every render and polls every 750 ms while closed; `AlertDialog.OnDismiss` is never wired.
+- mockdom `GetChildren` returns text nodes but jsdom only elements, and `SetStyle("")` keeps the key in mockdom. `WindowChannel` name filtering was reverted because `test/browser` uses different per-side names.
+- Error codes: about 350 `Errorf` sites remain uncoded (`router/contracts.go` Define/Path returns, `ui/ssr_transfer.go:330,340,350,444`, remaining runtime, fetch, pwa and interop); the ratchet allowlist only lowers. Stale `ACTIONABLE_ERRORS.md` mentions remain in `docs/REFERENCE_MANUAL/README.md`, `llms-full.txt` and some diagnostics fixtures.
+- `strings.CutLast` is not yet applied at `internal/runtime/signature.go:148,151`, `panic_report.go:338,383,402` and `ui/component_handle_shared.go:253,256`; `google/uuid` is still required (examples and third_party only).
+- `//go:fix inline` is not applied to deprecated wrappers: the inliner skips wrappers whose body calls `deprecation.Warn` first, which the `gwc-deprecations` lint requires. Decision: exempt `//go:fix inline` wrappers from the lint, or keep as is. Deprecation replacements are mostly not named in earlier entries; the v7.0.0 entry must name each before anything is removed.
+- `gwc bench suite`: the browser, heap and goroutine lanes are placeholders (`not-run`); the build lane's `coldMs` is not a true cold build; the first pilot run is not a valid baseline because the tree changed during the run.
+- The Windows host cannot always delete freshly built `*.test.exe` ("Access is denied"). `gwc bench` and `bench suite` treat a PASS with only that cleanup error as ok and record a warning; `bench capture` still fails on it. `go test` on the whole `tools/gwc` package still exits non-zero from the same lock even when every test passes.
+- Binary size: Go 1.27 enables `GOEXPERIMENT=jsonv2` by default (+976 KB raw on the counter wasm); `gwc` wasm builds now force `nojsonv2`, while direct Go wasm commands still need an audit.
+- The dev machine has `GOARCH=amd64` set through `go env -w`, so native tests run emulated; timings from it are not representative.
+- Interop rethink is an experiment on `v7/interop-exp`, with a browser verdict still pending. Its wide-sibling wasm fixture now isolates each container and keeps component identity stable; `TestBufWasmWideSiblingListsSurvive10kAnd20k` passes at 20,000 nodes with one text update per row and no reorder ops. The focused `TestBufWasm` suite passes with and without `gwctemplates`. `template.innerHTML` use in `CreatePreparedElement` still needs reconciliation with the no-raw-HTML-sink guard.
 
 ## v6.0.0 - 2026-09-08
 

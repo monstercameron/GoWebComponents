@@ -51,7 +51,11 @@ func TestExecuteBulk_CancelArrivesOnlyThroughAYield(parseT *testing.T) {
 
 	// The cancel is already waiting when the run starts, exactly as a message
 	// posted while the worker was busy would be.
-	parseEnqueue(func() { parseRuntime.Cancel(parseCommandID) })
+	parseEnqueue(func() {
+		if parseCancelErr := parseRuntime.Cancel(parseCommandID); parseCancelErr != nil {
+			panic(parseCancelErr)
+		}
+	})
 
 	parseProcessed := 0
 	parseResult, parseErr := parseRuntime.ExecuteBulk(
@@ -87,7 +91,11 @@ func TestExecuteBulk_WithoutYieldingTheCancelIsNeverSeen(parseT *testing.T) {
 	parseRuntime, parseEnqueue := pumpedRuntime(parseT)
 	const parseCommandID CommandID = "bulk-no-yield"
 
-	parseEnqueue(func() { parseRuntime.Cancel(parseCommandID) })
+	parseEnqueue(func() {
+		if parseCancelErr := parseRuntime.Cancel(parseCommandID); parseCancelErr != nil {
+			panic(parseCancelErr)
+		}
+	})
 
 	parseProcessed := 0
 	parseResult, parseErr := parseRuntime.ExecuteBulk(

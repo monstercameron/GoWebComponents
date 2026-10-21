@@ -72,7 +72,11 @@ func NewReplica(parseID string) *Replica {
 
 // nextClock mints the next logical clock for a local write. Caller holds mu.
 func (parseR *Replica) nextClock() Clock {
-	parseR.counter++
+	// Saturate rather than wrap: a remote clock at the uint64 ceiling would otherwise roll the
+	// counter to zero and make every later local write lose last-write-wins.
+	if parseR.counter != ^uint64(0) {
+		parseR.counter++
+	}
 	return Clock{Counter: parseR.counter, ReplicaID: parseR.id}
 }
 

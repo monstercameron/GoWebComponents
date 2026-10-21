@@ -5,8 +5,8 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // recordingSink is a DOMRefSink that records each (de)attachment as a bool:
@@ -34,7 +34,7 @@ func TestDOMRefAttachesOnMountAndClearsOnUnmount(t *testing.T) {
 	root := adapter.CreateElement("div")
 	parseSink := &recordingSink{}
 
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
 		runtime.CreateElement("div", map[string]any{runtime.DOMRefKey: parseSink}, "x")))
 	if !parseSink.attached() {
 		t.Fatalf("after mount: ref not attached (history=%v)", parseSink.history)
@@ -44,7 +44,7 @@ func TestDOMRefAttachesOnMountAndClearsOnUnmount(t *testing.T) {
 		t.Errorf("attached node is not the <div> host element: %+v", parseSink.node)
 	}
 
-	rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
+	_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{}))
 	if parseSink.attached() {
 		t.Errorf("after unmount: ref still attached (history=%v)", parseSink.history)
 	}
@@ -63,7 +63,7 @@ func TestDOMRefDetachesBeforeAttachOnKeyChange(t *testing.T) {
 	parseSink := &recordingSink{}
 
 	render := func(parseKey string) {
-		rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
+		_ = rt.RenderInto(root, runtime.CreateElement("section", map[string]any{},
 			runtime.CreateElement("div", map[string]any{"key": parseKey, runtime.DOMRefKey: parseSink}, parseKey)))
 	}
 

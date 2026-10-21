@@ -11,10 +11,12 @@ func BenchmarkNormalizeStaticRoutePathMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	parseI := 0
+	for parseB.Loop() {
 		_, parseErr := normalizeStaticRoutePath(parsePaths[parseI%len(parsePaths)])
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
 		}
+		parseI++
 	}
 }

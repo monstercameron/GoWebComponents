@@ -1,5 +1,20 @@
 package ui
 
+import "github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+
+// Always is the dependency sentinel that says "run on every render". Passing it
+// as the only dependency documents intent that omitting the dependency list
+// leaves ambiguous:
+//
+//	ui.UseEffect(syncTitle, ui.Always) // re-runs after every render
+//
+// UseEffect(fn, ui.Always) behaves exactly like UseEffect(fn); UseMemo(fn,
+// ui.Always) recomputes on every render; UseCallback(fn, ui.Always) stores the
+// newest function on every render. It is recognized only as the single
+// dependency: in a longer list it is an ordinary constant and changes nothing.
+// Dev builds never raise GWC-RUNTIME-HOOK-DEP-UNSTABLE for an Always hook.
+var Always = runtime.AlwaysDependency
+
 // UseMount runs fn once after the component first mounts and runs the returned
 // cleanup (if any) on unmount (G38). It is the self-documenting form of the
 // "run once" effect — clearer and safer than the UseEffect(fn, true) constant-dep

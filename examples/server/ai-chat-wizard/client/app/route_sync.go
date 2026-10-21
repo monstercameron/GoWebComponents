@@ -5,7 +5,7 @@ package app
 import (
 	"strings"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
 )
 
 // shouldRedirectUnauthenticatedRouteToLanding returns whether the client should send a resolved unauthenticated app route back to landing.
@@ -52,6 +52,17 @@ func shouldResetDraftForRootRoute(parseCurrentPath string, parseThreadRoutePubli
 		return false
 	}
 	return strings.TrimSpace(parseActiveConvPublicID) != ""
+}
+
+// shouldDeferPendingRootRouteReset keeps the pending marker alive until route
+// normalization leaves the root path, preventing an intermediate render from
+// clearing the new conversation before navigation commits.
+func shouldDeferPendingRootRouteReset(parseCurrentPath string, parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string, parsePendingConvID int64) bool {
+	return strings.TrimSpace(parseCurrentPath) == chatRouteRoot &&
+		strings.TrimSpace(parseThreadRoutePublicID) == "" &&
+		parseActiveConvID > 0 &&
+		strings.TrimSpace(parseActiveConvPublicID) != "" &&
+		parsePendingConvID == parseActiveConvID
 }
 
 // shouldWarnPendingRootRoute reports whether one true chat-root route should warn about an unresolved conversation public id.

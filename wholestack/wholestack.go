@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/serverfn"
+	"github.com/monstercameron/GoWebComponents/v7/serverfn"
 )
 
 // ServerFnPrefix re-exports the path server functions are mounted under.
@@ -110,7 +110,11 @@ func assetExists(parseAssets fs.FS, parseName string) bool {
 	if parseErr != nil {
 		return false
 	}
-	defer parseFile.Close()
+	defer func() {
+		if parseCloseErr := parseFile.Close(); parseCloseErr != nil {
+			return
+		}
+	}()
 	parseInfo, parseErr := parseFile.Stat()
 	if parseErr != nil {
 		return false
@@ -125,7 +129,11 @@ func serveFile(parseW http.ResponseWriter, parseR *http.Request, parseAssets fs.
 		http.NotFound(parseW, parseR)
 		return
 	}
-	defer parseFile.Close()
+	defer func() {
+		if parseCloseErr := parseFile.Close(); parseCloseErr != nil {
+			return
+		}
+	}()
 	if strings.HasSuffix(parseName, ".html") {
 		parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
 	}

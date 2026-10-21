@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // TestMapIndexedThreadsIndex verifies MapIndexed passes the element index and
@@ -208,5 +208,49 @@ func TestCondFirstTrueWins(parseT *testing.T) {
 	)
 	if parseOrder.TextContent != "hit" {
 		parseT.Fatalf("expected matched branch over Otherwise, got %#v", parseOrder)
+	}
+}
+
+type nilSafeStringer struct{ parseLabel string }
+
+// String dereferences its receiver so a nil pointer would panic.
+func (parseS *nilSafeStringer) String() string { return parseS.parseLabel }
+
+// TestChildrenSkipsTypedNilNodeAndNilStringer pins that a typed-nil node is not
+// kept as a child and a nil Stringer pointer renders as empty text, not a panic.
+func TestChildrenSkipsTypedNilNodeAndNilStringer(parseT *testing.T) {
+	parseChildren := Children(If(false, Div(Props{})), "a")
+	if len(parseChildren) != 1 {
+		parseT.Fatalf("Children kept a typed-nil node: len=%d", len(parseChildren))
+	}
+	var parseNilStringer *nilSafeStringer
+	if parseNode := Text(parseNilStringer); parseNode == nil {
+		parseT.Fatalf("Text(nil Stringer) returned nil node")
+	}
+	if len(Children(parseNilStringer)) != 1 {
+		parseT.Fatalf("Children(nil Stringer) should yield one empty text child")
+	}
+	if parseClass := ClassNames("a", parseNilStringer, "b"); parseClass != "a b" {
+		parseT.Fatalf("ClassNames with nil Stringer = %q", parseClass)
+	}
+}
+
+// TestValueOptionLastWriteWins pins that a later non-empty Value replaces an
+// earlier empty Value (which is stored in Raw so it can be emitted).
+func TestValueOptionLastWriteWins(parseT *testing.T) {
+	parseProps := PropsOf(Value(""), Value("x"))
+	parseMarkup, parseErr := ui.RenderToString(Input(parseProps))
+	if parseErr != nil || !strings.Contains(parseMarkup, `value="x"`) {
+		parseT.Fatalf("PropsOf(Value(\"\"), Value(\"x\")) rendered %q (err %v)", parseMarkup, parseErr)
+	}
+	parseMerged := MergeProps(PropsOf(Value("")), Props{Value: "y"})
+	parseMarkup, parseErr = ui.RenderToString(Input(parseMerged))
+	if parseErr != nil || !strings.Contains(parseMarkup, `value="y"`) {
+		parseT.Fatalf("MergeProps(empty Value, Value y) rendered %q (err %v)", parseMarkup, parseErr)
+	}
+	parseEmpty := PropsOf(Value("x"), Value(""))
+	parseMarkup, _ = ui.RenderToString(Input(parseEmpty))
+	if !strings.Contains(parseMarkup, `value=""`) {
+		parseT.Fatalf("PropsOf(Value(\"x\"), Value(\"\")) rendered %q, want empty value", parseMarkup)
 	}
 }

@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"agenthub"
 	"github.com/joho/godotenv"
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v7/tools/agenthub"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -715,6 +715,14 @@ func parseShouldServeFreshBrotliArtifact(parseRootDir string, parseRelativePath 
 }
 
 func parseResolveRelativeAssetPath(parseRequestPath string) (string, bool) {
+	// Reject parent components before cleaning so filepath.Clean cannot erase the
+	// traversal evidence and turn an unsafe path into an apparently safe one.
+	parseSlashPath := strings.ReplaceAll(parseRequestPath, `\`, "/")
+	for _, parseSegment := range strings.Split(parseSlashPath, "/") {
+		if parseSegment == ".." {
+			return "", false
+		}
+	}
 	parseCleanedPath := filepath.ToSlash(filepath.Clean("/" + parseRequestPath))
 	if strings.Contains(parseCleanedPath, "..") {
 		return "", false

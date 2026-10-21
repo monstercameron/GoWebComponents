@@ -437,7 +437,7 @@ func renderScaffoldREADME(parseSelection startSelection) string {
 	parseBuilder.WriteString("## Run\n\n")
 	parseBuilder.WriteString("From the GoWebComponents repo root:\n\n")
 	parseBuilder.WriteString("```powershell\n")
-	parseBuilder.WriteString(fmt.Sprintf("go run ./tools/gwc dev -app %q -root %q -html %q -wasm %q\n", filepath.Join(parseSelection.TargetDir, "main.go"), parseSelection.TargetDir, filepath.Join(parseSelection.TargetDir, "index.html"), scaffoldWASMOutputPath()))
+	parseBuilder.WriteString(fmt.Sprintf("go -C tools run ./gwc dev -app %q -root %q -html %q -wasm %q\n", filepath.Join(parseSelection.TargetDir, "main.go"), parseSelection.TargetDir, filepath.Join(parseSelection.TargetDir, "index.html"), scaffoldWASMOutputPath()))
 	parseBuilder.WriteString("```\n")
 
 	parseBuilder.WriteString("\n## Verify\n\n")

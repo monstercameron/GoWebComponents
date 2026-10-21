@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
-	chatpb "github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared/renderworker"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/logging"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared/renderworker"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/logging"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 	"google.golang.org/grpc"
 )
 

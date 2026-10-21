@@ -3,7 +3,7 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 	"strings"
 	"syscall/js"
 )
@@ -107,7 +107,7 @@ func UseFocusTrap(parseOptions FocusTrapOptions) {
 			isParseFocused = parseManager.FocusSelector(parseOptions.FallbackFocusSelector)
 		}
 		if !isParseFocused {
-			focusElementValue(firstFocusableWithin(parseContainer))
+			isParseFocused = focusElementValue(firstFocusableWithin(parseContainer))
 		}
 		if !isParseFocused {
 			focusElementValue(parseContainer)

@@ -1,6 +1,6 @@
 # GoWebComponents
 
-> GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring he…
+> Go + WebAssembly UI layer with components, hooks, typed HTML/CSS, routing and
 
 ## Reference Manual
 
@@ -20,8 +20,9 @@
 - [14 Scaling Large Codebases](docs/REFERENCE_MANUAL/14-scaling-large-codebases.md): Use this chapter when your app is no longer a small demo and you need durable conventions for route families, shared modules, team ownership, validation lanes,…
 - [15 Design Notes And Boundaries](docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md): Use this chapter when you need the repo's explicit answer to these questions:
 - [16 API Browser](docs/REFERENCE_MANUAL/16-api-browser.md): Use this chapter when you want a dense package-by-package browser for the public GoWebComponents surface.
+- [Windows desktop integration](docs/REFERENCE_MANUAL/16-windows-desktop.md): Status: Windows-first, experimental contributor workflow. GWC's Wasm renderer
 - [Capability Matrix](docs/REFERENCE_MANUAL/capability-matrix.md)
-- [Diagnostic Error Code Reference](docs/REFERENCE_MANUAL/error-codes.md): Every code below is emitted in a structured runtime diagnostic. Look the code up here for its cause anchor and the `next:` remediation.
+- [Diagnostic Error Code Reference](docs/REFERENCE_MANUAL/error-codes.md): Every code below is emitted in a structured runtime diagnostic. Look the code up here for its cause and the `next:` remediation.
 
 ## Project
 

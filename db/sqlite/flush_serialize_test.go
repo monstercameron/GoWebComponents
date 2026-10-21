@@ -16,7 +16,11 @@ func TestFlushSerializesWithOpenTransaction(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("open: %v", parseErr)
 	}
-	defer parseDB.Close()
+	parseT.Cleanup(func() {
+		if parseCloseErr := parseDB.Close(); parseCloseErr != nil {
+			parseT.Errorf("close: %v", parseCloseErr)
+		}
+	})
 
 	var parseFlushed int32
 	parseDB.flush = func(context.Context) error {
@@ -35,8 +39,8 @@ func TestFlushSerializesWithOpenTransaction(parseT *testing.T) {
 
 	// Flush must NOT complete while the tx holds the only connection.
 	select {
-	case <-parseFlushDone:
-		parseT.Fatal("Flush completed while a transaction held the connection (torn-write window)")
+	case parseFlushErr := <-parseFlushDone:
+		parseT.Fatalf("Flush completed while a transaction held the connection (torn-write window), err=%v", parseFlushErr)
 	case <-time.After(100 * time.Millisecond):
 	}
 	if atomic.LoadInt32(&parseFlushed) != 0 {

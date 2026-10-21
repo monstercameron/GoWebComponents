@@ -116,9 +116,9 @@ package main
 import (
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // renderInvitePlanner keeps both the writable source and the derived summary local to one component.
@@ -166,9 +166,9 @@ When a feature grows, widen ownership in steps: reducer for local workflow, cont
 package workspace
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 var workspaceFilterContext = ui.CreateContext(workspaceFilterState{})
@@ -302,7 +302,7 @@ package appstate
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v7/state"
 )
 
 type workspacePrefs struct {
@@ -347,9 +347,9 @@ func applyWorkspacePrefsSnapshot(getCtx context.Context, getUserID string) (bool
 package dashboard
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type queueModel struct {
@@ -603,30 +603,30 @@ Use the smallest examples that prove the ownership layer you are adopting.
 Local state, reducers, and context:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\use-state\main.go
-go run ./tools/gwc dev -app .\examples\public\scaling-local-state-with-use-reducer\main.go
-go run ./tools/gwc dev -app .\examples\public\context-api\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-state\main.go
+go -C tools run ./gwc dev -app ..\examples\public\scaling-local-state-with-use-reducer\main.go
+go -C tools run ./gwc dev -app ..\examples\public\context-api\main.go
 ```
 
 Shared atoms and derived values:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\use-atom\main.go
-go run ./tools/gwc dev -app .\examples\public\use-computed\main.go
-go run ./tools/gwc dev -app .\examples\public\use-derived\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-atom\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-computed\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-derived\main.go
 ```
 
 Snapshot export and persistence:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\snapshot-export-import\main.go
-go run ./tools/gwc dev -app .\examples\public\snapshot-storage\main.go
+go -C tools run ./gwc dev -app ..\examples\public\snapshot-export-import\main.go
+go -C tools run ./gwc dev -app ..\examples\public\snapshot-storage\main.go
 ```
 
 Fine-grained reactivity design boundary:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\state-atoms\main.go
+go -C tools run ./gwc dev -app ..\examples\public\state-atoms\main.go
 ```
 
 ## Local-First Sync (`localfirst`)

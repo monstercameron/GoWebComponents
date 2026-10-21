@@ -22,7 +22,7 @@ func Open(parseCtx context.Context, parseSqlitePath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open sqlite: %w", parseErr2)
 	}
 	if parseErr3 := parseDatabase.PingContext(parseCtx); parseErr3 != nil {
-		parseDatabase.Close()
+		_ = parseDatabase.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", parseErr3)
 	}
 	return parseDatabase, nil

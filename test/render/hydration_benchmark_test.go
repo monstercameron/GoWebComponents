@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // These benchmarks measure the client-side hydration walk (claimHydrationNode
@@ -39,8 +39,7 @@ func benchmarkHydration(parseB *testing.B, parseRows int) {
 		parseB.Fatalf("RenderToString: %v", parseErr)
 	}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseB.StopTimer()
 		getAdapter := mockdom.NewMockDOMAdapter()
 		getScheduler := mockdom.NewMockScheduler(true)

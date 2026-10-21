@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"example.com/gwc-wails-counter/contracts"
-	"github.com/monstercameron/GoWebComponents/v6/desktop"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type testerFakeTransport struct {

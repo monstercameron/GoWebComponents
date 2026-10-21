@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 var componentHandleCache sync.Map

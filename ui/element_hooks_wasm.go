@@ -5,8 +5,8 @@ package ui
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // elementValueForRef returns the live js.Value for a DOMRef, and whether it is
@@ -143,16 +143,20 @@ func UseAnimationRestart(parseRef DOMRef, parseClassName string, parseDeps ...an
 //	    OnPointerMove: func(e ui.Event) { ... },
 //	})
 func UsePointerEvents(parseRef DOMRef, parseHandlers PointerHandlers) {
+	// Latest-ref: listeners are bound once at mount but must run the handlers from the most
+	// recent render, not the closures captured when they were bound.
+	parseLatest := UseRef(parseHandlers)
+	parseLatest.Set(parseHandlers)
 	UseEffect(func() func() {
 		parseValue, parseOk := elementValueForRef(parseRef)
 		if !parseOk {
 			return nil
 		}
 		parseUnbinds := []func(){
-			bindElementEvent(parseValue, "pointerdown", parseHandlers.OnPointerDown),
-			bindElementEvent(parseValue, "pointermove", parseHandlers.OnPointerMove),
-			bindElementEvent(parseValue, "pointerup", parseHandlers.OnPointerUp),
-			bindElementEvent(parseValue, "pointercancel", parseHandlers.OnPointerCancel),
+			bindElementEvent(parseValue, "pointerdown", dispatchLatestPointerHandler(parseHandlers.OnPointerDown, parseLatest, func(parseH PointerHandlers) func(Event) { return parseH.OnPointerDown })),
+			bindElementEvent(parseValue, "pointermove", dispatchLatestPointerHandler(parseHandlers.OnPointerMove, parseLatest, func(parseH PointerHandlers) func(Event) { return parseH.OnPointerMove })),
+			bindElementEvent(parseValue, "pointerup", dispatchLatestPointerHandler(parseHandlers.OnPointerUp, parseLatest, func(parseH PointerHandlers) func(Event) { return parseH.OnPointerUp })),
+			bindElementEvent(parseValue, "pointercancel", dispatchLatestPointerHandler(parseHandlers.OnPointerCancel, parseLatest, func(parseH PointerHandlers) func(Event) { return parseH.OnPointerCancel })),
 		}
 		return func() {
 			for _, parseUnbind := range parseUnbinds {
@@ -167,13 +171,41 @@ func UsePointerEvents(parseRef DOMRef, parseHandlers PointerHandlers) {
 // UseWheel attaches a wheel listener to the referenced element with managed
 // js.Func lifetime (G35). No-op before mount / on native.
 func UseWheel(parseRef DOMRef, parseHandler func(Event)) {
+	// Latest-ref: the listener runs the handler from the most recent render.
+	parseLatest := UseRef(parseHandler)
+	parseLatest.Set(parseHandler)
 	UseEffect(func() func() {
 		parseValue, parseOk := elementValueForRef(parseRef)
 		if !parseOk {
 			return nil
 		}
-		return bindElementEvent(parseValue, "wheel", parseHandler)
+		return bindElementEvent(parseValue, "wheel", dispatchLatestHandler(parseHandler, parseLatest))
 	}, useElementHookSentinel)
+}
+
+// dispatchLatestHandler wraps parseBound so the listener invokes whatever handler the latest-ref
+// currently holds. It returns nil when parseBound is nil, so an unset handler is never bound.
+func dispatchLatestHandler(parseBound func(Event), parseLatest Ref[func(Event)]) func(Event) {
+	if parseBound == nil {
+		return nil
+	}
+	return func(parseEvent Event) {
+		if parseCurrent := parseLatest.Get(); parseCurrent != nil {
+			parseCurrent(parseEvent)
+		}
+	}
+}
+
+// dispatchLatestPointerHandler is dispatchLatestHandler for one field of the latest PointerHandlers.
+func dispatchLatestPointerHandler(parseBound func(Event), parseLatest Ref[PointerHandlers], parsePick func(PointerHandlers) func(Event)) func(Event) {
+	if parseBound == nil {
+		return nil
+	}
+	return func(parseEvent Event) {
+		if parseCurrent := parsePick(parseLatest.Get()); parseCurrent != nil {
+			parseCurrent(parseEvent)
+		}
+	}
 }
 
 // bindElementEvent attaches one managed listener to an element js.Value and

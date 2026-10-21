@@ -6,7 +6,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/v7/internal/platform/jsdom"
 )
 
 // TestBindElementEventManagesListener proves bindElementEvent adds a listener,

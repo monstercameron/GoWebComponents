@@ -1117,7 +1117,9 @@ CORRECTED (won't-fix): flags getBucket "modulo bias" is negligible (~2e-8 at
 Gate: full library tree (minus examples/) GREEN.
 
 ## Module 15 backlog follow-ups #3 (html markdown DoS, 2026-07-05)
-FIXED + PINNED (html/markdown_depth_test.go):
+FIXED + PINNED (html/markdown_depth_test.go). Update 2026-10-03: the goldmark
+renderer described below now lives in the opt-in package html/markdown (its depth
+test moved with it); package html only dispatches to a registered engine.
 - RenderMarkdown recursive AST walk had no depth cap. goldmark does not bound
   blockquote/list nesting, so input like "> " repeated tens of thousands of times
   yields an AST deep enough to overflow the recursive render stack (crash/DoS).

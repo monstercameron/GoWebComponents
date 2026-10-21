@@ -58,10 +58,10 @@ func containsVersionToken(parseHeader string, parseTarget string) bool {
 	return parseEnd >= len(parseAnchored) || !isVersionChar(parseAnchored[parseEnd])
 }
 
-// isVersionChar reports whether b is a digit or a dot, which are the characters
-// that extend a version number token.
+// isVersionChar reports whether b continues a version token. A stable release
+// must not match a prerelease or build-metadata heading.
 func isVersionChar(b byte) bool {
-	return (b >= '0' && b <= '9') || b == '.'
+	return (b >= '0' && b <= '9') || b == '.' || b == '-' || b == '+'
 }
 
 // LatestEntry returns the first "## " section's header text (without the "## "

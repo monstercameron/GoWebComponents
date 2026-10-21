@@ -3,40 +3,42 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
-## v6.0.0 - 2026-09-08
+## v7.0.0 — stable
 
-### Migration
+GoWebComponents v7 moves the public module to
+`github.com/monstercameron/GoWebComponents/v7` and raises the Go floor to
+1.27. It includes the API, tooling, hydration, router, telemetry, error
+reporting, and dependency-graph changes described in the v7 development log.
 
-The module path is now `github.com/monstercameron/GoWebComponents/v6`.
-Update application imports and `go.mod` requirements from `/v5` to `/v6`,
-including local `replace` directives, then run `go mod tidy` and rebuild both
-native and Wasm targets. Do not mix the two major versions in one component tree.
-The Windows Wails adapter remains a separate optional module: web applications
-do not need to import or initialize Wails.
+### Upgrade notes
 
-### Changes
+- Change the module requirement and Go imports from `/v6` to `/v7`, then run
+  `go mod tidy`. Pin `v7.0.0` for the stable release.
+- Follow [`docs/MIGRATION_V7.md`](../../../../docs/MIGRATION_V7.md) for typed handlers,
+  opt-in Markdown registration, router options, tracing headers, reconnect
+  defaults, and the `kvstate` identifier migration.
+- Invoke the CLI from its nested `tools/` module; browser tests, telemetry SDK
+  tests, and dependency-heavy examples also live in separate modules.
 
-- Added Windows-first desktop APIs, an isolated Wails adapter and pinned Wails
-  submodule, build-mode gates, capability ceilings, and CLI build/dev/test support.
-- Added a Windows API Lab and web-safe capability handling for native services.
-- Fixed runtime in-flight update coalescing and preserved useful JavaScript
-  rejection messages without invoking arbitrary message getters.
-- Moved chat Markdown and plain code-copy controls onto sanitized GWC nodes;
-  migrated the load-harness dashboard and server-interactive SSE view to GWC.
-- Fixed server-interactive hydration duplicating server-rendered controls, and
-  improved reproducibility of chat/Atlas browser fixtures and WebSocket tests.
+### Verification and accepted performance costs
 
-### Verification scope and known limitations
+The [`v7.0.0-rc.1` release workflow](https://github.com/monstercameron/GoWebComponents/actions/runs/39595468422)
+passed its Windows build, tests, browser suites, vulnerability scan, SBOM,
+reproducible build, and candidate consumer guard. A fresh external module
+fetched the published RC and compiled public packages natively and for
+js/wasm. The exact-source CashFlux migration passed its full short Go suite,
+Wasm build, and production browser suite; pinned GoGRPCBridge stress and P0
+browser health probes passed.
 
-Native, Wasm, hydration, core race, JavaScript and Windows desktop checks were
-run during preparation; exact commands, skips and results are recorded in
-`docs/plans/v6-regression-verification.md`. Counts are not coverage percentages.
+The dedicated v6/v7 production comparison matched 179 native entries with a
+6.11% faster v7 geometric mean and 148 Wasm entries with a 0.12% faster v7
+geometric mean. `TransitionListRefresh250` was 22.72% slower on Wasm against
+the 15% per-entry limit. The React 19 Example 201 browser comparison had no
+scenario beyond its +30% noise limit, but its final geometric mean was 4.27%
+slower. The maintainer reviewed and accepted both measured costs for this
+release on 2026-10-21. Raw runs and the size caveats are recorded in
+[`docs/benchmarks/V7-RELEASE-EVIDENCE.md`](../../../../docs/benchmarks/V7-RELEASE-EVIDENCE.md).
 
-The full example migration and browser acceptance work was paused at the
-maintainer's request. Known chat-example browser failures include admin/sign-in
-flows, settings routing, billing summary and boot/isolation checks. Chat
-Mermaid/math ownership, the render-benchmark dashboard and other legacy surfaces
-remain on the migration plan. This release does not claim every example passes
-or that all example UI has been migrated. The Atlas gzip size diagnostic also
-exceeds the historical M5 target. Native desktop support is Windows-first;
-macOS and Linux native hosts are not certified by these results.
+Windows v6.1 manual acceptance remains deferred; v7 is released first by
+maintainer decision. The v6 line retains its support window under
+[`VERSIONING.md`](../../../../VERSIONING.md).

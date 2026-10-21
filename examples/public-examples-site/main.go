@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/logging"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/logging"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 var log = logging.New("public-examples-site")
@@ -449,10 +449,13 @@ func renderExampleSourceNode(parsePanelProps contentPanelProps) ui.Node {
 	parseSourceLoading := parsePanelProps.MarkdownLoading
 	parseSourceReady := parsePanelProps.MarkdownReady
 	parseSourceError := parsePanelProps.MarkdownError
+	parseSourceResource := fetch.UseCachedResource(markdownCacheKey(parseSourceURL), func(parseCtx context.Context) (string, error) {
+		if parseSourceURL == "" {
+			return "", nil
+		}
+		return loadMarkdownResource(parseCtx, parseSourceURL)
+	}, fetch.CacheOptions{StaleAfter: 2 * time.Minute})
 	if parseSourceURL != "" && parseSourceBody == "" && !parseSourceLoading && !parseSourceReady && parseSourceError == "" {
-		parseSourceResource := fetch.UseCachedResource(markdownCacheKey(parseSourceURL), func(parseCtx context.Context) (string, error) {
-			return loadMarkdownResource(parseCtx, parseSourceURL)
-		}, fetch.CacheOptions{StaleAfter: 2 * time.Minute})
 		parseSourceRequest := parseSourceResource.Get()
 		parseSourceBody = parseSourceRequest.Value
 		parseSourceLoading = parseSourceRequest.Loading
@@ -1101,15 +1104,13 @@ func renderDocsDemosSite() ui.Node {
 		}
 	}
 	parseItemNodes := Map(parseFilteredItems, func(parseItem2 docsItem) ui.Node {
-		return renderItemCard(parseItem2, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem2.ID, ui.UseEvent(func() {
-			parseSelectCatalogItem(parseItem2)
-		}))
+		return renderItemCard(parseItem2, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem2.ID, catalogItemHandler(func() { parseSelectCatalogItem(parseItem2) }))
 	})
 	parseItemNodes = append(parseItemNodes, If(len(parseFilteredItems) == 0,
 		Div(ClassStr("rounded-[22px] border border-dashed border-white/10 bg-black/10 p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
 	))
 	parseDialogItemNodes := Map(firstCatalogItems(parseFilteredItems, 6), func(parseItem3 docsItem) ui.Node {
-		return renderItemCard(parseItem3, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem3.ID, ui.UseEvent(func() {
+		return renderItemCard(parseItem3, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem3.ID, catalogItemHandler(func() {
 			parseSelectCatalogItem(parseItem3)
 			parseSearchDialogOpen.Set(false)
 			parseAnnouncer.Polite(parseItem3.Title + " selected. " + catalogResultAnnouncement(len(parseFilteredItems), parseDeferredSearchQuery))
@@ -1170,4 +1171,8 @@ func main() {
 	}
 	ui.Render(ui.Component(renderDocsDemosSite), "#app")
 	utils.WaitForever()
+}
+
+func catalogItemHandler(parseSelect func()) ui.Handler {
+	return ui.UseEvent(parseSelect)
 }

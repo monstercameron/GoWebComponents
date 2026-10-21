@@ -10,8 +10,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 // fetchTestNoOpScheduler keeps native fetch tests deterministic without background runtime timers.
@@ -36,9 +36,17 @@ func setFetchTestStructField(parseT *testing.T, parseTarget any, parseField stri
 
 // resetFetchTestCacheState clears shared fetch package globals between native tests.
 func resetFetchTestCacheState() {
-	cachedResourceRegistry = sync.Map{}
-	queryTagIndex = sync.Map{}
+	clearFetchTestMap(&cachedResourceRegistry)
+	clearFetchTestMap(&queryTagIndex)
 	ConfigurePersistentCache(PersistentCacheOptions{})
+}
+
+// clearFetchTestMap removes every entry without replacing the shared sync.Map while loaders may read it.
+func clearFetchTestMap(parseMap *sync.Map) {
+	parseMap.Range(func(parseKey, _ any) bool {
+		parseMap.Delete(parseKey)
+		return true
+	})
 }
 
 // installFetchTestHookContext resets the runtime and installs one active fiber for native hook-based fetch tests.

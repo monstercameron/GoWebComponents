@@ -45,7 +45,7 @@ Feature selection is application policy, not an operating-system sandbox.
   Final strengthened rerun passed (15.299 seconds including idle regression):
   watcher acceptance requires both a changed hash and the unique edited text in
   served Wasm, after initial compilation completes. No owned dev processes remain.
-- Final post-fix `go test ./tools/gwc -count=1` passed (100.528 seconds), followed
+- Final post-fix `go -C tools/gwc test ./... -count=1` passed (100.528 seconds), followed
   by clean `go vet ./tools/gwc`. Astra's independent report records the exact
   commands. Root module files remain unchanged and the pinned Wails tree is clean.
 - Retained `bin/v6-services.test.exe -test.run=TestAPIEditMenuSingleShortcutOwner`

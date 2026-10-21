@@ -217,7 +217,8 @@ func atlasPerfStartServer(parseT *testing.T, parseRepoRoot string) string {
 			_ = parseCmd.Process.Kill()
 		}
 		select {
-		case <-parseDone:
+		case parseErr := <-parseDone:
+			_ = parseErr
 		case <-time.After(5 * time.Second):
 		}
 	})

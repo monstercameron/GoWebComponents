@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 // mutationQueueLocks serializes each storage key's load-mutate-save sequence.
@@ -140,8 +141,8 @@ func IsMutationConflict(parseErr error) bool {
 
 // AsMutationConflictError unwraps err into the structured MutationConflictError form.
 func AsMutationConflictError(parseErr error) (*MutationConflictError, bool) {
-	var parseConflictErr *MutationConflictError
-	if !errors.As(parseErr, &parseConflictErr) {
+	parseConflictErr, parseOk := errors.AsType[*MutationConflictError](parseErr)
+	if !parseOk {
 		return nil, false
 	}
 	return parseConflictErr, true
@@ -238,7 +239,7 @@ func OpenMutationQueue(parseOptions ...MutationQueueOptions) (MutationQueue, err
 // Enqueue stores a write for later replay, suppressing duplicates that share the same dedup key.
 func (parseQ MutationQueue) Enqueue(parseDraft MutationDraft) (QueuedMutation, error) {
 	if strings.TrimSpace(parseDraft.URL) == "" {
-		return QueuedMutation{}, fmt.Errorf("fetch mutation queue requires a non-empty URL")
+		return QueuedMutation{}, errcode.New(errcode.FetchMutationInvalid, "fetch mutation queue requires a non-empty URL (set MutationDraft.URL)")
 	}
 	parseMethod := strings.ToUpper(strings.TrimSpace(parseDraft.Method))
 	if parseMethod == "" {
@@ -326,6 +327,9 @@ func (parseQ MutationQueue) Remove(parseId string) error {
 
 // Clear removes every persisted queue entry.
 func (parseQ MutationQueue) Clear() error {
+	parseMu := parseQ.lock()
+	parseMu.Lock()
+	defer parseMu.Unlock()
 	return parseQ.store.RemoveItem(context.Background(), parseQ.storageKey)
 }
 
@@ -337,7 +341,7 @@ func (parseQ MutationQueue) Replay(parseCtx context.Context, parseExecutor Mutat
 // ReplayWithOptions replays due entries and applies optional conflict-resolution policy.
 func (parseQ MutationQueue) ReplayWithOptions(parseCtx context.Context, parseExecutor MutationExecutor, parseOptions ...MutationReplayOptions) (MutationReplayReport, error) {
 	if parseExecutor == nil {
-		return MutationReplayReport{}, fmt.Errorf("fetch mutation queue requires an executor")
+		return MutationReplayReport{}, errcode.New(errcode.FetchMutationInvalid, "fetch mutation queue requires an executor (pass the MutationExecutor that sends each queued write)")
 	}
 	parseReplayOptions := MutationReplayOptions{}
 	if len(parseOptions) > 0 {
@@ -396,6 +400,13 @@ func (parseQ MutationQueue) ReplayWithOptions(parseCtx context.Context, parseExe
 				parseReport.Conflicts++
 				parseResolved, parseHandled, parseResolveErr := parseQ.handleConflict(parseCtx, parseEntry, parseConflictErr, parseReplayOptions.ConflictHandler, parseNow)
 				if parseResolveErr != nil {
+					// Entries that already succeeded must not stay persisted and
+					// replay again; keep only the unfinished ones.
+					parseRemaining = append(parseRemaining, parseEntries[parseIndex:]...)
+					parseReport.Remaining = len(parseRemaining)
+					if parseSaveErr := parseQ.save(parseRemaining); parseSaveErr != nil {
+						return parseReport, errors.Join(parseResolveErr, parseSaveErr)
+					}
 					return parseReport, parseResolveErr
 				}
 				if parseHandled {
@@ -520,7 +531,7 @@ func (parseQ MutationQueue) handleConflict(parseCtx context.Context, parseEntry 
 	case MutationResolutionRetry, "":
 		return QueuedMutation{}, false, nil
 	default:
-		return QueuedMutation{}, false, fmt.Errorf("unsupported mutation conflict resolution action %q", parseResolution.Action)
+		return QueuedMutation{}, false, errcode.New(errcode.FetchMutationInvalid, fmt.Sprintf("unsupported mutation conflict resolution action %q (use one of the MutationResolution constants)", parseResolution.Action))
 	}
 }
 

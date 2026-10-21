@@ -33,6 +33,14 @@ const (
 	// KindConditional is a hook called inside a conditional branch (an if/else
 	// body or a switch/select case body) rather than at the component's top level.
 	KindConditional FindingKind = "conditional"
+	// KindInlineHandler is an html On* option called with a func literal inside a
+	// for/range body or an html.Map/MapKeyed callback. Such a handler allocates a
+	// positional UseEvent slot per item. Heuristic and deliberately narrow: only
+	// bare or html./shorthand.-qualified On* calls whose first argument is a func
+	// literal, with no func-literal boundary between the call and the list
+	// context (a nested closure, a prebuilt handler variable and
+	// MapKeyedComponent rows are never flagged).
+	KindInlineHandler FindingKind = "inline-handler"
 )
 
 // Finding is one rules-of-hooks violation. Pos is the source location, Hook the
@@ -67,6 +75,9 @@ func (parseF Finding) kindPhrase() string {
 	if parseF.Kind == KindConditional {
 		return "conditionally"
 	}
+	if parseF.Kind == KindInlineHandler {
+		return "as an inline func literal inside a loop or Map/MapKeyed callback"
+	}
 	return "inside a loop"
 }
 
@@ -74,6 +85,8 @@ func (parseF Finding) kindPhrase() string {
 // offending hook so the fix is unambiguous (not a category-level hint).
 func (parseF Finding) Remediation() string {
 	switch parseF.Kind {
+	case KindInlineHandler:
+		return fmt.Sprintf("%s allocates a positional hook slot (UseEvent) per item that shifts when the list changes; render the row with MapKeyedComponent so each item owns its handlers, or hoist the handler out of the list", parseF.Hook)
 	case KindConditional:
 		return fmt.Sprintf("hooks must run unconditionally in the same order every render; call %s at the top level of the component (before any if/switch) and read its value inside the branch", parseF.Hook)
 	default:
@@ -184,6 +197,17 @@ func checkFile(parseFset *token.FileSet, parseFile *ast.File, parseSrc []byte) [
 			return false
 		}
 		if parseCall, parseOk := parseNode.(*ast.CallExpr); parseOk {
+			if parseName, parseIsHandler := inlineHandlerName(parseCall); parseIsHandler && inListContext(parsePath) {
+				parsePos := parseFset.Position(parseCall.Pos())
+				if !parseTrailing[parsePos.Line] && !parseLeading[parsePos.Line-1] {
+					parseFindings = append(parseFindings, Finding{
+						Pos:  parsePos,
+						Hook: parseName,
+						Kind: KindInlineHandler,
+						Func: enclosingFuncName(parsePath),
+					})
+				}
+			}
 			if parseName, parseIsHook := hookName(parseCall.Fun); parseIsHook {
 				// A hook in a loop is the more severe G1 violation and takes
 				// precedence; otherwise a hook inside a conditional branch is a
@@ -254,6 +278,82 @@ func conditionalFromPath(parsePath []ast.Node) bool {
 					return true
 				}
 			}
+		}
+	}
+	return false
+}
+
+// inlineHandlerName returns the displayed name of an html On* option call whose
+// first argument is a func literal (the shape that allocates a UseEvent slot).
+// Only bare calls (dot-imported html/shorthand) and html./shorthand.-qualified
+// calls match, so unrelated On* functions from other packages stay quiet.
+func inlineHandlerName(parseCall *ast.CallExpr) (string, bool) {
+	if len(parseCall.Args) == 0 {
+		return "", false
+	}
+	if _, parseIsLit := parseCall.Args[0].(*ast.FuncLit); !parseIsLit {
+		return "", false
+	}
+	parseName, parseQualifier := calleeName(parseCall.Fun)
+	if len(parseName) <= len("On") || !strings.HasPrefix(parseName, "On") || parseName[2] < 'A' || parseName[2] > 'Z' {
+		return "", false
+	}
+	if parseQualifier == "" {
+		return parseName, true
+	}
+	if parseQualifier == "html" || parseQualifier == "shorthand" {
+		return parseQualifier + "." + parseName, true
+	}
+	return "", false
+}
+
+// calleeName returns a call's function name and package qualifier ("" for bare
+// calls), looking through generic instantiations.
+func calleeName(parseFun ast.Expr) (string, string) {
+	switch parseTyped := parseFun.(type) {
+	case *ast.IndexExpr:
+		return calleeName(parseTyped.X)
+	case *ast.IndexListExpr:
+		return calleeName(parseTyped.X)
+	case *ast.Ident:
+		return parseTyped.Name, ""
+	case *ast.SelectorExpr:
+		if parseIdent, parseOk := parseTyped.X.(*ast.Ident); parseOk {
+			return parseTyped.Sel.Name, parseIdent.Name
+		}
+	}
+	return "", ""
+}
+
+// inListContext reports whether the current node is rendered once per list
+// item: inside a for/range body, or inside the func literal passed to an
+// html Map/MapKeyed call. The walk stops at the first func-literal boundary
+// that is not such a callback.
+func inListContext(parsePath []ast.Node) bool {
+	for parseI := len(parsePath) - 1; parseI >= 0; parseI-- {
+		switch parseNode := parsePath[parseI].(type) {
+		case *ast.ForStmt, *ast.RangeStmt:
+			return true
+		case *ast.FuncLit:
+			if parseI == 0 {
+				return false
+			}
+			parseParent, parseOk := parsePath[parseI-1].(*ast.CallExpr)
+			if !parseOk {
+				return false
+			}
+			parseName, parseQualifier := calleeName(parseParent.Fun)
+			if (parseName != "Map" && parseName != "MapKeyed") || (parseQualifier != "" && parseQualifier != "html" && parseQualifier != "shorthand") {
+				return false
+			}
+			for _, parseArg := range parseParent.Args {
+				if parseArg == ast.Expr(parseNode) {
+					return true
+				}
+			}
+			return false
+		case *ast.FuncDecl:
+			return false
 		}
 	}
 	return false

@@ -27,7 +27,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.x"
+          go-version: "1.27.x"
 
       - name: Public-API baseline gate
         # No continue-on-error: any exported-surface drift fails the PR. Covers every package
@@ -36,4 +36,11 @@ jobs:
           go test -count=1 \
             ./serverfn/ ./query/ ./localfirst/ ./agentui/ ./validate/ \
             ./anim/ ./timetravel/ ./workbench/ ./wholestack/ \
+            ./ui/ ./html/ ./router/ ./fetch/ \
             -run 'APIBaseline|ApiBaseline|API_BASELINE'
+
+      - name: Public-API compatibility guard (native + wasm)
+        # Compares the exported funcs/types of the core packages against
+        # tools/api_compat_guard/api_compatibility_baseline.json on native and js/wasm.
+        # Intentional changes regenerate it with: go -C tools run ./api_compat_guard -update
+        run: go -C tools run ./api_compat_guard --module-root=..

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 // UseDeferredValue keeps returning the last committed value until a transition updates it.
@@ -173,8 +173,22 @@ func useTaskWithParent[T any](parseParent context.Context, parseRun func(context
 
 		go func() {
 			defer runtime.RecoverContainedPanic("ui", "UseTask runner")
-			parseValue, parseErr := parseRun(parseCtx)
-			if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
+			parseValue, parseErr := containAsyncFn("UseTask runner", func() (T, error) { return parseRun(parseCtx) })()
+			if parseRequestSeq.Get() != parseSeq {
+				return
+			}
+			if parseCtx.Err() != nil {
+				// Start, Cancel, and unmount all clear or replace the registered cancel func before
+				// the context dies, so a still-registered one means the PARENT context ended the
+				// run: settle the state instead of leaving it Running forever.
+				if parseCancelRef.Get() != nil {
+					parseCancelRef.Set(nil)
+					parseState.Update(func(parsePrev TaskState[T]) TaskState[T] {
+						parsePrev.Running = false
+						parsePrev.Cancelled = true
+						return parsePrev
+					})
+				}
 				return
 			}
 
@@ -349,7 +363,7 @@ func UseLazyNode(parseLoader func(context.Context) (Node, error), parseDeps ...i
 
 		go func() {
 			defer runtime.RecoverContainedPanic("ui", "UseLazyNode loader")
-			parseNode, parseErr := parseLoader(parseCtx)
+			parseNode, parseErr := containAsyncFn("UseLazyNode loader", func() (Node, error) { return parseLoader(parseCtx) })()
 			if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 				return
 			}

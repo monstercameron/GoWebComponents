@@ -7,14 +7,13 @@ import (
 	"strings"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
 
 const DefaultBootstrapScriptID = "__GWC_BOOTSTRAP__"
 const DefaultBootstrapReferenceScriptID = "__GWC_BOOTSTRAP_REF__"
 
 const CurrentSSRBootstrapVersion = 1
-
-var errUnsupportedSSRBootstrapVersion = fmt.Errorf("ui: unsupported SSR bootstrap version")
 
 const (
 	SSRBootstrapFormatJSON = "json"
@@ -234,13 +233,13 @@ func UnmarshalSSRBootstrapReference(parseData []byte) (SSRBootstrapReference, er
 // normalizeSSRBootstrapVersion is a core package helper.
 func normalizeSSRBootstrapVersion(parseVersion int) (int, error) {
 	if parseVersion < 0 {
-		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, parseVersion)
+		return 0, errcode.New(errcode.UISSRBootstrapVersion, fmt.Sprintf("ui: unsupported SSR bootstrap version %d (this build supports up to %d)", parseVersion, CurrentSSRBootstrapVersion))
 	}
 	if parseVersion == 0 {
 		return CurrentSSRBootstrapVersion, nil
 	}
 	if parseVersion > CurrentSSRBootstrapVersion {
-		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, parseVersion)
+		return 0, errcode.New(errcode.UISSRBootstrapVersion, fmt.Sprintf("ui: unsupported SSR bootstrap version %d (this build supports up to %d)", parseVersion, CurrentSSRBootstrapVersion))
 	}
 	return parseVersion, nil
 }

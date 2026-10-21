@@ -4,6 +4,7 @@
 package playwrightgoexamples_test
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -66,7 +67,7 @@ func terminateExamplesProcessTree(parseCmd *exec.Cmd) {
 		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(parseCmd.Process.Pid)).Run()
 		return
 	}
-	_ = parseCmd.Process.Kill()
+	terminateExamplesProcessGroup(parseCmd)
 }
 
 func startExamplesCommandWithEnv(parseT *testing.T, parseDir string, parseEnv []string, parseName string, parseArgs ...string) (parseStop func()) {
@@ -92,6 +93,7 @@ func startExamplesCommandWithEnv(parseT *testing.T, parseDir string, parseEnv []
 	}
 	parseCmd := exec.Command(parseName, parseArgs...)
 	parseCmd.Dir = parseDir
+	configureExamplesProcessGroup(parseCmd)
 	if len(parseEnv) > 0 {
 		parseCmd.Env = append(os.Environ(), parseEnv...)
 	}
@@ -144,7 +146,7 @@ func startExamplesCatalogServer(parseT *testing.T, parseRepoRoot string, parsePo
 		parseT,
 		parseRepoRoot,
 		"go",
-		"run", "./tools/gwc", "examples",
+		"-C", "tools", "run", "./gwc", "examples",
 		"-host", "127.0.0.1",
 		"-port", parsePort,
 	)
@@ -203,6 +205,70 @@ func withExamplesBrowserPage(parseT *testing.T, parseBrowser string, parseFn fun
 	if parseErr2 != nil {
 		parseT.Fatalf("new page: %v", parseErr2)
 	}
+	getFailureMessages := make([]string, 0, 16)
+	getRecentConsole := make([]string, 0, 32)
+	getFailureMu := sync.Mutex{}
+	appendFailure := func(parseMessage string) {
+		getFailureMu.Lock()
+		defer getFailureMu.Unlock()
+		if len(getFailureMessages) < 16 {
+			getFailureMessages = append(getFailureMessages, parseMessage)
+		}
+	}
+	parsePage.OnConsole(func(parseMessage playwright.ConsoleMessage) {
+		getConsoleText := strings.TrimSpace(parseMessage.Text())
+		if len(getConsoleText) > 300 {
+			getConsoleText = getConsoleText[:300]
+		}
+		getFailureMu.Lock()
+		if len(getRecentConsole) == 32 {
+			getRecentConsole = getRecentConsole[1:]
+		}
+		getRecentConsole = append(getRecentConsole, parseMessage.Type()+": "+getConsoleText)
+		getFailureMu.Unlock()
+		if parseMessage.Type() == "error" {
+			appendFailure("console: " + getConsoleText)
+		}
+	})
+	parsePage.OnPageError(func(parseErr error) {
+		if parseErr != nil {
+			appendFailure("page: " + parseErr.Error())
+		}
+	})
+	parsePage.OnRequestFailed(func(parseRequest playwright.Request) {
+		getReason := ""
+		if getRequestFailure := parseRequest.Failure(); getRequestFailure != nil {
+			getReason = getRequestFailure.Error()
+		}
+		appendFailure("request: " + parseRequest.Method() + " " + parseRequest.URL() + " " + getReason)
+	})
+	parsePage.OnResponse(func(parseResponse playwright.Response) {
+		if parseResponse.Status() >= 400 {
+			appendFailure(fmt.Sprintf("response: HTTP %d %s", parseResponse.Status(), parseResponse.URL()))
+		}
+	})
+	defer func() {
+		if !parseT.Failed() {
+			return
+		}
+		getFailureMu.Lock()
+		getMessages := append([]string(nil), getFailureMessages...)
+		getConsole := append([]string(nil), getRecentConsole...)
+		getFailureMu.Unlock()
+		getPageState, getStateErr := parsePage.Evaluate(`() => ({
+			url: location.href,
+			readyState: document.readyState,
+			boot: document.getElementById('boot-shell')?.innerText?.slice(0, 500) || '',
+			body: document.body?.innerText?.slice(0, 500) || '',
+			wasmQuery: window.__gwc_wasm_query || '',
+			goRuntime: typeof Go,
+			scripts: Array.from(document.scripts, (script) => script.src).filter(Boolean),
+			resources: performance.getEntriesByType('resource')
+				.filter((entry) => /chat\.wasm|chat-bootstrap|\/socket/.test(entry.name))
+				.map((entry) => ({name: entry.name, duration: entry.duration, bytes: entry.transferSize, status: entry.responseStatus})),
+		})`)
+		parseT.Logf("browser failure diagnostics: state=%#v stateError=%v events=%q recentConsole=%q", getPageState, getStateErr, getMessages, getConsole)
+	}()
 	parseFn(parsePage)
 }
 

@@ -14,7 +14,7 @@ func BenchmarkCloneURLValuesMicroWasm(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = cloneURLValues(parseValues)
 	}
 }
@@ -26,7 +26,7 @@ func BenchmarkCloneStringMapMicroWasm(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = cloneStringMap(parseValues)
 	}
 }

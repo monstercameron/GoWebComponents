@@ -125,6 +125,13 @@ type Fiber struct {
 	// in Go yet. The parent binds one direct child level before reconciling it,
 	// avoiding two Go/JS bridge crossings for every descendant on pure mount.
 	serializedUnbound bool
+	// slotGap counts the absent (nil) children that sat directly before this
+	// fiber in its parent's child list. Absent children build no fiber, so
+	// without it a fiber's position in the chain stops matching its position in
+	// the element list and toggling an optional child shifts every sibling after
+	// it onto the wrong old fiber. Zero is the common case. It fills existing
+	// pointer-alignment padding after serializedUnbound.
+	slotGap uint16
 
 	// Interfaces and Strings (16 bytes each)
 	typeOf any
@@ -223,7 +230,7 @@ type fetchValue struct {
 	state FetchState
 	url   string
 	// fiber stores the fiber that owns this fetch, updated on every render
-	fiber *Fiber
+	fiber *Fiber //nolint:unused // read by hooks_fetch.go, which is js/wasm-only.
 }
 
 // funcHandlerValue stores a wrapped event handler function
@@ -288,6 +295,7 @@ type Hooks struct {
 	atoms            []string // Store subscribed atom IDs for efficient cleanup
 	atomFuncs        []atomAccessorValue
 	signature        []string
+	order            *hookOrderTracker // dev-only previous-render hook sequence
 	hotReloadRestore *HotReloadComponentSnapshot
 	effectHadCleanup []bool
 	effectSeen       []bool

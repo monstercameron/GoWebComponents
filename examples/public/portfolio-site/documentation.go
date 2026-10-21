@@ -3,7 +3,7 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 // DocsPage renders complete API documentation for the GoWebComponents framework.

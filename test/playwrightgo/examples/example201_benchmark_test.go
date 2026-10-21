@@ -615,10 +615,10 @@ func buildExample201BenchmarkWasmProfile(parseT *testing.T, parseRepoRoot string
 	getOutputPath := filepath.Join(parseRepoRoot, "bin", "examples", "render-benchmark.wasm")
 	getCommand := exec.Command(
 		"go",
-		"run", "./tools/gwc", "build",
-		"-app", "./examples/testing/render-benchmark/main.go",
-		"-root", "./examples/testing/render-benchmark",
-		"-out", "./bin/examples/render-benchmark.wasm",
+		"-C", "tools", "run", "./gwc", "build",
+		"-app", "../examples/testing/render-benchmark/main.go",
+		"-root", "../examples/testing/render-benchmark",
+		"-out", "../bin/examples/render-benchmark.wasm",
 		"-profile", parseProfile,
 	)
 	getCommand.Dir = parseRepoRoot
@@ -667,6 +667,34 @@ func buildExample201Artifact(parseT *testing.T, parsePage playwright.Page, parse
 	var getReport example201Report
 	if parseErr2 := json.Unmarshal([]byte(getReportJSON), &getReport); parseErr2 != nil {
 		parseT.Fatalf("decode benchmark report: %v\n%s", parseErr2, getReportJSON)
+	}
+	getReactFrameCount := 0
+	for _, parseFrame := range parsePage.Frames() {
+		if !strings.Contains(parseFrame.URL(), "/render-benchmark/react/") {
+			continue
+		}
+		getReactFrameCount++
+		getVersionsValue, parseVersionsErr := parseFrame.Evaluate("() => JSON.stringify({react: window.React?.version ?? null, reactDOM: window.ReactDOM?.version ?? null})")
+		if parseVersionsErr != nil {
+			parseT.Fatalf("read React versions: %v", parseVersionsErr)
+		}
+		getVersionsJSON, hasVersionsJSON := getVersionsValue.(string)
+		if !hasVersionsJSON {
+			parseT.Fatalf("expected React version json string, got %#v", getVersionsValue)
+		}
+		var getVersions struct {
+			React    string `json:"react"`
+			ReactDOM string `json:"reactDOM"`
+		}
+		if parseVersionsErr = json.Unmarshal([]byte(getVersionsJSON), &getVersions); parseVersionsErr != nil {
+			parseT.Fatalf("decode React versions: %v", parseVersionsErr)
+		}
+		if getVersions.React != "19.2.4" || getVersions.ReactDOM != "19.2.4" {
+			parseT.Fatalf("Example 201 requires React and ReactDOM 19.2.4, got React=%q ReactDOM=%q", getVersions.React, getVersions.ReactDOM)
+		}
+	}
+	if getReactFrameCount != 1 {
+		parseT.Fatalf("expected one React benchmark frame, found %d", getReactFrameCount)
 	}
 	getExpectedFrameworkIDs := buildExample201ExpectedFrameworkIDs(getRoute)
 	if len(getExpectedFrameworkIDs) == 0 || len(getReport.GetScenarioOrder) == 0 {

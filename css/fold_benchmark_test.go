@@ -34,8 +34,7 @@ func BenchmarkFoldWarmFourBundles(b *testing.B) {
 	}
 	_ = New(build()...) // warm
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = New(build()...)
 	}
 }
@@ -53,8 +52,7 @@ func BenchmarkFoldWarmFourBundlesOldOrdering(b *testing.B) {
 	}
 	_ = New(build()...) // warm both caches
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		rules := build()
 		canonical, _, _ := canonicalize(rules)
 		if cached, ok := newCache.Load(canonical); ok {
@@ -69,8 +67,7 @@ func BenchmarkFoldWarmFourBundlesOldOrdering(b *testing.B) {
 // all. Whatever this costs is what hoisting to a package var removes.
 func BenchmarkFoldRuleConstructionOnly(b *testing.B) {
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		rules := []Rule{
 			Display.Flex, Items.Center, Gap(Px(8)), Padding(Px(12)),
 			TextColor(Hex("#14161A")), Bg(Hex("#F2F1ED")),

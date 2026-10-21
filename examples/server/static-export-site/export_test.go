@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/prerender"
+	"github.com/monstercameron/GoWebComponents/v7/prerender"
 )
 
 func TestStaticExportExampleWritesMultipleRoutes(parseT *testing.T) {

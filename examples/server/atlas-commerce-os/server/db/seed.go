@@ -16,7 +16,7 @@ func Seed(parseCtx context.Context, parseDatabase *sql.DB) error {
 	if parseErr2 != nil {
 		return fmt.Errorf("begin seed transaction: %w", parseErr2)
 	}
-	defer parseTx.Rollback()
+	defer func() { _ = parseTx.Rollback() }()
 
 	if parseWarehouseCount == 0 {
 		parseWarehouseSQL := `insert into warehouses(id, slug, name, region, service_level, public_summary, created_at, updated_at) values (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`

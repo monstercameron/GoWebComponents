@@ -29,8 +29,8 @@ func desktopSmokeProbe(parseConfig desktopConfig, parseArtifact string, parseFau
 	parseOutput, parseErr := desktopExecute(parseConfig, parseArtifact, parseArgs, parseConfig.root, desktopNativeEnv())
 	isFailure := parseFault == "missing-binding" || parseFault == "missing-wasm"
 	if isFailure {
-		var parseExit *exec.ExitError
-		if !errors.As(parseErr, &parseExit) || parseExit.ExitCode() != 1 {
+		parseExit, parseOk := errors.AsType[*exec.ExitError](parseErr)
+		if !parseOk || parseExit.ExitCode() != 1 {
 			return fmt.Errorf("desktop fault %s requires exit 1, got %v (%s)", parseFault, parseErr, parseOutput)
 		}
 	} else if parseErr != nil {

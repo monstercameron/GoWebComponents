@@ -63,9 +63,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderStatusProbe owns one typed async read local to the current component.
@@ -128,9 +128,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type deployPreview struct {
@@ -208,8 +208,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 type workspaceSummary struct {
@@ -254,10 +254,10 @@ package workspaceview
 import (
 	"context"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type workspaceSummary struct {
@@ -310,7 +310,7 @@ package mutationflow
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v6/fetch"
+	"github.com/monstercameron/GoWebComponents/v7/fetch"
 )
 
 // buildMutationQueue opens the durable browser-backed replay queue for writes that must survive reloads.
@@ -391,6 +391,29 @@ for getUpdate := range fetch.Upload(getCtx, "/api/upload", fetch.Options{
 ```
 
 If you do not need upload progress, plain `fetch.Fetch(...)` or a normal HTML form post is often simpler.
+
+## Retry, Circuit Breaker, And Trace Headers
+
+`fetch.ExecuteWithPolicy[T](ctx, policy, op)` runs any operation under a retry policy and an optional circuit breaker. Build the policy with `fetch.NewResiliencePolicy(retry, breaker)`, `fetch.DefaultRetryPolicy()` (three attempts, 100 ms base delay, 5 s cap, doubling, 10 percent jitter) and `fetch.NewCircuitBreaker(fetch.BreakerConfig{...})`. A call refused by an open breaker returns `fetch.ErrCircuitOpen`, which is an `*errcode.Error` carrying `GWC-FETCH-CIRCUIT-OPEN`; `errors.Is(err, fetch.ErrCircuitOpen)` still works.
+
+A zero value in these fields means the documented default, not "off":
+
+| Field | Zero value means | Notes |
+| --- | --- | --- |
+| `RetryPolicy.MaxDelay` | 5 s | caps the computed backoff |
+| `RetryPolicy.Multiplier` | 2.0 | use `1` for a constant delay |
+| `BreakerConfig.FailureThreshold` | 5 | consecutive failures that open the breaker |
+| `BreakerConfig.HalfOpenMaxCalls` | 1 probe | it used to allow unlimited half-open calls before v7 |
+
+`MaxAttempts` of zero or less still disables retries, and `BreakerConfig.OpenDuration` has no default, so set it. Code that relied on `HalfOpenMaxCalls: 0` meaning "unlimited" must now pass an explicit count. The defaults live in `fetch/resilience.go`.
+
+In the browser build, `fetch` and its XHR path (`fetch/fetch_wasm.go`) add a W3C `traceparent` header (a fresh sampled trace) to requests whose URL resolves to the page origin. The rules, from `fetch/tracepropagation.go`:
+
+- a `traceparent` header the caller already set, in any letter case, is never overwritten
+- a cross-origin request gets the header only when its origin appears in `Options.TracePropagationOrigins`; adding a header to a cross-origin request triggers a CORS preflight, so the server must allow `traceparent`
+- assertions on exact request headers in wasm tests must ignore the generated header
+
+Native `fetch` does not inject trace headers yet; `serverfn` does, through the hooks described in [12 Devtools Testing And Observability](12-devtools-testing-and-observability.md).
 
 ## Server Actions Functions And RPC Boundary
 
@@ -654,23 +677,23 @@ Use the smallest examples that prove the ownership layer you are adopting.
 Raw fetch and typed local resources:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\use-fetch\main.go
-go run ./tools/gwc dev -app .\examples\public\use-resource\main.go
-go run ./tools/gwc dev -app .\examples\public\fetch-imperative\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-fetch\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-resource\main.go
+go -C tools run ./gwc dev -app ..\examples\public\fetch-imperative\main.go
 ```
 
 Shared cache and route-loader reuse:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\use-cached-resource\main.go
-go run ./tools/gwc dev -app .\examples\public\protected-routes\main.go
-go run ./tools/gwc dev -app .\examples\public\server-side-rendering-cache-bootstrap\main.go
+go -C tools run ./gwc dev -app ..\examples\public\use-cached-resource\main.go
+go -C tools run ./gwc dev -app ..\examples\public\protected-routes\main.go
+go -C tools run ./gwc dev -app ..\examples\public\server-side-rendering-cache-bootstrap\main.go
 ```
 
 Offline replay boundary:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\progressive-web-app-offline-cache\main.go
+go -C tools run ./gwc dev -app ..\examples\public\progressive-web-app-offline-cache\main.go
 ```
 
 ## Topic Pagination

@@ -67,8 +67,8 @@ func TestCallPropagatesServerError(parseT *testing.T) {
 	if parseErr == nil {
 		parseT.Fatal("expected an error")
 	}
-	var parseServerErr *ServerError
-	if !errors.As(parseErr, &parseServerErr) {
+	parseServerErr, parseOk := errors.AsType[*ServerError](parseErr)
+	if !parseOk {
 		parseT.Fatalf("expected a *ServerError, got %T: %v", parseErr, parseErr)
 	}
 	if parseServerErr.Status != http.StatusInternalServerError || parseServerErr.Message != "name is taken" {
@@ -86,8 +86,8 @@ func TestHandleMapsStatusErrorToChosenStatus(parseT *testing.T) {
 	})
 
 	_, parseErr := Call[echoReq, echoResp](context.Background(), "Missing", echoReq{Name: "Ada"})
-	var parseServerErr *ServerError
-	if !errors.As(parseErr, &parseServerErr) {
+	parseServerErr, parseOk := errors.AsType[*ServerError](parseErr)
+	if !parseOk {
 		parseT.Fatalf("expected a *ServerError, got %T: %v", parseErr, parseErr)
 	}
 	if parseServerErr.Status != http.StatusNotFound {
@@ -108,8 +108,8 @@ func TestHandleMapsWrappedStatusError(parseT *testing.T) {
 	})
 
 	_, parseErr := Call[echoReq, echoResp](context.Background(), "Wrapped", echoReq{})
-	var parseServerErr *ServerError
-	if !errors.As(parseErr, &parseServerErr) || parseServerErr.Status != http.StatusConflict {
+	parseServerErr, parseOk := errors.AsType[*ServerError](parseErr)
+	if !parseOk || parseServerErr.Status != http.StatusConflict {
 		parseT.Fatalf("expected a wrapped StatusError to map to 409, got %+v (%v)", parseServerErr, parseErr)
 	}
 	// Only the StatusError's own message is transmitted — the fmt.Errorf wrapper text must not leak.
@@ -163,8 +163,8 @@ func TestHandlePlainErrorIsGenericToClient(parseT *testing.T) {
 	})
 
 	_, parseErr := Call[echoReq, echoResp](context.Background(), "Boom", echoReq{})
-	var parseServerErr *ServerError
-	if !errors.As(parseErr, &parseServerErr) || parseServerErr.Status != http.StatusInternalServerError {
+	parseServerErr, parseOk := errors.AsType[*ServerError](parseErr)
+	if !parseOk || parseServerErr.Status != http.StatusInternalServerError {
 		parseT.Fatalf("expected a plain error to stay 500, got %+v", parseServerErr)
 	}
 	// The secret-bearing text must NOT reach the client.
@@ -193,7 +193,7 @@ func TestHandleRejectsNonPost(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("GET failed: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() { _ = parseResp.Body.Close() }()
 	if parseResp.StatusCode != http.StatusMethodNotAllowed {
 		parseT.Fatalf("expected 405 for GET, got %d", parseResp.StatusCode)
 	}

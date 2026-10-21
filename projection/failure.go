@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -241,7 +242,10 @@ func (parseResilient *Resilient) Send(parseCtx context.Context, parseName string
 			Err:      parseErr,
 		}
 
-		if !parseResilient.shouldRetry(parseLastErr.Kind, parseAttempt) {
+		// An expired or cancelled caller context ends the loop: a zero backoff
+		// never consults it, so the remaining attempts would each be sent (and
+		// fail) against a context that can no longer succeed.
+		if parseCtx.Err() != nil || !parseResilient.shouldRetry(parseLastErr.Kind, parseAttempt) {
 			return nil, parseLastErr
 		}
 		if parseSleepErr := parseResilient.policy.Sleep(parseCtx, parseBackoff); parseSleepErr != nil {
@@ -250,8 +254,13 @@ func (parseResilient *Resilient) Send(parseCtx context.Context, parseName string
 		}
 		// Doubling rather than a fixed delay: a worker that is restarting needs
 		// progressively more time, and hammering it delays the restart.
-		parseBackoff *= 2
-	}
+		// Saturating: a doubled large backoff must not wrap negative, which the
+		// sleeper reads as "retry immediately".
+		if parseBackoff > math.MaxInt64/2 {
+			parseBackoff = math.MaxInt64
+		} else {
+			parseBackoff *= 2
+		}	}
 	return nil, parseLastErr
 }
 
@@ -311,8 +320,8 @@ func Classify(parseErr error) FailureKind {
 	if parseErr == nil {
 		return FailureRejected
 	}
-	var parseCommandErr *CommandError
-	if errors.As(parseErr, &parseCommandErr) {
+	parseCommandErr, parseOk := errors.AsType[*CommandError](parseErr)
+	if parseOk {
 		return parseCommandErr.Kind
 	}
 	return classify(context.Background(), parseErr)

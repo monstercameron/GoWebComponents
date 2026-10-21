@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 func (parseR *Router) renderResolvedRouteStack(parseRoutes []resolvedRoute, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64) *Element {
@@ -138,6 +138,7 @@ func (parseR *Router) renderRouteLevel(parseRoutes []resolvedRoute, parseIndex i
 
 // withRouteRenderContext is an internal router helper.
 func withRouteRenderContext(parseParams map[string]string, parseData Attrs, parseOutlet *Element) (map[string]string, Attrs, *Element) {
+	routeFactoryDepth++
 	parsePrevParams := currentParams
 	parsePrevData := currentRouteData
 	parsePrevOutlet := currentRouteOutlet
@@ -149,6 +150,7 @@ func withRouteRenderContext(parseParams map[string]string, parseData Attrs, pars
 
 // restoreRouteRenderContext is an internal router helper.
 func restoreRouteRenderContext(parseParams map[string]string, parseData Attrs, parseOutlet *Element) {
+	routeFactoryDepth--
 	currentParams = parseParams
 	currentRouteData = parseData
 	currentRouteOutlet = parseOutlet

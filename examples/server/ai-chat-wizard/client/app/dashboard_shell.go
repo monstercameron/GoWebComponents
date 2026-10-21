@@ -4,9 +4,9 @@
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/i18n"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/i18n"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController, parseAdminOperations adminOperationsController) ui.Node {

@@ -11,12 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
 )
 
 func waitForCondition(parseT *testing.T, parseCondition func() bool) {
 	parseT.Helper()
-	parseDeadline := time.Now().Add(250 * time.Millisecond)
+	// A wasm test binary shares Node's event loop with scheduler callbacks. On
+	// loaded CI runners a deferred render can legitimately take longer than a
+	// single 250 ms slice, even though the loader is progressing normally.
+	parseDeadline := time.Now().Add(time.Second)
 	for time.Now().Before(parseDeadline) {
 		if parseCondition() {
 			return
@@ -1398,7 +1401,7 @@ func TestMakeRouteFactoryNilPanicIncludesActionableGuidance(parseT *testing.T) {
 			parseT.Fatal("expected panic")
 		}
 		parseMessage := parseRecovered.(string)
-		if !strings.Contains(parseMessage, "GWC-ROUTER-COMPONENT-NIL") || !strings.Contains(parseMessage, "ACTIONABLE_ERRORS.md#gwc-router-component-nil") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
+		if !strings.Contains(parseMessage, "GWC-ROUTER-COMPONENT-NIL") || !strings.Contains(parseMessage, "docs/REFERENCE_MANUAL/error-codes.md#gwc-router-component-nil") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
 			parseT.Fatalf("expected actionable router panic, got %q", parseMessage)
 		}
 	}()

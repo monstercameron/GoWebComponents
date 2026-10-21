@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 	"strings"
 	"syscall/js"
 )
@@ -126,8 +127,30 @@ func (parseS *browserWorkerState) start(parseCtx context.Context) error {
 	parseS.mu.Lock()
 	parseS.raw = parseRaw
 	parseS.active = true
+	parseS.gone = make(chan struct{})
 	parseS.mu.Unlock()
 	return nil
+}
+
+// goneSignal returns the channel closed when the current worker goes away. A
+// worker that is already gone yields a closed channel.
+func (parseS *browserWorkerState) goneSignal() <-chan struct{} {
+	parseS.mu.RLock()
+	defer parseS.mu.RUnlock()
+	if parseS.gone == nil {
+		parseClosed := make(chan struct{})
+		close(parseClosed)
+		return parseClosed
+	}
+	return parseS.gone
+}
+
+// releaseGoneLocked wakes every request waiting on the current worker. Callers hold mu.
+func (parseS *browserWorkerState) releaseGoneLocked() {
+	if parseS.gone != nil {
+		close(parseS.gone)
+		parseS.gone = nil
+	}
 }
 
 func (parseS *browserWorkerState) current(parseOp string, parseTarget string) (js.Value, error) {
@@ -211,6 +234,7 @@ func (parseS *browserWorkerState) request(parseCtx context.Context, parseName st
 	if parseErr != nil {
 		return WorkerMessage{}, parseErr
 	}
+	parseGone := parseS.goneSignal()
 
 	parseS.mu.Lock()
 	parseS.nextRequestID++
@@ -280,6 +304,8 @@ func (parseS *browserWorkerState) request(parseCtx context.Context, parseName st
 		return parseMessage2, nil
 	case parseErr3 := <-parseErrCh:
 		return WorkerMessage{}, parseErr3
+	case <-parseGone:
+		return WorkerMessage{}, wrapError("Worker.Request", parseName, CodeDisposed, errcode.New(errcode.InteropDisposed, "worker was terminated"))
 	case <-parseCtx.Done():
 		return WorkerMessage{}, workerContextError("Worker.Request", parseName, parseCtx.Err())
 	}
@@ -294,6 +320,7 @@ func (parseS *browserWorkerState) terminate() error {
 	parseS.raw.Call("terminate")
 	parseS.raw = js.Undefined()
 	parseS.active = false
+	parseS.releaseGoneLocked()
 	return nil
 }
 
@@ -303,6 +330,7 @@ func (parseS *browserWorkerState) restart(parseCtx context.Context) error {
 	parseActive := parseS.active
 	parseS.raw = js.Undefined()
 	parseS.active = false
+	parseS.releaseGoneLocked()
 	parseS.mu.Unlock()
 	if parseActive && !parseRaw.IsUndefined() && !parseRaw.IsNull() {
 		parseRaw.Call("terminate")
@@ -475,7 +503,9 @@ func waitWorkerReady(parseCtx context.Context, parseRaw js.Value, parseTarget st
 		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q reported an error during startup: %v", parseTarget, parseErr2))
 		return parseErr2
 	case <-parseCtx.Done():
-		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q startup timed out - if this runs on the main goroutine inside a synchronous effect, the JS event loop is starved and the worker ready message can never arrive; wrap the call in a goroutine", parseTarget))
+		if errors.Is(parseCtx.Err(), context.DeadlineExceeded) {
+			consoleError(fmt.Sprintf("[interop/NewWorker] worker %q startup timed out - if this runs on the main goroutine inside a synchronous effect, the JS event loop is starved and the worker ready message can never arrive; wrap the call in a goroutine", parseTarget))
+		}
 		return workerContextError("NewWorker", parseTarget, parseCtx.Err())
 	}
 }

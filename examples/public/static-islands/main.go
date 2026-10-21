@@ -4,14 +4,14 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 func nowMillis() float64 {

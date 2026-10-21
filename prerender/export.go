@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // Target describes the computed output locations for one prerendered route.
@@ -70,7 +70,10 @@ func Export(parseOutputDir string, parseRoutes []Route) (ExportSummary, error) {
 			return parseSummary, fmt.Errorf("prerender: route %q returned empty html", parseNormalizedPath)
 		}
 
-		parseHtmlPath := filepath.Join(parseOutputDir, filepath.FromSlash(parseTarget.HTMLFile))
+		parseHtmlPath, parseErr4 := getOutputPath(parseOutputDir, parseTarget.HTMLFile)
+		if parseErr4 != nil {
+			return parseSummary, parseErr4
+		}
 		if parseErr2 := writeFile(parseHtmlPath, []byte(parseResult.HTML)); parseErr2 != nil {
 			return parseSummary, parseErr2
 		}
@@ -79,7 +82,10 @@ func Export(parseOutputDir string, parseRoutes []Route) (ExportSummary, error) {
 		if parseTarget.BootstrapFile == "" || len(parseResult.Bootstrap) == 0 {
 			continue
 		}
-		parseBootstrapPath := filepath.Join(parseOutputDir, filepath.FromSlash(parseTarget.BootstrapFile))
+		parseBootstrapPath, parseErr5 := getOutputPath(parseOutputDir, parseTarget.BootstrapFile)
+		if parseErr5 != nil {
+			return parseSummary, parseErr5
+		}
 		if parseErr3 := writeFile(parseBootstrapPath, parseResult.Bootstrap); parseErr3 != nil {
 			return parseSummary, parseErr3
 		}
@@ -87,6 +93,18 @@ func Export(parseOutputDir string, parseRoutes []Route) (ExportSummary, error) {
 	}
 
 	return parseSummary, nil
+}
+
+// getOutputPath joins a target-relative file onto the export directory and refuses any result that
+// lands outside it. It is defence in depth behind normalizeRoutePath: the route path becomes an
+// on-disk path, so containment is verified on the final joined path rather than trusted.
+func getOutputPath(parseOutputDir string, parseRelative string) (string, error) {
+	parseJoined := filepath.Join(parseOutputDir, filepath.FromSlash(parseRelative))
+	parseRel, parseErr := filepath.Rel(parseOutputDir, parseJoined)
+	if parseErr != nil || filepath.IsAbs(parseRel) || parseRel == ".." || strings.HasPrefix(parseRel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("prerender: output file %q escapes the output directory", parseRelative)
+	}
+	return parseJoined, nil
 }
 
 func writeFile(parsePath string, parseData []byte) error {
@@ -106,6 +124,12 @@ func normalizeRoutePath(parsePath string) (string, error) {
 	}
 	if !strings.HasPrefix(parsePath, "/") {
 		return "", fmt.Errorf("prerender: route %q must start with '/'", parsePath)
+	}
+	// Reject backslashes and NUL: filepath.Join treats "\\" as a separator on Windows, so
+	// "/a\\..\\..\\x" would pass the "/"-only ".." scan below and still climb out of the output
+	// directory; NUL truncates paths in several OS layers.
+	if strings.ContainsAny(parsePath, "\\\x00") {
+		return "", fmt.Errorf("prerender: route %q must not contain backslashes or NUL", parsePath)
 	}
 	// Reject ".." segments: the route path is turned into an on-disk file path
 	// (buildTarget → filepath.Join → os.WriteFile), so a traversal segment would

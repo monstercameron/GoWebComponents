@@ -5,6 +5,7 @@ package interop
 import (
 	"context"
 	"errors"
+	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 	"sort"
 	"strings"
 	"syscall/js"
@@ -181,7 +182,7 @@ func openIndexedDBPersistentStoreWithRecovery(parseCtx context.Context, parseCon
 				return PersistentStore{}, wrapError("OpenPersistentStore", parseConfig.name, parseFailure.code, errors.New(parseFailure.message+"; automatic database reset failed: "+parseErr.Error()))
 			}
 		}
-		return PersistentStore{}, wrapError("OpenPersistentStore", parseConfig.name, parseFailure.code, errors.New(parseFailure.message))
+		return PersistentStore{}, wrapError("OpenPersistentStore", parseConfig.name, parseFailure.code, errcode.New(errcode.InteropRemote, parseFailure.message))
 	case <-parseCtx.Done():
 		return PersistentStore{}, persistentContextError("OpenPersistentStore", parseConfig.name, parseCtx.Err())
 	}
@@ -204,12 +205,30 @@ func newIndexedDBPersistentStore(parseDb js.Value, parseConfig persistentStoreCo
 			parseCtx = context.Background()
 		}
 		parseTransaction := parseDb.Call("transaction", parseConfig.name, parseMode)
+		// A write is only durable once its transaction completes. The request's
+		// success event fires earlier, so a quota failure at commit time would
+		// otherwise be reported to the caller as a successful write.
+		var parseWaitCommit func(context.Context) error
+		if parseMode == "readwrite" {
+			var parseStopWatch func()
+			parseWaitCommit, parseStopWatch = watchIDBTransaction(parseOp, parseTarget, parseTransaction)
+			defer parseStopWatch()
+		}
 		store := parseTransaction.Call("objectStore", parseConfig.name)
 		parseRequest, parseErr := parseRun(store)
 		if parseErr != nil {
 			return js.Undefined(), parseErr
 		}
-		return awaitIDBRequest(parseCtx, parseOp, parseTarget, parseRequest)
+		parseResult, parseRequestErr := awaitIDBRequest(parseCtx, parseOp, parseTarget, parseRequest)
+		if parseRequestErr != nil {
+			return js.Undefined(), parseRequestErr
+		}
+		if parseWaitCommit != nil {
+			if parseCommitErr := parseWaitCommit(parseCtx); parseCommitErr != nil {
+				return js.Undefined(), parseCommitErr
+			}
+		}
+		return parseResult, nil
 	}
 	return PersistentStore{
 		backend: parseBackend,
@@ -325,6 +344,52 @@ func wrapStoragePersistentStore(parseStorage Storage, parseBackend string) Persi
 	}
 }
 
+// watchIDBTransaction listens for the outcome of one IndexedDB transaction. The
+// returned wait func blocks until the transaction completes or aborts; it is
+// nil when the transaction object cannot take listeners, in which case the
+// request result is all there is to go on. stop must always be called.
+func watchIDBTransaction(parseOp string, parseTarget string, parseTransaction js.Value) (func(context.Context) error, func()) {
+	if parseTransaction.IsUndefined() || parseTransaction.IsNull() || parseTransaction.Get("addEventListener").Type() != js.TypeFunction {
+		return nil, func() {}
+	}
+	parseCompleteCh := make(chan struct{}, 1)
+	parseFailureCh := make(chan persistentStoreFailure, 1)
+	parseOnComplete := js.FuncOf(func(js.Value, []js.Value) interface{} {
+		select {
+		case parseCompleteCh <- struct{}{}:
+		default:
+		}
+		return nil
+	})
+	parseOnFailure := js.FuncOf(func(js.Value, []js.Value) interface{} {
+		defer RecoverContainedPanic("watchIDBTransaction callback")
+		reportPersistentStoreFailure(parseFailureCh, classifyPersistentStoreFailure(parseTransaction.Get("error"), "indexedDB transaction aborted"))
+		return nil
+	})
+	parseTransaction.Call("addEventListener", "complete", parseOnComplete)
+	parseTransaction.Call("addEventListener", "abort", parseOnFailure)
+	parseTransaction.Call("addEventListener", "error", parseOnFailure)
+	parseStop := func() {
+		if parseTransaction.Get("removeEventListener").Type() == js.TypeFunction {
+			parseTransaction.Call("removeEventListener", "complete", parseOnComplete)
+			parseTransaction.Call("removeEventListener", "abort", parseOnFailure)
+			parseTransaction.Call("removeEventListener", "error", parseOnFailure)
+		}
+		parseOnComplete.Release()
+		parseOnFailure.Release()
+	}
+	parseWait := func(parseCtx context.Context) error {
+		select {
+		case <-parseCompleteCh:
+			return nil
+		case parseFailure := <-parseFailureCh:
+			return wrapError(parseOp, parseTarget, parseFailure.code, errcode.New(errcode.InteropRemote, parseFailure.message))
+		case <-parseCtx.Done():
+			return persistentContextError(parseOp, parseTarget, parseCtx.Err())
+		}
+	}
+	return parseWait, parseStop
+}
 func awaitIDBRequest(parseCtx context.Context, parseOp string, parseTarget string, parseRequest js.Value) (js.Value, error) {
 	parseResultCh := make(chan js.Value, 1)
 	parseFailureCh := make(chan persistentStoreFailure, 1)
@@ -354,7 +419,7 @@ func awaitIDBRequest(parseCtx context.Context, parseOp string, parseTarget strin
 	case parseResult := <-parseResultCh:
 		return parseResult, nil
 	case parseFailure := <-parseFailureCh:
-		return js.Undefined(), wrapError(parseOp, parseTarget, parseFailure.code, errors.New(parseFailure.message))
+		return js.Undefined(), wrapError(parseOp, parseTarget, parseFailure.code, errcode.New(errcode.InteropRemote, parseFailure.message))
 	case <-parseCtx.Done():
 		return js.Undefined(), persistentContextError(parseOp, parseTarget, parseCtx.Err())
 	}
@@ -443,7 +508,7 @@ func deleteIndexedDBDatabase(parseCtx context.Context, parseDatabaseName string)
 	case <-parseResultCh:
 		return nil
 	case parseFailure := <-parseFailureCh:
-		return wrapError("OpenPersistentStore", parseDatabaseName, parseFailure.code, errors.New(parseFailure.message))
+		return wrapError("OpenPersistentStore", parseDatabaseName, parseFailure.code, errcode.New(errcode.InteropRemote, parseFailure.message))
 	case <-parseCtx.Done():
 		return persistentContextError("OpenPersistentStore", parseDatabaseName, parseCtx.Err())
 	}

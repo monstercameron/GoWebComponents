@@ -117,8 +117,8 @@ import (
 	"fmt"
 	"net/http"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderLandingPage returns one server-rendered page tree.
@@ -160,7 +160,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type productPageData struct {
@@ -217,8 +217,8 @@ func handleProductsPage(getW http.ResponseWriter, getR *http.Request) {
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // main restores the inline bootstrap payload and hydrates the existing DOM tree.
@@ -255,7 +255,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // handleDocsPage emits a sidecar bootstrap reference instead of inlining a larger payload.
@@ -294,9 +294,9 @@ package client
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 type docsBootstrapData struct {
@@ -546,9 +546,9 @@ go run .\examples\server\server-side-rendering-bootstrap
 Hydration and route-data reuse:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\public\hydration\main.go
-go run ./tools/gwc dev -app .\examples\public\server-side-rendering-route-data-reuse\main.go
-go run ./tools/gwc dev -app .\examples\public\router-hydrate-mount\main.go
+go -C tools run ./gwc dev -app ..\examples\public\hydration\main.go
+go -C tools run ./gwc dev -app ..\examples\public\server-side-rendering-route-data-reuse\main.go
+go -C tools run ./gwc dev -app ..\examples\public\router-hydrate-mount\main.go
 ```
 
 Production-shaped server integration:

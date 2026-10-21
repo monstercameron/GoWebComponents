@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v6/css"
+import "github.com/monstercameron/GoWebComponents/v7/css"
 
 // Status — the one place saturated color is allowed, and the API is shaped so it
 // cannot be used anywhere else.

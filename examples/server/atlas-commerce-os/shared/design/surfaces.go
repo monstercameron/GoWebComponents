@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v6/css"
+import "github.com/monstercameron/GoWebComponents/v7/css"
 
 // Surfaces, separation and spacing — and the one deliberate absence that shapes the
 // rest of this design system.

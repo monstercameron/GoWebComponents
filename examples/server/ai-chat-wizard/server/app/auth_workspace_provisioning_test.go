@@ -103,8 +103,7 @@ func BenchmarkAuthorizeWorkspaceProvisioningAssignment(parseB *testing.B) {
 		IsParseJITProvisioningAllowed:  true,
 		ParseDomainMatchedWorkspaceIDs: []int64{21},
 	}
-	parseB.ResetTimer()
-	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+	for parseB.Loop() {
 		parseDecision, parseErr := parseAuthorizeWorkspaceProvisioningAssignment(parseReq)
 		if parseErr != nil {
 			parseB.Fatalf("parseAuthorizeWorkspaceProvisioningAssignment: %v", parseErr)

@@ -143,8 +143,8 @@ func TestRemoteErrorIsDistinctFromTransportError(parseT *testing.T) {
 	parseRejected := buildTestDB(parseT, &scriptedTransport{responses: []Response{{Err: "no such table: t"}}})
 	_, parseRejectErr := parseRejected.Exec(context.Background(), "INSERT INTO t VALUES (1)")
 
-	var parseRemoteErr *RemoteError
-	if !errors.As(parseRejectErr, &parseRemoteErr) {
+	parseRemoteErr, parseIsRemote := errors.AsType[*RemoteError](parseRejectErr)
+	if !parseIsRemote {
 		parseT.Fatalf("err = %v, want a *RemoteError", parseRejectErr)
 	}
 	if parseRemoteErr.Op != OpExec || parseRemoteErr.Message != "no such table: t" {
@@ -154,7 +154,7 @@ func TestRemoteErrorIsDistinctFromTransportError(parseT *testing.T) {
 	parseUnreachable := buildTestDB(parseT, &scriptedTransport{failWith: errors.New("worker terminated")})
 	_, parseTransportErr := parseUnreachable.Exec(context.Background(), "INSERT INTO t VALUES (1)")
 
-	if errors.As(parseTransportErr, &parseRemoteErr) {
+	if _, parseTransportRemote := errors.AsType[*RemoteError](parseTransportErr); parseTransportRemote {
 		parseT.Error("a transport failure must not be reported as a database rejection")
 	}
 	if parseTransportErr == nil {

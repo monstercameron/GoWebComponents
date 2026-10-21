@@ -54,7 +54,7 @@ func BenchmarkHasCommittedPlacementChildrenAtLeastCurrentVsLegacy(parseB *testin
 
 	parseB.Run("current", func(parseB *testing.B) {
 		parseB.ReportAllocs()
-		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		for parseB.Loop() {
 			if !parseRuntime.hasCommittedPlacementChildrenAtLeast(parseRoot.child, 2) {
 				parseB.Fatal("expected placement threshold to succeed")
 			}
@@ -63,7 +63,7 @@ func BenchmarkHasCommittedPlacementChildrenAtLeastCurrentVsLegacy(parseB *testin
 
 	parseB.Run("legacy", func(parseB *testing.B) {
 		parseB.ReportAllocs()
-		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		for parseB.Loop() {
 			if countCommittedPlacementChildrenLegacy(parseRuntime, parseRoot.child) < 2 {
 				parseB.Fatal("expected placement threshold to succeed")
 			}

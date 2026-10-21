@@ -7,11 +7,11 @@ and tooling). If you are building an app *with* GoWebComponents, start with the
 
 ## Prerequisites
 
-- **Go 1.26+** (`go version`; matches the `go` directive in `go.mod`).
+- **Go 1.27+** (`go version`; matches the `go` directive in `go.mod`).
 - A browser with WebAssembly support for the browser test lanes.
-- The `gwc` launcher is run straight from source: `go run ./tools/gwc <cmd>`.
+- The `gwc` launcher is run straight from source: `go -C tools run ./gwc <cmd>`.
 
-Run `go run ./tools/gwc doctor` first — it checks the toolchain, the
+Run `go -C tools run ./gwc doctor` first — it checks the toolchain, the
 `wasm_exec.js` runtime asset, and browser-test prerequisites and prints fix
 hints for anything missing.
 
@@ -68,7 +68,7 @@ Remove-Item Env:GOOS; Remove-Item Env:GOARCH
 The launcher wraps this for you:
 
 ```powershell
-go run ./tools/gwc test -lane unit -lane wasm -lane hydration -lane browser
+go -C tools run ./gwc test -lane unit -lane wasm -lane hydration -lane browser
 ```
 
 ### Browser (Playwright-Go) tests
@@ -79,7 +79,7 @@ tag and run real Chromium:
 
 ```powershell
 go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v
-go test -tags playwrightgo ./test/playwrightgo/examples -run TestExamplesAll -v
+go -C test/playwrightgo test -tags playwrightgo ../examples -run TestExamplesAll -v
 ```
 
 ### Nested modules
@@ -143,7 +143,7 @@ go build ./...
 GOOS=js GOARCH=wasm go build ./...
 go vet ./...
 go test ./...
-go run ./tools/gwc test -lane unit -lane wasm
+go -C tools run ./gwc test -lane unit -lane wasm
 ```
 
 Run the relevant browser lane for UI changes, and add a focused Playwright spec

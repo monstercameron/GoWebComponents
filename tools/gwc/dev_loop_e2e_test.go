@@ -67,7 +67,7 @@ func TestDevLoopHotReloadAndAssetSwapE2E(parseT *testing.T) {
 
 	parseCtx, parseCancel := context.WithCancel(context.Background())
 	defer parseCancel()
-	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"run", "./tools/gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
+	parseCmd := exec.CommandContext(parseCtx, "go", append([]string{"-C", "tools", "run", "./gwc", "dev"}, append(devArgsFromScaffold(parseResult), "-host", "127.0.0.1", "-port", parsePort)...)...)
 	parseCmd.Dir = parseRepoRoot
 	var parseOutput bytes.Buffer
 	parseCmd.Stdout = &parseOutput

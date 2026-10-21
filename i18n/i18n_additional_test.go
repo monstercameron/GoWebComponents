@@ -5,7 +5,7 @@ package i18n
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // TestNamespaceHandleBindsNamespace proves Runtime.NS(ns) binds the namespace so t.T(key) equals

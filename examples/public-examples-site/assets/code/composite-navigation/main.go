@@ -4,13 +4,13 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 type compositePanel struct {
@@ -48,7 +48,6 @@ func compositeNavigationExample() ui.Node {
 
 	parseTabButtons := make([]ui.Node, 0, len(tabItems))
 	for parseIndex, parseItem := range tabItems {
-		parseCurrentIndex := parseIndex
 		parseCurrentItem := parseItem
 		parseClassName := "rounded-full border px-4 py-3 text-sm font-semibold transition"
 		if parseTabNav.IsActive(parseIndex) {
@@ -56,25 +55,11 @@ func compositeNavigationExample() ui.Node {
 		} else {
 			parseClassName += " border-white/10 text-slate-200"
 		}
-		parseTabButtons = append(parseTabButtons,
-			html.Button(html.Props{
-				ID:        parseCurrentItem.ID,
-				Role:      "tab",
-				Class:     parseClassName,
-				OnKeyDown: parseTabKeyDown,
-				OnClick:   ui.UseEvent(func() { parseTabNav.SetActive(parseCurrentIndex) }),
-				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[parseTabNav.IsActive(parseIndex)],
-					"controls": "tab-panel",
-				},
-				Raw: map[string]interface{}{"tabIndex": parseTabNav.TabIndex(parseIndex)},
-			}, html.Text(parseCurrentItem.Text)),
-		)
+		parseTabButtons = append(parseTabButtons, compositeTabButton(parseCurrentItem, parseIndex, parseClassName, parseTabNav, parseTabKeyDown))
 	}
 
 	parseOptions := make([]ui.Node, 0, len(listboxItems))
 	for parseIndex2, parseItem2 := range listboxItems {
-		parseCurrentIndex2 := parseIndex2
 		parseCurrentItem2 := parseItem2
 		parseClassName2 := "rounded-[1.25rem] border px-4 py-3 text-left text-sm transition"
 		if parseListboxNav.IsActive(parseIndex2) {
@@ -82,19 +67,7 @@ func compositeNavigationExample() ui.Node {
 		} else {
 			parseClassName2 += " border-white/10 bg-slate-950/50 text-slate-200"
 		}
-		parseOptions = append(parseOptions,
-			html.Div(html.Props{
-				ID:    parseCurrentItem2.ID,
-				Role:  "option",
-				Class: parseClassName2,
-				OnClick: ui.UseEvent(func() {
-					parseListboxNav.SetActive(parseCurrentIndex2)
-				}),
-				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[parseListboxNav.IsActive(parseIndex2)],
-				},
-			}, html.Text(parseCurrentItem2.Text)),
-		)
+		parseOptions = append(parseOptions, compositeListboxOption(parseCurrentItem2, parseIndex2, parseClassName2, parseListboxNav))
 	}
 
 	return shared.ExamplePage(
@@ -128,6 +101,16 @@ func compositeNavigationExample() ui.Node {
 			),
 		),
 	)
+}
+
+func compositeTabButton(parseItem ui.CompositeItem, parseIndex int, parseClass string, parseNav ui.CompositeNavigation, parseKeyDown ui.Handler) ui.Node {
+	parseClick := ui.UseEvent(func() { parseNav.SetActive(parseIndex) })
+	return html.Button(html.Props{ID: parseItem.ID, Role: "tab", Class: parseClass, OnKeyDown: parseKeyDown, OnClick: parseClick, Aria: map[string]string{"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex)], "controls": "tab-panel"}, Raw: map[string]interface{}{"tabIndex": parseNav.TabIndex(parseIndex)}}, html.Text(parseItem.Text))
+}
+
+func compositeListboxOption(parseItem ui.CompositeItem, parseIndex int, parseClass string, parseNav ui.CompositeNavigation) ui.Node {
+	parseClick := ui.UseEvent(func() { parseNav.SetActive(parseIndex) })
+	return html.Div(html.Props{ID: parseItem.ID, Role: "option", Class: parseClass, OnClick: parseClick, Aria: map[string]string{"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex)]}}, html.Text(parseItem.Text))
 }
 
 func main() {

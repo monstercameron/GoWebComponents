@@ -184,6 +184,13 @@
                         throw new Error(`${parseSubjectConfig.getFramework} subject error: ${getSubjectWindow.__example201SubjectError}`);
                     }
                     if (getSubjectWindow.__example201Subject && getSubjectWindow.__example201Subject.isReady) {
+                        if (parseSubjectConfig.getFramework === "react") {
+                            const getReactVersion = String(getSubjectWindow.React?.version || "");
+                            const getReactDOMVersion = String(getSubjectWindow.ReactDOM?.version || "");
+                            if (getReactVersion !== "19.2.4" || getReactDOMVersion !== "19.2.4") {
+                                throw new Error(`react subject requires React and ReactDOM 19.2.4, got React=${getReactVersion || "missing"} ReactDOM=${getReactDOMVersion || "missing"}`);
+                            }
+                        }
                         return getFrame;
                     }
                 } catch (parseErr) {

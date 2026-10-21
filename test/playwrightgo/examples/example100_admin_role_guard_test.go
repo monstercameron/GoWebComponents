@@ -210,16 +210,17 @@ func loginExample100AdminGuardUser(parseT *testing.T, parsePage playwright.Page,
 	if parseErr := parsePage.Context().ClearCookies(); parseErr != nil {
 		parseT.Fatalf("clear auth cookies (%s): %v", parseEmail, parseErr)
 	}
-	if _, parseErr := parsePage.Goto(parseBaseURL, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
+	// Use a same-origin page without the Wasm boot script to clear storage before loading the app.
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/healthz", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
 		parseT.Fatalf("goto origin before login reset (%s): %v", parseEmail, parseErr)
 	}
 	if _, parseErr := parsePage.Evaluate(`() => window.localStorage && window.localStorage.clear()`); parseErr != nil {
 		parseT.Fatalf("clear auth local storage (%s): %v", parseEmail, parseErr)
 	}
-	if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	}); parseErr != nil {
-		parseT.Fatalf("goto /app for login (%s): %v", parseEmail, parseErr)
+		parseT.Fatalf("goto /login for login (%s): %v", parseEmail, parseErr)
 	}
 	if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
 		parseT.Fatalf("wait for auth email input (%s): %v", parseEmail, parseErr)

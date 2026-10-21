@@ -18,7 +18,7 @@ var runWarmCommand = func(parseL launcher, parseArgs []string) error {
 
 // warmRunCommand executes the go build and is overridden by tests.
 var warmRunCommand = func(parseArgs []string, parseRoot string, parseEnv []string) (string, error) {
-	return launcherRunCommand("go", parseArgs, parseRoot, parseEnv)
+	return runLauncherGoCommand("go", parseArgs, parseRoot, parseEnv)
 }
 
 // warmReport is the build daemon's running summary: the cold build time, the most recent (warm)

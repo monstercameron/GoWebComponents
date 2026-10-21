@@ -550,7 +550,9 @@ func (parseDispatcher *Dispatcher) RecordHeartbeatTimeout(parseWorkerID WorkerID
 
 	parseDispatcher.missesByWorkerID[parseWorkerID]++
 	parseHealth := HealthDead
-	if parseDispatcher.missesByWorkerID[parseWorkerID] == 1 {
+	// A timeout can only worsen health: a worker already marked dead must stay
+	// dead (and replaceable), not be promoted to degraded by its first miss.
+	if parseDispatcher.missesByWorkerID[parseWorkerID] == 1 && parseDispatcher.healthByWorkerID[parseWorkerID] != HealthDead {
 		parseHealth = HealthDegraded
 	}
 	parseDispatcher.healthByWorkerID[parseWorkerID] = parseHealth

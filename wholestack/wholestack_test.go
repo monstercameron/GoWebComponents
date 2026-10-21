@@ -9,8 +9,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/monstercameron/GoWebComponents/v6/serverfn"
-	"github.com/monstercameron/GoWebComponents/v6/wholestack"
+	"github.com/monstercameron/GoWebComponents/v7/serverfn"
+	"github.com/monstercameron/GoWebComponents/v7/wholestack"
 )
 
 type pingReq struct{}
@@ -88,7 +88,11 @@ func TestHandlerNilAssetsReturns500(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("GET failed: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() {
+		if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response body: %v", parseCloseErr)
+		}
+	}()
 	if parseResp.StatusCode != http.StatusInternalServerError {
 		parseT.Fatalf("expected 500 for nil Assets, got %d", parseResp.StatusCode)
 	}
@@ -104,7 +108,11 @@ func TestSPAFallbackDisabled404s(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("GET failed: %v", parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() {
+		if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response body: %v", parseCloseErr)
+		}
+	}()
 	if parseResp.StatusCode != http.StatusNotFound {
 		parseT.Fatalf("expected 404 with fallback disabled, got %d", parseResp.StatusCode)
 	}
@@ -116,7 +124,11 @@ func get(parseT *testing.T, parseURL string) (string, string) {
 	if parseErr != nil {
 		parseT.Fatalf("GET %s: %v", parseURL, parseErr)
 	}
-	defer parseResp.Body.Close()
+	defer func() {
+		if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+			parseT.Errorf("close response body: %v", parseCloseErr)
+		}
+	}()
 	parseBody, _ := io.ReadAll(parseResp.Body)
 	return string(parseBody), parseResp.Header.Get("Content-Type")
 }

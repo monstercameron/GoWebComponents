@@ -5,7 +5,7 @@ package app
 import (
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/server/ai-chat-wizard/internal/buildinfo"
+	"github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/internal/buildinfo"
 )
 
 // ─── i18n ────────────────────────────────────────────────────────────────────

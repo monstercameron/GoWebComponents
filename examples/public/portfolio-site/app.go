@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v6/hotreload"
-	"github.com/monstercameron/GoWebComponents/v6/utils"
+	"github.com/monstercameron/GoWebComponents/v7/hotreload"
+	"github.com/monstercameron/GoWebComponents/v7/utils"
 )
 
 // App initializes the main application with debug configuration and routing.

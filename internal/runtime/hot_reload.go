@@ -858,7 +858,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			parseFiber.hooks.funcIndex = 0
 			parseFiber.hooks.atomIndex = 0
 			parseFiber.hooks.cleanupIndex = 0
-			parseFiber.hooks.signature = parseFiber.hooks.signature[:0]
+			beginHookOrderRender(parseFiber.hooks)
 			parseFiber.hooks.hotReloadRestore = nil
 		} else {
 			parseFiber.hooks = &Hooks{owner: parseFiber}
@@ -989,6 +989,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 
 		if parseFiber.hooks != nil {
 			parseFiber.hooks.hotReloadRestore = nil
+			finishHookOrderRender(parseFiber.hooks)
 		}
 		parseRt.recordComponentRenderTrace(parseFiber, renderDurationNs)
 		parseRt.queuePendingEffectFiber(parseFiber)

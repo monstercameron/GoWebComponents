@@ -14,7 +14,7 @@ func BenchmarkScheduleUpdate(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRt.updateScheduled = false
 		parseRt.wipRoot = nil
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
@@ -37,7 +37,7 @@ func BenchmarkScheduleUpdateSteadyState(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRt.updateScheduled = false
 		parseRt.wipRoot = nil
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
@@ -64,7 +64,7 @@ func BenchmarkScheduleUpdateForFiberDepth32(parseB *testing.B) {
 	parseLeaf := parseCurrent
 
 	parseB.ReportAllocs()
-	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+	for parseB.Loop() {
 		for parseF := parseLeaf; parseF != nil; parseF = parseF.parent {
 			parseF.dirty = false
 			parseF.needsUpdate = false
@@ -94,7 +94,7 @@ func BenchmarkRender(parseB *testing.B) {
 	parseElement := &Element{Type: "div", Props: map[string]any{"id": "app"}}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRt.currentRoot = parseCurrentRoot
 		parseCurrentRoot.alternate = nil
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
@@ -123,7 +123,7 @@ func BenchmarkRenderSteadyState(parseB *testing.B) {
 	parseElement := &Element{Type: "div", Props: map[string]any{"id": "app"}}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseRt.currentRoot = parseCurrentRoot
 		parseScheduler.timeouts = parseScheduler.timeouts[:0]
 		parseRt.Render(parseElement, parseContainer)
@@ -164,8 +164,7 @@ func BenchmarkTransitionListRefresh250(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+	for parseB.Loop() {
 		parseRefresh()
 		for len(parseScheduler.timeouts) > 0 {
 			parseCallback2 := parseScheduler.timeouts[0]

@@ -5,7 +5,7 @@ package hooks
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func BenchmarkRenderHookCurrentMicroWasm(parseB *testing.B) {
@@ -15,8 +15,7 @@ func BenchmarkRenderHookCurrentMicroWasm(parseB *testing.B) {
 	defer parseHarness.Cleanup()
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = parseHarness.Current()
 	}
 }
@@ -31,8 +30,7 @@ func BenchmarkRenderHookStateRerenderMicroWasm(parseB *testing.B) {
 	defer parseHarness.Cleanup()
 
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseHarness.Rerender()
 	}
 }

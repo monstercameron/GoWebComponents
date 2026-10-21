@@ -24,10 +24,10 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/projection"
-	"github.com/monstercameron/GoWebComponents/v6/state"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/projection"
+	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // row is what the domain publishes and this binary renders.
@@ -266,6 +266,22 @@ func applyResult(parseApply func()) {
 	ui.PostAsync(parseApply)
 }
 
+type projectionViewProps struct {
+	Projection *projection.Projection[row]
+	VersionID  string
+}
+
+func projectionView(parseProps projectionViewProps) ui.Node {
+	_ = state.UseAtom(parseProps.VersionID, 0).Get()
+	parseRows := parseProps.Projection.Rows()
+	if len(parseRows) == 0 {
+		return html.Div(html.Props{Class: "empty"}, html.Text("Waiting for the domain worker…"))
+	}
+	return html.VirtualList(html.VirtualListProps{ItemCount: len(parseRows), ItemHeight: 32, ViewportHeight: 640, Key: func(parseIndex int) any { return string(parseRows[parseIndex].Key) }, Render: func(parseIndex int) ui.Node {
+		return html.Div(html.Props{Class: "row"}, html.Text(fmt.Sprintf("%s — %d", parseRows[parseIndex].Value.Name, parseRows[parseIndex].Value.Total)))
+	}})
+}
+
 func main() {
 	parseProjection, parseErr := projection.New(func(parsePayload []byte) (row, error) {
 		var parseRow row
@@ -358,36 +374,7 @@ func main() {
 	// version counter is deliberately crude: it exists because the projection has
 	// no change notification to subscribe to, and pretending otherwise would hide
 	// the gap rather than document it.
-	ui.Render(ui.CreateElement(func() ui.Node {
-		// state.UseAtom, NOT parseVersion.Get(). Both read the same atom id, and
-		// only this one SUBSCRIBES the fiber.
-		//
-		// GlobalAtom.Get() reads the registry directly and returns; it does not
-		// register the rendering component as a listener, and nothing warns you. Set
-		// then "schedules a re-render of every component subscribed via UseAtom" —
-		// which, with a bare Get(), is none of them. The result is a component that
-		// reads fresh data on every render it happens to do, and never does one.
-		//
-		// The pairing is the point: GlobalAtom.Set is callable from any goroutine
-		// (the worker reply has no fiber), while UseAtom is the reactive read inside
-		// a fiber. Same id, two halves.
-		_ = state.UseAtom(parseVersion.ID(), 0).Get()
-		parseRows := parseProjection.Rows()
-		if len(parseRows) == 0 {
-			return html.Div(html.Props{Class: "empty"},
-				html.Text("Waiting for the domain worker…"))
-		}
-		return html.VirtualList(html.VirtualListProps{
-			ItemCount:      len(parseRows),
-			ItemHeight:     32,
-			ViewportHeight: 640,
-			Key:            func(parseIndex int) any { return string(parseRows[parseIndex].Key) },
-			Render: func(parseIndex int) ui.Node {
-				return html.Div(html.Props{Class: "row"},
-					html.Text(fmt.Sprintf("%s — %d", parseRows[parseIndex].Value.Name, parseRows[parseIndex].Value.Total)))
-			},
-		})
-	}), "#app")
+	ui.Render(ui.CreateElement(projectionView, projectionViewProps{Projection: parseProjection, VersionID: parseVersion.ID()}), "#app")
 
 	// THE EXPERIMENT.
 	//

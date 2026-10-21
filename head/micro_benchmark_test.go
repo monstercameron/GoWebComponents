@@ -3,7 +3,7 @@ package head
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/router"
+	"github.com/monstercameron/GoWebComponents/v7/router"
 )
 
 func BenchmarkMergeDocumentMicro(parseB *testing.B) {
@@ -23,7 +23,7 @@ func BenchmarkMergeDocumentMicro(parseB *testing.B) {
 	}
 
 	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		_ = Merge(parseBase, parseOverride)
 	}
 }

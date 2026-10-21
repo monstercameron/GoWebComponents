@@ -5,14 +5,13 @@ package main
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func BenchmarkSSRRoutingDemoRenderToString(parseB *testing.B) {
 	parseNode := renderDemoShell(defaultServerView())
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseMarkup, parseErr := ui.RenderToString(parseNode)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -26,8 +25,7 @@ func BenchmarkSSRRoutingDemoRenderToString(parseB *testing.B) {
 func BenchmarkSSRRoutingDemoMarshalBootstrapJSON(parseB *testing.B) {
 	parsePayload := defaultBootstrapPayload()
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseEncoded, parseErr := ui.MarshalSSRBootstrap(parsePayload)
 		if parseErr != nil {
 			parseB.Fatal(parseErr)
@@ -41,8 +39,7 @@ func BenchmarkSSRRoutingDemoMarshalBootstrapJSON(parseB *testing.B) {
 func BenchmarkSSRRoutingDemoRenderReferenceScript(parseB *testing.B) {
 	parseBootstrapReference := ui.SSRBootstrapReference{URL: "bootstrap.json", Format: ui.SSRBootstrapFormatJSON}
 	parseB.ReportAllocs()
-	parseB.ResetTimer()
-	for parseI := 0; parseI < parseB.N; parseI++ {
+	for parseB.Loop() {
 		parseScript, parseErr := ui.RenderBootstrapReferenceScript(parseBootstrapReference, "")
 		if parseErr != nil {
 			parseB.Fatal(parseErr)

@@ -3,8 +3,9 @@ package flags
 import (
 	"hash/fnv"
 	"maps"
+	"math"
 
-	"github.com/monstercameron/GoWebComponents/v6/state"
+	"github.com/monstercameron/GoWebComponents/v7/state"
 )
 
 const defaultRegistryAtomID = "gwc:flags:registry"
@@ -118,7 +119,7 @@ func (parseSet Set) GetAssignment(parseName string, parseSubject string) Assignm
 	parseTotalWeight := 0
 	for _, parseVariant := range parseExperiment.Variants {
 		if parseVariant.Weight > 0 {
-			parseTotalWeight += parseVariant.Weight
+			parseTotalWeight = getSaturatedWeight(parseTotalWeight, parseVariant.Weight)
 		}
 	}
 	if parseTotalWeight <= 0 {
@@ -131,7 +132,7 @@ func (parseSet Set) GetAssignment(parseName string, parseSubject string) Assignm
 		if parseVariant.Weight <= 0 {
 			continue
 		}
-		parseCursor += parseVariant.Weight
+		parseCursor = getSaturatedWeight(parseCursor, parseVariant.Weight)
 		if parseBucket < parseCursor {
 			return Assignment{
 				Experiment: parseName,
@@ -224,6 +225,15 @@ func (parseHandle ExperimentHandle) Get() Assignment {
 	return parseHandle.get()
 }
 
+// getSaturatedWeight adds two non-negative weights, clamping at math.MaxInt so a hostile or
+// misconfigured remote payload cannot overflow the total into a negative number.
+func getSaturatedWeight(parseSum int, parseWeight int) int {
+	if parseWeight > math.MaxInt-parseSum {
+		return math.MaxInt
+	}
+	return parseSum + parseWeight
+}
+
 // getBucket returns a deterministic bucket in the range [0, parseModulo).
 func getBucket(parseName string, parseSalt string, parseSubject string, parseModulo int) int {
 	if parseModulo <= 0 {
@@ -235,5 +245,8 @@ func getBucket(parseName string, parseSalt string, parseSubject string, parseMod
 	_, _ = parseHash.Write([]byte(parseSalt))
 	_, _ = parseHash.Write([]byte{0})
 	_, _ = parseHash.Write([]byte(parseSubject))
-	return int(parseHash.Sum32() % uint32(parseModulo))
+	// Reduce in 64 bits: truncating the modulo to uint32 turned a total weight of exactly 2^32
+	// into a zero divisor. For every modulo below 2^32 the result is unchanged, so existing
+	// subjects keep their buckets.
+	return int(uint64(parseHash.Sum32()) % uint64(parseModulo))
 }

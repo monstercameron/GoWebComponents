@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/router"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func TestLinkRelAndHreflangRenderValidTags(parseT *testing.T) {
@@ -132,5 +132,31 @@ func TestAlternateAndResourceHintOptionalAttributes(parseT *testing.T) {
 	parseSingle := html.Meta(html.Props{Raw: map[string]any{"name": "robots", "content": "index"}})
 	if fragmentNonNil(parseSingle) == nil {
 		parseT.Fatal("expected fragmentNonNil(single) to return non-nil")
+	}
+}
+
+// TestMergeDedupesRepeatedHeadEntries pins that a leaf layer redeclaring an
+// alternate, resource hint or JSON-LD id replaces the parent's entry in place
+// instead of emitting a duplicate tag.
+func TestMergeDedupesRepeatedHeadEntries(parseT *testing.T) {
+	parseBase := Document{
+		Alternates:    []AlternateLink{{HrefLang: "en", Href: "https://x.test/en"}, {HrefLang: "fr", Href: "https://x.test/fr"}},
+		ResourceHints: []ResourceHint{{Rel: "preconnect", Href: "https://cdn.test"}},
+		JSONLD:        []JSONLDBlock{{ID: "page", Value: map[string]any{"@type": "WebPage"}}, {Value: "anon-base"}},
+	}
+	parseOverride := Document{
+		Alternates:    []AlternateLink{{HrefLang: "EN", Href: "https://x.test/en/guide"}, {HrefLang: "de", Href: "https://x.test/de"}},
+		ResourceHints: []ResourceHint{{Rel: "preconnect", Href: "https://cdn.test"}},
+		JSONLD:        []JSONLDBlock{{ID: "page", Value: map[string]any{"@type": "Article"}}, {Value: "anon-override"}},
+	}
+	parseMerged := Merge(parseBase, parseOverride)
+	if len(parseMerged.Alternates) != 3 || parseMerged.Alternates[0].Href != "https://x.test/en/guide" || parseMerged.Alternates[2].HrefLang != "de" {
+		parseT.Fatalf("alternates not deduped by hreflang: %#v", parseMerged.Alternates)
+	}
+	if len(parseMerged.ResourceHints) != 1 {
+		parseT.Fatalf("identical resource hint duplicated: %#v", parseMerged.ResourceHints)
+	}
+	if len(parseMerged.JSONLD) != 3 || parseMerged.JSONLD[0].Value.(map[string]any)["@type"] != "Article" {
+		parseT.Fatalf("JSON-LD with the same id not replaced (anonymous blocks must both survive): %#v", parseMerged.JSONLD)
 	}
 }

@@ -300,7 +300,7 @@ func TestStoreWorkspaceAuthPolicyLifecycle(parseT *testing.T) {
 
 // BenchmarkParseNormalizeAuthProviderType measures canonical provider-type normalization costs.
 func BenchmarkParseNormalizeAuthProviderType(parseB *testing.B) {
-	for parseIdx := 0; parseIdx < parseB.N; parseIdx++ {
+	for parseB.Loop() {
 		_ = parseNormalizeAuthProviderType("oidc", "google_oidc")
 		_ = parseNormalizeAuthProviderType("invalid", "saml")
 		_ = parseNormalizeAuthProviderType("", "oidc")

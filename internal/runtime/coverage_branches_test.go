@@ -267,8 +267,9 @@ func TestReconciler_InternalCoverage(parseT *testing.T) {
 	parseFragment := &Element{Type: "FRAGMENT", Props: map[string]any{"children": "bad"}}
 	var parseTypedNil *Element
 	parseOut, parseAllocated := flattenFragments([]any{nil, parseTypedNil, parseFragment, "tail"})
-	if !parseAllocated || len(parseOut) != 1 || parseOut[0] != "tail" {
-		parseT.Fatalf("expected flattenFragments to skip invalid fragment children, got %#v", parseOut)
+	// Nil children keep their slots (slotGap alignment); the invalid fragment adds none.
+	if !parseAllocated || len(parseOut) != 3 || parseOut[0] != nil || parseOut[1] != nil || parseOut[2] != "tail" {
+		parseT.Fatalf("expected flattenFragments to keep nil slots and skip invalid fragment children, got %#v", parseOut)
 	}
 	for parseI := range parseOut {
 		parseOut[parseI] = nil

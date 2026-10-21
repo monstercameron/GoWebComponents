@@ -266,6 +266,7 @@ func (parseL launcher) runVerify(parseArgs []string) error {
 		}
 	}
 
+	parseSummary.Warnings = takeGoCleanupWarnings()
 	if *parseAgent {
 		// Agent mode has already emitted the complete NDJSON event stream.
 	} else if *parseJsonOutput {
@@ -417,7 +418,7 @@ func executeSeed(parseConfig seedConfig) (seedSummary, error) {
 	if strings.TrimSpace(parseConfig.dbPath) != "" {
 		parseEnv = replaceEnvVar(parseEnv, "CHAT_DB_PATH", parseConfig.dbPath)
 	}
-	parseOutput, parseErr := launcherRunCommand("go", []string{"run", "."}, parseConfig.commandPath, parseEnv)
+	parseOutput, parseErr := runLauncherGoCommand("go", []string{"run", "."}, parseConfig.commandPath, parseEnv)
 	if parseErr != nil {
 		return seedSummary{}, parseErr
 	}

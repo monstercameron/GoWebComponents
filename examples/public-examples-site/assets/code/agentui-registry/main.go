@@ -6,13 +6,13 @@ package main
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v6/agentui"
-	"github.com/monstercameron/GoWebComponents/v6/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v6/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v7/agentui"
+	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v6/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v6/html"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // buildRegistry registers exactly the components an agent is allowed to compose. Every node an agent

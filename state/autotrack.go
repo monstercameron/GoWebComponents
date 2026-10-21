@@ -50,13 +50,20 @@ func NewAutoComputed[T any](parseCompute func() T) ComputedSignal[T] {
 	trackMu.Unlock()
 	trackActive.Add(1)
 
-	_ = parseCompute() // discovery pass
-
-	trackActive.Add(-1)
-	trackMu.Lock()
-	parseRead := trackStack[len(trackStack)-1]
-	trackStack = trackStack[:len(trackStack)-1]
-	trackMu.Unlock()
+	// Unwound by defer so a panicking compute cannot leave tracking switched on
+	// (every later Signal.Get would take the slow path) or its collector on the
+	// stack (later reads would be attributed to it).
+	var parseRead []string
+	func() {
+		defer func() {
+			trackActive.Add(-1)
+			trackMu.Lock()
+			parseRead = trackStack[len(trackStack)-1]
+			trackStack = trackStack[:len(trackStack)-1]
+			trackMu.Unlock()
+		}()
+		_ = parseCompute() // discovery pass
+	}()
 
 	parseSeen := make(map[string]struct{}, len(parseRead))
 	parseIDs := make([]string, 0, len(parseRead))

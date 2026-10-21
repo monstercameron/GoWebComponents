@@ -19,7 +19,7 @@ var runWasmCommand = func(l launcher, args []string) error {
 }
 
 var wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-	return launcherRunCommand(command, args, cwd, env)
+	return runLauncherGoCommand(command, args, cwd, env)
 }
 
 var wasmLookPath = exec.LookPath

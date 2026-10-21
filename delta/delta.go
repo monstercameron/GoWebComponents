@@ -255,8 +255,37 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 	}
 
 	var parseOps []Op
+	// parseUndo lets a failing batch be rolled back: the caller only ever receives ops for a
+	// batch that fully applied, so a half-applied engine would diverge from the consumer for good.
+	// Keep the overwhelmingly common one-change batch allocation-free for undo
+	// bookkeeping. A second change promotes the first record into a slice so
+	// rollback still covers arbitrarily large failing batches.
+	var parseFirstUndo applyUndo
+	var parseRestUndo []applyUndo
+	parseUndoCount := 0
+	recordUndo := func(parseStep applyUndo) {
+		switch parseUndoCount {
+		case 0:
+			parseFirstUndo = parseStep
+		case 1:
+			parseRestUndo = make([]applyUndo, 1, 4)
+			parseRestUndo[0] = parseStep
+		default:
+			parseRestUndo = append(parseRestUndo, parseStep)
+		}
+		parseUndoCount++
+	}
+	rollback := func() {
+		for parseIndex := len(parseRestUndo) - 1; parseIndex >= 0; parseIndex-- {
+			parseEngine.rollbackApplyStep(parseRestUndo[parseIndex])
+		}
+		if parseUndoCount > 0 {
+			parseEngine.rollbackApplyStep(parseFirstUndo)
+		}
+	}
 	for _, parseChange := range parseChanges {
 		if parseChange.Row.Key == "" {
+			rollback()
 			return nil, fmt.Errorf("delta: a change has no key")
 		}
 		parseKey := parseChange.Row.Key
@@ -268,8 +297,10 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 				// producer replaying a change log should converge, not fail.
 				continue
 			}
+			parseRemovedVersion := parseEngine.versionByKey[parseKey]
 			delete(parseEngine.versionByKey, parseKey)
-			parseEngine.removeFromOrder(parseKey)
+			parseRemovedIndex := parseEngine.removeFromOrder(parseKey)
+			recordUndo(applyUndo{kind: undoRemove, key: parseKey, version: parseRemovedVersion, index: parseRemovedIndex})
 			parseOps = append(parseOps, Op{Kind: OpRemove, Key: parseKey})
 
 		case ChangeUpsert:
@@ -277,9 +308,11 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 			if !hadKey {
 				parseInsertErr := parseEngine.insertAfter(parseKey, parseChange.AfterKey)
 				if parseInsertErr != nil {
+					rollback()
 					return nil, parseInsertErr
 				}
 				parseEngine.versionByKey[parseKey] = parseChange.Row.Version
+				recordUndo(applyUndo{kind: undoInsert, key: parseKey})
 				parseOps = append(parseOps, Op{
 					Kind: OpInsert, Key: parseKey, AfterKey: parseChange.AfterKey, Payload: parseChange.Row.Payload,
 				})
@@ -291,9 +324,11 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 				continue
 			}
 			parseEngine.versionByKey[parseKey] = parseChange.Row.Version
+			recordUndo(applyUndo{kind: undoUpdate, key: parseKey, version: parseOldVersion})
 			parseOps = append(parseOps, Op{Kind: OpUpdate, Key: parseKey, Payload: parseChange.Row.Payload})
 
 		default:
+			rollback()
 			return nil, fmt.Errorf("delta: unknown change kind %d for key %q", parseChange.Kind, parseKey)
 		}
 	}
@@ -326,7 +361,9 @@ func (parseEngine *Engine) insertAfter(parseKey Key, parseAfterKey Key) error {
 	return fmt.Errorf("delta: cannot insert %q after %q, which is not published", parseKey, parseAfterKey)
 }
 
-func (parseEngine *Engine) removeFromOrder(parseKey Key) {
+// removeFromOrder drops a key from the published order and returns the position it held, or -1
+// when the key was not in the order.
+func (parseEngine *Engine) removeFromOrder(parseKey Key) int {
 	for parsePosition, parseExisting := range parseEngine.order {
 		if parseExisting == parseKey {
 			// Release the slot the shift vacates rather than leaving the old
@@ -334,7 +371,47 @@ func (parseEngine *Engine) removeFromOrder(parseKey Key) {
 			copy(parseEngine.order[parsePosition:], parseEngine.order[parsePosition+1:])
 			parseEngine.order[len(parseEngine.order)-1] = ""
 			parseEngine.order = parseEngine.order[:len(parseEngine.order)-1]
-			return
+			return parsePosition
+		}
+	}
+	return -1
+}
+
+// undoKind names how one applied change is reversed.
+type undoKind uint8
+
+const (
+	// undoInsert reverses an inserted key by removing it.
+	undoInsert undoKind = iota
+	// undoUpdate reverses an update by restoring the previous version.
+	undoUpdate
+	// undoRemove reverses a removal by re-inserting the key at its old position.
+	undoRemove
+)
+
+// applyUndo is one reversible step of an in-flight Apply batch.
+type applyUndo struct {
+	kind    undoKind
+	key     Key
+	version uint64
+	index   int
+}
+
+// rollbackApplyStep reverses one step of a failed Apply batch. Apply invokes
+// this newest first so the engine ends exactly as it was before the batch.
+func (parseEngine *Engine) rollbackApplyStep(parseStep applyUndo) {
+	switch parseStep.kind {
+	case undoInsert:
+		delete(parseEngine.versionByKey, parseStep.key)
+		parseEngine.removeFromOrder(parseStep.key)
+	case undoUpdate:
+		parseEngine.versionByKey[parseStep.key] = parseStep.version
+	case undoRemove:
+		parseEngine.versionByKey[parseStep.key] = parseStep.version
+		if parseStep.index >= 0 && parseStep.index <= len(parseEngine.order) {
+			parseEngine.order = append(parseEngine.order, "")
+			copy(parseEngine.order[parseStep.index+1:], parseEngine.order[parseStep.index:])
+			parseEngine.order[parseStep.index] = parseStep.key
 		}
 	}
 }

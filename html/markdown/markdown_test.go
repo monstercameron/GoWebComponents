@@ -1,58 +1,14 @@
-package html
+package markdown
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
 )
-
-func TestSanitizeMarkdownHrefDropsDangerousSchemes(parseT *testing.T) {
-	parseDropped := []string{
-		"javascript:alert(1)",
-		"JavaScript:alert(1)",
-		"  javascript:alert(1)",
-		"java\tscript:alert(1)",
-		"java\nscript:alert(1)",
-		"jAvAsCrIpT:alert(1)",
-		"vbscript:msgbox(1)",
-		"data:text/html,<script>alert(1)</script>",
-		"data:image/png;base64,AAAA",
-		"\x01javascript:alert(1)",
-	}
-	for _, parseCase := range parseDropped {
-		if parseGot := SanitizeMarkdownHref(parseCase, nil); parseGot != "" {
-			parseT.Fatalf("expected %q to be dropped, got %q", parseCase, parseGot)
-		}
-	}
-
-	parseKept := []string{
-		"https://example.test/docs",
-		"http://example.test",
-		"mailto:dev@example.test",
-		"guide.md#hydration",
-		"./relative/page",
-		"/absolute/path",
-		"#section",
-		"//cdn.example.test/asset.js",
-	}
-	for _, parseCase := range parseKept {
-		if parseGot := SanitizeMarkdownHref(parseCase, nil); parseGot != parseCase {
-			parseT.Fatalf("expected %q to survive unchanged, got %q", parseCase, parseGot)
-		}
-	}
-
-	// A configurable allowlist round-trips: opting data in keeps inline images.
-	if parseGot := SanitizeMarkdownHref("data:image/png;base64,AAAA", []string{"http", "https", "data"}); parseGot == "" {
-		parseT.Fatal("expected data: to survive when explicitly allowed")
-	}
-	// And a custom allowlist still drops what it does not list.
-	if parseGot := SanitizeMarkdownHref("https://example.test", []string{"mailto"}); parseGot != "" {
-		parseT.Fatal("expected https to be dropped when only mailto is allowed")
-	}
-}
 
 func TestRenderMarkdownNeutralizesXSSAcrossSinks(parseT *testing.T) {
 	parseMarkdown := strings.Join([]string{
@@ -78,18 +34,6 @@ func TestRenderMarkdownNeutralizesXSSAcrossSinks(parseT *testing.T) {
 		if !strings.Contains(parseMarkup, parseExpected) {
 			parseT.Fatalf("expected legitimate link %q to survive:\n%s", parseExpected, parseMarkup)
 		}
-	}
-}
-
-func TestResolveMarkdownHrefResolvesRelativeDestinations(parseT *testing.T) {
-	parseResolved := ResolveMarkdownHref("assets/docs/start-here.md", "troubleshooting.md#hydration")
-	if parseResolved != "assets/docs/troubleshooting.md#hydration" {
-		parseT.Fatalf("expected relative href resolution, got %q", parseResolved)
-	}
-
-	parseAbsolute := ResolveMarkdownHref("assets/docs/start-here.md", "https://example.test/docs")
-	if parseAbsolute != "https://example.test/docs" {
-		parseT.Fatalf("expected absolute href passthrough, got %q", parseAbsolute)
 	}
 }
 
@@ -164,27 +108,6 @@ func TestRenderMarkdownAppliesOptions(parseT *testing.T) {
 		if !strings.Contains(parseMarkup, parseSnippet) {
 			parseT.Fatalf("expected markdown markup to contain %q, got %s", parseSnippet, parseMarkup)
 		}
-	}
-}
-
-func TestResolveMarkdownHrefEdgeCases(parseT *testing.T) {
-	if parseGot := ResolveMarkdownHref("docs/start.md", ""); parseGot != "" {
-		parseT.Fatalf("expected empty destination to resolve empty, got %q", parseGot)
-	}
-	if parseGot2 := ResolveMarkdownHref("docs/start.md", "%zz"); parseGot2 != "%zz" {
-		parseT.Fatalf("expected invalid URL destination passthrough, got %q", parseGot2)
-	}
-	if parseGot3 := ResolveMarkdownHref("docs/start.md", "#section"); parseGot3 != "#section" {
-		parseT.Fatalf("expected fragment destination passthrough, got %q", parseGot3)
-	}
-	if parseGot4 := ResolveMarkdownHref("docs/start.md", "/guide"); parseGot4 != "/guide" {
-		parseT.Fatalf("expected absolute path destination passthrough, got %q", parseGot4)
-	}
-	if parseGot5 := ResolveMarkdownHref("", "guide.md"); parseGot5 != "guide.md" {
-		parseT.Fatalf("expected blank source path passthrough, got %q", parseGot5)
-	}
-	if parseGot6 := ResolveMarkdownHref("https://example.test/docs/start.md", "guide.md?q=1"); parseGot6 != "https://example.test/docs/guide.md?q=1" {
-		parseT.Fatalf("expected absolute source path resolution, got %q", parseGot6)
 	}
 }
 
@@ -273,5 +196,25 @@ func TestMarkdownHelperBranchesAndFallbackNodes(parseT *testing.T) {
 	parseEmptyInline := renderMarkdownInline(ast.NewParagraph(), parseSource, MarkdownRenderOptions{}, 0)
 	if len(parseEmptyInline) != 0 {
 		parseT.Fatalf("expected empty inline fallback to produce no nodes, got %#v", parseEmptyInline)
+	}
+}
+
+// TestRenderMarkdownAutolinkHref pins that email autolinks get a mailto:
+// scheme and that the visible label is the source text.
+func TestRenderMarkdownAutolinkHref(parseT *testing.T) {
+	parseCases := []struct{ parseSrc, parseHref, parseLabel string }{
+		{"<foo@bar.com>", `href="mailto:foo@bar.com"`, ">foo@bar.com</a>"},
+		{"see www.example.com now", `href="http://www.example.com"`, ">www.example.com</a>"},
+		{"<https://a.com>", `href="https://a.com"`, ">https://a.com</a>"},
+	}
+	for _, parseCase := range parseCases {
+		parseOut := ""
+		for _, parseNode := range RenderMarkdown(parseCase.parseSrc) {
+			parseHTML, _ := ui.RenderToString(parseNode)
+			parseOut += parseHTML
+		}
+		if !strings.Contains(parseOut, parseCase.parseHref) || !strings.Contains(parseOut, parseCase.parseLabel) {
+			parseT.Fatalf("%q rendered %s, want %s and %s", parseCase.parseSrc, parseOut, parseCase.parseHref, parseCase.parseLabel)
+		}
 	}
 }

@@ -9,13 +9,13 @@ import "reflect"
 
 // GoUseStateGlobal wraps GoUseState with global fiber context
 func GoUseStateGlobal[T any](parseStateInitialValue T) (func() T, func(interface{})) {
-	parseRuntime := GetGlobalRuntime()
+	parseRuntime := getHookRuntime()
 	return GoUseState(parseRuntime, parseStateInitialValue)
 }
 
-// GoUseStateSlotGlobal claims a value-type state slot on the global runtime.
+// GoUseStateSlotGlobal claims a value-type state slot on the runtime that owns the rendering tree.
 func GoUseStateSlotGlobal[T any](parseStateInitialValue T) StateSlot[T] {
-	parseRuntime := GetGlobalRuntime()
+	parseRuntime := getHookRuntime()
 	return GoUseStateSlot(parseRuntime, parseStateInitialValue)
 }
 
@@ -119,6 +119,17 @@ func StartTransitionGlobal(parseTransitionFn func()) {
 
 // Text creates a text node
 func Text(parseTextContent string) *Element {
+	// Public text construction is normally outside a live render. On Wasm,
+	// currentFiber is the complete client hook context, so avoid entering the
+	// slab/runtime ownership checks when no render is active. The render path
+	// still goes through acquireRenderHostElement and retains slab semantics.
+	if currentFiber == nil {
+		return &Element{
+			Type:        "TEXT_ELEMENT",
+			TextContent: parseTextContent,
+			Children:    emptyChildren,
+		}
+	}
 	parseElem := acquireRenderHostElement()
 	*parseElem = Element{
 		Type:        "TEXT_ELEMENT",

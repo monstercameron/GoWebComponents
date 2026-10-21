@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/i18n"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/i18n"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback bool, parseInputVal string, parseOnInput, parseOnKey, parseOnSend, parseApplyStarterPrompt ui.Handler, isParseCanAccessAdmin bool, parseOpenAdminEntry ui.Handler,

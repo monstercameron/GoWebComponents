@@ -87,9 +87,9 @@ package main
 import (
 	"context"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 type workspaceSavedPulse struct {
@@ -198,9 +198,9 @@ import (
 	"context"
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/v6/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v6/interop"
-	"github.com/monstercameron/GoWebComponents/v6/ui"
+	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v7/ui"
 )
 
 // renderUsageChartHost measures the host, watches it for resize, and lazily hands chart work to a JS module.
@@ -302,7 +302,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v6/interop"
+	"github.com/monstercameron/GoWebComponents/v7/interop"
 )
 
 type searchProgress struct {
@@ -473,10 +473,10 @@ Use the smallest shape that works. Most features should start with one direct wo
 Use the smallest relevant checks for the interop slice you touched:
 
 ```powershell
-go run ./tools/gwc build -app .\examples\public\browser-interop\main.go -root .\examples\public\browser-interop
-go run ./tools/gwc build -app .\examples\public\worker-text-index\main.go -root .\examples\public\worker-text-index
-go run ./tools/gwc build -app .\examples\public\cross-tab-sync\main.go -root .\examples\public\cross-tab-sync
-go run ./tools/gwc build -app .\examples\public\multi-window-console\main.go -root .\examples\public\multi-window-console
+go -C tools run ./gwc build -app ..\examples\public\browser-interop\main.go -root ..\examples\public\browser-interop
+go -C tools run ./gwc build -app ..\examples\public\worker-text-index\main.go -root ..\examples\public\worker-text-index
+go -C tools run ./gwc build -app ..\examples\public\cross-tab-sync\main.go -root ..\examples\public\cross-tab-sync
+go -C tools run ./gwc build -app ..\examples\public\multi-window-console\main.go -root ..\examples\public\multi-window-console
 go test ./interop ./ui
 ```
 
