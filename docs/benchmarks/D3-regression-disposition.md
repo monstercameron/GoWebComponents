@@ -30,15 +30,16 @@ amd64 numbers and the amd64 re-run agree in aggregate.
 
 ## What gates D3 now
 
-- `.github/workflows/bench-drift.yml` runs on `ubuntu-latest` (**amd64** — the same
-  architecture this report was measured on) and executes
-  `gwc bench -lane native -parallel 1 -fail-on-regression` with no `continue-on-error`.
-- The gate fails the build on any benchmark regressing beyond the 2% tolerance **versus
-  the committed baseline**, on every PR and every push to `main`. A *real* regression
-  (one that survives across runs and moves the aggregate) is therefore caught at merge
-  time on the relevant architecture.
-- `-parallel 1` is used to minimize cross-benchmark interference and reduce exactly the
-  kind of run-to-run noise documented above.
+- `.github/workflows/bench-drift.yml` checks out the base and head revisions into separate
+  directories on the same `ubuntu-latest` runner. Because the v6 base predates `gwc bench suite`,
+  the workflow builds the suite tool from head, normalizes the base benchmark drivers with
+  `normalize-v6-benchmarks.py`, compile-checks the base packages, and then runs the bounded
+  production suite for eight representative native packages on each revision in sequence
+  (`-count 5`, one warm-up, deterministic shuffle seed).
+- The gate uses `gwc bench suite compare -max-regress-pct 15`. The comparator uses per-entry
+  medians and MAD-derived significance thresholds before applying the 15% cap, so one noisy
+  nanosecond sample does not fail a pull request. The committed reports remain historical
+  documentation; same-run suite JSON and console logs are uploaded as evidence.
 
 ## Residual / honest caveat
 
