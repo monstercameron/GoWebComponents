@@ -3,6 +3,26 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
+## v7.0.5 — performance patch
+
+Child-order repair now sizes its observed-node scratch slice from the expected
+child count, with a minimum capacity of four. A direct 128-child reorder
+benchmark against v7.0.4 fell from 12 to 7 allocations and from 11,072 B to
+8,960 B per operation. The slice is temporary; a sparse DOM after external
+mutation can reserve more space than the number of nodes observed. Child order,
+the public API, and the Go 1.27 requirement are unchanged.
+
+The [direct v7.0.4 browser comparison](https://github.com/monstercameron/GoWebComponents/actions/runs/39659570762)
+passed all 19 scenarios with a 0.85% faster geometric mean. The
+[same-runner native comparison](https://github.com/monstercameron/GoWebComponents/actions/runs/39660285250)
+was 0.18% faster across 185 shared entries; the changed child-order path was
+1.86% faster. The [same-runner Wasm comparison](https://github.com/monstercameron/GoWebComponents/actions/runs/39660285216)
+passed its 15% per-entry gate across 154 shared entries with a 0.69% slower
+geometric mean. Its changed child-order path was 0.34% slower, within noise.
+One [native drift run](https://github.com/monstercameron/GoWebComponents/actions/runs/39660492852)
+flagged the unchanged `FiberSiblingWalk256` benchmark at +20.5%; the dedicated
+native comparison measured that entry at +0.81%.
+
 ## v7.0.4 — performance patch
 
 Committed child-order repair now keeps each longest-increasing-subsequence tail
