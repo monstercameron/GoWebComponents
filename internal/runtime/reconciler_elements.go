@@ -537,6 +537,13 @@ func buildElementHostProps(parseTyp any, parseProps map[string]any) ([]HostAttr,
 	if len(parseProps) == 0 {
 		return nil, true
 	}
+	if len(parseProps) == 1 {
+		if _, hasKey := parseProps["key"]; hasKey {
+			// A reconciliation key is never a DOM attribute. Skip allocating an
+			// empty attribute slice for keyed elements with no other props.
+			return nil, true
+		}
+	}
 
 	// Host fibers alias the element's props map directly instead of building a
 	// separate host-only copy: every entry point clones or owns the map before
