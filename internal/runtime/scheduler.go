@@ -841,6 +841,20 @@ func (parseRt *Runtime) resolveOwnedFiberTarget(parseFiber *Fiber) *Fiber {
 	if parseRt == nil || parseFiber == nil {
 		return parseFiber
 	}
+	// During the render/commit gap, currentRoot is still the previous
+	// generation while wipRoot is the tree that is about to be published. An
+	// owned update that resolves through currentRoot would mark the old
+	// alternate; commit then publishes the clean WIP and the follow-up pass can
+	// discard the old mark when it reuses that alternate. Prefer the in-flight
+	// tree, including the alternate of a stale owner, while it exists.
+	if parseRt.wipRoot != nil && parseRt.updateScheduled {
+		if isFiberInRootTree(parseFiber, parseRt.wipRoot) {
+			return parseFiber
+		}
+		if parseFiber.alternate != nil && isFiberInRootTree(parseFiber.alternate, parseRt.wipRoot) {
+			return parseFiber.alternate
+		}
+	}
 	if parseRt.isFiberInCurrentTree(parseFiber) {
 		return parseFiber
 	}
@@ -915,14 +929,18 @@ func buildSubscribedSiblingIndex(parseParent *Fiber, parseChild *Fiber) int {
 
 // isFiberInCurrentTree is a core package helper.
 func (parseRt *Runtime) isFiberInCurrentTree(parseFiber *Fiber) bool {
-	if parseRt == nil || parseFiber == nil || parseRt.currentRoot == nil {
+	return parseRt != nil && isFiberInRootTree(parseFiber, parseRt.currentRoot)
+}
+
+func isFiberInRootTree(parseFiber *Fiber, parseRoot *Fiber) bool {
+	if parseFiber == nil || parseRoot == nil {
 		return false
 	}
-	parseRoot := parseFiber
-	for parseRoot.parent != nil {
-		parseRoot = parseRoot.parent
+	parseCursor := parseFiber
+	for parseCursor.parent != nil {
+		parseCursor = parseCursor.parent
 	}
-	return parseRoot == parseRt.currentRoot
+	return parseCursor == parseRoot
 }
 
 // NOTE(v5 P2.4): EnqueueUI / ProcessUIQueue / GetUIQueueSize were REMOVED.
