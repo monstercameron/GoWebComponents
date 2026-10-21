@@ -1149,41 +1149,45 @@ func buildCommittedChildOrderMatch(parseExpected, parseObserved []DOMNode) ([]in
 	return parseMatch, true
 }
 
+// committedChildOrderLISState stores one LIS tail value and its source index.
+type committedChildOrderLISState struct {
+	parseValue int
+	parseIndex int
+}
+
 // markCommittedChildOrderKept marks the expected indices forming the longest
 // increasing subsequence of the observed→expected match — the children whose
 // relative DOM order is already correct — using the O(n log n) patience
 // algorithm. Everything unmarked must move.
 func markCommittedChildOrderKept(parseMatch []int, parseExpectedLen int) ([]bool, int) {
-	parseTails := make([]int, 0, len(parseMatch))
+	parseTails := make([]committedChildOrderLISState, 0, len(parseMatch))
 	parsePrev := make([]int, len(parseMatch))
-	parseTailIndexes := make([]int, 0, len(parseMatch))
 	for parseIndex, parseValue := range parseMatch {
 		parseLo, parseHi := 0, len(parseTails)
 		for parseLo < parseHi {
 			parseMid := (parseLo + parseHi) / 2
-			if parseTails[parseMid] < parseValue {
+			if parseTails[parseMid].parseValue < parseValue {
 				parseLo = parseMid + 1
 			} else {
 				parseHi = parseMid
 			}
 		}
 		if parseLo > 0 {
-			parsePrev[parseIndex] = parseTailIndexes[parseLo-1]
+			parsePrev[parseIndex] = parseTails[parseLo-1].parseIndex
 		} else {
 			parsePrev[parseIndex] = -1
 		}
+		parseState := committedChildOrderLISState{parseValue: parseValue, parseIndex: parseIndex}
 		if parseLo == len(parseTails) {
-			parseTails = append(parseTails, parseValue)
-			parseTailIndexes = append(parseTailIndexes, parseIndex)
+			parseTails = append(parseTails, parseState)
 		} else {
-			parseTails[parseLo] = parseValue
-			parseTailIndexes[parseLo] = parseIndex
+			parseTails[parseLo] = parseState
 		}
 	}
 	parseKept := make([]bool, parseExpectedLen)
 	parseCount := len(parseTails)
 	if parseCount > 0 {
-		for parseCursor := parseTailIndexes[parseCount-1]; parseCursor >= 0; parseCursor = parsePrev[parseCursor] {
+		for parseCursor := parseTails[parseCount-1].parseIndex; parseCursor >= 0; parseCursor = parsePrev[parseCursor] {
 			parseKept[parseMatch[parseCursor]] = true
 		}
 	}
