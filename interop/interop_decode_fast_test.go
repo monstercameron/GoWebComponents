@@ -204,6 +204,38 @@ func TestDecodeSimpleMapToStructPreservesExistingMapEntries(t *testing.T) {
 	}
 }
 
+func TestDecodeSimpleMapToStructTypedNilMapMatchesJSON(t *testing.T) {
+	parseValue := map[string]any{"meta": map[string]any(nil)}
+	parseCases := []struct {
+		name   string
+		target *decodeFastPayload
+	}{
+		{name: "nil target", target: &decodeFastPayload{}},
+		{name: "preexisting target", target: &decodeFastPayload{Meta: map[string]string{"old": "value"}}},
+	}
+	for _, parseCase := range parseCases {
+		t.Run(parseCase.name, func(t *testing.T) {
+			parseWant := &decodeFastPayload{}
+			parseWantData, parseErr := json.Marshal(parseValue)
+			if parseErr != nil {
+				t.Fatal(parseErr)
+			}
+			if parseErr := json.Unmarshal(parseWantData, parseWant); parseErr != nil {
+				t.Fatal(parseErr)
+			}
+			if parseFast, parseErr := decodeSimpleMapToStruct(parseValue, parseCase.target); parseFast || parseErr != nil {
+				t.Fatalf("fast path: handled=%v err=%v, want fallback", parseFast, parseErr)
+			}
+			if parseErr := Decode(parseValue, parseCase.target); parseErr != nil {
+				t.Fatalf("Decode fallback: %v", parseErr)
+			}
+			if !reflect.DeepEqual(parseCase.target, parseWant) {
+				t.Fatalf("decoded result %#v, want %#v", parseCase.target, parseWant)
+			}
+		})
+	}
+}
+
 func TestDecodeSimpleMapToStructUnknownUnsupportedValueFallsBack(t *testing.T) {
 	parseTarget := &decodeFastPayload{}
 	parseValue := map[string]any{"id": "bench", "unknown": make(chan int)}

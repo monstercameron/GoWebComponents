@@ -153,6 +153,12 @@ func canAssignSimpleJSONValue(parseTarget reflect.Value, parseValue any) bool {
 		if !parseOK {
 			return false
 		}
+		// A typed nil map marshals as JSON null. Let encoding/json handle it
+		// so the target map is cleared to nil instead of becoming an empty map
+		// (or retaining an existing map).
+		if parseMap == nil {
+			return false
+		}
 		for _, parseRaw := range parseMap {
 			if _, parseStringOK := parseRaw.(string); !parseStringOK {
 				return false
