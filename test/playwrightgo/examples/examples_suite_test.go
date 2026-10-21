@@ -67,7 +67,7 @@ func terminateExamplesProcessTree(parseCmd *exec.Cmd) {
 		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(parseCmd.Process.Pid)).Run()
 		return
 	}
-	_ = parseCmd.Process.Kill()
+	terminateExamplesProcessGroup(parseCmd)
 }
 
 func startExamplesCommandWithEnv(parseT *testing.T, parseDir string, parseEnv []string, parseName string, parseArgs ...string) (parseStop func()) {
@@ -93,6 +93,7 @@ func startExamplesCommandWithEnv(parseT *testing.T, parseDir string, parseEnv []
 	}
 	parseCmd := exec.Command(parseName, parseArgs...)
 	parseCmd.Dir = parseDir
+	configureExamplesProcessGroup(parseCmd)
 	if len(parseEnv) > 0 {
 		parseCmd.Env = append(os.Environ(), parseEnv...)
 	}

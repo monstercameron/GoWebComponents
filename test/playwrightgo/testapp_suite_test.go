@@ -45,13 +45,14 @@ func terminateSuiteProcessTree(parseCmd *exec.Cmd) {
 		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(parseCmd.Process.Pid)).Run()
 		return
 	}
-	_ = parseCmd.Process.Kill()
+	terminateSuiteProcessGroup(parseCmd)
 }
 
 func startCommand(parseT *testing.T, parseDir string, parseName string, parseArgs ...string) (parseStop func()) {
 	parseT.Helper()
 	parseCmd := exec.Command(parseName, parseArgs...)
 	parseCmd.Dir = parseDir
+	configureSuiteProcessGroup(parseCmd)
 	parseCmd.Stdout = io.Discard
 	parseCmd.Stderr = os.Stderr
 	if parseErr := parseCmd.Start(); parseErr != nil {
