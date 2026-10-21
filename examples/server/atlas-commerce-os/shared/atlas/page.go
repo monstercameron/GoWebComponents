@@ -3768,32 +3768,42 @@ func savedViewBrowserCard(parsePayload Payload) ui.Node {
 			parseActiveIndex = 0
 		}
 		parseActive := parsePayload.SavedViews[parseActiveIndex]
-		parseOptions := make([]ui.Node, 0, len(parsePayload.SavedViews))
-		for parseIndex2, parseSaved2 := range parsePayload.SavedViews {
-			parseCurrentIndex := parseIndex2
-			parseCurrentItem := parseItems[parseIndex2]
-			// Listbox options reuse the rail's two-state item vocabulary: selected or
-			// not, marked by the inset lane bar, with no third "hover-ish" style and no
-			// border per option.
-			parseClassName := design.Class(design.RailLink())
-			if parseNav.IsActive(parseIndex2) {
-				parseClassName = design.Class(design.RailLinkCurrent())
-			}
-			parseOptions = append(parseOptions, html.Div(html.Props{
-				ID:    parseCurrentItem.ID,
-				Role:  "option",
-				Class: parseClassName,
-				OnClick: useAtlasEvent(func() {
-					parseNav.SetActive(parseCurrentIndex)
-				}),
-				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex2)],
-				},
-			},
-				html.Span(html.Props{}, html.Text(parseSaved2.Name)),
-				html.Span(html.Props{Class: consoleCodeClass()}, html.Text(parseSaved2.Scope+" · "+parseSaved2.SortKey+"/"+parseSaved2.SortDirection)),
-			))
+		parseSavedViewIndexes := make([]int, len(parsePayload.SavedViews))
+		for parseIndex2 := range parseSavedViewIndexes {
+			parseSavedViewIndexes[parseIndex2] = parseIndex2
 		}
+		parseOptions := html.MapKeyedComponent(parseSavedViewIndexes,
+			func(parseIndex2 int) any {
+				parseKeyBytes, _ := json.Marshal(parsePayload.SavedViews[parseIndex2])
+				return string(parseKeyBytes)
+			},
+			func(parseIndex2 int) ui.Node {
+				parseSaved2 := parsePayload.SavedViews[parseIndex2]
+				parseCurrentIndex := parseIndex2
+				parseCurrentItem := parseItems[parseIndex2]
+				// Listbox options reuse the rail's two-state item vocabulary: selected or
+				// not, marked by the inset lane bar, with no third "hover-ish" style and no
+				// border per option.
+				parseClassName := design.Class(design.RailLink())
+				if parseNav.IsActive(parseIndex2) {
+					parseClassName = design.Class(design.RailLinkCurrent())
+				}
+				return html.Div(html.Props{
+					ID:    parseCurrentItem.ID,
+					Role:  "option",
+					Class: parseClassName,
+					OnClick: useAtlasEvent(func() {
+						parseNav.SetActive(parseCurrentIndex)
+					}),
+					Aria: map[string]string{
+						"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex2)],
+					},
+				},
+					html.Span(html.Props{}, html.Text(parseSaved2.Name)),
+					html.Span(html.Props{Class: consoleCodeClass()}, html.Text(parseSaved2.Scope+" · "+parseSaved2.SortKey+"/"+parseSaved2.SortDirection)),
+				)
+			},
+		)
 		filterEntries := make([]string, 0, len(parseActive.Filters))
 		for parseKey, parseValue := range parseActive.Filters {
 			filterEntries = append(filterEntries, parseKey+": "+parseValue)
