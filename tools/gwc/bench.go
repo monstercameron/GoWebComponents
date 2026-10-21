@@ -820,7 +820,9 @@ func (parseL launcher) runBenchmarkPackage(parseConfig benchmarkConfig, parseLan
 	if parsePackagePath != "." {
 		parseWorkspace = filepath.Join(parseConfig.rootPath, filepath.FromSlash(strings.TrimPrefix(parsePackagePath, "./")))
 	}
-	parseArgs := []string{"test", "-run", "^$", "-bench", parseConfig.bench, "-benchmem", "-count", strconv.Itoa(parseConfig.count), "."}
+	// Keep absolute checkout roots out of runtime stack traces so measurements
+	// that call debug.Stack do not vary with the source worktree path.
+	parseArgs := []string{"test", "-trimpath", "-run", "^$", "-bench", parseConfig.bench, "-benchmem", "-count", strconv.Itoa(parseConfig.count), "."}
 	if parseConfig.benchtime != "" {
 		parseArgs = append(parseArgs[:len(parseArgs)-1], "-benchtime", parseConfig.benchtime, ".")
 	}
