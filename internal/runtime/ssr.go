@@ -85,6 +85,12 @@ const ssrHookOwnerContextKey int64 = -1 << 62
 // render, stream shell, stream boundary chunk) must seed its own map; the id
 // is only valid on the call stack that computed it.
 func ssrHookOwnerContext(parseParent map[int64]any) map[int64]any {
+	// Most native SSR renders contain only host elements and text. Keep their
+	// fast path free of runtime.Stack; withSSRHookFiber resolves and caches the
+	// owner only when the walk reaches an actual component.
+	if parseParent == nil {
+		return map[int64]any{ssrHookOwnerContextKey: ssrHookOwnerLazy}
+	}
 	parseOwner := getSSRHookOwner()
 	if parseOwner == 0 {
 		return parseParent
@@ -94,6 +100,11 @@ func ssrHookOwnerContext(parseParent map[int64]any) map[int64]any {
 	parseCtx[ssrHookOwnerContextKey] = parseOwner
 	return parseCtx
 }
+
+// ssrHookOwnerLazy is stored only in a newly-created top-level SSR context. It
+// is replaced with the concrete goroutine owner before the first component
+// fiber is installed.
+var ssrHookOwnerLazy = struct{}{}
 
 // renderElementToString is a core package helper. parseCtx carries the inherited
 // context values (descriptor ID -> value) down the tree so a server-rendered
@@ -523,6 +534,12 @@ func withSSRHookFiber(parseType any, parseProps map[string]any, parseCtx map[int
 		ownerRuntime:  ssrAtomScopeFromContext(parseCtx),
 	}
 	parseOwner, _ := parseCtx[ssrHookOwnerContextKey].(uint64)
+	if parseOwner == 0 {
+		if _, isLazy := parseCtx[ssrHookOwnerContextKey].(struct{}); isLazy {
+			parseOwner = getSSRHookOwner()
+			parseCtx[ssrHookOwnerContextKey] = parseOwner
+		}
+	}
 	defer setSSRHookFiber(parseFiber, parseOwner)()
 	return parseRender()
 }

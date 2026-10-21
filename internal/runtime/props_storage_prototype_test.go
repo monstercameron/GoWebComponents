@@ -1,6 +1,9 @@
 package runtime
 
-import "testing"
+import (
+	"sort"
+	"testing"
+)
 
 // v5 PA.2 — prototype the three props-storage designs and compare them.
 //
@@ -39,6 +42,7 @@ func clonePropsToSlice(parseProps map[string]any) []propPair {
 	for parseKey, parseValue := range parseProps {
 		getPairs = append(getPairs, propPair{Key: parseKey, Value: parseValue})
 	}
+	sort.Slice(getPairs, func(parseI, parseJ int) bool { return getPairs[parseI].Key < getPairs[parseJ].Key })
 	return getPairs
 }
 
@@ -82,7 +86,8 @@ func BenchmarkPropsStorage_ReadPath(parseB *testing.B) {
 	for _, parseSize := range []int{2, 4, 8} {
 		parseProps := propsOfSize(parseSize)
 		parsePairs := clonePropsToSlice(parseProps)
-		// Worst case for the slice: the key that sorts last in iteration order.
+		// Worst case for the slice: the lexicographically last key after the
+		// deterministic sort in clonePropsToSlice.
 		parseKey := parsePairs[len(parsePairs)-1].Key
 
 		parseB.Run("map/"+sizeLabel(parseSize), func(parseInner *testing.B) {

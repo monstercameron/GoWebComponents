@@ -257,10 +257,35 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 	var parseOps []Op
 	// parseUndo lets a failing batch be rolled back: the caller only ever receives ops for a
 	// batch that fully applied, so a half-applied engine would diverge from the consumer for good.
-	var parseUndo []applyUndo
+	// Keep the overwhelmingly common one-change batch allocation-free for undo
+	// bookkeeping. A second change promotes the first record into a slice so
+	// rollback still covers arbitrarily large failing batches.
+	var parseFirstUndo applyUndo
+	var parseRestUndo []applyUndo
+	parseUndoCount := 0
+	recordUndo := func(parseStep applyUndo) {
+		switch parseUndoCount {
+		case 0:
+			parseFirstUndo = parseStep
+		case 1:
+			parseRestUndo = make([]applyUndo, 1, 4)
+			parseRestUndo[0] = parseStep
+		default:
+			parseRestUndo = append(parseRestUndo, parseStep)
+		}
+		parseUndoCount++
+	}
+	rollback := func() {
+		for parseIndex := len(parseRestUndo) - 1; parseIndex >= 0; parseIndex-- {
+			parseEngine.rollbackApplyStep(parseRestUndo[parseIndex])
+		}
+		if parseUndoCount > 0 {
+			parseEngine.rollbackApplyStep(parseFirstUndo)
+		}
+	}
 	for _, parseChange := range parseChanges {
 		if parseChange.Row.Key == "" {
-			parseEngine.rollbackApply(parseUndo)
+			rollback()
 			return nil, fmt.Errorf("delta: a change has no key")
 		}
 		parseKey := parseChange.Row.Key
@@ -275,7 +300,7 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 			parseRemovedVersion := parseEngine.versionByKey[parseKey]
 			delete(parseEngine.versionByKey, parseKey)
 			parseRemovedIndex := parseEngine.removeFromOrder(parseKey)
-			parseUndo = append(parseUndo, applyUndo{kind: undoRemove, key: parseKey, version: parseRemovedVersion, index: parseRemovedIndex})
+			recordUndo(applyUndo{kind: undoRemove, key: parseKey, version: parseRemovedVersion, index: parseRemovedIndex})
 			parseOps = append(parseOps, Op{Kind: OpRemove, Key: parseKey})
 
 		case ChangeUpsert:
@@ -283,11 +308,11 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 			if !hadKey {
 				parseInsertErr := parseEngine.insertAfter(parseKey, parseChange.AfterKey)
 				if parseInsertErr != nil {
-					parseEngine.rollbackApply(parseUndo)
+					rollback()
 					return nil, parseInsertErr
 				}
 				parseEngine.versionByKey[parseKey] = parseChange.Row.Version
-				parseUndo = append(parseUndo, applyUndo{kind: undoInsert, key: parseKey})
+				recordUndo(applyUndo{kind: undoInsert, key: parseKey})
 				parseOps = append(parseOps, Op{
 					Kind: OpInsert, Key: parseKey, AfterKey: parseChange.AfterKey, Payload: parseChange.Row.Payload,
 				})
@@ -299,11 +324,11 @@ func (parseEngine *Engine) Apply(parseChanges []Change) ([]Op, error) {
 				continue
 			}
 			parseEngine.versionByKey[parseKey] = parseChange.Row.Version
-			parseUndo = append(parseUndo, applyUndo{kind: undoUpdate, key: parseKey, version: parseOldVersion})
+			recordUndo(applyUndo{kind: undoUpdate, key: parseKey, version: parseOldVersion})
 			parseOps = append(parseOps, Op{Kind: OpUpdate, Key: parseKey, Payload: parseChange.Row.Payload})
 
 		default:
-			parseEngine.rollbackApply(parseUndo)
+			rollback()
 			return nil, fmt.Errorf("delta: unknown change kind %d for key %q", parseChange.Kind, parseKey)
 		}
 	}
@@ -372,24 +397,21 @@ type applyUndo struct {
 	index   int
 }
 
-// rollbackApply reverses the steps of a failed Apply batch, newest first, so the engine ends in
-// exactly the state it held before the batch started.
-func (parseEngine *Engine) rollbackApply(parseUndo []applyUndo) {
-	for parseIndex := len(parseUndo) - 1; parseIndex >= 0; parseIndex-- {
-		parseStep := parseUndo[parseIndex]
-		switch parseStep.kind {
-		case undoInsert:
-			delete(parseEngine.versionByKey, parseStep.key)
-			parseEngine.removeFromOrder(parseStep.key)
-		case undoUpdate:
-			parseEngine.versionByKey[parseStep.key] = parseStep.version
-		case undoRemove:
-			parseEngine.versionByKey[parseStep.key] = parseStep.version
-			if parseStep.index >= 0 && parseStep.index <= len(parseEngine.order) {
-				parseEngine.order = append(parseEngine.order, "")
-				copy(parseEngine.order[parseStep.index+1:], parseEngine.order[parseStep.index:])
-				parseEngine.order[parseStep.index] = parseStep.key
-			}
+// rollbackApplyStep reverses one step of a failed Apply batch. Apply invokes
+// this newest first so the engine ends exactly as it was before the batch.
+func (parseEngine *Engine) rollbackApplyStep(parseStep applyUndo) {
+	switch parseStep.kind {
+	case undoInsert:
+		delete(parseEngine.versionByKey, parseStep.key)
+		parseEngine.removeFromOrder(parseStep.key)
+	case undoUpdate:
+		parseEngine.versionByKey[parseStep.key] = parseStep.version
+	case undoRemove:
+		parseEngine.versionByKey[parseStep.key] = parseStep.version
+		if parseStep.index >= 0 && parseStep.index <= len(parseEngine.order) {
+			parseEngine.order = append(parseEngine.order, "")
+			copy(parseEngine.order[parseStep.index+1:], parseEngine.order[parseStep.index:])
+			parseEngine.order[parseStep.index] = parseStep.key
 		}
 	}
 }
