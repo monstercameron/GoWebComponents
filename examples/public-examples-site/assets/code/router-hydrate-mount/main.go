@@ -45,6 +45,15 @@ func routeShell(parseSection, parseSummary string) *router.Element {
 	)
 }
 
+func routerHydrateRoute(parseAttrs router.Attrs) *router.Element {
+	parseSection := router.UseParams().Get("section")
+	parseSummary := "The first route was hydrated first, then the router started listening for future hash changes without forcing a replacement render."
+	if parseSection == "api" {
+		parseSummary = "You navigated after hydration. HydrateMount only special-cases the initial attach; future route updates render normally."
+	}
+	return routeShell(parseSection, parseSummary)
+}
+
 func ensureHash(parsePath string) {
 	parseWindow := js.Global().Get("window")
 	if !parseWindow.Truthy() {
@@ -61,14 +70,7 @@ func main() {
 	ensureHash("/docs/overview")
 
 	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/docs/overview"})
-	parseR.Register("/docs/:section", func(parseAttrs router.Attrs) *router.Element {
-		parseSection := router.UseParams().Get("section")
-		parseSummary := "The first route was hydrated first, then the router started listening for future hash changes without forcing a replacement render."
-		if parseSection == "api" {
-			parseSummary = "You navigated after hydration. HydrateMount only special-cases the initial attach; future route updates render normally."
-		}
-		return routeShell(parseSection, parseSummary)
-	})
+	parseR.Register("/docs/:section", routerHydrateRoute)
 
 	parseRoot := ui.CreateElement(func() ui.Node { return parseR.Current() })
 	_, _ = exampleboot.ApplyExampleHydration(parseRoot)

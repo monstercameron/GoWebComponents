@@ -83,7 +83,7 @@ func virtualizedFeedExample() ui.Node {
 								"border-white/8 bg-[rgba(15,23,42,0.55)] hover:border-cyan-300/35 hover:bg-[rgba(14,116,144,0.18)]",
 								when(isParseActive, "border-cyan-300/55 bg-[rgba(8,145,178,0.22)] text-white"),
 							}, " "),
-							OnClick: ui.UseEvent(func() { parseSelectedID.Set(parseRow.Item.ID) }),
+							OnClick: feedSelectionHandler(parseSelectedID, parseRow.Item.ID),
 						},
 							html.Div(html.Props{Class: "min-w-0"},
 								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300/80"}, html.Text(parseRow.Item.Severity+" • "+parseRow.Item.Owner)),
@@ -162,11 +162,9 @@ func virtualizedFeedExample() ui.Node {
 										html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("Toggle this, then scroll it far away and back.")),
 									),
 									html.Input(html.Props{
-										Type:    "checkbox",
-										Checked: parseLocalFlag.Get(),
-										OnChange: ui.UseEvent(func() {
-											parseLocalFlag.Set(!parseLocalFlag.Get())
-										}),
+										Type:     "checkbox",
+										Checked:  parseLocalFlag.Get(),
+										OnChange: toggleFlagHandler(parseLocalFlag),
 									}),
 								)
 							})
@@ -195,13 +193,9 @@ func virtualizedFeedExample() ui.Node {
 									html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("This flag lives in parent state keyed by item ID.")),
 								),
 								html.Input(html.Props{
-									Type:    "checkbox",
-									Checked: parseFlagged,
-									OnChange: ui.UseEvent(func() {
-										parseNext := cloneFlags(parsePreservedFlags.Get())
-										parseNext[parseRow3.Item.ID] = !parseFlagged
-										parsePreservedFlags.Set(parseNext)
-									}),
+									Type:     "checkbox",
+									Checked:  parseFlagged,
+									OnChange: preservedFlagHandler(parsePreservedFlags, parseRow3.Item.ID, parseFlagged),
 								}),
 							)
 						},
@@ -213,18 +207,16 @@ func virtualizedFeedExample() ui.Node {
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("This surface exercises the documented first-pass restoration contract. Ordinary rerenders keep pixel offset stable, prepending new rows restores from the first visible stable item key, and reloading the page restores the prior anchor from session state instead of snapping back to the top.")),
 			html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"},
 				html.Button(html.Props{
-					ID:    "restoration-prepend-button",
-					Type:  "button",
-					Class: "rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:bg-cyan-400/20",
-					OnClick: ui.UseEvent(func() {
-						parseRestorationItems.Set(prependSyntheticEvents(parseRestorationItems.Get(), parseRestorationInsertCount, 3))
-					}),
+					ID:      "restoration-prepend-button",
+					Type:    "button",
+					Class:   "rounded-full border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:bg-cyan-400/20",
+					OnClick: prependEventsHandler(parseRestorationItems, parseRestorationInsertCount),
 				}, html.Text("Prepend 3 events")),
 				html.Button(html.Props{
 					ID:      "restoration-height-button",
 					Type:    "button",
 					Class:   "rounded-full border border-white/12 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-100 transition-colors hover:bg-white/10",
-					OnClick: ui.UseEvent(func() { parseRestorationHeight.Set(toggleRestorationHeight(parseRestorationHeight.Get())) }),
+					OnClick: toggleHeightHandler(parseRestorationHeight),
 				}, html.Text("Toggle height")),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]"},
@@ -495,4 +487,28 @@ func main() {
 	}
 	exampleboot.RenderExampleRoot(ui.CreateElement(virtualizedFeedExample))
 	exampleboot.WaitExampleRuntime()
+}
+
+func feedSelectionHandler(parseSelected ui.State[string], parseID string) ui.Handler {
+	return ui.UseEvent(func() { parseSelected.Set(parseID) })
+}
+
+func toggleFlagHandler(parseFlag ui.State[bool]) ui.Handler {
+	return ui.UseEvent(func() { parseFlag.Set(!parseFlag.Get()) })
+}
+
+func preservedFlagHandler(parseFlags ui.State[map[string]bool], parseID string, parseFlagged bool) ui.Handler {
+	return ui.UseEvent(func() {
+		parseNext := cloneFlags(parseFlags.Get())
+		parseNext[parseID] = !parseFlagged
+		parseFlags.Set(parseNext)
+	})
+}
+
+func prependEventsHandler(parseItems ui.State[[]feedItem], parseCount ui.State[int]) ui.Handler {
+	return ui.UseEvent(func() { parseItems.Set(prependSyntheticEvents(parseItems.Get(), parseCount, 3)) })
+}
+
+func toggleHeightHandler(parseHeight ui.State[float64]) ui.Handler {
+	return ui.UseEvent(func() { parseHeight.Set(toggleRestorationHeight(parseHeight.Get())) })
 }

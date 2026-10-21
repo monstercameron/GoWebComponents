@@ -298,7 +298,7 @@ func App() ui.Node {
 		parseButtonSpec := parseSpec
 		parseQuickInsertNodes = append(parseQuickInsertNodes, html.Button(html.Props{
 			Type:    "button",
-			OnClick: ui.UseEvent(func() { parseAppendToken(parseButtonSpec.Token) }),
+			OnClick: parseAppendTokenHandler(parseAppendToken, parseButtonSpec.Token),
 			Class:   parseQuickBtnClass,
 		}, html.Text(parseButtonSpec.Label)))
 	}
@@ -337,7 +337,7 @@ func App() ui.Node {
 
 		parseKeypadNodes = append(parseKeypadNodes, html.Button(html.Props{
 			Type:    "button",
-			OnClick: ui.UseEvent(parseOnPress),
+			OnClick: parseOnPress,
 			Class:   parseBtnClass,
 		}, html.Text(parseButtonSpec2.Label)))
 	}
@@ -450,6 +450,10 @@ func App() ui.Node {
 		shared.ExamplePanel("Controls", parseComposerSection),
 		shared.ExamplePanel("Status", parseAboutSection),
 	)
+}
+
+func parseAppendTokenHandler(parseAppendToken func(string), parseToken string) ui.Handler {
+	return ui.UseEvent(func() { parseAppendToken(parseToken) })
 }
 
 func countTokens(parseExpression string) int {

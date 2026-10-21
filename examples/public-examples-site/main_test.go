@@ -742,26 +742,7 @@ func TestRenderCounterExampleInteractions(parseT *testing.T) {
 
 func TestRenderDeferredExamplePanels(parseT *testing.T) {
 	parseFixture := render.New(parseT)
-	parseFixture.Render(ui.CreateElement(func() ui.Node {
-		parseSourceVisible := ui.UseState(false)
-		parsePreviewLoaded := ui.UseState(false)
-		return ui.Component(renderCounterExample, contentPanelProps{
-			Item:            testEmbeddedExampleItem(),
-			MarkdownBody:    "func Counter() ui.Node {\n  return Button()\n}",
-			MarkdownReady:   true,
-			IsSourceVisible: parseSourceVisible.Get(),
-			IsPreviewLoaded: parsePreviewLoaded.Get(),
-			OnShowSource: ui.UseEvent(func() {
-				parseSourceVisible.Set(true)
-			}),
-			OnHideSource: ui.UseEvent(func() {
-				parseSourceVisible.Set(false)
-			}),
-			OnLoadPreview: ui.UseEvent(func() {
-				parsePreviewLoaded.Set(true)
-			}),
-		})
-	}))
+	parseFixture.Render(ui.CreateElement(renderDeferredExample))
 
 	if strings.Contains(parseFixture.Text(), "func Counter() ui.Node") {
 		parseT.Fatalf("expected embedded example source to stay hidden until requested, got %q", parseFixture.Text())
@@ -793,6 +774,33 @@ func TestRenderDeferredExamplePanels(parseT *testing.T) {
 	if parseFixture.ByRole("button", buttonLoadPreview) != nil {
 		parseT.Fatalf("expected start preview button to disappear after loading preview, got %q", parseFixture.Text())
 	}
+}
+
+func renderDeferredExample() ui.Node {
+	parseSourceVisible := ui.UseState(false)
+	parsePreviewLoaded := ui.UseState(false)
+	return ui.Component(renderCounterExample, contentPanelProps{
+		Item:            testEmbeddedExampleItem(),
+		MarkdownBody:    "func Counter() ui.Node {\n  return Button()\n}",
+		MarkdownReady:   true,
+		IsSourceVisible: parseSourceVisible.Get(),
+		IsPreviewLoaded: parsePreviewLoaded.Get(),
+		OnShowSource:    deferredShowSourceHandler(parseSourceVisible),
+		OnHideSource:    deferredHideSourceHandler(parseSourceVisible),
+		OnLoadPreview:   deferredLoadPreviewHandler(parsePreviewLoaded),
+	})
+}
+
+func deferredShowSourceHandler(parseState ui.State[bool]) ui.Handler {
+	return ui.UseEvent(func() { parseState.Set(true) })
+}
+
+func deferredHideSourceHandler(parseState ui.State[bool]) ui.Handler {
+	return ui.UseEvent(func() { parseState.Set(false) })
+}
+
+func deferredLoadPreviewHandler(parseState ui.State[bool]) ui.Handler {
+	return ui.UseEvent(func() { parseState.Set(true) })
 }
 
 func TestRenderPlaygroundPanelSurfacesDiagnosticsAndSandbox(parseT *testing.T) {

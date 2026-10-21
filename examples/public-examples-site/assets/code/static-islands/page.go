@@ -78,13 +78,21 @@ func renderNewsletterIsland(parseTier string, parseDemos int) ui.Node {
 func newsletterIsland() ui.Node {
 	parseTier := ui.UseState("Starter")
 	parseDemos := ui.UseState(3)
-	setTier := func(parseNext string) ui.Handler {
-		return ui.UseEvent(func() {
-			parseStarted := nowMillis()
-			parseTier.Set(parseNext)
-			writeMetric("metric-newsletter-interaction", fmt.Sprintf("%.2f ms", nowMillis()-parseStarted))
-		})
-	}
+	setStarter := ui.UseEvent(func() {
+		parseStarted := nowMillis()
+		parseTier.Set("Starter")
+		writeMetric("metric-newsletter-interaction", fmt.Sprintf("%.2f ms", nowMillis()-parseStarted))
+	})
+	setTeam := ui.UseEvent(func() {
+		parseStarted := nowMillis()
+		parseTier.Set("Team")
+		writeMetric("metric-newsletter-interaction", fmt.Sprintf("%.2f ms", nowMillis()-parseStarted))
+	})
+	setEnterprise := ui.UseEvent(func() {
+		parseStarted := nowMillis()
+		parseTier.Set("Enterprise")
+		writeMetric("metric-newsletter-interaction", fmt.Sprintf("%.2f ms", nowMillis()-parseStarted))
+	})
 	parseBookWalkthrough := ui.UseEvent(func() {
 		parseStarted2 := nowMillis()
 		parseDemos.Update(func(parsePrevious int) int { return parsePrevious + 1 })
@@ -100,9 +108,9 @@ func newsletterIsland() ui.Node {
 			metricPill("Booked demos", fmt.Sprintf("%d", parseDemos.Get()), "newsletter-demo-count"),
 		),
 		html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"},
-			islandButton("Starter", parseTier.Get() == "Starter", setTier("Starter")),
-			islandButton("Team", parseTier.Get() == "Team", setTier("Team")),
-			islandButton("Enterprise", parseTier.Get() == "Enterprise", setTier("Enterprise")),
+			islandButton("Starter", parseTier.Get() == "Starter", setStarter),
+			islandButton("Team", parseTier.Get() == "Team", setTeam),
+			islandButton("Enterprise", parseTier.Get() == "Enterprise", setEnterprise),
 		),
 		html.Button(html.Props{Class: "mt-5 w-full rounded-2xl border border-emerald-300/30 bg-emerald-300/15 px-5 py-4 font-semibold text-white", OnClick: parseBookWalkthrough},
 			html.Text("Book a walkthrough"),

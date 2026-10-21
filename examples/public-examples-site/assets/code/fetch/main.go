@@ -103,6 +103,9 @@ func App() ui.Node {
 		return loadJSON[User](parseCtx3, fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", parseSelectedUserID.Get()))
 	}, fetch.CacheOptions{StaleAfter: 15 * time.Second})
 	parseDetailState := parseDetailResource.Get()
+	parseRetryDetail := ui.UseEvent(func() { parseDetailResource.Reload() })
+	parseReloadDetail := ui.UseEvent(func() { parseDetailResource.Reload() })
+	parseCancelDetail := ui.UseEvent(func() { parseDetailResource.Cancel() })
 	parseDeferredInsights := ui.CreateElement(ui.Lazy, ui.LazyProps{
 		Loader: func(parseCtx4 context.Context) (ui.Node, error) {
 			select {
@@ -174,23 +177,7 @@ func App() ui.Node {
 		parseUserElements := make([]ui.Node, len(parseUsersState.Value))
 		for parseI2, parseUser := range parseUsersState.Value {
 			isParseSelected := parseUser.ID == parseSelectedUserID.Get()
-			parseUserElements[parseI2] = html.Div(
-				html.Props{},
-				html.Button(
-					html.Props{
-						OnClick: ui.UseEvent(func() {
-							parseSelectedUserID.Set(parseUser.ID)
-						}),
-						Class: func() string {
-							if isParseSelected {
-								return "block w-full text-left ring-2 ring-cyan-400 rounded-xl"
-							}
-							return "block w-full text-left rounded-xl"
-						}(),
-					},
-					UserCard(parseUser),
-				),
-			)
+			parseUserElements[parseI2] = fetchUserRow(parseUser, parseSelectedUserID, isParseSelected)
 		}
 		parseContent = html.Div(
 			html.Props{Class: "grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"},
@@ -249,7 +236,7 @@ func App() ui.Node {
 						return html.Div(
 							html.Props{Class: "text-red-400 space-y-3"},
 							html.P(html.Props{}, html.Text("Detail error: "+parseErr3.Error())),
-							html.Button(html.Props{OnClick: ui.UseEvent(func() { parseDetailResource.Reload() }), Class: "px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"}, html.Text("Retry Detail")),
+							html.Button(html.Props{OnClick: parseRetryDetail, Class: "px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"}, html.Text("Retry Detail")),
 						)
 					},
 					Content: func() ui.Node {
@@ -275,9 +262,9 @@ func App() ui.Node {
 							html.P(html.Props{}, html.Text("Website: "+parseUser2.Website)),
 							html.Div(
 								html.Props{Class: "flex flex-wrap gap-3 pt-4"},
-								html.Button(html.Props{OnClick: ui.UseEvent(func() { parseDetailResource.Reload() }), Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
+								html.Button(html.Props{OnClick: parseReloadDetail, Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
 								html.Button(html.Props{OnClick: handleOptimisticRename, Class: "px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-400 transition-colors font-semibold"}, html.Text("Optimistic Rename")),
-								html.Button(html.Props{OnClick: ui.UseEvent(func() { parseDetailResource.Cancel() }), Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
+								html.Button(html.Props{OnClick: parseCancelDetail, Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
 							),
 						)
 					}(),
@@ -335,6 +322,15 @@ func App() ui.Node {
 		),
 		shared.ExamplePanel("Directory", parseContent),
 	)
+}
+
+func fetchUserRow(parseUser User, parseSelected ui.State[int], parseSelectedRow bool) ui.Node {
+	parseSelect := ui.UseEvent(func() { parseSelected.Set(parseUser.ID) })
+	parseClass := "block w-full text-left rounded-xl"
+	if parseSelectedRow {
+		parseClass = "block w-full text-left ring-2 ring-cyan-400 rounded-xl"
+	}
+	return html.Div(html.Props{}, html.Button(html.Props{OnClick: parseSelect, Class: parseClass}, UserCard(parseUser)))
 }
 
 func main() {

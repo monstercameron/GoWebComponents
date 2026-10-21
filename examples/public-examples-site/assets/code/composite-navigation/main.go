@@ -57,18 +57,7 @@ func compositeNavigationExample() ui.Node {
 			parseClassName += " border-white/10 text-slate-200"
 		}
 		parseTabButtons = append(parseTabButtons,
-			html.Button(html.Props{
-				ID:        parseCurrentItem.ID,
-				Role:      "tab",
-				Class:     parseClassName,
-				OnKeyDown: parseTabKeyDown,
-				OnClick:   ui.UseEvent(func() { parseTabNav.SetActive(parseCurrentIndex) }),
-				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[parseTabNav.IsActive(parseIndex)],
-					"controls": "tab-panel",
-				},
-				Raw: map[string]interface{}{"tabIndex": parseTabNav.TabIndex(parseIndex)},
-			}, html.Text(parseCurrentItem.Text)),
+			compositeTabButton(parseTabNav, parseCurrentItem, parseCurrentIndex, parseClassName, parseTabKeyDown),
 		)
 	}
 
@@ -82,19 +71,7 @@ func compositeNavigationExample() ui.Node {
 		} else {
 			parseClassName2 += " border-white/10 bg-slate-950/50 text-slate-200"
 		}
-		parseOptions = append(parseOptions,
-			html.Div(html.Props{
-				ID:    parseCurrentItem2.ID,
-				Role:  "option",
-				Class: parseClassName2,
-				OnClick: ui.UseEvent(func() {
-					parseListboxNav.SetActive(parseCurrentIndex2)
-				}),
-				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[parseListboxNav.IsActive(parseIndex2)],
-				},
-			}, html.Text(parseCurrentItem2.Text)),
-		)
+		parseOptions = append(parseOptions, compositeListboxOption(parseListboxNav, parseCurrentItem2, parseCurrentIndex2, parseClassName2))
 	}
 
 	return shared.ExamplePage(
@@ -128,6 +105,23 @@ func compositeNavigationExample() ui.Node {
 			),
 		),
 	)
+}
+
+func compositeTabButton(parseNav ui.CompositeNavigation, parseItem ui.CompositeItem, parseIndex int, parseClass string, parseKeyDown ui.Handler) ui.Node {
+	return html.Button(html.Props{
+		ID: parseItem.ID, Role: "tab", Class: parseClass, OnKeyDown: parseKeyDown,
+		OnClick: ui.UseEvent(func() { parseNav.SetActive(parseIndex) }),
+		Aria:    map[string]string{"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex)], "controls": "tab-panel"},
+		Raw:     map[string]interface{}{"tabIndex": parseNav.TabIndex(parseIndex)},
+	}, html.Text(parseItem.Text))
+}
+
+func compositeListboxOption(parseNav ui.CompositeNavigation, parseItem ui.CompositeItem, parseIndex int, parseClass string) ui.Node {
+	return html.Div(html.Props{
+		ID: parseItem.ID, Role: "option", Class: parseClass,
+		OnClick: ui.UseEvent(func() { parseNav.SetActive(parseIndex) }),
+		Aria:    map[string]string{"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex)]},
+	}, html.Text(parseItem.Text))
 }
 
 func main() {

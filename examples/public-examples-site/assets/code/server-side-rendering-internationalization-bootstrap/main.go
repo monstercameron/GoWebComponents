@@ -97,8 +97,8 @@ func bootstrapI18nExample(parsePayload ui.SSRBootstrap) ui.Node {
 						html.P(html.Props{ID: "bootstrap-locale-headline", Class: "text-3xl font-semibold tracking-tight text-white"}, html.Text(parseIntl.T("bootstrap", "headline", i18n.Arguments{"name": "Cam"}))),
 						html.P(html.Props{ID: "bootstrap-locale-summary", Class: "text-sm leading-6 text-slate-300"}, html.Text(parseIntl.T("bootstrap", "summary"))),
 						html.Div(html.Props{Class: "flex flex-wrap gap-2"},
-							html.Button(html.Props{ID: "bootstrap-switch-en", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("en") })}, html.Text("English")),
-							html.Button(html.Props{ID: "bootstrap-switch-fr", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("fr") })}, html.Text("Francais")),
+							html.Button(html.Props{ID: "bootstrap-switch-en", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95", OnClick: bootstrapLocaleHandler(parseIntl, "en")}, html.Text("English")),
+							html.Button(html.Props{ID: "bootstrap-switch-fr", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95", OnClick: bootstrapLocaleHandler(parseIntl, "fr")}, html.Text("Francais")),
 						),
 						html.P(html.Props{ID: "bootstrap-locale-note", Class: "text-sm leading-6 text-slate-400"}, html.Text(parseIntl.T("bootstrap", "note"))),
 					),
@@ -106,6 +106,10 @@ func bootstrapI18nExample(parsePayload ui.SSRBootstrap) ui.Node {
 			)
 		}),
 	})
+}
+
+func bootstrapLocaleHandler(parseIntl i18n.Runtime, parseLocale string) ui.Handler {
+	return ui.UseEvent(func() { parseIntl.SetLocale(parseLocale) })
 }
 
 func main() {
