@@ -50,14 +50,7 @@ func Panel(parseProps Props) ui.Node {
 			parseClass += " gwc-timetravel-current"
 			parseAria["current"] = "true"
 		}
-		parseIndexCopy := parseIndex
-		parseItems = append(parseItems, html.Tag("li", html.Props{
-			Class:   parseClass,
-			Role:    "button",
-			Aria:    parseAria,
-			Raw:     map[string]any{"tabindex": "0", "data-index": strconv.Itoa(parseIndex)},
-			OnClick: ui.UseEvent(func() { scrub(parseProps, parseIndexCopy) }),
-		}, html.Text(parseLabel)))
+		parseItems = append(parseItems, timelineItem(timelineItemProps{Class: parseClass, Aria: parseAria, Index: parseIndex, Label: parseLabel, Props: parseProps}))
 	}
 
 	return html.Div(html.Props{Class: "gwc-timetravel", Role: "group"},
@@ -77,6 +70,18 @@ func Panel(parseProps Props) ui.Node {
 		),
 		html.Tag("ol", html.Props{Class: "gwc-timetravel-timeline"}, parseItems...),
 	)
+}
+
+type timelineItemProps struct {
+	Class, Label string
+	Aria         map[string]string
+	Index        int
+	Props        Props
+}
+
+func timelineItem(parseProps timelineItemProps) ui.Node {
+	parseClick := ui.UseEvent(func() { scrub(parseProps.Props, parseProps.Index) })
+	return html.Tag("li", html.Props{Class: parseProps.Class, Role: "button", Aria: parseProps.Aria, Raw: map[string]any{"tabindex": "0", "data-index": strconv.Itoa(parseProps.Index)}, OnClick: parseClick}, html.Text(parseProps.Label))
 }
 
 // scrub invokes the scrub callback for an index when present.

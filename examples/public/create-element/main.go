@@ -34,9 +34,6 @@ func badge(parseProps badgeProps) ui.Node {
 
 func createElementExample() ui.Node {
 	parseSelected := ui.UseState("base")
-	setTone := func(parseTone string) ui.Handler {
-		return ui.UseEvent(func() { parseSelected.Set(parseTone) })
-	}
 
 	parseLabels := []badgeProps{
 		{Label: "Dynamic component", Tone: parseSelected.Get()},
@@ -55,9 +52,9 @@ func createElementExample() ui.Node {
 		shared.ExamplePanel("Created components",
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"}, parseItems...),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Base", setTone("base")),
-				shared.ExampleButton("Warn", setTone("warn")),
-				shared.ExampleButton("Good", setTone("good")),
+				toneButton("Base", "base", parseSelected),
+				toneButton("Warn", "warn", parseSelected),
+				toneButton("Good", "good", parseSelected),
 			),
 		),
 		shared.ExamplePanel("Pattern",
@@ -69,6 +66,11 @@ func createElementExample() ui.Node {
 			),
 		),
 	)
+}
+
+func toneButton(parseLabel, parseTone string, parseSelected ui.State[string]) ui.Node {
+	parseSetTone := ui.UseEvent(func() { parseSelected.Set(parseTone) })
+	return shared.ExampleButton(parseLabel, parseSetTone)
 }
 
 func main() {
