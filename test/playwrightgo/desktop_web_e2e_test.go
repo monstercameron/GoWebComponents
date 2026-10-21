@@ -20,7 +20,7 @@ func TestDesktopLabWebE2E(parseTest *testing.T) {
 	parseRoot := repoRootFromTest(parseTest)
 	// A fresh scaffold prevents old helper-generated assets from masking a broken CLI build.
 	parseExample := filepath.Join(parseTest.TempDir(), "lab")
-	parseCommand := exec.Command("go", "run", "./tools/gwc", "build", "-target", "web", "-root", parseExample, "-json")
+	parseCommand := exec.Command("go", "-C", "tools", "run", "./gwc", "build", "-target", "web", "-root", parseExample, "-json")
 	parseCommand.Dir = parseRoot
 	for _, parseEntry := range os.Environ() {
 		parseKey, _, _ := strings.Cut(parseEntry, "=")
@@ -30,7 +30,7 @@ func TestDesktopLabWebE2E(parseTest *testing.T) {
 		}
 		parseCommand.Env = append(parseCommand.Env, parseEntry)
 	}
-	parseInit := exec.Command("go", "run", "./tools/gwc", "desktop", "init", "-root", parseExample, "-json")
+	parseInit := exec.Command("go", "-C", "tools", "run", "./gwc", "desktop", "init", "-root", parseExample, "-json")
 	parseInit.Dir = parseRoot
 	parseInit.Env = parseCommand.Env
 	if parseOutput, parseErr := parseInit.CombinedOutput(); parseErr != nil {
