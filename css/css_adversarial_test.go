@@ -589,12 +589,12 @@ func TestAdversarial_ConcurrentResetAndNew(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.Reset()
 		}()
 		go func(n int) {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.New(css.Bg(css.Slate800), css.Padding(css.Px(n%16)))
 		}(i)
 	}
@@ -609,17 +609,17 @@ func TestAdversarial_ConcurrentSetSink(t *testing.T) {
 		wg.Add(3)
 		go func() {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.SetSink(nil) // restore default
 		}()
 		go func(n int) {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.New(css.Display.Grid, css.Gap(css.Px(n%8)))
 		}(i)
 		go func() {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.Harvest()
 		}()
 	}
@@ -633,7 +633,7 @@ func TestAdversarial_ConcurrentSeed(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			css.Seed("c-fake" + strings.Repeat("x", n%10))
 			css.New(css.Display.Flex)
 		}(i)

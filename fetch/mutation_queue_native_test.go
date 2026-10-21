@@ -379,9 +379,9 @@ func TestMutationQueueClearIsSerializedWithEnqueue(parseT *testing.T) {
 	parseDone := make(chan error, 1)
 	go func() { parseDone <- parseQueue.Clear() }()
 	select {
-	case <-parseDone:
+	case parseClearErr := <-parseDone:
 		parseMu.Unlock()
-		parseT.Fatal("Clear completed while the queue lock was held")
+		parseT.Fatalf("Clear completed while the queue lock was held: %v", parseClearErr)
 	case <-time.After(50 * time.Millisecond):
 	}
 	parseMu.Unlock()

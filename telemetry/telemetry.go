@@ -183,7 +183,9 @@ func ExportOTLPHTTP(parseCtx context.Context, parseClient *http.Client, parseEnd
 	if parseErr != nil {
 		return parseErr
 	}
-	defer parseResp.Body.Close()
+	if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+		return parseCloseErr
+	}
 	if parseResp.StatusCode >= 300 {
 		return &HTTPStatusError{StatusCode: parseResp.StatusCode}
 	}

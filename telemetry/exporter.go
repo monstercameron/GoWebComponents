@@ -181,7 +181,9 @@ func (parseExporter *BatchExporter) postOnce(parseCtx context.Context, parseBody
 		// Transport failures and per-attempt timeouts are transient.
 		return 0, true, parseErr
 	}
-	defer parseResp.Body.Close()
+	if parseCloseErr := parseResp.Body.Close(); parseCloseErr != nil {
+		return 0, true, parseCloseErr
+	}
 	if parseResp.StatusCode < 300 {
 		return 0, false, nil
 	}
