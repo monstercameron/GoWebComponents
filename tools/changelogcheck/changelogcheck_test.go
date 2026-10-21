@@ -85,6 +85,21 @@ Notes.
 	}
 }
 
+func TestHasEntryKeepsStableAndPrereleaseSeparate(t *testing.T) {
+	parseChangelog := "# Changelog\n\n## v7.0.0-rc.1\n\nRelease candidate notes.\n"
+	if !HasEntry(parseChangelog, "v7.0.0-rc.1") {
+		t.Fatal("release candidate heading must match its exact tag")
+	}
+	for _, parseVersion := range []string{"v7.0.0", "v7.0.0-rc.10"} {
+		if HasEntry(parseChangelog, parseVersion) {
+			t.Errorf("release candidate heading must not satisfy %q", parseVersion)
+		}
+	}
+	if HasEntry("## v7.0.0+build.1\n", "v7.0.0") {
+		t.Fatal("build-metadata heading must not satisfy the stable tag")
+	}
+}
+
 // TestLatestEntrySkipsH1AndReturnsFirstSection verifies that LatestEntry skips
 // the top-level "# Changelog" heading and returns the first ## section.
 func TestLatestEntrySkipsH1AndReturnsFirstSection(t *testing.T) {
