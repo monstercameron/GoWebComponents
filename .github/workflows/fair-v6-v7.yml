@@ -24,10 +24,6 @@ jobs:
     timeout-minutes: 180
     env:
       V6_REF: ${{ inputs.v6_ref || '1e61695cda00a659faf8215d6a496342f75e8298' }}
-      FAIR_DIR: ${{ runner.temp }}/fair-v6-v7
-      V6_DIR: ${{ runner.temp }}/fair-v6-v7/v6-ref
-      GWC_SUITE: ${{ runner.temp }}/fair-v6-v7/gwc-suite
-      GOWASM_EXEC: ${{ runner.temp }}/fair-v6-v7/gowasmexec
     steps:
       - name: Checkout clean v7 source
         uses: actions/checkout@v6
@@ -40,6 +36,14 @@ jobs:
         with:
           go-version: 1.27.3
           cache: true
+
+      - name: Prepare benchmark paths
+        shell: bash
+        run: |
+          echo "FAIR_DIR=$RUNNER_TEMP/fair-v6-v7" >> "$GITHUB_ENV"
+          echo "V6_DIR=$RUNNER_TEMP/fair-v6-v7/v6-ref" >> "$GITHUB_ENV"
+          echo "GWC_SUITE=$RUNNER_TEMP/fair-v6-v7/gwc-suite" >> "$GITHUB_ENV"
+          echo "GOWASM_EXEC=$RUNNER_TEMP/fair-v6-v7/gowasmexec" >> "$GITHUB_ENV"
 
       - name: Record runner and source identities
         shell: bash
