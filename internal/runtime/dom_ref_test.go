@@ -113,6 +113,28 @@ func TestDOMRefReassignsAcrossRemount(parseT *testing.T) {
 	}
 }
 
+func TestDOMRefRetargetsSurvivingFiberAndRemoval(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseFirstSink := &captureSink{}
+	parseSecondSink := &captureSink{}
+
+	parseRt.Render(renderHostWith(parseFirstSink, true, "stable"), parseContainer)
+	parseRt.Render(renderHostWith(parseSecondSink, true, "stable"), parseContainer)
+	if !IsDOMNodeNull(parseFirstSink.node) || IsDOMNodeNull(parseSecondSink.node) {
+		parseT.Fatalf("surviving ref was not retargeted: old=%#v new=%#v", parseFirstSink.node, parseSecondSink.node)
+	}
+	if parseFirstSink.detaches != 1 || parseSecondSink.attaches != 1 {
+		parseT.Fatalf("expected one detach and one attach, got old detach=%d new attach=%d", parseFirstSink.detaches, parseSecondSink.attaches)
+	}
+
+	parseRt.Render(renderHostWith(nil, true, "stable"), parseContainer)
+	if !IsDOMNodeNull(parseSecondSink.node) || parseSecondSink.detaches != 1 {
+		parseT.Fatalf("ref removal did not clear prior sink: node=%#v detaches=%d", parseSecondSink.node, parseSecondSink.detaches)
+	}
+}
+
 func TestDOMRefNilSinkAndMissingKeyAreSafe(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})

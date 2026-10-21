@@ -76,6 +76,21 @@ type decodeFastCustomField struct {
 	Name decodeFastCustomString `json:"name"`
 }
 
+type decodeFastTextField struct {
+	Name decodeFastTextValue `json:"name"`
+}
+
+type decodeFastTextMapValue struct {
+	Meta map[string]decodeFastTextValue `json:"meta"`
+}
+
+type decodeFastTextValue string
+
+func (parseValue *decodeFastTextValue) UnmarshalText(parseText []byte) error {
+	*parseValue = decodeFastTextValue("text:" + string(parseText))
+	return nil
+}
+
 type decodeFastCustomString string
 
 func (parseValue *decodeFastCustomString) UnmarshalJSON([]byte) error {
@@ -148,6 +163,8 @@ func TestDecodeSimpleMapToStructFallsBackForUnsupportedShapes(t *testing.T) {
 		{name: "embedded field", value: map[string]any{"name": "embedded"}, target: &decodeFastEmbedded{}},
 		{name: "custom unmarshaler", value: map[string]any{"name": "input"}, target: &decodeFastCustom{}},
 		{name: "custom field unmarshaler", value: map[string]any{"name": "input"}, target: &decodeFastCustomField{}},
+		{name: "text field unmarshaler", value: map[string]any{"name": "input"}, target: &decodeFastTextField{}},
+		{name: "text map value unmarshaler", value: map[string]any{"meta": map[string]any{"key": "input"}}, target: &decodeFastTextMapValue{}},
 		{name: "pointer field", value: map[string]any{"name": "pointer"}, target: &decodeFastPointer{}},
 		{name: "string tag option", value: map[string]any{"id": `"7"`}, target: &decodeFastStringOption{}},
 		{name: "map alias hooks", value: map[string]any{"meta": map[string]any{"key": "value"}}, target: &decodeFastMapAlias{}},

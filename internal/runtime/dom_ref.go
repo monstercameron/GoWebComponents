@@ -106,3 +106,20 @@ func (parseRt *Runtime) retargetDOMRef(parseFiber *Fiber) {
 		parseNewSink.SetDOMNode(parseFiber.dom)
 	}
 }
+
+// fiberMayCarryDOMRef gates the ref retarget path without caching mutable
+// props state. Compact fibers normally have no ref; probing their live map once
+// avoids the two map lookups in retargetDOMRef. Generic fibers remain
+// conservative because their props shape is not represented by compact attrs.
+func fiberMayCarryDOMRef(parseFiber *Fiber) bool {
+	if parseFiber == nil {
+		return false
+	}
+	if !parseFiber.isCompactHostProps || parseFiber.hasCompactSpecialProps {
+		return true
+	}
+	if _, parseHasRef := parseFiber.props[DOMRefKey]; parseHasRef {
+		return true
+	}
+	return false
+}

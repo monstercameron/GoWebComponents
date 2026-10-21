@@ -8,6 +8,7 @@ import (
 )
 
 var interopJSONUnmarshalerType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
+var interopTextUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 
 // decodeSimpleMapToStruct handles the small, already-decoded payloads commonly
 // received from browser messages without a marshal/unmarshal round trip. It
@@ -79,7 +80,7 @@ func decodeSimpleMapToStruct(parseValue any, parseTarget any) (bool, error) {
 }
 
 func simpleJSONField(parseType reflect.Type) bool {
-	if parseType.Implements(interopJSONUnmarshalerType) || reflect.PointerTo(parseType).Implements(interopJSONUnmarshalerType) {
+	if parseType.Implements(interopJSONUnmarshalerType) || reflect.PointerTo(parseType).Implements(interopJSONUnmarshalerType) || parseType.Implements(interopTextUnmarshalerType) || reflect.PointerTo(parseType).Implements(interopTextUnmarshalerType) {
 		return false
 	}
 	switch parseType.Kind() {
@@ -90,11 +91,10 @@ func simpleJSONField(parseType reflect.Type) bool {
 		if parseKeyType.Kind() != reflect.String || parseValueType.Kind() != reflect.String {
 			return false
 		}
-		parseTextUnmarshalerType := reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-		if parseKeyType.Implements(parseTextUnmarshalerType) || reflect.PointerTo(parseKeyType).Implements(parseTextUnmarshalerType) {
+		if parseKeyType.Implements(interopTextUnmarshalerType) || reflect.PointerTo(parseKeyType).Implements(interopTextUnmarshalerType) {
 			return false
 		}
-		if parseValueType.Implements(interopJSONUnmarshalerType) || reflect.PointerTo(parseValueType).Implements(interopJSONUnmarshalerType) {
+		if parseValueType.Implements(interopJSONUnmarshalerType) || reflect.PointerTo(parseValueType).Implements(interopJSONUnmarshalerType) || parseValueType.Implements(interopTextUnmarshalerType) || reflect.PointerTo(parseValueType).Implements(interopTextUnmarshalerType) {
 			return false
 		}
 		return true

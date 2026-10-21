@@ -837,7 +837,9 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 						parseRt.updateDomProperties(parseFiber.dom, parseOldView, parseNewView)
 						isParseCommitted = true
 					}
-					parseRt.retargetDOMRef(parseFiber)
+					if fiberMayCarryDOMRef(parseFiber) || fiberMayCarryDOMRef(parseFiber.alternate) {
+						parseRt.retargetDOMRef(parseFiber)
+					}
 					if isParseCommitted {
 						parseFiber.commitDurationNs += commitTimingSinceNs(parseStart5)
 						parseRt.recordFineGrainedDescendantCommit(parseFiber)
