@@ -26,7 +26,7 @@ LOOP = re.compile(
 
 def normalize_props_storage_source(path: Path, source: str) -> tuple[str, int]:
     """Make the prototype's map-to-slice benchmark deterministic in v6 too."""
-    if path.name != "props_storage_prototype_test.go" or "func clonePropsToSlice" not in source:
+    if not is_runtime_benchmark(path, "props_storage_prototype_test.go") or "func clonePropsToSlice" not in source:
         return source, 0
     parse_insertions = 0
     if '"sort"' not in source:
@@ -41,10 +41,14 @@ def normalize_props_storage_source(path: Path, source: str) -> tuple[str, int]:
 
 def normalize_hydration_scheduler_source(path: Path, source: str) -> tuple[str, int]:
     """Run the same complete scheduler drain on the historical hydration benchmarks."""
-    if path.name != "hydration_benchmark_test.go":
+    if not is_runtime_benchmark(path, "hydration_benchmark_test.go"):
         return source, 0
     parse_replacements = source.count("parseScheduler.timeouts[0]()")
     return source.replace("parseScheduler.timeouts[0]()", "drainBenchmarkScheduler(parseScheduler)"), parse_replacements
+
+
+def is_runtime_benchmark(path: Path, name: str) -> bool:
+    return path.name == name and path.parent.name == "runtime" and path.parent.parent.name == "internal"
 
 
 def main() -> int:
@@ -71,11 +75,11 @@ def main() -> int:
         after = LOOP.sub(replace, before)
         after, parse_props_insertions = normalize_props_storage_source(path, after)
         after, parse_hydration_replacements = normalize_hydration_scheduler_source(path, after)
-        if path.name == "props_storage_prototype_test.go":
+        if is_runtime_benchmark(path, "props_storage_prototype_test.go"):
             transformations.append({"path": path.relative_to(args.root).as_posix(), "props_sort_insertions": parse_props_insertions})
             if "sort.Slice(getPairs" not in after:
                 raise SystemExit(f"props storage benchmark parity marker missing: {path}")
-        if path.name == "hydration_benchmark_test.go":
+        if is_runtime_benchmark(path, "hydration_benchmark_test.go"):
             transformations.append({"path": path.relative_to(args.root).as_posix(), "hydration_drain_replacements": parse_hydration_replacements})
             if "parseScheduler.timeouts[0]()" in after or "drainBenchmarkScheduler(parseScheduler)" not in after:
                 raise SystemExit(f"hydration scheduler parity marker missing: {path}")
