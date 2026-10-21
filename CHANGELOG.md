@@ -79,6 +79,9 @@ reliable end-to-end win, so the full experiment verdict remains future research.
 The release changelog check now distinguishes stable and RC headings: a
 `v7.0.0-rc.1` section cannot satisfy the later `v7.0.0` tag gate.
 
+The router WASM browser test fixture now supports `document.dispatchEvent`,
+preventing a deferred first-commit panic from interrupting query-loader tests.
+
 #### Added
 
 - Error-code registry: tag-free `internal/errcode` (72 entries covering runtime,
