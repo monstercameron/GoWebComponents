@@ -8,18 +8,27 @@ on:
         required: false
         default: 1e61695cda00a659faf8215d6a496342f75e8298
         type: string
+      lane:
+        description: Benchmark lane to run on the dedicated runner
+        required: false
+        default: native
+        type: choice
+        options:
+          - native
+          - wasm
 
 permissions:
   contents: read
 
-# The comparison is intentionally sequential and must never be cancelled by a
-# second manual dispatch.  A single ubuntu-latest runner is amd64 today.
+# Each lane runs its v6/v7 pair sequentially on one runner. A second dispatch
+# of the same lane queues instead of cancelling a measurement already underway.
 concurrency:
-  group: fair-v6-v7-production
+  group: fair-v6-v7-${{ inputs.lane || 'native' }}
   cancel-in-progress: false
 
 jobs:
   compare:
+    if: ${{ inputs.lane != 'wasm' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -128,4 +137,127 @@ jobs:
         with:
           name: fair-v6-v7-production-${{ github.run_id }}
           path: ${{ runner.temp }}/fair-v6-v7
+          if-no-files-found: warn
+
+  # The Wasm lane uses the exact v6/v7 benchmark intersection discovered by
+  # bench_report.go. jsdom is excluded because plain Node has no browser DOM.
+  compare-wasm:
+    if: ${{ inputs.lane == 'wasm' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      V6_REF: ${{ inputs.v6_ref || '1e61695cda00a659faf8215d6a496342f75e8298' }}
+      PACKAGES: >-
+        ./fetch,./internal/runtime,./interop,./router,./state,./testkit/hooks,
+        ./testkit/router,./utils
+    steps:
+      - name: Checkout clean v7 source
+        uses: actions/checkout@v6
+        with:
+          clean: true
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.27.3
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prepare benchmark paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "FAIR_DIR=$RUNNER_TEMP/fair-v6-v7-wasm" >> "$GITHUB_ENV"
+          echo "V6_DIR=$RUNNER_TEMP/fair-v6-v7-wasm/v6-ref" >> "$GITHUB_ENV"
+          echo "GWC_SUITE=$RUNNER_TEMP/fair-v6-v7-wasm/gwc-suite" >> "$GITHUB_ENV"
+          echo "GO_WASM_EXEC=$(go env GOROOT)/lib/wasm/go_js_wasm_exec" >> "$GITHUB_ENV"
+
+      - name: Build suite and validate executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$FAIR_DIR"
+          go -C tools build -o "$GWC_SUITE" ./gwc
+          test -x "$GO_WASM_EXEC"
+          node --version | tee "$FAIR_DIR/node-version.txt"
+          go version | tee "$FAIR_DIR/go-version.txt"
+
+      - name: Materialize and normalize v6 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$V6_REF^{commit}"
+          mkdir -p "$V6_DIR"
+          git archive "$V6_REF" | tar -x -C "$V6_DIR"
+          python3 .github/scripts/normalize-v6-benchmarks.py "$V6_DIR" \
+            --report "$FAIR_DIR/v6-loop-normalization.json" \
+            | tee "$FAIR_DIR/v6-loop-normalization.txt"
+
+      - name: Preflight supported benchmark inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages=(
+            ./fetch ./internal/runtime ./interop ./router ./state ./testkit/hooks
+            ./testkit/router ./utils
+          )
+          for root in "$V6_DIR" "$GITHUB_WORKSPACE"; do
+            for package in "${packages[@]}"; do
+              test -d "$root/${package#./}"
+              compgen -G "$root/${package#./}/*_benchmark_test.go" > /dev/null
+            done
+          done
+          printf '%s\n' "${packages[@]}" | tee "$FAIR_DIR/wasm-packages.txt"
+          printf 'v6_ref=%s\n' "$V6_REF" | tee "$FAIR_DIR/sources.txt"
+          git rev-parse HEAD | sed 's/^/v7_ref=/' | tee -a "$FAIR_DIR/sources.txt"
+          uname -a | tee "$FAIR_DIR/runner.txt"
+          for root in "$V6_DIR" "$GITHUB_WORKSPACE"; do
+            label=v7
+            [[ "$root" == "$V6_DIR" ]] && label=v6
+            for package in "${packages[@]}"; do
+              GOOS=js GOARCH=wasm go -C "$root" test -tags production -run '^$' \
+                -exec "$GO_WASM_EXEC" "$package" >> "$FAIR_DIR/${label}-wasm-preflight.txt" 2>&1
+            done
+          done
+
+      - name: Run sequential v6 and v7 Wasm suites
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$FAIR_DIR"
+          common=(-lane wasm -count 5 -warmup 1 -shuffle -seed 6001 -packages "$PACKAGES" -tags production)
+          export GO_WASM_EXEC
+          set +e
+          "$GWC_SUITE" bench suite -root "$V6_DIR" -suite v6-wasm "${common[@]}" \
+            -out "$FAIR_DIR/v6-wasm.json" 2>&1 | tee "$FAIR_DIR/v6-wasm.console.txt"
+          v6_status=${PIPESTATUS[0]}
+          "$GWC_SUITE" bench suite -root "$GITHUB_WORKSPACE" -suite v7-wasm "${common[@]}" \
+            -out "$FAIR_DIR/v7-wasm.json" 2>&1 | tee "$FAIR_DIR/v7-wasm.console.txt"
+          v7_status=${PIPESTATUS[0]}
+          compare_status=2
+          if [[ "$v6_status" == 0 && "$v7_status" == 0 && -s "$FAIR_DIR/v6-wasm.json" && -s "$FAIR_DIR/v7-wasm.json" ]]; then
+            "$GWC_SUITE" bench suite compare -json "$FAIR_DIR/v6-wasm.json" "$FAIR_DIR/v7-wasm.json" \
+              > "$FAIR_DIR/compare-wasm.json"
+            json_status=$?
+            "$GWC_SUITE" bench suite compare -max-regress-pct 15 "$FAIR_DIR/v6-wasm.json" "$FAIR_DIR/v7-wasm.json" \
+              2>&1 | tee "$FAIR_DIR/compare-wasm.txt"
+            compare_status=${PIPESTATUS[0]}
+            [[ "$json_status" == 0 && "$compare_status" == 0 ]] || compare_status=1
+          else
+            printf 'compare skipped: v6_status=%s v7_status=%s\n' "$v6_status" "$v7_status" | tee "$FAIR_DIR/compare-wasm.txt"
+          fi
+          printf 'v6_status=%s\nv7_status=%s\ncompare_status=%s\n' "$v6_status" "$v7_status" "$compare_status" | tee "$FAIR_DIR/status.txt"
+          [[ "$v6_status" == 0 && "$v7_status" == 0 && "$compare_status" == 0 ]]
+
+      - name: Upload Wasm benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fair-v6-v7-wasm-${{ github.run_id }}
+          path: ${{ runner.temp }}/fair-v6-v7-wasm
           if-no-files-found: warn
