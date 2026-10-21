@@ -453,7 +453,7 @@ func (parseS *Store) CreatePurchaseOrder(parseCtx context.Context, parseInput Cr
 	if parseErr != nil {
 		return PurchaseOrderDetailRecord{}, fmt.Errorf("begin purchase order transaction: %w", parseErr)
 	}
-	defer parseTx.Rollback()
+	defer func() { _ = parseTx.Rollback() }()
 	if _, parseErr2 := parseTx.ExecContext(parseCtx, `insert into purchase_orders(id, vendor_name, warehouse_id, status, priority_note, eta, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)`, parseRecord.ID, parseRecord.VendorName, parseRecord.WarehouseID, parseRecord.Status, parseRecord.PriorityNote, parseRecord.ETA, parseRecord.CreatedAt, parseRecord.UpdatedAt); parseErr2 != nil {
 		return PurchaseOrderDetailRecord{}, fmt.Errorf("insert purchase order: %w", parseErr2)
 	}

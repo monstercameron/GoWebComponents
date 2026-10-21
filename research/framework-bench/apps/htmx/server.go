@@ -70,7 +70,7 @@ func mutating(apply func(r *http.Request)) http.HandlerFunc {
 		_ = r.ParseForm()
 		apply(r)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, renderMain(st))
+		_, _ = fmt.Fprint(w, renderMain(st))
 	}
 }
 
@@ -78,7 +78,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!doctype html>
+	_, _ = fmt.Fprintf(w, `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />

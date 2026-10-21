@@ -64,7 +64,7 @@ func runAtlasServer(parseDeps atlasMainDeps) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	defer parseDatabase.Close()
+	defer func() { _ = parseDatabase.Close() }()
 
 	if parseErr2 := parseDeps.migrate(parseCtx, parseDatabase, parseCfg.MigrationsDir, parseCfg.FallbackSchema); parseErr2 != nil {
 		return parseErr2

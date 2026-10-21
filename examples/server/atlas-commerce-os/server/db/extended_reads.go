@@ -130,7 +130,7 @@ func (parseS *Store) ProductComments(parseCtx context.Context, parseProductSlug 
 	if parseErr != nil {
 		return nil, fmt.Errorf("query product comments: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []CommentRecord{}
 	for parseRows.Next() {
 		var parseItem CommentRecord
@@ -152,7 +152,7 @@ func (parseS *Store) RelatedProducts(parseCtx context.Context, parseProductSlug 
 	if parseErr != nil {
 		return nil, fmt.Errorf("query related products: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	for parseRows.Next() {
 		var parseItem repository.Product
 		if parseErr2 := parseRows.Scan(&parseItem.SKU, &parseItem.Slug, &parseItem.Title, &parseItem.Category, &parseItem.PriceCents, &parseItem.Status, &parseItem.Summary, &parseItem.SEODescription); parseErr2 != nil {
@@ -165,7 +165,7 @@ func (parseS *Store) RelatedProducts(parseCtx context.Context, parseProductSlug 
 		if parseErr3 != nil {
 			return nil, fmt.Errorf("query fallback related products: %w", parseErr3)
 		}
-		defer parseFallbackRows.Close()
+		defer func() { _ = parseFallbackRows.Close() }()
 		for parseFallbackRows.Next() {
 			var parseItem2 repository.Product
 			if parseErr4 := parseFallbackRows.Scan(&parseItem2.SKU, &parseItem2.Slug, &parseItem2.Title, &parseItem2.Category, &parseItem2.PriceCents, &parseItem2.Status, &parseItem2.Summary, &parseItem2.SEODescription); parseErr4 != nil {
@@ -238,7 +238,7 @@ func (parseS *Store) ThresholdHistory(parseCtx context.Context, parseSku string)
 	if parseErr != nil {
 		return nil, fmt.Errorf("query threshold history: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ThresholdHistoryRecord{}
 	for parseRows.Next() {
 		var parseItem ThresholdHistoryRecord
