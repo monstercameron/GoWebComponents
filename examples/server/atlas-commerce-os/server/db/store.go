@@ -96,7 +96,7 @@ func (parseS *Store) Catalog(parseCtx context.Context, parseQuery CatalogQuery) 
 	if parseErr2 != nil {
 		return CatalogPage{}, fmt.Errorf("query catalog rows: %w", parseErr2)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []repository.Product{}
 	for parseRows.Next() {
 		var parseItem repository.Product
@@ -122,7 +122,7 @@ func (parseS *Store) Warehouses(parseCtx context.Context) ([]Warehouse, error) {
 	if parseErr != nil {
 		return nil, fmt.Errorf("query warehouses: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []Warehouse{}
 	for parseRows.Next() {
 		var parseItem Warehouse
@@ -186,7 +186,7 @@ func (parseS *Store) InventoryList(parseCtx context.Context, parseQuery reposito
 	if parseErr != nil {
 		return nil, fmt.Errorf("query inventory list: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []repository.InventoryRow{}
 	for parseRows.Next() {
 		var parseItem repository.InventoryRow
@@ -214,7 +214,7 @@ func (parseS *Store) InventoryRowsBySKU(parseCtx context.Context, parseSku strin
 	if parseErr != nil {
 		return nil, fmt.Errorf("query inventory rows by sku: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []repository.InventoryRow{}
 	for parseRows.Next() {
 		var parseItem repository.InventoryRow
@@ -350,7 +350,7 @@ func (parseS *Store) SavedViewsByOwner(parseCtx context.Context, parseOwnerID st
 	if parseErr != nil {
 		return nil, fmt.Errorf("query saved views: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []repository.SavedView{}
 	for parseRows.Next() {
 		var parseItem repository.SavedView

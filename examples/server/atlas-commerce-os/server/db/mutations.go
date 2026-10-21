@@ -149,7 +149,7 @@ func (parseS *Store) Comments(parseCtx context.Context, parseStatus string) ([]C
 	if parseErr != nil {
 		return nil, fmt.Errorf("query comments: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []CommentRecord{}
 	for parseRows.Next() {
 		var parseItem CommentRecord
@@ -328,7 +328,7 @@ func (parseS *Store) Transfers(parseCtx context.Context) ([]TransferRecord, erro
 	if parseErr != nil {
 		return nil, fmt.Errorf("query transfers: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []TransferRecord{}
 	for parseRows.Next() {
 		var parseItem TransferRecord
@@ -363,7 +363,7 @@ func (parseS *Store) ReceivingSessions(parseCtx context.Context) ([]ReceivingSes
 	if parseErr != nil {
 		return nil, fmt.Errorf("query receiving sessions: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ReceivingSessionRecord{}
 	for parseRows.Next() {
 		var parseItem ReceivingSessionRecord

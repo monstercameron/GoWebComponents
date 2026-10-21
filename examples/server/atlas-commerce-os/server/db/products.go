@@ -91,7 +91,7 @@ func (parseS *Store) ProductAdminList(parseCtx context.Context, parseQuery Produ
 	if parseErr != nil {
 		return nil, fmt.Errorf("query product admin list: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []ProductAdminRecord{}
 	for parseRows.Next() {
 		var parseSku string
