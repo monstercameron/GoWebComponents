@@ -22,13 +22,21 @@ the stable `v7.0.0` tag has not been published.
 ### Verification and release status
 
 This is a documentation and packaging checkpoint for the RC. An isolated
-CashFlux `/v7` migration passed its Wasm build, native compile, vet, all-route
-browser smoke, and light-theme browser smoke. Repeated v5/v7 route timings did
-not show a consistent v7 slowdown. The fair v6/v7 production benchmark, the
-complete release workflow, and published-RC `go get` consumer verification
-remain release gates. Windows v6.1 manual acceptance is deferred; v7 may
-release before v6.1 after its own gates pass. No `v7.0.0-rc.1` or `v7.0.0`
-tag has been published.
+CashFlux `/v7` migration against exact source `5a2ce15b` passed its Wasm
+build, full short Go suite, and production browser suite (27 passed, 2 skipped,
+2 timing-sensitive retries). Go 1.27 required regenerating CashFlux's eight
+icon fixtures; the same mismatch occurs on its v5 source with Go 1.27.
+Repeated v5/v7 route timings did not show a consistent v7 slowdown. The
+final-runtime validation-only release workflow passed its Windows build and
+test gates. Dedicated fair v6/v7 production comparisons completed; native was
+6.11% faster by geometric mean, and Wasm was 0.12% faster overall.
+Published-RC `go get` consumer verification remains a release gate. The
+Example 201 browser comparison stayed within its
+per-scenario noise limit but missed the positive geomean target, and the
+transition-list Wasm benchmark exceeded the 15% per-entry limit. The
+maintainer accepted both measured costs for v7 on 2026-10-21; see
+`docs/benchmarks/V7-RELEASE-EVIDENCE.md`. Windows v6.1 manual acceptance is
+deferred; v7 may release before v6.1 after its own gates pass.
 
 ### Documentation
 
