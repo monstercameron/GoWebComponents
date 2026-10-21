@@ -15,6 +15,9 @@ measure first. Every perf claim is gated on the V7-P0 baseline. One todo at a ti
 Decisions recorded: v7 is a breaking major with a generated migration guide; heavy
 tool deps move to a nested tools module; core OTel is API-only (no SDK, never in the
 wasm build); Go floor is `go 1.27.0`; v6.1.0 is finished and tagged before v7 branches.
+The v6.1-first release decision is superseded by the maintainer decision recorded on
+2026-10-21: release v7 before v6.1 manual acceptance; v6.1 acceptance remains
+deferred and the historical decision above is retained for provenance.
 
 ### V7 RESUME PLAN (work paused 2026-10-03 evening; pick up Saturday 2026-10-10)
 
@@ -153,22 +156,24 @@ Integrated check after wave 2: `go build ./...`, `go vet ./...`, wasm `go vet` o
 
 ### V7 bug-hunt candidates (adversarial read-only review, 2026-10-03; each needs a failing test first, lanes running)
 
-- [ ] **[impl]** `fetch/cache.go:884`: failed revalidation of a Ready cached resource retries forever (effect deps include Loading, `Stale` stays true on error; no-retry guard at :878 covers only !Ready).
-- [ ] **[impl]** `ui/revalidate_focus_hook.go:23-30`: `UseRevalidateOnFocus` never refetches (query effect keyed on [key, deps] does not re-run).
-- [ ] **[impl]** `fetch/query_cache.go:215-222` + `cache.go:884`: `LoadNext` on a mounted `UseInfiniteQuery` resets to page 1 and discards the appended page.
-- [ ] **[impl]** `internal/runtime/reconciler_commit.go:2088,2142`: panicking effect cleanup is not recovered; skips remaining and later effects whose deps were already stored; bypasses the error boundary.
+- [x] **[impl]** Fixed: failed Ready-resource revalidation now stops retrying while the stale error remains (`fetch/cache.go:894-907`); `fetch/cache_effect_loop_native_test.go` covers bounded retries.
+- [x] **[impl]** Fixed: `UseRevalidateOnFocus` invalidates and invokes mounted query revalidators (`ui/revalidate_focus_hook.go:39-60`); `ui/revalidate_focus_hook_wasm_test.go:14` covers refetch.
+- [x] **[impl]** Fixed: `LoadNext` preserves appended pages and rejects stale results after reload (`fetch/query_cache.go:200-240`); `fetch/cache_effect_loop_native_test.go:87` covers mounted pagination.
+- [x] **[impl]** Fixed: effect cleanup panics are contained and sibling effects continue (`internal/runtime/p7_review_regressions_test.go:13`, `panic_diagnostic_test.go`).
 - [ ] **[impl]** `ui/hydration_island_wasm.go:62`: multiple hydration islands share the single runtime root and clobber each other (may need runtime multi-root support).
 - [ ] **[impl]** `fetch/resilience.go:67,68,186,214`: zero-value traps (`Multiplier`, `MaxDelay`, `HalfOpenMaxCalls`, `FailureThreshold`) plus a half-open breaker stuck forever after a panicking op or ctx cancel, and retries that keep hitting a downstream after the breaker opens. Decision: zero means documented default.
 - [ ] **[impl]** `fetch/realtime.go:700-705,514-525,520,587`: false heartbeat timeout right after reconnect (stale `LastMessage`), `ReconnectAttempts` reset on every open so it never gives up, state outlives controller.
 - [ ] **[impl]** `fetch/mutation_queue.go:398-400,329`: conflict-handler error leaves already-succeeded mutations persisted (they replay again); `Clear` takes no lock.
-- [ ] **[impl]** `internal/runtime/reconciler.go:853-882` + `html/sugar.go:112-116`: nil child (`If(false, ...)`) does not hold its slot, so the next unkeyed sibling remounts and loses state.
+- [x] **[impl]** Fixed: nil children retain slot alignment through `Fiber.slotGap` (`internal/runtime/reconciler.go:845+`, `reconciler_elements.go:939+`); coverage tests pin nil-slot preservation.
 - [ ] **[impl]** `query/query.go:310,351,369,455` and `fetch/query_cache.go:330-374`: overlapping optimistic updates roll back to the wrong state; `Invalidate` does not bump the generation so an in-flight fetch commits stale data as fresh.
-- [ ] **[impl]** `internal/runtime/state.go:578-612`: `RestoreSnapshot` does not notify dependents, so derived atoms and `UseDerived` stay stale after `ApplySnapshot`/hydration bootstrap.
-- [ ] **[impl]** `internal/runtime/error_boundary.go:93`: a second panic in the same boundary in one commit escapes it.
-- [ ] **[impl]** `internal/runtime/hooks.go:644-652`: `GoUseEffectOf` runs the old cleanup during render (untyped path avoids this).
+- [x] **[impl]** Fixed: `RestoreSnapshot` returns subscribed fibers and `RestoreAtomSnapshot` schedules them (`internal/runtime/state.go:579-593,925-933`); `internal/runtime/p7_review_regressions_test.go:167` covers derived dependents.
+- [x] **[impl]** Fixed: a second panic in one boundary commit is handled (`internal/runtime/p7_review_regressions_test.go:71`, `TestP7SecondPanicInSameBoundaryIsHandled`).
+- [x] **[impl]** Fixed: `GoUseEffectOf` leaves cleanup to commit when a render is discarded (`internal/runtime/p7_review_regressions_test.go:98`, `TestP7TypedEffectCleanupNotRunDuringDiscardedRender`).
 - [ ] **[impl]** `internal/runtime/hooks_fetch.go:84-209`: deprecated `GoUseFetch` has no sequence guard (older slow response overwrites a newer one).
-- [ ] **[impl]** `internal/runtime/scheduler.go:392-441`: `Render`/`Hydrate` do not flush deferred passive effects first (router calls `RenderTo` per route render).
-- [ ] **[impl]** Lower confidence: `fetch/cache.go:826-837` disposed key's late goroutine writes `Loading=false` on a new entry; `ui/form.go:229-256,648` deferred `SetField` misreports and `Reset` reuses `validateSeq`; `ui/persisted_state.go:84-86` value not re-read on key change; `internal/runtime/hydration.go:244-249` empty text fibers misalign the cursor; `state/autotrack.go:42-56` tracking state leaks on panic; `ui/timers.go` and `ui/global_events.go` keep the first render's closure; `fetch/realtime_wasm.go:122` EventSource reconnect drops `Last-Event-ID`; `fetch/cache_persistent.go:253` restore can overwrite a newer `Set`.
+- [x] **[impl]** Fixed: `Render`/`Hydrate` flush deferred passive effects before replacing pass bookkeeping (`internal/runtime/p7_review_regressions_test.go:137`, `TestP7RenderFlushesDeferredPassiveEffects`).
+- [x] **[impl]** Fixed: a disposed key's late loader cannot clear `Loading` on a recreated entry (`fetch/cache_effect_loop_native_test.go:136`, `TestFetchNativeDisposedKeyLateLoaderDoesNotTouchNewEntry`).
+- [x] **[impl]** Fixed: empty text during hydration does not consume the next real node (`internal/runtime/p7_review_regressions_test.go:230`, `TestP7HydrationEmptyTextChildDoesNotConsumeNextNode`).
+- [ ] **[impl]** Lower confidence: `ui/form.go:229-256,648` deferred `SetField` misreports and `Reset` reuses `validateSeq`; `ui/persisted_state.go:84-86` value not re-read on key change; `state/autotrack.go:42-56` tracking state leaks on panic; `ui/timers.go` and `ui/global_events.go` keep the first render's closure; `fetch/realtime_wasm.go:122` EventSource reconnect drops `Last-Event-ID`; `fetch/cache_persistent.go:253` restore can overwrite a newer `Set`.
 
 ### V7-P0 — Baseline and branch
 

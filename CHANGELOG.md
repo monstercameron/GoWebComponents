@@ -634,15 +634,15 @@ package name says wasm.
 
 #### Known issues and decisions pending
 
-Open items, synced with `todos.md` on 2026-10-03. Items the first pass listed that
-are now fixed were removed; the rest stay.
+Follow-up investigations carried from the 2026-10-03 audit. The current RC gate
+status is above; later checkpoints in `todos.md` supersede historical plan states.
 
 - Wasm test noise: fetch wasm tests print "call to released function" (a `js.Func` released while still in use). The hydration flakes and the `-count=2` component-identity failure listed earlier are fixed (see Repairs).
 - Islands have separate atom registries, isolated island runtimes are never torn down (there is no unmount API), and island event dispatch was verified by reading only.
 - Streaming: a nested `AsyncBoundary` inside streamed resolved content bakes its fallback (no nested streaming); an unmounted, still-suspended boundary leaves its watcher goroutine parked. `todos.md` still asks to re-check that `writeSSRStreamBoundaryStart/End` never write `BoundaryIDPrefix` raw (the prefix itself is filtered and tested).
 - Not reviewed in the bug hunt: scheduler lanes and timers, hydration mismatch recovery, `state/` selectors and migrations, keyed-diff key-type changes.
 - Native `fetch` client trace injection is not implemented (`fetch/fetch_native.go` is a stub); `tracetest`-based cross-boundary tests are not written. Decision pending: wasm `fetch` now adds `traceparent` to every same-origin request; make it opt-in or keep the default.
-- `fetch/realtime_wasm.go:122`: an EventSource reconnect drops `Last-Event-ID` (bug-hunt candidate, no test yet). `todos.md` still lists as open several candidates that this log records as fixed (failed revalidation loop, `UseRevalidateOnFocus`, `LoadNext`, effect cleanup panic, nil child slot, `RestoreSnapshot`); its checkboxes need closing.
+- `fetch/realtime_wasm.go:122`: an EventSource reconnect drops `Last-Event-ID` (bug-hunt candidate, no test yet).
 - `internal/runtime/panic_report.go:465` filters frames by the literal `SetTimeout.func1`; make it robust before relying on closure names under 1.27.
 - A raw string `style=` prop is only attribute-escaped, and the client DOM style path was not audited. `UseHead` tag removal is browser-only with no mock-DOM test.
 - Native `UseId` ids still differ across repeated SSR renders (needs a per-render counter; see `docs/ATLAS_PERF_BASELINE.md` 2.6).
@@ -658,14 +658,13 @@ are now fixed were removed; the rest stay.
 - The Windows host cannot always delete freshly built `*.test.exe` ("Access is denied"). `gwc bench` and `bench suite` treat a PASS with only that cleanup error as ok and record a warning; `bench capture` still fails on it. `go test` on the whole `tools/gwc` package still exits non-zero from the same lock even when every test passes.
 - Binary size: Go 1.27 enables `GOEXPERIMENT=jsonv2` by default (+976 KB raw on the counter wasm); `gwc` wasm builds now force `nojsonv2`, while direct Go wasm commands still need an audit.
 - The dev machine has `GOARCH=amd64` set through `go env -w`, so native tests run emulated; timings from it are not representative.
-- Examples are being migrated after the core work: they have not yet been updated for the v7 API changes (the markdown engine import in `examples/site/pages.go`, `examples/public-examples-site/markdown.go`; `Slot` to `SlotAttr`; router options; typed `OnInput` still accepts `ui.Handler`).
 - Interop rethink is an experiment on `v7/interop-exp`, with a browser verdict still pending. Its wide-sibling wasm fixture now isolates each container and keeps component identity stable; `TestBufWasmWideSiblingListsSurvive10kAnd20k` passes at 20,000 nodes with one text update per row and no reorder ops. The focused `TestBufWasm` suite passes with and without `gwctemplates`. `template.innerHTML` use in `CreatePreparedElement` still needs reconciliation with the no-raw-HTML-sink guard.
 
 ## v6.0.0 - 2026-09-08
 
 ### Migration
 
-The module path is now `github.com/monstercameron/GoWebComponents/v7`.
+The module path is now `github.com/monstercameron/GoWebComponents/v6`.
 Update application imports and `go.mod` requirements from `/v5` to `/v6`,
 including local `replace` directives, then run `go mod tidy` and rebuild both
 native and Wasm targets. Do not mix the two major versions in one component tree.
