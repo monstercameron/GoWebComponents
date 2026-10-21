@@ -1,0 +1,151 @@
+name: Fair Example 201 v6/v7 Browser Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      v6_ref:
+        description: Historical v6 commit to compare
+        required: false
+        default: 1e61695cda00a659faf8215d6a496342f75e8298
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fair-example201-browser
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      V6_REF: ${{ inputs.v6_ref || '1e61695cda00a659faf8215d6a496342f75e8298' }}
+    steps:
+      - name: Checkout clean v7 source
+        uses: actions/checkout@v6
+        with:
+          clean: true
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.27.3
+          cache: true
+
+      - name: Install Chromium for Playwright
+        shell: bash
+        run: go -C test/playwrightgo run github.com/mxschmitt/playwright-go/cmd/playwright install --with-deps chromium
+
+      - name: Prepare isolated v6 source and matching runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          export FAIR_DIR="$RUNNER_TEMP/example201-v6-v7"
+          export V6_DIR="$FAIR_DIR/v6-ref"
+          mkdir -p "$V6_DIR"
+          git cat-file -e "$V6_REF^{commit}"
+          git archive "$V6_REF" | tar -x -C "$V6_DIR"
+          # The v6 archive contains the submodule gitlink but not its files.
+          # Fetch the exact v6 gitlink; the current v7 submodule pin is different.
+          mkdir -p "$V6_DIR/third_party"
+          bridge_pin="$(git ls-tree "$V6_REF" third_party/GoGRPCBridge | awk '{print $3}')"
+          bridge_url="$(git config -f .gitmodules --get submodule.third_party/GoGRPCBridge.url)"
+          git init "$FAIR_DIR/bridge"
+          git -C "$FAIR_DIR/bridge" remote add origin "$bridge_url"
+          git -C "$FAIR_DIR/bridge" fetch --depth=1 origin "$bridge_pin"
+          git -C "$FAIR_DIR/bridge" checkout --detach FETCH_HEAD
+          mkdir -p "$V6_DIR/third_party/GoGRPCBridge"
+          cp -a "$FAIR_DIR/bridge/." "$V6_DIR/third_party/GoGRPCBridge/"
+          mkdir -p "$V6_DIR/examples/testing/render-benchmark/vendor"
+          mkdir -p examples/testing/render-benchmark/vendor
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" "$V6_DIR/examples/testing/render-benchmark/vendor/wasm_exec.js"
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" examples/testing/render-benchmark/vendor/wasm_exec.js
+          # React 19 no longer ships a UMD file from npm; build one from the
+          # exact React/ReactDOM packages used by the stated benchmark baseline.
+          react_dir="$FAIR_DIR/react-bundle"
+          mkdir -p "$react_dir"
+          printf '%s\n' \
+            "import * as React from 'react';" \
+            "import { createRoot } from 'react-dom/client';" \
+            "import { version as reactDOMVersion } from 'react-dom';" \
+            "globalThis.React = React;" \
+            "globalThis.ReactDOM = { createRoot, version: reactDOMVersion };" \
+            > "$react_dir/entry.mjs"
+          npm init -y --silent --prefix "$react_dir"
+          npm install --silent --ignore-scripts --no-package-lock --prefix "$react_dir" \
+            react@19.2.4 react-dom@19.2.4 esbuild@0.25.9
+          npx --no-install --prefix "$react_dir" esbuild "$react_dir/entry.mjs" \
+            --bundle --minify --format=iife --outfile="$react_dir/react.latest.production.js"
+          react_sha="$(sha256sum "$react_dir/react.latest.production.js" | awk '{print toupper($1)}')"
+          test "$react_sha" = B9DF3A414D4B5023140F11F01C0B19477E8D06A358A45CA882FA8DE5CAE739CE
+          grep -q '19\.2\.4' "$react_dir/react.latest.production.js"
+          cp "$react_dir/react.latest.production.js" "$V6_DIR/examples/testing/render-benchmark/vendor/react.latest.production.js"
+          cp "$react_dir/react.latest.production.js" examples/testing/render-benchmark/vendor/react.latest.production.js
+          mkdir -p "$FAIR_DIR"
+          {
+            uname -a
+            go version
+            node --version
+            printf 'v7_ref='; git rev-parse HEAD
+            printf 'v7_commit='; git show -s --format='%H %s' HEAD
+            printf 'v6_ref=%s\n' "$V6_REF"
+            printf 'v6_bridge_pin=%s\n' "$bridge_pin"
+            printf 'react_version=19.2.4\nreact_bundle_sha256=%s\n' "$react_sha"
+          } | tee "$FAIR_DIR/runner-and-sources.txt"
+          echo "FAIR_DIR=$FAIR_DIR" >> "$GITHUB_ENV"
+          echo "V6_DIR=$V6_DIR" >> "$GITHUB_ENV"
+
+      - name: Run v6 Example 201 report
+        id: v6
+        shell: bash
+        run: |
+          set +e
+          cd "$V6_DIR"
+          go test -mod=mod -tags playwrightgo ./test/playwrightgo/examples \
+            -run '^TestExample201BrowserBenchmarkReport$' -count=1 -v -timeout 15m \
+            2>&1 | tee "$FAIR_DIR/v6-console.txt"
+          status=${PIPESTATUS[0]}
+          report="$V6_DIR/bin/test-results/example-201-browser-benchmark/browser-benchmark-report.json"
+          [ -f "$report" ] && cp "$report" "$FAIR_DIR/v6-browser-benchmark-report.json"
+          [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v6-browser-benchmark-report.md"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Run v7 Example 201 report
+        id: v7
+        shell: bash
+        run: |
+          set +e
+          go -C test/playwrightgo test -tags playwrightgo ./examples \
+            -run '^TestExample201BrowserBenchmarkReport$' -count=1 -v -timeout 15m \
+            2>&1 | tee "$FAIR_DIR/v7-console.txt"
+          status=${PIPESTATUS[0]}
+          report="bin/test-results/example-201-browser-benchmark/browser-benchmark-report.json"
+          [ -f "$report" ] && cp "$report" "$FAIR_DIR/v7-browser-benchmark-report.json"
+          [ -f "${report%.json}.md" ] && cp "${report%.json}.md" "$FAIR_DIR/v7-browser-benchmark-report.md"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Compare reports and enforce V7-P3 gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/compare-example201.py \
+            "$FAIR_DIR/v6-browser-benchmark-report.json" \
+            "$FAIR_DIR/v7-browser-benchmark-report.json" \
+            --json "$FAIR_DIR/example201-comparison.json" \
+            --markdown "$FAIR_DIR/example201-comparison.md"
+          test "${{ steps.v6.outputs.status }}" = 0
+          test "${{ steps.v7.outputs.status }}" = 0
+
+      - name: Upload Example 201 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fair-example201-v6-v7-${{ github.run_id }}
+          path: ${{ runner.temp }}/example201-v6-v7
+          if-no-files-found: warn
