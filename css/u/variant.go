@@ -16,7 +16,7 @@ import (
 func Hover(rules ...css.Rule) []css.Rule        { return css.Hover(rules...) }
 func Focus(rules ...css.Rule) []css.Rule        { return css.Focus(rules...) }
 func Active(rules ...css.Rule) []css.Rule       { return css.Active(rules...) }
-func WhenDisabled(rules ...css.Rule) []css.Rule { return css.WhenDisabled(rules...) }
+func WhenDisabled(rules ...css.Rule) []css.Rule { return css.Disabled(rules...) }
 
 // Group/Peer variants via parent/sibling state selectors. Mark the parent with
 // the "group"/"peer" class (plain html.Class("group")).
