@@ -91,6 +91,10 @@ func routePage(parseRender func(router.Attrs) ui.Node) func(router.Attrs) *route
 	}
 }
 
+func renderChapterRoute(parseAttrs router.Attrs) ui.Node { return renderChapterPage(router.UseParams().Get("slug")) }
+func renderConceptRoute(parseAttrs router.Attrs) ui.Node { return renderConceptPage(router.UseParams().Get("slug")) }
+func renderSourceRoute(parseAttrs router.Attrs) ui.Node { return renderSourceViewer(router.UseParams().Get("slug")) }
+
 func main() {
 	utils.DisableAllDebug()
 
@@ -99,17 +103,11 @@ func main() {
 		router.Options{Title: "GoWebComponents — Go-native UIs for the browser"})
 	parseR.Register("/learn", routePage(func(router.Attrs) ui.Node { return renderLearnIndex() }),
 		router.Options{Title: "Learn — GoWebComponents"})
-	parseR.Register("/learn/:slug", routePage(func(router.Attrs) ui.Node {
-		return renderChapterPage(router.UseParams().Get("slug"))
-	}), router.Options{Title: "Manual — GoWebComponents"})
-	parseR.Register("/concepts/:slug", routePage(func(router.Attrs) ui.Node {
-		return renderConceptPage(router.UseParams().Get("slug"))
-	}), router.Options{Title: "Concepts — GoWebComponents"})
+	parseR.Register("/learn/:slug", routePage(renderChapterRoute), router.Options{Title: "Manual — GoWebComponents"})
+	parseR.Register("/concepts/:slug", routePage(renderConceptRoute), router.Options{Title: "Concepts — GoWebComponents"})
 	parseR.Register("/examples", routePage(func(router.Attrs) ui.Node { return renderExamplesGallery() }),
 		router.Options{Title: "Examples — GoWebComponents"})
-	parseR.Register("/source/:slug", routePage(func(router.Attrs) ui.Node {
-		return renderSourceViewer(router.UseParams().Get("slug"))
-	}), router.Options{Title: "Source — GoWebComponents"})
+	parseR.Register("/source/:slug", routePage(renderSourceRoute), router.Options{Title: "Source — GoWebComponents"})
 	parseR.Register("/api", routePage(func(router.Attrs) ui.Node { return renderAPIIndex() }),
 		router.Options{Title: "API — GoWebComponents"})
 	parseR.Register("*", routePage(func(router.Attrs) ui.Node { return renderNotFound() }),
