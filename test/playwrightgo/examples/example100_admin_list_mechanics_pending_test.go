@@ -100,6 +100,7 @@ func startExample100AdminListMechanicsServer(parseT *testing.T, parseRepoRoot st
 			"LISTEN_ADDR=" + parseAddress,
 			"CHAT_DB_PATH=" + parseDBPath,
 			"CHAT_LOG_DIR=" + parseLogDir,
+			"CHAT_STUB_PROVIDERS=all",
 		},
 		parseBinaryPath,
 	)
