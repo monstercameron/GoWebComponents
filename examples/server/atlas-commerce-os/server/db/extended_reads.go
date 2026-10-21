@@ -375,7 +375,7 @@ func (parseS *Store) PurchaseOrders(parseCtx context.Context) ([]PurchaseOrderRe
 	if parseErr != nil {
 		return nil, fmt.Errorf("query purchase orders: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []PurchaseOrderRecord{}
 	for parseRows.Next() {
 		var parseItem PurchaseOrderRecord
@@ -392,7 +392,7 @@ func (parseS *Store) PurchaseOrdersByWarehouse(parseCtx context.Context, parseWa
 	if parseErr != nil {
 		return nil, fmt.Errorf("query purchase orders by warehouse: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []PurchaseOrderRecord{}
 	for parseRows.Next() {
 		var parseItem PurchaseOrderRecord
@@ -418,7 +418,7 @@ func (parseS *Store) PurchaseOrderLines(parseCtx context.Context, parsePurchaseO
 	if parseErr != nil {
 		return nil, fmt.Errorf("query purchase order lines: %w", parseErr)
 	}
-	defer parseRows.Close()
+	defer func() { _ = parseRows.Close() }()
 	parseItems := []PurchaseOrderLineRecord{}
 	for parseRows.Next() {
 		var parseItem PurchaseOrderLineRecord
