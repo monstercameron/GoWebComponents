@@ -482,7 +482,7 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 	}
 	ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
 	parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
-	if parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved {
+	if (parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved) && !parseWipFiber.subtreeCommit {
 		markFiberCommitPath(parseWipFiber)
 	}
 	return parseNewFiber
@@ -528,7 +528,13 @@ func (parseRt *Runtime) buildPlacementFiber(parseWipFiber *Fiber, parseElem *Ele
 		updateOrigin:           oldFiberUpdateOrigin(parseOldFiber, parseElem.Type),
 		ownerRuntime:           runtimeForFiber(parseWipFiber),
 	}
-	markFiberCommitPath(parseWipFiber)
+	// Every placement under this parent needs the ancestor commit path, but a
+	// sibling batch reaches the same parent repeatedly. Once the parent is
+	// marked, avoid the helper call (and its loop setup) for each remaining
+	// placement. This is particularly visible in Wasm mount/list renders.
+	if !parseWipFiber.subtreeCommit {
+		markFiberCommitPath(parseWipFiber)
+	}
 	return parseNewFiber
 }
 

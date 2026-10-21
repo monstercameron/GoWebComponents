@@ -119,6 +119,17 @@ func StartTransitionGlobal(parseTransitionFn func()) {
 
 // Text creates a text node
 func Text(parseTextContent string) *Element {
+	// Public text construction is normally outside a live render. On Wasm,
+	// currentFiber is the complete client hook context, so avoid entering the
+	// slab/runtime ownership checks when no render is active. The render path
+	// still goes through acquireRenderHostElement and retains slab semantics.
+	if currentFiber == nil {
+		return &Element{
+			Type:        "TEXT_ELEMENT",
+			TextContent: parseTextContent,
+			Children:    emptyChildren,
+		}
+	}
 	parseElem := acquireRenderHostElement()
 	*parseElem = Element{
 		Type:        "TEXT_ELEMENT",

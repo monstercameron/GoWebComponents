@@ -1032,7 +1032,7 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		}
 		ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
 		parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
-		if parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved {
+		if (parseEffectTag != effectTagNone || parseNewFiber.portalUnresolved) && !parseParent.subtreeCommit {
 			markFiberCommitPath(parseParent)
 		}
 
