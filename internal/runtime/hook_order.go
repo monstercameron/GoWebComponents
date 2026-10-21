@@ -57,7 +57,11 @@ func beginHookOrderRender(parseHooks *Hooks) {
 		return
 	}
 	if parseHooks.order == nil {
-		parseHooks.order = &hookOrderTracker{}
+		// A completed hookless first render keeps a non-nil empty signature
+		// instead of allocating a tracker. Carry that baseline into this render
+		// so adding a hook still reports a zero-to-one length change.
+		parseWasEmptyComplete := parseHooks.signature != nil && len(parseHooks.signature) == 0
+		parseHooks.order = &hookOrderTracker{isCurComplete: parseWasEmptyComplete}
 	}
 	parseOrder := parseHooks.order
 	parseOrder.hasPrev = parseOrder.isCurComplete
@@ -89,10 +93,10 @@ func finishHookOrderRender(parseHooks *Hooks) {
 	if !hookSignatureRecordingEnabled || parseHooks == nil {
 		return
 	}
-	// Components that use no hooks do not have a signature to compare. Keep
-	// their steady-state render allocation free; the tracker can be created
-	// lazily by beginHookOrderRender once a hook has actually been recorded.
+	// A hookless first render needs only a zero-length baseline. Defer the
+	// tracker allocation until a second render actually needs comparison.
 	if parseHooks.order == nil && len(parseHooks.signature) == 0 {
+		parseHooks.signature = []string{}
 		return
 	}
 	if parseHooks.order == nil {

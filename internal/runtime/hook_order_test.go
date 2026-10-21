@@ -7,6 +7,14 @@ import (
 
 var hookOrderSkipsMemo bool
 var hookOrderExtraHook bool
+var hookOrderStartsEmptyThenAddsHook bool
+
+func hookOrderInitiallyEmptyComponent() *Element {
+	if hookOrderStartsEmptyThenAddsHook {
+		GoUseState(nil, 1)
+	}
+	return CreateElement("div", nil, "ok")
+}
 
 func hookOrderConditionalComponent() *Element {
 	GoUseState(nil, 1)
@@ -105,6 +113,27 @@ func TestHookOrderLengthChangeReportsExactlyOnce(parseT *testing.T) {
 	}
 	if !strings.Contains(parseDiagnostics[0].Message, "hook count changed: 1 hooks last render, 2 now") {
 		parseT.Fatalf("expected length detail, got %q", parseDiagnostics[0].Message)
+	}
+}
+
+func TestHookOrderEmptyToHookedReportsExactlyOnce(parseT *testing.T) {
+	if !hookSignatureRecordingEnabled {
+		parseT.Skip("hook signature recording is compiled out")
+	}
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+	defer func() { hookOrderStartsEmptyThenAddsHook = false }()
+
+	renderHookOrderPasses(parseT, hookOrderInitiallyEmptyComponent, 3, func(parsePass int) {
+		hookOrderStartsEmptyThenAddsHook = parsePass >= 1
+	})
+
+	parseDiagnostics := getHookOrderDiagnostics()
+	if len(parseDiagnostics) != 1 {
+		parseT.Fatalf("expected exactly one hook-order diagnostic, got %d: %+v", len(parseDiagnostics), parseDiagnostics)
+	}
+	if !strings.Contains(parseDiagnostics[0].Message, "hook count changed: 0 hooks last render, 1 now") {
+		parseT.Fatalf("expected empty baseline detail, got %q", parseDiagnostics[0].Message)
 	}
 }
 
