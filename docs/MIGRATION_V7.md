@@ -11,10 +11,10 @@ Change the module requirement and every Go import from `/v6` to `/v7`:
 
 ```diff
 -require github.com/monstercameron/GoWebComponents/v6 v6.0.0
-+require github.com/monstercameron/GoWebComponents/v7 v7.0.0-rc.1
++require github.com/monstercameron/GoWebComponents/v7 v7.0.0
 ```
 
-After the stable tag is published, replace `v7.0.0-rc.1` with `v7.0.0`.
+Pin `v7.0.0` or a later compatible v7 release after updating the imports.
 
 Set `go 1.27.0` (and use Go 1.27.3 or newer). Run the matching `gofmt`; an older
 `gofmt` can reject generic methods used by v7.

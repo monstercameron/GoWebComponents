@@ -224,3 +224,20 @@ against the v7 source. The browser harness used a temporary older Playwright
 Go driver because the exact v0.6000 browser-driver download returned 404; the
 bridge source and pin were unchanged. Its log is in ignored
 `bin/test-results/v7-gogrpcbridge-stress-20261021.txt`.
+
+## Release candidate and external module fetch
+
+The [`v7.0.0-rc.1` release workflow](https://github.com/monstercameron/GoWebComponents/actions/runs/39595468422)
+passed both the Windows `build-and-test` and publishing jobs. Its tag points
+to `317bf88b71911ea7ed39ad710d40ca45a566d80a`, which adds only this
+release evidence and notes after the measured runtime commit. The
+[GitHub prerelease](https://github.com/monstercameron/GoWebComponents/releases/tag/v7.0.0-rc.1)
+contains the source archive, checksums, CycloneDX SBOM, and six platform
+`gwc` binaries.
+
+A fresh module fetched
+`github.com/monstercameron/GoWebComponents/v7@v7.0.0-rc.1` through the Go
+module proxy (sum `h1:RnU+Cd1BQ5e9NoW89CP6e2t2lsAaqTHF9eGSMZriGDo=`),
+ran `go mod tidy`, and compiled imports of `ui`, `html`, and `router` both
+natively and with `GOOS=js GOARCH=wasm GOEXPERIMENT=nojsonv2`. The isolated
+consumer files are in ignored `bin/v7-rc-consumer-20261021/`.

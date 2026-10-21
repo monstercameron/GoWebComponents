@@ -3,42 +3,42 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
-## v7.0.0-rc.1 — release candidate (pending final release gates)
+## v7.0.0 — stable
 
-This candidate packages the v7 module-path migration and the API, tooling,
-hydration, router, telemetry, and error-reporting changes recorded in the v7
-development log. It is intended for explicit RC testing with Go 1.27;
-the stable `v7.0.0` tag has not been published.
+GoWebComponents v7 moves the public module to
+`github.com/monstercameron/GoWebComponents/v7` and raises the Go floor to
+1.27. It includes the API, tooling, hydration, router, telemetry, error
+reporting, and dependency-graph changes described in the v7 development log.
 
 ### Upgrade notes
 
-- Change consumer imports and the module requirement from `/v6` to `/v7`.
-- Use Go 1.27.3 or newer and follow [`docs/MIGRATION_V7.md`](docs/MIGRATION_V7.md)
-  for typed input handlers, opt-in Markdown registration, router options,
-  tracing headers, reconnect defaults, and the `kvstate` identifier migration.
-- Nested tools, browser tests, telemetry SDK tests, and dependency-heavy
-  examples are separate modules; run their checks from their module directory.
+- Change the module requirement and Go imports from `/v6` to `/v7`, then run
+  `go mod tidy`. Pin `v7.0.0` for the stable release.
+- Follow [`docs/MIGRATION_V7.md`](../../../../docs/MIGRATION_V7.md) for typed handlers,
+  opt-in Markdown registration, router options, tracing headers, reconnect
+  defaults, and the `kvstate` identifier migration.
+- Invoke the CLI from its nested `tools/` module; browser tests, telemetry SDK
+  tests, and dependency-heavy examples also live in separate modules.
 
-### Verification and release status
+### Verification and accepted performance costs
 
-This is a documentation and packaging checkpoint for the RC. An isolated
-CashFlux `/v7` migration against exact source `5a2ce15b` passed its Wasm
-build, full short Go suite, and production browser suite (27 passed, 2 skipped,
-2 timing-sensitive retries). Go 1.27 required regenerating CashFlux's eight
-icon fixtures; the same mismatch occurs on its v5 source with Go 1.27.
-Repeated v5/v7 route timings did not show a consistent v7 slowdown. The
-final-runtime validation-only release workflow passed its Windows build and
-test gates. Dedicated fair v6/v7 production comparisons completed; native was
-6.11% faster by geometric mean, and Wasm was 0.12% faster overall.
-Published-RC `go get` consumer verification remains a release gate. The
-Example 201 browser comparison stayed within its
-per-scenario noise limit but missed the positive geomean target, and the
-transition-list Wasm benchmark exceeded the 15% per-entry limit. The
-maintainer accepted both measured costs for v7 on 2026-10-21; see
-`docs/benchmarks/V7-RELEASE-EVIDENCE.md`. Windows v6.1 manual acceptance is
-deferred; v7 may release before v6.1 after its own gates pass.
+The [`v7.0.0-rc.1` release workflow](https://github.com/monstercameron/GoWebComponents/actions/runs/39595468422)
+passed its Windows build, tests, browser suites, vulnerability scan, SBOM,
+reproducible build, and candidate consumer guard. A fresh external module
+fetched the published RC and compiled public packages natively and for
+js/wasm. The exact-source CashFlux migration passed its full short Go suite,
+Wasm build, and production browser suite; pinned GoGRPCBridge stress and P0
+browser health probes passed.
 
-### Documentation
+The dedicated v6/v7 production comparison matched 179 native entries with a
+6.11% faster v7 geometric mean and 148 Wasm entries with a 0.12% faster v7
+geometric mean. `TransitionListRefresh250` was 22.72% slower on Wasm against
+the 15% per-entry limit. The React 19 Example 201 browser comparison had no
+scenario beyond its +30% noise limit, but its final geometric mean was 4.27%
+slower. The maintainer reviewed and accepted both measured costs for this
+release on 2026-10-21. Raw runs and the size caveats are recorded in
+[`docs/benchmarks/V7-RELEASE-EVIDENCE.md`](../../../../docs/benchmarks/V7-RELEASE-EVIDENCE.md).
 
-- Migration guide: [`docs/MIGRATION_V7.md`](../../../../docs/MIGRATION_V7.md)
-- Versioning policy: [`../../../../VERSIONING.md`](../../../../VERSIONING.md)
+Windows v6.1 manual acceptance remains deferred; v7 is released first by
+maintainer decision. The v6 line retains its support window under
+[`VERSIONING.md`](../../../../VERSIONING.md).

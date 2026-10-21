@@ -84,10 +84,10 @@ published template.
 
 ### Add to an existing module
 
-After the first v7 release candidate is published, install the module:
+Install the stable v7 module:
 
 ```bash
-go get github.com/monstercameron/GoWebComponents/v7@v7.0.0-rc.1
+go get github.com/monstercameron/GoWebComponents/v7@v7.0.0
 ```
 
 Import public packages from the module path exactly as declared in `go.mod`:
