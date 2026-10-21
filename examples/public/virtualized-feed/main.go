@@ -133,24 +133,7 @@ func virtualizedFeedExample() ui.Node {
 							return parseItem2.ID
 						},
 						RenderRow: func(parseRow2 virtualization.RowRenderProps[feedItem]) ui.Node {
-							return ui.CreateElement(func() ui.Node {
-								parseLocalFlag := ui.UseState(false)
-								return html.Label(html.Props{
-									Class: "flex h-full w-full items-center justify-between rounded-[1rem] border border-white/8 bg-[rgba(15,23,42,0.55)] px-4 text-sm text-slate-200",
-								},
-									html.Div(html.Props{Class: "min-w-0"},
-										html.P(html.Props{Class: "font-semibold text-white"}, html.Text(parseRow2.Item.Title)),
-										html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("Toggle this, then scroll it far away and back.")),
-									),
-									html.Input(html.Props{
-										Type:    "checkbox",
-										Checked: parseLocalFlag.Get(),
-										OnChange: ui.UseEvent(func() {
-											parseLocalFlag.Set(!parseLocalFlag.Get())
-										}),
-									}),
-								)
-							})
+							return ui.CreateElement(localFlagRow, localFlagRowProps{Row: parseRow2})
 						},
 					}),
 				),
@@ -167,24 +150,7 @@ func virtualizedFeedExample() ui.Node {
 							return parseItem3.ID
 						},
 						RenderRow: func(parseRow3 virtualization.RowRenderProps[feedItem]) ui.Node {
-							parseFlagged := parsePreservedFlags.Get()[parseRow3.Item.ID]
-							return html.Label(html.Props{
-								Class: "flex h-full w-full items-center justify-between rounded-[1rem] border border-white/8 bg-[rgba(15,23,42,0.55)] px-4 text-sm text-slate-200",
-							},
-								html.Div(html.Props{Class: "min-w-0"},
-									html.P(html.Props{Class: "font-semibold text-white"}, html.Text(parseRow3.Item.Title)),
-									html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("This flag lives in parent state keyed by item ID.")),
-								),
-								html.Input(html.Props{
-									Type:    "checkbox",
-									Checked: parseFlagged,
-									OnChange: ui.UseEvent(func() {
-										parseNext := cloneFlags(parsePreservedFlags.Get())
-										parseNext[parseRow3.Item.ID] = !parseFlagged
-										parsePreservedFlags.Set(parseNext)
-									}),
-								}),
-							)
+							return ui.CreateElement(preservedFlagRow, preservedFlagRowProps{Row: parseRow3, Flags: parsePreservedFlags})
 						},
 					}),
 				),
@@ -274,6 +240,31 @@ func feedRow(parseProps feedRowProps) ui.Node {
 	return html.Button(html.Props{Type: "button", Class: strings.Join([]string{"flex h-full w-full items-center justify-between rounded-[1.1rem] border px-4 text-left transition-colors", "border-white/8 bg-[rgba(15,23,42,0.55)] hover:border-cyan-300/35 hover:bg-[rgba(14,116,144,0.18)]", when(isParseActive, "border-cyan-300/55 bg-[rgba(8,145,178,0.22)] text-white")}, " "), OnClick: parseClick},
 		html.Div(html.Props{Class: "min-w-0"}, html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300/80"}, html.Text(parseRow.Item.Severity+" • "+parseRow.Item.Owner)), html.P(html.Props{Class: "mt-2 truncate text-sm font-semibold text-white"}, html.Text(parseRow.Item.Title)), html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text(parseRow.Item.Summary))),
 		html.Div(html.Props{Class: "ml-4 text-right"}, html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-500"}, html.Text("Index")), html.P(html.Props{Class: "mt-2 text-sm font-semibold text-slate-200"}, html.Text(fmt.Sprintf("%d", parseRow.Index)))))
+}
+
+type localFlagRowProps struct {
+	Row virtualization.RowRenderProps[feedItem]
+}
+
+func localFlagRow(parseProps localFlagRowProps) ui.Node {
+	parseLocalFlag := ui.UseState(false)
+	parseToggle := ui.UseEvent(func() { parseLocalFlag.Set(!parseLocalFlag.Get()) })
+	return html.Label(html.Props{Class: "flex h-full w-full items-center justify-between rounded-[1rem] border border-white/8 bg-[rgba(15,23,42,0.55)] px-4 text-sm text-slate-200"}, html.Div(html.Props{Class: "min-w-0"}, html.P(html.Props{Class: "font-semibold text-white"}, html.Text(parseProps.Row.Item.Title)), html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("Toggle this, then scroll it far away and back."))), html.Input(html.Props{Type: "checkbox", Checked: parseLocalFlag.Get(), OnChange: parseToggle}))
+}
+
+type preservedFlagRowProps struct {
+	Row   virtualization.RowRenderProps[feedItem]
+	Flags ui.State[map[string]bool]
+}
+
+func preservedFlagRow(parseProps preservedFlagRowProps) ui.Node {
+	parseFlagged := parseProps.Flags.Get()[parseProps.Row.Item.ID]
+	parseToggle := ui.UseEvent(func() {
+		parseNext := cloneFlags(parseProps.Flags.Get())
+		parseNext[parseProps.Row.Item.ID] = !parseFlagged
+		parseProps.Flags.Set(parseNext)
+	})
+	return html.Label(html.Props{Class: "flex h-full w-full items-center justify-between rounded-[1rem] border border-white/8 bg-[rgba(15,23,42,0.55)] px-4 text-sm text-slate-200"}, html.Div(html.Props{Class: "min-w-0"}, html.P(html.Props{Class: "font-semibold text-white"}, html.Text(parseProps.Row.Item.Title)), html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("This flag lives in parent state keyed by item ID."))), html.Input(html.Props{Type: "checkbox", Checked: parseFlagged, OnChange: parseToggle}))
 }
 
 func selectedFeedItem(parseId string) feedItem {
