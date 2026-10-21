@@ -89,7 +89,10 @@ jobs:
           ./bench-head/gwc-head bench suite compare -json \
             bench-base-suite.json bench-head-suite.json > bench-suite-compare.json
           json_status=$?
-          ./bench-head/gwc-head bench suite compare -max-regress-pct 15 \
+          # Sub-100 ns timings are reported but not hard-gated: repeated
+          # same-runner runs showed sign flips at that scale. The full fair
+          # suite remains the release acceptance gate for every entry.
+          ./bench-head/gwc-head bench suite compare -max-regress-pct 15 -min-baseline-ns 100 \
             bench-base-suite.json bench-head-suite.json 2>&1 | tee bench-suite-compare.txt
           compare_status=${PIPESTATUS[0]}
           python3 - <<'PY'

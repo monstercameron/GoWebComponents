@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
 )
@@ -106,9 +107,10 @@ func checkCurrentMemoDepStability(parsePrev, parseNext []any) {
 // listRenderState tracks list-render depth so handler hooks allocated while a
 // list is being mapped can be flagged. Development builds only.
 var listRenderState struct {
-	mu    sync.Mutex
-	depth int
-	owner *Fiber
+	mu     sync.Mutex
+	depth  int
+	owner  *Fiber
+	active atomic.Bool
 }
 
 // noopListRenderRestore is the shared restore func returned when tracking is
@@ -130,6 +132,7 @@ func BeginListRender() func() {
 		listRenderState.owner = GetCurrentFiber()
 	}
 	listRenderState.depth++
+	listRenderState.active.Store(true)
 	listRenderState.mu.Unlock()
 	return func() {
 		listRenderState.mu.Lock()
@@ -138,6 +141,7 @@ func BeginListRender() func() {
 		}
 		if listRenderState.depth == 0 {
 			listRenderState.owner = nil
+			listRenderState.active.Store(false)
 		}
 		listRenderState.mu.Unlock()
 	}
@@ -145,6 +149,9 @@ func BeginListRender() func() {
 
 // isListRenderActive reports whether a list render is open for the fiber.
 func isListRenderActive(parseFiber *Fiber) bool {
+	if !listRenderState.active.Load() {
+		return false
+	}
 	listRenderState.mu.Lock()
 	defer listRenderState.mu.Unlock()
 	return listRenderState.depth > 0 && (listRenderState.owner == nil || listRenderState.owner == parseFiber)

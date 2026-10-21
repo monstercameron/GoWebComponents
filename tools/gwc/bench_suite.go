@@ -208,7 +208,7 @@ func (parseL launcher) runBenchmarkSuite(parseArgs []string) error {
 	parseFs := flag.NewFlagSet("bench suite", flag.ContinueOnError)
 	parseFs.SetOutput(os.Stdout)
 	parseFs.Usage = func() {
-		fmt.Fprintln(parseFs.Output(), "Usage: gwc bench suite [flags]\n       gwc bench suite compare [-max-regress-pct N] [-allow-machine-mismatch] [-json] <baseline.json> <candidate.json>\n       gwc bench suite merge [-force] -o <out.json> <a.json> <b.json> ...\n\n"+
+		fmt.Fprintln(parseFs.Output(), "Usage: gwc bench suite [flags]\n       gwc bench suite compare [-max-regress-pct N] [-min-baseline-ns N] [-allow-machine-mismatch] [-json] <baseline.json> <candidate.json>\n       gwc bench suite merge [-force] -o <out.json> <a.json> <b.json> ...\n\n"+
 			"Runs the selected lanes and writes ONE versioned JSON report (schema "+benchSuiteSchemaVersion+").\n"+
 			"Lanes: native, wasm (micro benchmarks), size (release wasm bytes), build (first build vs rebuild).\n"+
 			"Browser lanes are not implemented yet and are always written as status \"not-run\".\n"+

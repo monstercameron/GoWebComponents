@@ -118,14 +118,27 @@ func TestBenchSuiteCompareGateAndUnmatched(parseT *testing.T) {
 	if len(parseComparison.OnlyCandidate) != 1 {
 		parseT.Fatalf("expected one candidate-only id: %+v", parseComparison.OnlyCandidate)
 	}
-	if parseErr := getBenchSuiteRegressionGate(parseComparison, 0); parseErr != nil {
+	if parseErr := getBenchSuiteRegressionGate(parseComparison, 0, 0); parseErr != nil {
 		parseT.Fatalf("gate disabled by default: %v", parseErr)
 	}
-	if parseErr := getBenchSuiteRegressionGate(parseComparison, 25); parseErr != nil {
+	if parseErr := getBenchSuiteRegressionGate(parseComparison, 25, 0); parseErr != nil {
 		parseT.Fatalf("20%% is under a 25%% gate: %v", parseErr)
 	}
-	if parseErr := getBenchSuiteRegressionGate(parseComparison, 5); parseErr == nil {
+	if parseErr := getBenchSuiteRegressionGate(parseComparison, 5, 0); parseErr == nil {
 		parseT.Fatal("20% should trip a 5% gate")
+	}
+	if parseErr := getBenchSuiteRegressionGate(parseComparison, 5, 101); parseErr != nil {
+		parseT.Fatalf("sub-floor timing should remain advisory: %v", parseErr)
+	}
+	if parseErr := getBenchSuiteRegressionGate(parseComparison, 5, 100); parseErr == nil {
+		parseT.Fatal("timing at the baseline floor should still trip the gate")
+	}
+	parseComparison.Deltas = append(parseComparison.Deltas, benchSuiteDelta{
+		ID: "size/wasm", Unit: "bytes", Baseline: 10, Candidate: 20,
+		DeltaPct: 100, Verdict: benchSuiteVerdictRegressed,
+	})
+	if parseErr := getBenchSuiteRegressionGate(parseComparison, 5, 101); parseErr == nil {
+		parseT.Fatal("non-timing metric must remain gated below the timing floor")
 	}
 }
 

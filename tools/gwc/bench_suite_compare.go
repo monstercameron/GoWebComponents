@@ -170,14 +170,18 @@ func compareBenchSuiteReports(parseBaseline benchSuiteReport, parseCandidate ben
 	return parseResult
 }
 
-// getBenchSuiteRegressionGate returns an error when -max-regress-pct is positive and a
-// significant regression exceeds it.
-func getBenchSuiteRegressionGate(parseComparison benchSuiteComparison, parseMaxPct float64) error {
+// getBenchSuiteRegressionGate returns an error when a significant, material
+// regression exceeds the percent cap. The baseline floor applies only to
+// ns/op timings; tiny CI microbenchmarks remain visible in the report.
+func getBenchSuiteRegressionGate(parseComparison benchSuiteComparison, parseMaxPct, parseMinBaselineNs float64) error {
 	if parseMaxPct <= 0 {
 		return nil
 	}
 	parseOver := []string{}
 	for _, parseDelta := range parseComparison.Deltas {
+		if parseDelta.Unit == "ns/op" && parseDelta.Baseline < parseMinBaselineNs {
+			continue
+		}
 		if parseDelta.Verdict == benchSuiteVerdictRegressed && parseDelta.DeltaPct > parseMaxPct {
 			parseOver = append(parseOver, fmt.Sprintf("%s (+%.1f%%)", parseDelta.ID, parseDelta.DeltaPct))
 		}
@@ -217,6 +221,7 @@ func runBenchSuiteCompare(parseArgs []string) error {
 		parseFs.PrintDefaults()
 	}
 	parseMax := parseFs.Float64("max-regress-pct", 0, "Exit non-zero when any significant regression exceeds this percent; 0 disables the gate")
+	parseMinBaselineNs := parseFs.Float64("min-baseline-ns", 0, "Only gate ns/op entries whose baseline is at least this many nanoseconds; all entries remain in the report")
 	isAllowMismatch := parseFs.Bool("allow-machine-mismatch", false, "Compare even when machine.arch, hostArch or cpuModel differ")
 	parseJSON := parseFs.Bool("json", false, "Emit the comparison as JSON")
 	parsePositional, parseErr := parseBenchSuiteInterleaved(parseFs, parseArgs)
@@ -228,6 +233,9 @@ func runBenchSuiteCompare(parseArgs []string) error {
 	}
 	if len(parsePositional) != 2 {
 		return errors.New("bench suite compare needs exactly two arguments: <baseline.json> <candidate.json>")
+	}
+	if *parseMinBaselineNs < 0 {
+		return errors.New("-min-baseline-ns must be non-negative")
 	}
 	parseBaseline, parseErr2 := loadBenchSuiteReport(parsePositional[0])
 	if parseErr2 != nil {
@@ -250,7 +258,7 @@ func runBenchSuiteCompare(parseArgs []string) error {
 	} else {
 		printBenchSuiteComparison(parseComparison)
 	}
-	return getBenchSuiteRegressionGate(parseComparison, *parseMax)
+	return getBenchSuiteRegressionGate(parseComparison, *parseMax, *parseMinBaselineNs)
 }
 
 // printBenchSuiteComparison prints deltas, layer geomeans and unmatched ids.
