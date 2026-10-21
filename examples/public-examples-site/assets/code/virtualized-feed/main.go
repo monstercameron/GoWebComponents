@@ -152,22 +152,7 @@ func virtualizedFeedExample() ui.Node {
 							return parseItem2.ID
 						},
 						RenderRow: func(parseRow2 virtualization.RowRenderProps[feedItem]) ui.Node {
-							return ui.CreateElement(func() ui.Node {
-								parseLocalFlag := ui.UseState(false)
-								return html.Label(html.Props{
-									Class: "flex h-full w-full items-center justify-between rounded-[1rem] border border-white/8 bg-[rgba(15,23,42,0.55)] px-4 text-sm text-slate-200",
-								},
-									html.Div(html.Props{Class: "min-w-0"},
-										html.P(html.Props{Class: "font-semibold text-white"}, html.Text(parseRow2.Item.Title)),
-										html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("Toggle this, then scroll it far away and back.")),
-									),
-									html.Input(html.Props{
-										Type:     "checkbox",
-										Checked:  parseLocalFlag.Get(),
-										OnChange: toggleFlagHandler(parseLocalFlag),
-									}),
-								)
-							})
+							return ui.CreateElement(localFlagRow, parseRow2)
 						},
 					}),
 				),
@@ -271,6 +256,11 @@ func virtualizedFeedExample() ui.Node {
 			),
 		),
 	)
+}
+
+func localFlagRow(parseRow virtualization.RowRenderProps[feedItem]) ui.Node {
+	parseLocalFlag := ui.UseState(false)
+	return html.Label(html.Props{Class: "flex h-full w-full items-center justify-between rounded-[1rem] border border-white/8 bg-[rgba(15,23,42,0.55)] px-4 text-sm text-slate-200"}, html.Div(html.Props{Class: "min-w-0"}, html.P(html.Props{Class: "font-semibold text-white"}, html.Text(parseRow.Item.Title)), html.P(html.Props{Class: "mt-1 truncate text-xs text-slate-400"}, html.Text("Toggle this, then scroll it far away and back."))), html.Input(html.Props{Type: "checkbox", Checked: parseLocalFlag.Get(), OnChange: toggleFlagHandler(parseLocalFlag)}))
 }
 
 func selectedFeedItem(parseId string) feedItem {
