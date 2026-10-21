@@ -207,7 +207,7 @@ jobs:
           go-version: "1.27.x"
 
       - name: Verify module replacement wiring
-        run: go list -m github.com/monstercameron/GoGRPCBridge
+        run: go -C examples/server/ai-chat-wizard list -m github.com/monstercameron/GoGRPCBridge
 
       - name: Run root consumer smoke tests
         run: |

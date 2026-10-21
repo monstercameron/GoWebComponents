@@ -495,6 +495,7 @@ package name says wasm.
 
 #### Repairs to tests and tooling
 
+- The composed hydration correctness test now disables the scheduler's wall-clock slice budget while draining one task; its state setter no longer remains unset on slow WASM runners (20 focused WASM repeats, full WASM runtime package). The bridge Root Integration Smoke now checks module replacement wiring in the Example 100 module that actually requires the bridge.
 - Bridge CI: the nested WASM client now has dependency metadata aligned with the patched bridge module, fixing read-only Go 1.26/1.27 builds. Server keepalive has an independent pong watchdog because the HTTP/2 server can replace the WebSocket read deadline (test: `TestKeepaliveWatchdogSurvivesReadDeadlineReset`, 20 repeats). The browser compatibility workflow builds public example and Atlas WASM assets before `TestExamplesAll` and installs Playwright system dependencies for WebKit; the release workflow builds the public example assets before its browser suite.
 - Example 100's snapshot cache test treated the refresh callback as proof that its asynchronous storage write had finished -> it now waits for the stored record (test: `TestReadCachedResourceSnapshotGuardrail`, 100 repeats; full Example 100 native suite passed).
 - Example 100 browser seeding silently copied an older fixture with different login accounts when `go run ./cmd/seed-test-db` failed -> it retries seeding and reports the original error instead (test: `TestExample100AdminChatsWorkflowRegression` focused browser rerun).

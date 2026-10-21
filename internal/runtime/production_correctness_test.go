@@ -11,7 +11,10 @@ func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(par
 
 	parseAdapter := newQueryTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	// Keep the hydration pass deterministic on slower wasm runners. The test
+	// drains one scheduled task below, so a wall-clock budget must not yield
+	// before the initial render commits and installs the state setters.
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseOverlay := parseAdapter.CreateElement("div")
