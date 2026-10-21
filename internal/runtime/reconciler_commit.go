@@ -992,11 +992,14 @@ func (parseRt *Runtime) buildCommittedChildNodes(parseFiber *Fiber, parseNodes [
 }
 
 // buildObservedChildNodes is an internal reconciler helper.
-func (parseRt *Runtime) buildObservedChildNodes(parseDomParent DOMNode) []DOMNode {
+func (parseRt *Runtime) buildObservedChildNodes(parseDomParent DOMNode, parseCapacity int) []DOMNode {
 	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseDomParent) {
 		return nil
 	}
-	parseNodes := make([]DOMNode, 0, 4)
+	if parseCapacity < 4 {
+		parseCapacity = 4
+	}
+	parseNodes := make([]DOMNode, 0, parseCapacity)
 	for parseNode := parseRt.domAdapter.GetFirstChild(parseDomParent); !IsDOMNodeNull(parseNode); parseNode = parseRt.domAdapter.GetNextSibling(parseNode) {
 		parseNodes = append(parseNodes, parseNode)
 	}
@@ -1021,7 +1024,7 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseDomParent) || len(parseExpected) == 0 {
 		return
 	}
-	parseObserved := parseRt.buildObservedChildNodes(parseDomParent)
+	parseObserved := parseRt.buildObservedChildNodes(parseDomParent, len(parseExpected))
 	if isCommittedChildOrderStable(parseExpected, parseObserved) {
 		return
 	}
