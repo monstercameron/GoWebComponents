@@ -236,7 +236,7 @@ func TestHydrateStrictModePanicsOnTagMismatch(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, ShowRawPanicOutput: true})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1, ShowRawPanicOutput: true})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("span")
@@ -271,7 +271,7 @@ func TestHydrateStrictModePanicsOnTextMismatch(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, ShowRawPanicOutput: true})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, FrameBudgetMs: -1, ShowRawPanicOutput: true})
 
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("p")
