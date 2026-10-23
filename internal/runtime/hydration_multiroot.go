@@ -7,18 +7,21 @@ import (
 )
 
 // multiRootActive turns on after the first isolated (detached or per-island)
-// runtime is created. Until then every tree belongs to the global runtime and
-// hook claims skip the owner walk entirely, which keeps the single-root path
-// exactly as cheap as before.
+// runtime is created. Hook claims use the current fiber's direct owner when
+// available, then walk ancestors only when an isolated root is active.
 var multiRootActive atomic.Bool
 
 // getHookRuntime returns the runtime a hook claimed during render should
 // schedule its updates on. A state slot bound to the global runtime while its
-// fiber lives in an isolated root would mark the wrong tree dirty, so once any
-// isolated root exists the owner is resolved from the current fiber.
+// fiber lives in an isolated root would mark the wrong tree dirty. Rendered
+// fibers carry their owner directly; older ownerless fibers retain the
+// multi-root ancestor walk and global fallback.
 //
 //nolint:unused // called by shim.go and hooks, which are js/wasm-only.
 func getHookRuntime() *Runtime {
+	if parseFiber := GetCurrentFiber(); parseFiber != nil && parseFiber.ownerRuntime != nil {
+		return parseFiber.ownerRuntime
+	}
 	if multiRootActive.Load() {
 		return ResolveRuntime()
 	}
