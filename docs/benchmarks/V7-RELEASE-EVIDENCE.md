@@ -1,5 +1,36 @@
 # v7 fair production benchmark evidence
 
+## 2026-10-23 Example 201 production logging correction
+
+The v7.0.7 fair browser runs imported `examples/internal/examplelog` into the
+Go/Wasm benchmark app, including production builds. Its capture-phase click
+listener and other development logging ran inside the timed Go scenario
+actions; the React fixture had no corresponding listener. Named Chromium CPU
+profiles attributed 95 of 96 Hook Grid and all 105 Core Refresh
+`syscall/js.valueCall` self samples to this example logger:
+[Hook Grid](https://github.com/monstercameron/GoWebComponents/actions/runs/39953056428),
+[Core Refresh](https://github.com/monstercameron/GoWebComponents/actions/runs/39954642540).
+
+[PR #90](https://github.com/monstercameron/GoWebComponents/pull/90) excludes
+the example logger from production benchmark builds and retains it for
+development builds. This changes benchmark instrumentation, not the core
+renderer. Published v7.0.7 comparisons remain accurate descriptions of their
+original runs, but the React-relative ratios include this Go-only overhead.
+New production comparisons should state the source SHA and should not be
+treated as directly comparable to those historical ratios.
+
+The [same-run production A/B](https://github.com/monstercameron/GoWebComponents/actions/runs/39956875326)
+built logger-on and logger-off variants from the same source with identical
+Go/Wasm production flags, then measured Hook Grid Render in baseline,
+candidate, candidate, baseline order on one CI runner. It measures the whole
+example logger bundle, including its observers, rather than just click
+callback time. The two logger-on block medians were **4.6 and 5.0 ms**; the
+logger-off medians were **3.0 and 3.2 ms**, with 40 measured samples and 40
+hook nodes in every block. The mean of block medians fell from 4.8 to 3.1 ms,
+a **35.4% reduction in this benchmark's measured DOM-ready time**. This is
+the measurement cost of instrumentation in one browser scenario, not a
+35.4% improvement to the library or an overall React comparison.
+
 The v7 release compares the last v6 source at
 `1e61695cda00a659faf8215d6a496342f75e8298` with the v7 candidate on a
 dedicated GitHub Actions runner. Each lane measures v6 and v7 sequentially on
