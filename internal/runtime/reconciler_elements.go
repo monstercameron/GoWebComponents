@@ -588,7 +588,15 @@ func cloneElementProps(parseProps map[string]any) map[string]any {
 	if len(parseProps) == 0 {
 		return nil
 	}
-
+	if len(parseProps) == 1 {
+		if parseKeyValue, hasKey := parseProps["key"]; hasKey {
+			// Key-only props are common in lists. Copy the one known entry
+			// directly, while reserving room for buildElement to add children.
+			getProps := make(map[string]any, 2)
+			getProps["key"] = parseKeyValue
+			return getProps
+		}
+	}
 	getProps := make(map[string]any, len(parseProps)+1)
 	maps.Copy(getProps, parseProps)
 	return getProps
