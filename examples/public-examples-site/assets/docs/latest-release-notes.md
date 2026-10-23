@@ -3,6 +3,32 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
+## v7.0.7 — runtime performance and correctness patch
+
+This patch reduces work in common rendering paths. Stable child-order commits avoid materializing an observed-node slice; exact child-order prefixes append only the remaining nodes, and a confirmed adjacent swap is repaired with one `InsertBefore`. Additional fast paths cover canonical scheduler origins, key-only element props, hook-owner lookup, retained DOM props, clean reused fibers, typed-prop comparability, and tracked atom revision writes. Derived atoms reject stale recomputations when a newer dependency write occurs, and deleting then re-registering an intermediate derived atom preserves its downstream consumers. The router query-revalidation Wasm test now waits for the loaded value to render before fixture cleanup, avoiding a test-lifecycle race. The native benchmark-drift gate balances base and candidate samples in ABBA order and aggregates all four reports without changing its 15% per-entry threshold. The public API and Go 1.27 requirement are unchanged. See [#73](https://github.com/monstercameron/GoWebComponents/pull/73), [#74](https://github.com/monstercameron/GoWebComponents/pull/74), [#75](https://github.com/monstercameron/GoWebComponents/pull/75), [#76](https://github.com/monstercameron/GoWebComponents/pull/76), [#77](https://github.com/monstercameron/GoWebComponents/pull/77), [#78](https://github.com/monstercameron/GoWebComponents/pull/78), [#79](https://github.com/monstercameron/GoWebComponents/pull/79), [#80](https://github.com/monstercameron/GoWebComponents/pull/80), [#81](https://github.com/monstercameron/GoWebComponents/pull/81), [#82](https://github.com/monstercameron/GoWebComponents/pull/82), [#83](https://github.com/monstercameron/GoWebComponents/pull/83), [#84](https://github.com/monstercameron/GoWebComponents/pull/84), [#85](https://github.com/monstercameron/GoWebComponents/pull/85), [#86](https://github.com/monstercameron/GoWebComponents/pull/86), and [#87](https://github.com/monstercameron/GoWebComponents/pull/87).
+
+Representative before/after measurements for the PRs in this release are below. Percentages are **reductions in operation time**, not additive speedups. Most workloads are microbenchmarks or use a mock DOM; they do not measure whole-app or React-relative performance.
+
+| PR | Measured time reduction | Workload |
+| --- | ---: | --- |
+| [#73](https://github.com/monstercameron/GoWebComponents/pull/73) | No reliable time gain | Stable child order; one allocation removed. |
+| [#74](https://github.com/monstercameron/GoWebComponents/pull/74) | 90.6–96.3% | Exact canonical scheduler-origin lookup, native microbenchmark. |
+| [#75](https://github.com/monstercameron/GoWebComponents/pull/75) | About 35–40% | Key-only props copy, isolated microbenchmark. |
+| [#76](https://github.com/monstercameron/GoWebComponents/pull/76) | 35.5% | 40-fiber × 20-hook-group render under Node/Wasm; resolver alone fell 84.3%. |
+| [#77](https://github.com/monstercameron/GoWebComponents/pull/77) | 19.7% native; 19.5% Wasm | Five-property DOM update using a mock DOM. |
+| [#78](https://github.com/monstercameron/GoWebComponents/pull/78) | About 27% Wasm | Whole-runtime no-op refresh of a 128-row tree using a mock DOM; native result was noisy. |
+| [#79](https://github.com/monstercameron/GoWebComponents/pull/79) | 50.0% native; 49.8% Wasm | 1,000-row exact-order suffix append using a mock DOM. |
+| [#80](https://github.com/monstercameron/GoWebComponents/pull/80) | 19.6% Wasm | Whole-runtime 12-card content refresh using a mock DOM; native timing was inconclusive. |
+| [#81](https://github.com/monstercameron/GoWebComponents/pull/81) | 72–75% | Direct adjacent-swap repair at 256–1,000 children using a mock DOM. |
+| [#82](https://github.com/monstercameron/GoWebComponents/pull/82), [#83](https://github.com/monstercameron/GoWebComponents/pull/83) | Not measured | CI reporting and benchmark-gate changes. |
+| [#84](https://github.com/monstercameron/GoWebComponents/pull/84), [#85](https://github.com/monstercameron/GoWebComponents/pull/85) | Not measured | Derived-atom correctness fixes. |
+| [#86](https://github.com/monstercameron/GoWebComponents/pull/86) | Not measured | Wasm test fix. |
+| [#87](https://github.com/monstercameron/GoWebComponents/pull/87) | 15.6% tracked `SetAtom`; 1.80% native-suite geometric mean | Node/Wasm microbenchmark: 153.2→129.3 ns/op, allocations unchanged. Balanced native CI: 176 entries, 22 improved, 2 regressed below the 15% limit, 152 within noise. |
+
+The final Go 1.27.3 Node/Wasm A/B for #87 used the exact #85 source as its baseline; the balanced native CI compared #87 against main after #86. Neither result measures browser or React-relative performance.
+
+A fair React 19.2.4 comparison on `main` at `40dd11ac` found GoWebComponents faster in 6 of 19 scenarios. The four reported overall React/GWC ratios were 0.863, 0.915, 0.897, and 0.922 (all below 1). In the paired browser comparison, v7's geometric mean was 3.51% slower than v6; the maintainer accepted this measured cost. These results describe the measured runs and do not establish parity with React. See the [fair browser comparison workflow](.github/workflows/fair-example201.yml) and [report visibility change in #82](https://github.com/monstercameron/GoWebComponents/pull/82).
+
 ## v7.0.6 — performance patch
 
 `ComputedSignal.Text` no longer copies its private source-ID slice before
