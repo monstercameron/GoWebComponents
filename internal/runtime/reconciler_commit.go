@@ -192,6 +192,9 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 
 	// Remove old properties
 	for parseName := range parseOldProps {
+		if _, parseExists := parseNewProps[parseName]; parseExists {
+			continue
+		}
 		parseMeta := getPropMeta(parseName)
 		if parseMeta.kind == propKindSkip {
 			continue
@@ -200,21 +203,19 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 		if parseTargetName == "" {
 			parseTargetName = parseName
 		}
-		if _, parseExists := parseNewProps[parseName]; !parseExists {
-			if parseHandler, parseOk := passiveEventHandler(parseOldProps[parseName]); parseOk {
-				parseRt.removePassiveEventHandler(parseDom, parseTargetName, parseHandler)
-				continue
-			}
-			if parseMeta.shouldReset {
-				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseMeta.resetValue)
-			} else if domPropUnsetsAsProperty(parseMeta, parseOldProps[parseName]) {
-				// Set as a property, so it has to be cleared as one — removing an
-				// attribute that was never written leaves the handler live. See
-				// domPropUnsetsAsProperty.
-				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, nil)
-			} else {
-				parseRt.domAdapter.RemoveAttribute(parseDom, parseMeta.attrName)
-			}
+		if parseHandler, parseOk := passiveEventHandler(parseOldProps[parseName]); parseOk {
+			parseRt.removePassiveEventHandler(parseDom, parseTargetName, parseHandler)
+			continue
+		}
+		if parseMeta.shouldReset {
+			parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseMeta.resetValue)
+		} else if domPropUnsetsAsProperty(parseMeta, parseOldProps[parseName]) {
+			// Set as a property, so it has to be cleared as one — removing an
+			// attribute that was never written leaves the handler live. See
+			// domPropUnsetsAsProperty.
+			parseRt.domAdapter.SetProperty(parseDom, parseTargetName, nil)
+		} else {
+			parseRt.domAdapter.RemoveAttribute(parseDom, parseMeta.attrName)
 		}
 	}
 
