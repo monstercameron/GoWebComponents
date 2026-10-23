@@ -170,6 +170,26 @@ jobs:
           test "${{ steps.bench.outputs.v6_status }}" = 0
           test "${{ steps.bench.outputs.v7_status }}" = 0
 
+      - name: Print Example 201 benchmark reports
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          reports=(
+            "$FAIR_DIR"/v6-browser-benchmark-report-*.md
+            "$FAIR_DIR"/v7-browser-benchmark-report-*.md
+          )
+          if ((${#reports[@]} == 0)); then
+            echo "No Example 201 Markdown reports were produced."
+            exit 0
+          fi
+          for report in "${reports[@]}"; do
+            echo "::group::$(basename "$report")"
+            cat "$report"
+            echo "::endgroup::"
+          done
+
       - name: Upload Example 201 evidence
         if: always()
         uses: actions/upload-artifact@v4
