@@ -1770,4 +1770,3 @@ func TestRedirectDepthLimitPreventsInfiniteLoop(parseT *testing.T) {
 	// Should not panic or loop; returns nil or a fallback after depth limit.
 	parseR.Current()
 }
-
