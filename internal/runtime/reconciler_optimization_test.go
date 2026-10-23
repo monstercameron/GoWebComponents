@@ -622,6 +622,93 @@ func TestApplyCommittedChildOrderReusesObservedChildScan(parseT *testing.T) {
 	}
 }
 
+// TestApplyCommittedChildOrderRepairsAdjacentSwapWithOneInsert verifies a confirmed adjacent inversion uses one DOM move.
+func TestApplyCommittedChildOrderRepairsAdjacentSwapWithOneInsert(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseExpected := []DOMNode{
+		parseAdapter.CreateElement("div"),
+		parseAdapter.CreateElement("div"),
+		parseAdapter.CreateElement("div"),
+		parseAdapter.CreateElement("div"),
+	}
+	for parseIndex, parseNode := range parseExpected {
+		if parseIndex == 2 {
+			parseAdapter.AppendChild(parseParent, parseExpected[3])
+			parseAdapter.AppendChild(parseParent, parseExpected[2])
+			continue
+		}
+		if parseIndex == 3 {
+			continue
+		}
+		parseAdapter.AppendChild(parseParent, parseNode)
+	}
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, parseExpected)
+
+	if parseAdapter.insertBeforeCount != 1 || parseAdapter.appendChildCount != 0 || parseAdapter.replaceChildrenCount != 0 {
+		parseT.Fatalf("expected one adjacent-swap insert, got insert=%d append=%d replace=%d", parseAdapter.insertBeforeCount, parseAdapter.appendChildCount, parseAdapter.replaceChildrenCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != len(parseExpected) {
+		parseT.Fatalf("expected %d children, got %d", len(parseExpected), len(parseChildren))
+	}
+	for parseIndex, parseExpectedNode := range parseExpected {
+		if !IsSameDOMNode(parseChildren[parseIndex], parseExpectedNode) {
+			parseT.Fatalf("child %d does not match the expected adjacent-swap order", parseIndex)
+		}
+	}
+}
+
+// TestApplyCommittedChildOrderAdjacentSwapWithForeignTailUsesFallback verifies the fast path preserves foreign siblings by rejecting a non-exact suffix.
+func TestApplyCommittedChildOrderAdjacentSwapWithForeignTailUsesFallback(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseNodeA := parseAdapter.CreateElement("div")
+	parseNodeB := parseAdapter.CreateElement("div")
+	parseNodeC := parseAdapter.CreateElement("div")
+	parseForeign := parseAdapter.CreateElement("aside")
+	parseAdapter.AppendChild(parseParent, parseNodeB)
+	parseAdapter.AppendChild(parseParent, parseNodeA)
+	parseAdapter.AppendChild(parseParent, parseForeign)
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, []DOMNode{parseNodeA, parseNodeB, parseNodeC})
+
+	if parseAdapter.insertBeforeCount != 2 || parseAdapter.appendChildCount != 0 {
+		parseT.Fatalf("expected general repair after foreign suffix mismatch, got insert=%d append=%d", parseAdapter.insertBeforeCount, parseAdapter.appendChildCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 4 || !IsSameDOMNode(parseChildren[0], parseNodeA) || !IsSameDOMNode(parseChildren[1], parseNodeB) || !IsSameDOMNode(parseChildren[2], parseNodeC) || !IsSameDOMNode(parseChildren[3], parseForeign) {
+		parseT.Fatalf("expected A,B,C,foreign after fallback, got %#v", parseChildren)
+	}
+}
+
+// TestApplyCommittedChildOrderAdjacentSwapWithDuplicateExpectedIdentityUsesFallback verifies duplicate expected identities cannot pass the exact-suffix confirmation.
+func TestApplyCommittedChildOrderAdjacentSwapWithDuplicateExpectedIdentityUsesFallback(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseNodeA := parseAdapter.CreateElement("div")
+	parseNodeB := parseAdapter.CreateElement("div")
+	parseAdapter.AppendChild(parseParent, parseNodeB)
+	parseAdapter.AppendChild(parseParent, parseNodeA)
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, []DOMNode{parseNodeA, parseNodeB, parseNodeA})
+
+	if parseAdapter.appendChildCount != 1 || parseAdapter.insertBeforeCount != 1 {
+		parseT.Fatalf("expected duplicate identity to use general repair, got insert=%d append=%d", parseAdapter.insertBeforeCount, parseAdapter.appendChildCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 2 || !IsSameDOMNode(parseChildren[0], parseNodeB) || !IsSameDOMNode(parseChildren[1], parseNodeA) {
+		parseT.Fatalf("expected legacy duplicate-node result B,A, got %#v", parseChildren)
+	}
+}
+
 func TestApplyCommittedChildOrderAppendsAfterExactObservedPrefix(parseT *testing.T) {
 	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})

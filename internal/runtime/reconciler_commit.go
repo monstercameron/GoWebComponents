@@ -1056,6 +1056,12 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 		}
 		return
 	}
+	// A single adjacent inversion is common in keyed lists and needs only one
+	// insertBefore. Confirm the complete suffix through the sibling iterator so
+	// foreign children and repeated node identities retain the general repair.
+	if repairCommittedChildOrderAdjacentSwap(parseRt, parseDomParent, parseExpected, parseMatchedPrefix, parseObservedNode) {
+		return
+	}
 	parseObserved := parseRt.buildObservedChildNodesFrom(parseFirstObservedNode, len(parseExpected))
 
 	// Same node set, order differs: keep the longest run of children already
@@ -1111,6 +1117,29 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 		parseRt.domAdapter.AppendChild(parseDomParent, parseExpectedNode)
 		parseObserved = append(parseObserved, parseExpectedNode)
 	}
+}
+
+// repairCommittedChildOrderAdjacentSwap moves one inverted adjacent child after confirming the complete remaining order.
+func repairCommittedChildOrderAdjacentSwap(parseRt *Runtime, parseDomParent DOMNode, parseExpected []DOMNode, parseMismatchIndex int, parseObservedNode DOMNode) bool {
+	if parseMismatchIndex+1 >= len(parseExpected) || IsDOMNodeNull(parseObservedNode) || !IsSameDOMNode(parseObservedNode, parseExpected[parseMismatchIndex+1]) {
+		return false
+	}
+	parseSwappedObservedNode := parseRt.domAdapter.GetNextSibling(parseObservedNode)
+	if IsDOMNodeNull(parseSwappedObservedNode) || !IsSameDOMNode(parseSwappedObservedNode, parseExpected[parseMismatchIndex]) {
+		return false
+	}
+	parseObservedNode = parseRt.domAdapter.GetNextSibling(parseSwappedObservedNode)
+	for parseIndex := parseMismatchIndex + 2; parseIndex < len(parseExpected); parseIndex++ {
+		if IsDOMNodeNull(parseObservedNode) || !IsSameDOMNode(parseObservedNode, parseExpected[parseIndex]) {
+			return false
+		}
+		parseObservedNode = parseRt.domAdapter.GetNextSibling(parseObservedNode)
+	}
+	if !IsDOMNodeNull(parseObservedNode) {
+		return false
+	}
+	parseRt.domAdapter.InsertBefore(parseDomParent, parseExpected[parseMismatchIndex], parseExpected[parseMismatchIndex+1])
+	return true
 }
 
 // buildCommittedChildOrderMatch maps each observed child to its expected
