@@ -1,6 +1,6 @@
 name: Bench Drift
 
-# D3 merge gate: run the base and head revisions sequentially on one runner, then compare
+# D3 merge gate: run the base and head revisions in an ABBA sequence on one runner, then compare
 # their reports. The committed benchmark reports remain historical evidence; they are not a
 # cross-machine timing baseline for a pull request.
 
@@ -45,6 +45,9 @@ jobs:
         with:
           go-version: "1.27.3"
 
+      - name: Validate benchmark report aggregation
+        run: python3 bench-head/.github/scripts/test_aggregate_bench_drift.py
+
       - name: Normalize and compile base benchmark sources
         shell: bash
         run: |
@@ -64,27 +67,35 @@ jobs:
         run: |
           go -C bench-head/tools build -o ../gwc-head ./gwc
 
-      - name: Run base and head suite sequentially, then enforce drift gate
+      - name: Run suites in ABBA order, aggregate raw samples, then enforce drift gate
         shell: bash
         run: |
-          set -o pipefail
+          set -uo pipefail
           packages='./internal/runtime,./ui,./html,./css,./router,./delta,./projection,./virtualization'
-          common=(-lane native -count 5 -warmup 1 -shuffle -seed 6001 \
+          common=(-lane native -count 2 -warmup 1 -shuffle -seed 6001 \
             -packages "$packages" -skip '^BenchmarkHydrateMediumTreeFirstUpdate$' -tags production)
           set +e
-          ./bench-head/gwc-head bench suite -root "$GITHUB_WORKSPACE/bench-base" "${common[@]}" \
-            -suite pr-base -out "$GITHUB_WORKSPACE/bench-base-suite.json" \
-            2>&1 | tee bench-base-suite.console.txt
-          base_status=${PIPESTATUS[0]}
-          ./bench-head/gwc-head bench suite -root "$GITHUB_WORKSPACE/bench-head" "${common[@]}" \
-            -suite pr-head -out "$GITHUB_WORKSPACE/bench-head-suite.json" \
-            2>&1 | tee bench-head-suite.console.txt
-          head_status=${PIPESTATUS[0]}
+          run_suite() {
+            local side="$1" number="$2"
+            ./bench-head/gwc-head bench suite -root "$GITHUB_WORKSPACE/bench-$side" "${common[@]}" \
+              -suite "pr-$side-$number" -out "$GITHUB_WORKSPACE/bench-$side-suite-$number.json" \
+              2>&1 | tee "bench-$side-suite-$number.console.txt"
+            return "${PIPESTATUS[0]}"
+          }
+          run_suite base 1; base1_status=$?
+          run_suite head 1; head1_status=$?
+          run_suite head 2; head2_status=$?
+          run_suite base 2; base2_status=$?
           set -e
-          if [[ "$base_status" != 0 || "$head_status" != 0 ]]; then
-            printf 'base_status=%s\nhead_status=%s\n' "$base_status" "$head_status" | tee bench-suite-status.txt
+          if [[ "$base1_status" != 0 || "$head1_status" != 0 || "$head2_status" != 0 || "$base2_status" != 0 ]]; then
+            printf 'base1_status=%s\nhead1_status=%s\nhead2_status=%s\nbase2_status=%s\n' \
+              "$base1_status" "$head1_status" "$head2_status" "$base2_status" | tee bench-suite-status.txt
             exit 1
           fi
+          python3 bench-head/.github/scripts/aggregate-bench-drift.py \
+            --out bench-base-suite.json --suite pr-base-abba bench-base-suite-1.json bench-base-suite-2.json
+          python3 bench-head/.github/scripts/aggregate-bench-drift.py \
+            --out bench-head-suite.json --suite pr-head-abba bench-head-suite-1.json bench-head-suite-2.json
           set +e
           ./bench-head/gwc-head bench suite compare -json \
             bench-base-suite.json bench-head-suite.json > bench-suite-compare.json
@@ -134,8 +145,8 @@ jobs:
           if [[ "$json_status" != 0 || "$coverage_status" != 0 ]]; then
             compare_status=1
           fi
-          printf 'base_status=%s\nhead_status=%s\ncompare_status=%s\ncoverage_status=%s\ngate_mode=%s\n' \
-            "$base_status" "$head_status" "$compare_status" "$coverage_status" "$gate_mode" | tee bench-suite-status.txt
+          printf 'base1_status=%s\nhead1_status=%s\nhead2_status=%s\nbase2_status=%s\ncompare_status=%s\ncoverage_status=%s\ngate_mode=%s\n' \
+            "$base1_status" "$head1_status" "$head2_status" "$base2_status" "$compare_status" "$coverage_status" "$gate_mode" | tee bench-suite-status.txt
           exit "$compare_status"
 
       - name: Upload same-run benchmark evidence
@@ -149,10 +160,20 @@ jobs:
             bench-base-loop-normalization.txt
             bench-base-suite.json
             bench-base-suite.json.log
+            bench-base-suite-1.json
+            bench-base-suite-1.json.log
+            bench-base-suite-2.json
+            bench-base-suite-2.json.log
             bench-head-suite.json
             bench-head-suite.json.log
-            bench-base-suite.console.txt
-            bench-head-suite.console.txt
+            bench-head-suite-1.json
+            bench-head-suite-1.json.log
+            bench-head-suite-2.json
+            bench-head-suite-2.json.log
+            bench-base-suite-1.console.txt
+            bench-base-suite-2.console.txt
+            bench-head-suite-1.console.txt
+            bench-head-suite-2.console.txt
             bench-suite-compare.json
             bench-suite-compare.txt
             bench-suite-status.txt

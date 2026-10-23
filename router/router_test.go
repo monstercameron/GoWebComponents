@@ -1237,7 +1237,11 @@ func TestRouteLoaderRevalidatesOnQueryChange(parseT *testing.T) {
 	parseR := NewHashRouter()
 
 	parseLoadCount := 0
+	parseLoadedQuery := ""
 	parseR.GoRegisterRoute("/search", func(parseProps Attrs) *Element {
+		if parseQuery, parseOk := parseProps["query"].(string); parseOk {
+			parseLoadedQuery = parseQuery
+		}
 		return runtime.Div(nil, runtime.Text("search"))
 	}, Options{
 		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
@@ -1247,10 +1251,11 @@ func TestRouteLoaderRevalidatesOnQueryChange(parseT *testing.T) {
 	})
 
 	js.Global().Get("location").Set("hash", "/search?q=one")
+	parseR.Current()
 	waitForCondition(parseT, func() bool {
-		parseR.Current()
-		return parseLoadCount == 1
+		return parseLoadCount == 1 && parseLoadedQuery == "one"
 	})
+	flushPendingEventLoopWork()
 
 	parseR.Current()
 	if parseLoadCount != 1 {
@@ -1258,10 +1263,14 @@ func TestRouteLoaderRevalidatesOnQueryChange(parseT *testing.T) {
 	}
 
 	js.Global().Get("location").Set("hash", "/search?q=two")
+	parseR.Current()
 	waitForConditionTimeout(parseT, 5*time.Second, func() bool {
-		parseR.Current()
-		return parseLoadCount == 2
+		return parseLoadCount == 2 && parseLoadedQuery == "two"
 	})
+	// The loader's completion path re-renders the current route after publishing
+	// its result. Let that callback return before fixture cleanup releases the
+	// fake DOM functions it may still be using.
+	flushPendingEventLoopWork()
 }
 
 func TestRouteLoaderCancelsOnNavigationChange(parseT *testing.T) {
