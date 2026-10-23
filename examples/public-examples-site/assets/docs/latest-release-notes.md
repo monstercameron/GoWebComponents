@@ -3,6 +3,22 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
+## Unreleased — Example 201 benchmark measurement correction
+
+Production Example 201 Go/Wasm benchmark builds exclude the development
+example logger; development builds retain it. The logger ran inside scored
+click actions in the historical Go browser comparisons while the React
+fixture had no matching logger. A same-run, four-block Hook Grid Render A/B
+measured logger-on medians of 4.6 and 5.0 ms and logger-off medians of 3.0
+and 3.2 ms: **35.4% less measured DOM-ready time** by the mean of block
+medians, with 40 samples and 40 rendered hook nodes per block. This measures
+benchmark instrumentation overhead, **not a core-library speedup or an
+overall React-relative improvement**. The published v7.0.7 results remain
+historical measurements with that instrumentation present. See
+[#90](https://github.com/monstercameron/GoWebComponents/pull/90), the
+[same-run A/B](https://github.com/monstercameron/GoWebComponents/actions/runs/39956875326),
+and [benchmark evidence](docs/benchmarks/V7-RELEASE-EVIDENCE.md).
+
 ## v7.0.7 — runtime performance and correctness patch
 
 This patch reduces work in common rendering paths. Stable child-order commits avoid materializing an observed-node slice; exact child-order prefixes append only the remaining nodes, and a confirmed adjacent swap is repaired with one `InsertBefore`. Additional fast paths cover canonical scheduler origins, key-only element props, hook-owner lookup, retained DOM props, clean reused fibers, typed-prop comparability, and tracked atom revision writes. Derived atoms reject stale recomputations when a newer dependency write occurs, and deleting then re-registering an intermediate derived atom preserves its downstream consumers. The router query-revalidation Wasm test now waits for the loaded value to render before fixture cleanup, avoiding a test-lifecycle race. The native benchmark-drift gate balances base and candidate samples in ABBA order and aggregates all four reports without changing its 15% per-entry threshold. The public API and Go 1.27 requirement are unchanged. See [#73](https://github.com/monstercameron/GoWebComponents/pull/73), [#74](https://github.com/monstercameron/GoWebComponents/pull/74), [#75](https://github.com/monstercameron/GoWebComponents/pull/75), [#76](https://github.com/monstercameron/GoWebComponents/pull/76), [#77](https://github.com/monstercameron/GoWebComponents/pull/77), [#78](https://github.com/monstercameron/GoWebComponents/pull/78), [#79](https://github.com/monstercameron/GoWebComponents/pull/79), [#80](https://github.com/monstercameron/GoWebComponents/pull/80), [#81](https://github.com/monstercameron/GoWebComponents/pull/81), [#82](https://github.com/monstercameron/GoWebComponents/pull/82), [#83](https://github.com/monstercameron/GoWebComponents/pull/83), [#84](https://github.com/monstercameron/GoWebComponents/pull/84), [#85](https://github.com/monstercameron/GoWebComponents/pull/85), [#86](https://github.com/monstercameron/GoWebComponents/pull/86), and [#87](https://github.com/monstercameron/GoWebComponents/pull/87).
