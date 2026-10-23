@@ -20,9 +20,9 @@ Representative before/after measurements for the PRs in this release are below. 
 | [#82](https://github.com/monstercameron/GoWebComponents/pull/82), [#83](https://github.com/monstercameron/GoWebComponents/pull/83) | Not measured | CI reporting and benchmark-gate changes. |
 | [#84](https://github.com/monstercameron/GoWebComponents/pull/84), [#85](https://github.com/monstercameron/GoWebComponents/pull/85) | Not measured | Derived-atom correctness fixes. |
 | [#86](https://github.com/monstercameron/GoWebComponents/pull/86) | Not measured | Wasm test fix. |
-| [#87](https://github.com/monstercameron/GoWebComponents/pull/87) | 15.6% | Tracked `SetAtom`, Node/Wasm microbenchmark: 153.2→129.3 ns/op, allocations unchanged. |
+| [#87](https://github.com/monstercameron/GoWebComponents/pull/87) | 15.6% tracked `SetAtom`; 1.80% native-suite geometric mean | Node/Wasm microbenchmark: 153.2→129.3 ns/op, allocations unchanged. Balanced native CI: 176 entries, 22 improved, 2 regressed below the 15% limit, 152 within noise. |
 
-The final Go 1.27.3 Node/Wasm A/B for #87 used the exact #85 source as its baseline. Its derived-recompute gain was smaller and noisy; these local measurements are not browser or suite-wide results.
+The final Go 1.27.3 Node/Wasm A/B for #87 used the exact #85 source as its baseline; the balanced native CI compared #87 against main after #86. Neither result measures browser or React-relative performance.
 
 The latest fair React 19.2.4 comparison on `main` at `40dd11ac` found GoWebComponents faster in 6 of 19 scenarios. The four reported overall React/GWC ratios were 0.863, 0.915, 0.897, and 0.922 (all below 1). In the paired browser comparison, v7's geometric mean was 3.51% slower than v6; the maintainer accepted this measured cost. These results describe the measured runs and do not establish parity with React. See the [fair browser comparison workflow](.github/workflows/fair-example201.yml) and [report visibility change in #82](https://github.com/monstercameron/GoWebComponents/pull/82).
 
