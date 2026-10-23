@@ -188,8 +188,20 @@ func (parseAr *AtomRegistry) deleteAtom(parseId string) {
 		}
 		delete(parseAr.derived, parseId)
 	}
-	delete(parseAr.dependents, parseId)
-	delete(parseAr.atomVersions, parseId)
+	// Keep the outgoing dependency edges when active derived atoms still depend
+	// on this ID. Deleting a source value or a derived registration must not
+	// unregister its downstream consumers: the same ID can be initialized or
+	// registered again, and those consumers need to recompute from its new value.
+	if len(parseAr.dependents[parseId]) == 0 {
+		delete(parseAr.dependents, parseId)
+		delete(parseAr.atomVersions, parseId)
+	} else {
+		// Every active edge should have a revision token. Retain the edge, but
+		// advance the token so an in-flight dependent recomputation that read
+		// the deleted value cannot commit after deletion.
+		parseAr.ensureAtomVersionTrackedLocked(parseId)
+		parseAr.bumpAtomVersionLocked(parseId)
+	}
 	parseAr.mu.Unlock()
 }
 
