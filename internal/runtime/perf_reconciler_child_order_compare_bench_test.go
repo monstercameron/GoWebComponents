@@ -90,3 +90,44 @@ func BenchmarkMarkCommittedChildOrderKept128(parseB *testing.B) {
 			markCommittedChildOrderKept(parseMatch, len(parseMatch))
 	}
 }
+
+// buildStableChildOrderBenchmarkFixture creates a DOM parent and matching child list.
+func buildStableChildOrderBenchmarkFixture(parseCount int) (*Runtime, DOMNode, []DOMNode) {
+	parseAdapter := newTestDOMAdapter()
+	parseRuntime := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseExpected := make([]DOMNode, parseCount)
+	for parseIndex := range parseExpected {
+		parseExpected[parseIndex] = parseAdapter.CreateElement("div")
+		parseAdapter.AppendChild(parseParent, parseExpected[parseIndex])
+	}
+	return parseRuntime, parseParent, parseExpected
+}
+
+// applyLegacyStableCommittedChildOrder checks stability by materializing observed nodes.
+func applyLegacyStableCommittedChildOrder(parseRuntime *Runtime, parseParent DOMNode, parseExpected []DOMNode) {
+	parseObserved := parseRuntime.buildObservedChildNodes(parseParent, len(parseExpected))
+	if !isCommittedChildOrderStable(parseExpected, parseObserved) {
+		parseRuntime.applyCommittedChildOrder(parseParent, parseExpected)
+	}
+}
+
+// BenchmarkApplyCommittedChildOrderStable128 compares the stable-list allocation path.
+func BenchmarkApplyCommittedChildOrderStable128(parseB *testing.B) {
+	parseB.Run("current", func(parseB *testing.B) {
+		parseRuntime, parseParent, parseExpected := buildStableChildOrderBenchmarkFixture(128)
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseB.Loop() {
+			parseRuntime.applyCommittedChildOrder(parseParent, parseExpected)
+		}
+	})
+	parseB.Run("materialized", func(parseB *testing.B) {
+		parseRuntime, parseParent, parseExpected := buildStableChildOrderBenchmarkFixture(128)
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseB.Loop() {
+			applyLegacyStableCommittedChildOrder(parseRuntime, parseParent, parseExpected)
+		}
+	})
+}
