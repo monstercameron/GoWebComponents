@@ -163,3 +163,21 @@ func TestPropsStorage_CopyOnWriteIsUnsoundForThisContract(parseT *testing.T) {
 		parseT.Error("CreateElement must isolate the element from later caller writes; that isolation is what candidate (b) cannot preserve")
 	}
 }
+
+// TestCreateElement_KeyOnlyPropsRemainCloned checks the common list-key fast path.
+func TestCreateElement_KeyOnlyPropsRemainCloned(parseT *testing.T) {
+	parseProps := map[string]any{"key": 42}
+	parseElem := CreateElement("li", parseProps, "item")
+	parseProps["key"] = 99
+
+	if parseElem.Props["key"] != 42 {
+		parseT.Fatalf("key-only props must be copied, got %v", parseElem.Props["key"])
+	}
+	parseChildren, hasChildren := parseElem.Props["children"].([]any)
+	if !hasChildren || len(parseChildren) != 1 || parseChildren[0] != "item" {
+		parseT.Fatalf("key-only host props lost normalized children: %#v", parseElem.Props["children"])
+	}
+	if !parseElem.hasDirectText || parseElem.TextContent != "item" {
+		parseT.Fatalf("key-only fast path changed direct text: direct=%v text=%q", parseElem.hasDirectText, parseElem.TextContent)
+	}
+}
