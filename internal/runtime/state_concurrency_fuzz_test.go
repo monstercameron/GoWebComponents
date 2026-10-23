@@ -20,7 +20,7 @@ func TestAtomRegistryTracksOnlyActiveDerivedDependencies(parseT *testing.T) {
 	}); parseErr != nil {
 		parseT.Fatalf("register derived: %v", parseErr)
 	}
-	parseInitialRevision := parseReg.atomVersions["src"]
+	parseInitialRevision := *parseReg.atomVersions["src"]
 	if parseInitialRevision == 0 || len(parseReg.atomVersions) != 1 {
 		parseT.Fatalf("expected only src to be tracked, got %v", parseReg.atomVersions)
 	}
@@ -81,7 +81,7 @@ func TestAtomRegistryTracksOnlyActiveDerivedDependencies(parseT *testing.T) {
 	}); parseErr != nil {
 		parseT.Fatalf("re-register derived: %v", parseErr)
 	}
-	if parseReg.atomVersions["src"] == parseInitialRevision {
+	if *parseReg.atomVersions["src"] == parseInitialRevision {
 		parseT.Fatalf("dependency revision token was reused after untracking: %d", parseInitialRevision)
 	}
 }

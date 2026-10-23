@@ -14,7 +14,7 @@ import (
 type AtomRegistry struct {
 	mu                    sync.RWMutex
 	atoms                 map[string]any
-	atomVersions          map[string]uint64          // only atoms with active derived dependents are tracked
+	atomVersions          map[string]*uint64         // only atoms with active derived dependents are tracked
 	subscriptions         map[string]map[*Fiber]bool // atomID -> set of subscribed fibers
 	derived               map[string]derivedAtom
 	dependents            map[string]map[string]bool // source atom id -> derived ids
@@ -33,7 +33,7 @@ type derivedAtom struct {
 func NewAtomRegistry() *AtomRegistry {
 	return &AtomRegistry{
 		atoms:         make(map[string]any),
-		atomVersions:  make(map[string]uint64),
+		atomVersions:  make(map[string]*uint64),
 		subscriptions: make(map[string]map[*Fiber]bool),
 		derived:       make(map[string]derivedAtom),
 		dependents:    make(map[string]map[string]bool),
@@ -103,7 +103,9 @@ func (parseAr *AtomRegistry) ensureAtomVersionTrackedLocked(parseId string) {
 		return
 	}
 	parseAr.nextAtomVersion++
-	parseAr.atomVersions[parseId] = parseAr.nextAtomVersion
+	parseVersion := new(uint64)
+	*parseVersion = parseAr.nextAtomVersion
+	parseAr.atomVersions[parseId] = parseVersion
 }
 
 // bumpAtomVersionLocked advances only revisions for atoms that currently have
@@ -112,11 +114,12 @@ func (parseAr *AtomRegistry) bumpAtomVersionLocked(parseId string) {
 	if len(parseAr.atomVersions) == 0 {
 		return
 	}
-	if _, parseTracked := parseAr.atomVersions[parseId]; !parseTracked {
+	parseVersion, parseTracked := parseAr.atomVersions[parseId]
+	if !parseTracked {
 		return
 	}
 	parseAr.nextAtomVersion++
-	parseAr.atomVersions[parseId] = parseAr.nextAtomVersion
+	*parseVersion = parseAr.nextAtomVersion
 }
 
 // hasDerivedDependencyPathLocked is a core package helper.
@@ -373,7 +376,7 @@ func (parseAr *AtomRegistry) recomputeDerived(parseId string, parseTrail map[str
 	}
 	if parseOk {
 		for parseDepIdx, parseDep := range parseDerived.deps {
-			parseDependencyVersions[parseDepIdx] = parseAr.atomVersions[parseDep]
+			parseDependencyVersions[parseDepIdx] = *parseAr.atomVersions[parseDep]
 		}
 	}
 	parseAr.mu.RUnlock()
@@ -424,7 +427,8 @@ func (parseAr *AtomRegistry) setDerivedValueIfGenerationAndDependenciesMatch(
 		return nil, false
 	}
 	for parseDepIdx, parseDep := range parseCurrent.deps {
-		if parseAr.atomVersions[parseDep] != parseExpectedDependencyVersions[parseDepIdx] {
+		parseVersion := parseAr.atomVersions[parseDep]
+		if parseVersion == nil || *parseVersion != parseExpectedDependencyVersions[parseDepIdx] {
 			parseAr.mu.Unlock()
 			return nil, false
 		}
