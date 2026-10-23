@@ -622,6 +622,98 @@ func TestApplyCommittedChildOrderReusesObservedChildScan(parseT *testing.T) {
 	}
 }
 
+func TestApplyCommittedChildOrderAppendsAfterExactObservedPrefix(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseNodeA := parseAdapter.CreateElement("div")
+	parseNodeB := parseAdapter.CreateElement("div")
+	parseNodeC := parseAdapter.CreateElement("div")
+	parseAdapter.AppendChild(parseParent, parseNodeA)
+	parseAdapter.AppendChild(parseParent, parseNodeB)
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, []DOMNode{parseNodeA, parseNodeB, parseNodeC})
+
+	if parseAdapter.appendChildCount != 1 || parseAdapter.insertBeforeCount != 0 {
+		parseT.Fatalf("expected one append after the observed prefix, got append=%d insert=%d", parseAdapter.appendChildCount, parseAdapter.insertBeforeCount)
+	}
+	if parseAdapter.replaceChildrenCount != 0 {
+		parseT.Fatalf("expected prefix append to skip replaceChildren, got %d calls", parseAdapter.replaceChildrenCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 3 || !IsSameDOMNode(parseChildren[0], parseNodeA) || !IsSameDOMNode(parseChildren[1], parseNodeB) || !IsSameDOMNode(parseChildren[2], parseNodeC) {
+		parseT.Fatalf("expected children A,B,C after prefix append, got %#v", parseChildren)
+	}
+}
+
+func TestApplyCommittedChildOrderForeignChildUsesFallback(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseNodeA := parseAdapter.CreateElement("div")
+	parseNodeB := parseAdapter.CreateElement("div")
+	parseForeign := parseAdapter.CreateElement("aside")
+	parseAdapter.AppendChild(parseParent, parseNodeA)
+	parseAdapter.AppendChild(parseParent, parseForeign)
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, []DOMNode{parseNodeA, parseNodeB})
+
+	if parseAdapter.insertBeforeCount != 1 || parseAdapter.appendChildCount != 0 {
+		parseT.Fatalf("expected fallback to insert before the foreign child, got insert=%d append=%d", parseAdapter.insertBeforeCount, parseAdapter.appendChildCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 3 || !IsSameDOMNode(parseChildren[0], parseNodeA) || !IsSameDOMNode(parseChildren[1], parseNodeB) || !IsSameDOMNode(parseChildren[2], parseForeign) {
+		parseT.Fatalf("expected foreign child to remain after repaired A,B, got %#v", parseChildren)
+	}
+}
+
+func TestApplyCommittedChildOrderDuplicateExpectedNodeWithMismatchedPrefixUsesFallback(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseNodeA := parseAdapter.CreateElement("div")
+	parseNodeB := parseAdapter.CreateElement("div")
+	parseAdapter.AppendChild(parseParent, parseNodeB)
+	parseAdapter.AppendChild(parseParent, parseNodeA)
+	parseAdapter.resetCounts()
+
+	// The duplicate expected node also makes the first child differ from the
+	// expected prefix, so this input must retain the general repair path.
+	parseRt.applyCommittedChildOrder(parseParent, []DOMNode{parseNodeA, parseNodeA, parseNodeB})
+
+	if parseAdapter.insertBeforeCount == 0 {
+		parseT.Fatal("expected duplicate expected node order to use the general repair path")
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 2 || !IsSameDOMNode(parseChildren[0], parseNodeA) || !IsSameDOMNode(parseChildren[1], parseNodeB) {
+		parseT.Fatalf("expected duplicate DOM identity to remain a single child with repaired order A,B, got %#v", parseChildren)
+	}
+}
+
+func TestApplyCommittedChildOrderExactPrefixDuplicateSuffixKeepsMoveSemantics(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseNodeA := parseAdapter.CreateElement("div")
+	parseNodeB := parseAdapter.CreateElement("div")
+	parseNodeC := parseAdapter.CreateElement("div")
+	parseAdapter.AppendChild(parseParent, parseNodeA)
+	parseAdapter.AppendChild(parseParent, parseNodeB)
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, []DOMNode{parseNodeA, parseNodeB, parseNodeA, parseNodeC})
+
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 3 || !IsSameDOMNode(parseChildren[0], parseNodeB) || !IsSameDOMNode(parseChildren[1], parseNodeA) || !IsSameDOMNode(parseChildren[2], parseNodeC) {
+		parseT.Fatalf("repeated node must move before the new suffix node: got %#v", parseChildren)
+	}
+	if parseAdapter.appendChildCount != 2 {
+		parseT.Fatalf("expected duplicate suffix and new suffix node to use AppendChild, got %d appends", parseAdapter.appendChildCount)
+	}
+}
+
 // TestApplyCommittedChildOrderStablePathSkipsMutation verifies stable siblings return after one scan.
 func TestApplyCommittedChildOrderStablePathSkipsMutation(parseT *testing.T) {
 	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}

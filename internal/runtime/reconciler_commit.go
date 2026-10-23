@@ -1033,18 +1033,26 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 		return
 	}
 	// Most commits preserve sibling order. Check that common case through the
-	// adapter iterator so it does not allocate an observed-node slice.
+	// adapter iterator so it does not allocate an observed-node slice. If the
+	// children match an expected prefix and end, append the suffix directly.
+	// Repeated references still use AppendChild, preserving DOM move semantics.
 	parseFirstObservedNode := parseRt.domAdapter.GetFirstChild(parseDomParent)
 	parseObservedNode := parseFirstObservedNode
-	parseIsStable := true
-	for _, parseExpectedNode := range parseExpected {
-		if IsDOMNodeNull(parseObservedNode) || !IsSameDOMNode(parseExpectedNode, parseObservedNode) {
-			parseIsStable = false
+	parseMatchedPrefix := 0
+	for parseMatchedPrefix < len(parseExpected) {
+		if IsDOMNodeNull(parseObservedNode) || !IsSameDOMNode(parseExpected[parseMatchedPrefix], parseObservedNode) {
 			break
 		}
+		parseMatchedPrefix++
 		parseObservedNode = parseRt.domAdapter.GetNextSibling(parseObservedNode)
 	}
-	if parseIsStable && IsDOMNodeNull(parseObservedNode) {
+	if IsDOMNodeNull(parseObservedNode) {
+		if parseMatchedPrefix == len(parseExpected) {
+			return
+		}
+		for parseIndex := parseMatchedPrefix; parseIndex < len(parseExpected); parseIndex++ {
+			parseRt.domAdapter.AppendChild(parseDomParent, parseExpected[parseIndex])
+		}
 		return
 	}
 	parseObserved := parseRt.buildObservedChildNodesFrom(parseFirstObservedNode, len(parseExpected))
