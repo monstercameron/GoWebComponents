@@ -622,6 +622,31 @@ func TestApplyCommittedChildOrderReusesObservedChildScan(parseT *testing.T) {
 	}
 }
 
+// TestApplyCommittedChildOrderStablePathSkipsMutation verifies stable siblings return after one scan.
+func TestApplyCommittedChildOrderStablePathSkipsMutation(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseExpected := []DOMNode{
+		parseAdapter.CreateElement("div"),
+		parseAdapter.CreateElement("div"),
+		parseAdapter.CreateElement("div"),
+	}
+	for _, parseNode := range parseExpected {
+		parseAdapter.AppendChild(parseParent, parseNode)
+	}
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, parseExpected)
+
+	if parseAdapter.getFirstChildCount != 1 || parseAdapter.getNextSiblingCount != len(parseExpected) {
+		parseT.Fatalf("expected one stable sibling scan, got %d first-child reads and %d next-sibling reads", parseAdapter.getFirstChildCount, parseAdapter.getNextSiblingCount)
+	}
+	if parseAdapter.insertBeforeCount != 0 || parseAdapter.appendChildCount != 0 || parseAdapter.replaceChildrenCount != 0 {
+		parseT.Fatalf("stable child order unexpectedly mutated the DOM: insert=%d append=%d replace=%d", parseAdapter.insertBeforeCount, parseAdapter.appendChildCount, parseAdapter.replaceChildrenCount)
+	}
+}
+
 // TestApplyCommittedChildOrderUsesReplaceChildrenFastPath verifies large reorder repairs collapse to one replaceChildren call when the observed child set matches.
 func TestApplyCommittedChildOrderUsesReplaceChildrenFastPath(parseT *testing.T) {
 	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}

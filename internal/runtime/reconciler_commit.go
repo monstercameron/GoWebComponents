@@ -999,8 +999,16 @@ func (parseRt *Runtime) buildObservedChildNodes(parseDomParent DOMNode, parseCap
 	if parseCapacity < 4 {
 		parseCapacity = 4
 	}
+	return parseRt.buildObservedChildNodesFrom(parseRt.domAdapter.GetFirstChild(parseDomParent), parseCapacity)
+}
+
+// buildObservedChildNodesFrom collects siblings starting at an already-read first child.
+func (parseRt *Runtime) buildObservedChildNodesFrom(parseFirstNode DOMNode, parseCapacity int) []DOMNode {
+	if parseCapacity < 4 {
+		parseCapacity = 4
+	}
 	parseNodes := make([]DOMNode, 0, parseCapacity)
-	for parseNode := parseRt.domAdapter.GetFirstChild(parseDomParent); !IsDOMNodeNull(parseNode); parseNode = parseRt.domAdapter.GetNextSibling(parseNode) {
+	for parseNode := parseFirstNode; !IsDOMNodeNull(parseNode); parseNode = parseRt.domAdapter.GetNextSibling(parseNode) {
 		parseNodes = append(parseNodes, parseNode)
 	}
 	return parseNodes
@@ -1024,10 +1032,22 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseDomParent) || len(parseExpected) == 0 {
 		return
 	}
-	parseObserved := parseRt.buildObservedChildNodes(parseDomParent, len(parseExpected))
-	if isCommittedChildOrderStable(parseExpected, parseObserved) {
+	// Most commits preserve sibling order. Check that common case through the
+	// adapter iterator so it does not allocate an observed-node slice.
+	parseFirstObservedNode := parseRt.domAdapter.GetFirstChild(parseDomParent)
+	parseObservedNode := parseFirstObservedNode
+	parseIsStable := true
+	for _, parseExpectedNode := range parseExpected {
+		if IsDOMNodeNull(parseObservedNode) || !IsSameDOMNode(parseExpectedNode, parseObservedNode) {
+			parseIsStable = false
+			break
+		}
+		parseObservedNode = parseRt.domAdapter.GetNextSibling(parseObservedNode)
+	}
+	if parseIsStable && IsDOMNodeNull(parseObservedNode) {
 		return
 	}
+	parseObserved := parseRt.buildObservedChildNodesFrom(parseFirstObservedNode, len(parseExpected))
 
 	// Same node set, order differs: keep the longest run of children already
 	// in relative order and move only the rest. A single displaced row in a
