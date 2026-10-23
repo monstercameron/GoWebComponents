@@ -69,6 +69,7 @@ func Typed[P any](parseComponent func(P) Node) func(P) Node {
 // typed payload is unchanged under the framework's shallow dependency model.
 func buildTypedPropsEqual[P any]() func(any, any) bool {
 	parseType := reflect.TypeFor[P]()
+	parseComparableKind := classifyTypedPropsComparability(parseType)
 	return func(parseLeft, parseRight any) bool {
 		parseLeftTyped, parseLeftOK := parseLeft.(P)
 		parseRightTyped, parseRightOK := parseRight.(P)
@@ -80,11 +81,54 @@ func buildTypedPropsEqual[P any]() func(any, any) bool {
 		if parseType == nil {
 			return !parseLeftValue.IsValid() && !parseRightValue.IsValid()
 		}
-		if parseLeftValue.Comparable() && parseRightValue.Comparable() {
+		if parseComparableKind == typedPropsAlwaysComparable {
+			return parseLeft == parseRight
+		}
+		if parseComparableKind == typedPropsDynamicComparability && parseLeftValue.Comparable() && parseRightValue.Comparable() {
 			return parseLeft == parseRight
 		}
 		return shallowTypedPropsEqualValue(parseLeftValue, parseRightValue)
 	}
+}
+
+type typedPropsComparability uint8
+
+const (
+	typedPropsNeverComparable typedPropsComparability = iota
+	typedPropsAlwaysComparable
+	typedPropsDynamicComparability
+)
+
+// classifyTypedPropsComparability moves type-stable work to Typed registration.
+// Interface-containing comparable types still need a per-value check because
+// their dynamic values may be uncomparable.
+func classifyTypedPropsComparability(parseType reflect.Type) typedPropsComparability {
+	if parseType == nil {
+		return typedPropsNeverComparable
+	}
+	if !parseType.Comparable() {
+		return typedPropsNeverComparable
+	}
+	if typedPropsContainsInterface(parseType) {
+		return typedPropsDynamicComparability
+	}
+	return typedPropsAlwaysComparable
+}
+
+func typedPropsContainsInterface(parseType reflect.Type) bool {
+	switch parseType.Kind() {
+	case reflect.Interface:
+		return true
+	case reflect.Struct:
+		for parseIndex := 0; parseIndex < parseType.NumField(); parseIndex++ {
+			if typedPropsContainsInterface(parseType.Field(parseIndex).Type) {
+				return true
+			}
+		}
+	case reflect.Array:
+		return typedPropsContainsInterface(parseType.Elem())
+	}
+	return false
 }
 
 func shallowTypedPropsEqualValue(parseLeft, parseRight reflect.Value) bool {
