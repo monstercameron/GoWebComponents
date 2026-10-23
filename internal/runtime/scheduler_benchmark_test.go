@@ -2,6 +2,29 @@ package runtime
 
 import "testing"
 
+var storeLaneBenchmarkResult UpdateLane
+
+func BenchmarkLaneForUpdateOriginCommon(parseB *testing.B) {
+	parseCases := []struct {
+		getName   string
+		getOrigin string
+	}{
+		{getName: "local-state", getOrigin: "local-state"},
+		{getName: "subscription", getOrigin: "subscription"},
+		{getName: "event", getOrigin: "event"},
+		{getName: "transition", getOrigin: "transition"},
+		{getName: "custom-input", getOrigin: "custom-input-origin"},
+	}
+	for _, parseCase := range parseCases {
+		parseB.Run(parseCase.getName, func(parseInner *testing.B) {
+			parseInner.ReportAllocs()
+			for parseInner.Loop() {
+				storeLaneBenchmarkResult = laneForUpdateOrigin(parseCase.getOrigin)
+			}
+		})
+	}
+}
+
 func BenchmarkScheduleUpdate(parseB *testing.B) {
 	parseScheduler := newTestScheduler()
 	parseRt := &Runtime{

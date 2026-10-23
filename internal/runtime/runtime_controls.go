@@ -256,6 +256,22 @@ func normalizeUpdateLane(parseLane UpdateLane) UpdateLane {
 }
 
 func laneForUpdateOrigin(parseOrigin string) UpdateLane {
+	// Scheduler callers use these canonical labels on every state write. Resolve
+	// them before normalization so the common path avoids lowercasing, trimming,
+	// and a sequence of substring searches.
+	switch parseOrigin {
+	case "sync", "hydrate", "render":
+		return UpdateLaneSync
+	case "input", "event", "local-state":
+		return UpdateLaneInput
+	case "transition":
+		return UpdateLaneTransition
+	case "idle", "background":
+		return UpdateLaneBackground
+	case "hook", "fine-grained", "atom", "subscription":
+		return UpdateLaneDefault
+	}
+
 	parseOrigin = strings.ToLower(strings.TrimSpace(parseOrigin))
 	switch {
 	case strings.Contains(parseOrigin, "sync"), strings.Contains(parseOrigin, "hydrate"), strings.Contains(parseOrigin, "render"):
