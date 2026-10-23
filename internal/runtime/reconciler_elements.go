@@ -1081,6 +1081,10 @@ func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fib
 			(parseCurrent.hooks == nil || parseCurrent.hooks.owner == parseCurrent) {
 			continue
 		}
+		isParseWorkClean := parseCurrent.effectTag == effectTagNone &&
+			!parseCurrent.dirty && !parseCurrent.subtreeDirty && !parseCurrent.subtreeCommit &&
+			!parseCurrent.needsUpdate && !parseCurrent.needsChildReconcile && !parseCurrent.needsChildOrder &&
+			(parseCurrent.hooks == nil || parseCurrent.hooks.owner == parseCurrent)
 		parseCurrent.parent = parseParent
 		parseCurrent.effectTag = effectTagNone
 		parseCurrent.dirty = false
@@ -1092,7 +1096,10 @@ func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fib
 		if parseCurrent.hooks != nil {
 			parseCurrent.hooks.owner = parseCurrent
 		}
-		if parseCurrent.child != nil {
+		// A shallow parent repair leaves a previously clean subtree untouched.
+		// Work flags bubble through every ancestor, so only nodes that were
+		// already clean can safely stop before checking their descendants.
+		if parseCurrent.child != nil && !isParseWorkClean {
 			parseRt.sanitizeFiberSubtree(parseCurrent.child, parseCurrent)
 		}
 	}

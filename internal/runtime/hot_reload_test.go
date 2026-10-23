@@ -179,6 +179,30 @@ func TestPrepareForHotReloadRunsCleanupsAndReleasesWrappers(parseT *testing.T) {
 	}
 }
 
+// TestPrepareForHotReloadRestoresAbandonedFiberParents checks that a refresh
+// cannot preserve parent links into the render pass it is about to discard.
+func TestPrepareForHotReloadRestoresAbandonedFiberParents(parseT *testing.T) {
+	parseDiscardedA := &Fiber{}
+	parseDiscardedB := &Fiber{}
+	parseLeaf := &Fiber{}
+	parseBranch := &Fiber{child: parseLeaf}
+	parseLeaf.parent = parseDiscardedB
+	parseParent := &Fiber{child: parseBranch}
+	parseBranch.parent = parseDiscardedA
+	parseRoot := &Fiber{typeOf: "ROOT", child: parseParent}
+	parseParent.parent = parseRoot
+	parseRt := &Runtime{currentRoot: parseRoot, wipRoot: parseDiscardedA}
+
+	parseRt.PrepareForHotReload()
+
+	if parseBranch.parent != parseParent {
+		parseT.Fatal("expected committed branch to point to its committed parent")
+	}
+	if parseLeaf.parent != parseBranch {
+		parseT.Fatal("expected committed leaf to point to its committed parent")
+	}
+}
+
 func TestPrepareForHotReloadReportsPendingFetchRestartActivity(parseT *testing.T) {
 	ClearLogs()
 	defer ClearLogs()

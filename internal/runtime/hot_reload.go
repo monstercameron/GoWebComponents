@@ -689,6 +689,10 @@ func (parseRt *Runtime) PrepareForHotReload() {
 		return
 	}
 
+	// A live render can have shared committed descendants relinked to its WIP
+	// parents before hot reload discards that pass. Re-anchor the committed tree
+	// first so the next render starts with valid parent links.
+	restoreCommittedTreeLinks(parseRt.currentRoot)
 	parseRt.runCleanups(parseRt.currentRoot)
 	prepareFiberForHotReload(parseRt, parseRt.currentRoot)
 	parseRt.wipRoot = nil
