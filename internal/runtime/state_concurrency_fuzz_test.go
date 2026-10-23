@@ -3,8 +3,135 @@ package runtime
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
+
+func TestAtomRegistryTracksOnlyActiveDerivedDependencies(parseT *testing.T) {
+	parseReg := NewAtomRegistry()
+	parseReg.InitAtom("src", 0)
+	if len(parseReg.atomVersions) != 0 {
+		parseT.Fatalf("untracked source unexpectedly has a revision: %v", parseReg.atomVersions)
+	}
+	if parseErr := parseReg.RegisterDerivedAtom("doubled", []string{"src"}, func() any {
+		parseValue, _ := parseReg.GetAtom("src")
+		parseInt, _ := parseValue.(int)
+		return parseInt * 2
+	}); parseErr != nil {
+		parseT.Fatalf("register derived: %v", parseErr)
+	}
+	parseInitialRevision := parseReg.atomVersions["src"]
+	if parseInitialRevision == 0 || len(parseReg.atomVersions) != 1 {
+		parseT.Fatalf("expected only src to be tracked, got %v", parseReg.atomVersions)
+	}
+
+	// Dynamic cached-resource atoms should not leave revision tombstones behind.
+	for parseIndex := range 1000 {
+		parseReg.SetAtom(fmt.Sprintf("cached-resource-%d", parseIndex), parseIndex)
+	}
+	if len(parseReg.atomVersions) != 1 {
+		parseT.Fatalf("untracked dynamic writes grew revision map: %d entries", len(parseReg.atomVersions))
+	}
+	parseWideDeps := []string{"wide-0", "wide-1", "wide-2", "wide-3", "wide-4"}
+	for parseIndex, parseDep := range parseWideDeps {
+		parseReg.InitAtom(parseDep, parseIndex)
+	}
+	if parseErr := parseReg.RegisterDerivedAtom("wide-sum", parseWideDeps, func() any {
+		parseSum := 0
+		for _, parseDep := range parseWideDeps {
+			parseValue, _ := parseReg.GetAtom(parseDep)
+			parseInt, _ := parseValue.(int)
+			parseSum += parseInt
+		}
+		return parseSum
+	}); parseErr != nil {
+		parseT.Fatalf("register wide derived: %v", parseErr)
+	}
+	parseReg.setAtomAndNotify("wide-4", 10, func(*Fiber) {})
+	if parseSum, _ := parseReg.GetAtom("wide-sum"); parseSum != 16 {
+		parseT.Fatalf("wide dependency recompute got %v, want 16", parseSum)
+	}
+	parseReg.deleteAtom("wide-sum")
+	if len(parseReg.atomVersions) != 1 {
+		parseT.Fatalf("removing wide derivation retained revisions: %v", parseReg.atomVersions)
+	}
+
+	if parseErr := parseReg.RegisterDerivedAtom("quadrupled", []string{"doubled"}, func() any {
+		parseValue, _ := parseReg.GetAtom("doubled")
+		parseInt, _ := parseValue.(int)
+		return parseInt * 2
+	}); parseErr != nil {
+		parseT.Fatalf("register chained derived: %v", parseErr)
+	}
+	if len(parseReg.atomVersions) != 2 {
+		parseT.Fatalf("expected src and doubled to be tracked, got %v", parseReg.atomVersions)
+	}
+	parseReg.deleteAtom("quadrupled")
+	if _, parseTracked := parseReg.atomVersions["doubled"]; parseTracked || len(parseReg.atomVersions) != 1 {
+		parseT.Fatalf("removed last dependent left a tracked derived key: %v", parseReg.atomVersions)
+	}
+	parseReg.deleteAtom("doubled")
+	if len(parseReg.atomVersions) != 0 {
+		parseT.Fatalf("removing final dependent left revision tombstones: %v", parseReg.atomVersions)
+	}
+	if parseErr := parseReg.RegisterDerivedAtom("doubled", []string{"src"}, func() any {
+		parseValue, _ := parseReg.GetAtom("src")
+		parseInt, _ := parseValue.(int)
+		return parseInt * 2
+	}); parseErr != nil {
+		parseT.Fatalf("re-register derived: %v", parseErr)
+	}
+	if parseReg.atomVersions["src"] == parseInitialRevision {
+		parseT.Fatalf("dependency revision token was reused after untracking: %d", parseInitialRevision)
+	}
+}
+
+func TestAtomRegistryStaleDerivedRecomputeCannotOverwriteNewerSource(parseT *testing.T) {
+	parseReg := NewAtomRegistry()
+	parseReg.InitAtom("src", 0)
+	parseBlockNext := atomic.Bool{}
+	parseReadOld := make(chan struct{})
+	parseReleaseOld := make(chan struct{})
+	if parseErr := parseReg.RegisterDerivedAtom("doubled", []string{"src"}, func() any {
+		parseValue, _ := parseReg.GetAtom("src")
+		parseInt, _ := parseValue.(int)
+		if parseBlockNext.Swap(false) {
+			close(parseReadOld)
+			<-parseReleaseOld
+		}
+		return parseInt * 2
+	}); parseErr != nil {
+		parseT.Fatalf("register derived: %v", parseErr)
+	}
+	if parseErr := parseReg.RegisterDerivedAtom("quadrupled", []string{"doubled"}, func() any {
+		parseValue, _ := parseReg.GetAtom("doubled")
+		parseInt, _ := parseValue.(int)
+		return parseInt * 2
+	}); parseErr != nil {
+		parseT.Fatalf("register chained derived: %v", parseErr)
+	}
+
+	parseBlockNext.Store(true)
+	parseOldWriteDone := make(chan struct{})
+	go func() {
+		parseReg.setAtomAndNotify("src", 1, func(*Fiber) {})
+		close(parseOldWriteDone)
+	}()
+	<-parseReadOld // the old recomputation has captured src=1
+
+	// This newer write recomputes and commits doubled=4 while the old compute is
+	// paused. Releasing the old compute must not allow doubled=2 to overwrite it.
+	parseReg.setAtomAndNotify("src", 2, func(*Fiber) {})
+	close(parseReleaseOld)
+	<-parseOldWriteDone
+
+	parseFinal, _ := parseReg.GetAtom("src")
+	parseDerived, _ := parseReg.GetAtom("doubled")
+	parseChainedDerived, _ := parseReg.GetAtom("quadrupled")
+	if parseFinal != 2 || parseDerived != 4 || parseChainedDerived != 8 {
+		parseT.Fatalf("stale recompute overwrote newer result: src=%v doubled=%v quadrupled=%v, want 2, 4, and 8", parseFinal, parseDerived, parseChainedDerived)
+	}
+}
 
 // TestAtomRegistryConcurrentInvariants hammers the atom registry from many
 // goroutines (the real concurrency surface: loaders and workers write atoms
@@ -75,5 +202,4 @@ func TestAtomRegistryConcurrentInvariants(parseT *testing.T) {
 			}
 		}
 	}
-	_ = fmt.Sprintf
 }
