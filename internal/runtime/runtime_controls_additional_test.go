@@ -36,6 +36,29 @@ func TestUpdateLaneLabelsAndSliceBudgets(t *testing.T) {
 	}
 }
 
+func TestLaneForUpdateOriginCanonicalAndNormalizedValues(t *testing.T) {
+	parseCases := []struct {
+		origin string
+		lane   UpdateLane
+	}{
+		{"local-state", UpdateLaneInput},
+		{"subscription", UpdateLaneDefault},
+		{"event", UpdateLaneInput},
+		{"transition", UpdateLaneTransition},
+		{"render", UpdateLaneSync},
+		{"LOCAL-STATE", UpdateLaneInput},
+		{" transition ", UpdateLaneTransition},
+		{"custom-input-origin", UpdateLaneInput},
+		{"render event", UpdateLaneSync},
+		{"", UpdateLaneDefault},
+	}
+	for _, parseCase := range parseCases {
+		if parseGot := laneForUpdateOrigin(parseCase.origin); parseGot != parseCase.lane {
+			t.Errorf("laneForUpdateOrigin(%q) = %s, want %s", parseCase.origin, parseGot, parseCase.lane)
+		}
+	}
+}
+
 func TestRuntimeSchedulerNilAndNormalizationBranches(t *testing.T) {
 	var parseNilState *runtimeSchedulerState
 	parseNilState.ensureDefaults(RuntimeLimits{})
