@@ -3,7 +3,11 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
-## Unreleased — Example 201 benchmark measurement correction
+## v7.0.8 — production benchmark correction
+
+This patch includes the v7.0.7 rendering and correctness improvements below
+and corrects how the Example 201 browser benchmark measures production Go/Wasm.
+The public API, module path, and Go 1.27 requirement are unchanged.
 
 Production Example 201 Go/Wasm benchmark builds exclude the development
 example logger; development builds retain it. The logger ran inside scored
