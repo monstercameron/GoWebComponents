@@ -52,6 +52,28 @@ func TestGoUseStateGlobal_DelegatesToGlobalRuntime(parseT *testing.T) {
 	}
 }
 
+// TestGoUseStateSlotGlobal_UsesCurrentFiberOwner verifies the public state slot binds to its render tree.
+func TestGoUseStateSlotGlobal_UsesCurrentFiberOwner(parseT *testing.T) {
+	resetGlobalRuntimeForTest()
+	defer resetGlobalRuntimeForTest()
+	parseWasMultiRootActive := multiRootActive.Load()
+	multiRootActive.Store(false)
+	defer multiRootActive.Store(parseWasMultiRootActive)
+	defer SetCurrentFiber(nil)
+
+	parseGlobal := GetGlobalRuntime()
+	parseOwner := &Runtime{}
+	parseFiber := &Fiber{typeOf: "test", ownerRuntime: parseOwner}
+	SetCurrentFiber(parseFiber)
+	parseSlot := GoUseStateSlotGlobal(5)
+	if parseSlot.runtime != parseOwner {
+		parseT.Fatalf("state slot runtime = %p, want current fiber owner %p (global runtime %p)", parseSlot.runtime, parseOwner, parseGlobal)
+	}
+	if parseFiber.hooks == nil || parseSlot.hooks != parseFiber.hooks {
+		parseT.Fatal("state slot was not claimed on the current fiber")
+	}
+}
+
 func TestGoUseAtomGlobal_UsesTypedSetterAndSharedRegistry(parseT *testing.T) {
 	_ = initWasmShimTestRuntime()
 	defer func() {
