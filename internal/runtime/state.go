@@ -376,7 +376,9 @@ func (parseAr *AtomRegistry) recomputeDerived(parseId string, parseTrail map[str
 	}
 	if parseOk {
 		for parseDepIdx, parseDep := range parseDerived.deps {
-			parseDependencyVersions[parseDepIdx] = *parseAr.atomVersions[parseDep]
+			if parseVersion := parseAr.atomVersions[parseDep]; parseVersion != nil {
+				parseDependencyVersions[parseDepIdx] = *parseVersion
+			}
 		}
 	}
 	parseAr.mu.RUnlock()
