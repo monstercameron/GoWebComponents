@@ -1,5 +1,13 @@
 # Development log
 
+## 2026-10-23 — Example 201 production benchmark logger
+
+- Production browser comparisons now exclude the example logger from the
+  Go/Wasm benchmark app; development builds retain it. Named CPU profiles
+  found the logger inside scored click actions. This is a measurement-method
+  correction, not a core-renderer performance change. The same-run A/B and
+  caveats are in [v7 benchmark evidence](docs/benchmarks/V7-RELEASE-EVIDENCE.md).
+
 ## 2026-09-08 — v6.1 Windows API expansion (unreleased; paused for today)
 
 - Expanded the Wails-free desktop contracts and separately gated Windows adapter:

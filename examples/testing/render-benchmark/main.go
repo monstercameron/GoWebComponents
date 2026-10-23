@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
 	benchmarkshared "github.com/monstercameron/GoWebComponents/v7/examples/testing/render-benchmark/shared"
 	"github.com/monstercameron/GoWebComponents/v7/html"
 	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
