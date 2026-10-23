@@ -473,6 +473,10 @@ func TestRuntimeResolveContainerTransitionAndAtomBranches(parseT *testing.T) {
 	}
 	parseCycleRegistry.dependents["count"] = map[string]bool{"loop": true}
 	parseCycleRegistry.dependents["loop"] = map[string]bool{"loop": true}
+	parseCycleRegistry.mu.Lock()
+	parseCycleRegistry.ensureAtomVersionTrackedLocked("count")
+	parseCycleRegistry.ensureAtomVersionTrackedLocked("loop")
+	parseCycleRegistry.mu.Unlock()
 	parseCycleRegistry.setAtomAndNotify("count", 5, func(parseFiber *Fiber) {})
 	parseDiagnostics := GetDiagnostics()
 	if len(parseDiagnostics) == 0 || !strings.Contains(parseDiagnostics[len(parseDiagnostics)-1].Message, "derived atom cycle detected involving loop") {
