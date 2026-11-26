@@ -8,7 +8,7 @@ package errorcodes
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
 )
 
 // RenderPage renders the committed error-code reference markdown from entries.

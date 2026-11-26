@@ -589,8 +589,8 @@ func writeHotReloadBrowserChangedPanel(parseT *testing.T, parsePath string, pars
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 func ChangedCounterPanel() ui.Node {

@@ -7,7 +7,7 @@ import (
 
 func benchmarkReleaseManifest() WasmReleaseManifest {
 	return WasmReleaseManifest{
-		Package: "github.com/monstercameron/GoWebComponents/v7/app",
+		Package: "github.com/monstercameron/GoWebComponents/v8/app",
 		Profile: "release",
 		GOOS:    "js",
 		GOARCH:  "wasm",

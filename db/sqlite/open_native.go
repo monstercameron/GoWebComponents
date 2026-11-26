@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	_ "github.com/ncruces/go-sqlite3/driver" // registers database/sql driver "sqlite3"
-	_ "github.com/ncruces/go-sqlite3/embed"  // embeds the SQLite wasm binary
 )
 
 // openDriver (native) backs the database with ncruces/go-sqlite3 so native and

@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // v5 P4.1 — flat-list virtualization, acceptance M4.

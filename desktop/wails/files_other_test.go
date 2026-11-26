@@ -3,7 +3,7 @@
 package wails
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
 	"testing"
 )
 

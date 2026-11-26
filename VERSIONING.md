@@ -12,13 +12,13 @@ commits the actual rules so a release's number is predictable, not a judgment ca
 | **Minor** (`x.Y.0`) | A backward-compatible **addition**. | New exported function/type/method; a new package; a new optional field with a zero-value default. |
 | **Patch** (`x.y.Z`) | A backward-compatible **fix** with no API change. | Bug fixes, performance, docs, internal refactors, new tests. |
 
-The stable v7 module is **`github.com/monstercameron/GoWebComponents/v7`**,
-starting at `v7.0.0`. A v6 consumer must change its module requirement and
-imports from `/v6` to `/v7` to upgrade. Consumers that need the release
-candidate can continue to pin `v7.0.0-rc.1` explicitly.
+The stable v8 module is **`github.com/monstercameron/GoWebComponents/v8`**,
+starting at `v8.0.0`. A v7 consumer upgrades by changing its module requirement
+and imports from `/v7` to `/v8` and running `go mod tidy` (to pick up the
+slimmed root `go.sum` after SQLite driver consolidation).
 
-**v7 requires Go 1.27.** Its `go.mod` declares `go 1.27.0`, with toolchain
-`go1.27.1`. Raising the Go floor ships with the v7 major bump.
+**v8 requires Go 1.27.** Its `go.mod` declares `go 1.27.0`, with toolchain
+`go1.27.1`.
 
 It previously moved to `/v5` in v5.0.0 because retiring runtime2 as a renderer removed `ui.ParallelRegion`
 and the surrounding public API, and changed the `ui.Hydrate`/`ui.HydrateInto`

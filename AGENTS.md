@@ -170,9 +170,9 @@ apply at once.
 Module path
 github.com/monstercameron/GoWebComponents
 Import public packages by that path, e.g.
-  "github.com/monstercameron/GoWebComponents/v7/ui"
-  "github.com/monstercameron/GoWebComponents/v7/html"
-  . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"   // dot-import sugar
+  "github.com/monstercameron/GoWebComponents/v8/ui"
+  "github.com/monstercameron/GoWebComponents/v8/html"
+  . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"   // dot-import sugar
 
 Mental model
 React-style components + hooks on a fiber runtime, written in Go, compiled to
@@ -199,8 +199,8 @@ Minimal app (entry file MUST be js/wasm - see build constraint)
   package main
 
   import (
-    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-    "github.com/monstercameron/GoWebComponents/v7/ui"
+    . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v8/ui"
   )
 
   // App renders the root component.

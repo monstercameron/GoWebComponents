@@ -5,7 +5,7 @@ package wails
 import (
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
 )
 
 // NewNativeBackendWithWindowTemplates reports that the Windows-only adapter is unavailable.

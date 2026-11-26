@@ -12,12 +12,12 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/monstercameron/GoWebComponents/v7/css/u"
-	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v8/css/u"
+	"github.com/monstercameron/GoWebComponents/v8/html"
 	//nolint:staticcheck // shorthand is the benchmark's intentionally compact view syntax.
-	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/state"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	. "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/state"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // --- shared (global) state: theme + roundUp, keyed atoms shared across components ---

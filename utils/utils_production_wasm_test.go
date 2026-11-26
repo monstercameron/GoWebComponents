@@ -6,7 +6,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/hotreload"
+	"github.com/monstercameron/GoWebComponents/v8/hotreload"
 )
 
 func TestEnableHotReloadIsDisabledInProduction(parseT *testing.T) {

@@ -31,9 +31,10 @@ certified.
 See the [Windows API coverage matrix](docs/windows-api-coverage.md) for exact
 operations, capability gates, native-host-only boundaries and verification scope.
 
-Version 7 is the current major line on the `/v7` module path (latest patch:
-`v7.0.8`; see [CHANGELOG.md](CHANGELOG.md)). Upgrading from v6? Read the
-[v7 migration guide](docs/MIGRATION_V7.md) first.
+Version 8 is the current major line on the `/v8` module path (`v8.0.0`; see
+[CHANGELOG.md](CHANGELOG.md)). Upgrading from v6? Read the
+[v7 migration guide](docs/MIGRATION_V7.md) first; upgrading from v7 to v8 only
+requires updating `/v7` import paths to `/v8` and running `go mod tidy`.
 
 ## Why GoWebComponents
 
@@ -86,23 +87,23 @@ published template.
 Install the stable v7 module:
 
 ```bash
-go get github.com/monstercameron/GoWebComponents/v7@latest
+go get github.com/monstercameron/GoWebComponents/v8@latest
 ```
 
 Import public packages from the module path exactly as declared in `go.mod`:
 
 ```go
 import (
-  "github.com/monstercameron/GoWebComponents/v7/css"
-  "github.com/monstercameron/GoWebComponents/v7/css/u"
-  "github.com/monstercameron/GoWebComponents/v7/fetch"
-  "github.com/monstercameron/GoWebComponents/v7/flags"
-  "github.com/monstercameron/GoWebComponents/v7/hotreload"
-  "github.com/monstercameron/GoWebComponents/v7/html"
-    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-  "github.com/monstercameron/GoWebComponents/v7/router"
-  "github.com/monstercameron/GoWebComponents/v7/state"
-  "github.com/monstercameron/GoWebComponents/v7/ui"
+  "github.com/monstercameron/GoWebComponents/v8/css"
+  "github.com/monstercameron/GoWebComponents/v8/css/u"
+  "github.com/monstercameron/GoWebComponents/v8/fetch"
+  "github.com/monstercameron/GoWebComponents/v8/flags"
+  "github.com/monstercameron/GoWebComponents/v8/hotreload"
+  "github.com/monstercameron/GoWebComponents/v8/html"
+    . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+  "github.com/monstercameron/GoWebComponents/v8/router"
+  "github.com/monstercameron/GoWebComponents/v8/state"
+  "github.com/monstercameron/GoWebComponents/v8/ui"
 )
 ```
 
@@ -172,10 +173,10 @@ package main
 import (
     "fmt"
 
-    "github.com/monstercameron/GoWebComponents/v7/css"
-    "github.com/monstercameron/GoWebComponents/v7/css/u"
-    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-    "github.com/monstercameron/GoWebComponents/v7/ui"
+    "github.com/monstercameron/GoWebComponents/v8/css"
+    "github.com/monstercameron/GoWebComponents/v8/css/u"
+    . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type StarterAppProps struct {

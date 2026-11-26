@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v7/css"
+import "github.com/monstercameron/GoWebComponents/v8/css"
 
 // Buttons, links and form fields.
 //

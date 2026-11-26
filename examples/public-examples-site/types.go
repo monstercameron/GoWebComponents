@@ -3,7 +3,7 @@
 
 package main
 
-import "github.com/monstercameron/GoWebComponents/v7/ui"
+import "github.com/monstercameron/GoWebComponents/v8/ui"
 
 type sortOption struct {
 	Value string

@@ -38,7 +38,7 @@
       "scopeSpans": [
         {
           "scope": {
-            "name": "github.com/monstercameron/GoWebComponents/v7/telemetry",
+            "name": "github.com/monstercameron/GoWebComponents/v8/telemetry",
             "version": "6.0.0"
           },
           "spans": [

@@ -7,7 +7,7 @@ package api
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v7/serverfn"
+	"github.com/monstercameron/GoWebComponents/v8/serverfn"
 )
 
 // Browser-side stubs: each calls its server function over HTTP with full type safety.

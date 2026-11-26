@@ -1,6 +1,6 @@
 package render
 
-import base "github.com/monstercameron/GoWebComponents/v7/testkit/render"
+import base "github.com/monstercameron/GoWebComponents/v8/testkit/render"
 
 type ResourceAttempt = base.ResourceAttempt
 type ResourceController[T any] = base.ResourceController[T]

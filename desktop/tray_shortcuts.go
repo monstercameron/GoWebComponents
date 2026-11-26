@@ -6,7 +6,7 @@ import (
 	"errors"
 	"image/png"
 
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 )
 
 // SystemTray identifies caller-owned Windows notification-area icons.

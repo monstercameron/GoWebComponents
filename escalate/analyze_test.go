@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/escalate"
+	"github.com/monstercameron/GoWebComponents/v8/escalate"
 )
 
 // v5 P3.15b — the escalation assistant.

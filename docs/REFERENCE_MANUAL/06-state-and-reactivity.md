@@ -116,9 +116,9 @@ package main
 import (
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 // renderInvitePlanner keeps both the writable source and the derived summary local to one component.
@@ -166,9 +166,9 @@ When a feature grows, widen ownership in steps: reducer for local workflow, cont
 package workspace
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/state"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/state"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 var workspaceFilterContext = ui.CreateContext(workspaceFilterState{})
@@ -302,7 +302,7 @@ package appstate
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v7/state"
+	"github.com/monstercameron/GoWebComponents/v8/state"
 )
 
 type workspacePrefs struct {
@@ -347,9 +347,9 @@ func applyWorkspacePrefsSnapshot(getCtx context.Context, getUserID string) (bool
 package dashboard
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/state"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/state"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type queueModel struct {

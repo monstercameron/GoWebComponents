@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 type FieldErrors map[string]string

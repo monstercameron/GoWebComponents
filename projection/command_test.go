@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/projection"
+	"github.com/monstercameron/GoWebComponents/v8/projection"
 )
 
 // v5 P3.7 criterion (d) — a misspelled command does not compile.

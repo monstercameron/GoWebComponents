@@ -3,8 +3,8 @@ package shorthand_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/html/shorthand"
 )
 
 // TestSlotsRenderAndHas proves provided slots are placed and Has reflects presence.

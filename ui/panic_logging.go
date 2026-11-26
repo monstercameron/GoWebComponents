@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // actionableCreateElementPanic is a core package helper.

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // TestSharedContextAndBoundaryAdditionalBranches covers remaining shared extraction branches for context and error boundaries.

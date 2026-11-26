@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/logging"
-	"github.com/monstercameron/GoWebComponents/v7/plugin"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/logging"
+	"github.com/monstercameron/GoWebComponents/v8/plugin"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 func TestSnapshotStubsReturnEmptyValuesOnNative(parseT *testing.T) {

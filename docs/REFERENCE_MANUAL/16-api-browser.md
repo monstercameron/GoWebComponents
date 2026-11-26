@@ -61,7 +61,7 @@ Important boundary:
 
 ## ui
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/ui"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/ui"`.
 
 Source anchors:
 
@@ -124,7 +124,7 @@ Constants and sentinels you will search for:
 
 ## html
 
-Import with `import html "github.com/monstercameron/GoWebComponents/v7/html"`.
+Import with `import html "github.com/monstercameron/GoWebComponents/v8/html"`.
 
 Source anchors:
 
@@ -157,7 +157,7 @@ Important parameter objects:
 
 ## html/shorthand
 
-Import with `import h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"`.
+Import with `import h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"`.
 
 Source anchors:
 
@@ -176,7 +176,7 @@ Source anchors:
 
 ## state
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/state"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/state"`.
 
 Source anchors:
 
@@ -206,7 +206,7 @@ Storage constants:
 
 ## fetch
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/fetch"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/fetch"`.
 
 Source anchors:
 
@@ -241,7 +241,7 @@ Constants and keys:
 
 ## flags
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/flags"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/flags"`.
 
 Use this package only for evaluated, non-secret decisions that are safe for
 browser-visible state.
@@ -254,7 +254,7 @@ browser-visible state.
 
 ## router
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/router"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/router"`.
 
 Source anchors:
 
@@ -287,7 +287,7 @@ Key router handles:
 
 ## interop
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/interop"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/interop"`.
 
 Source anchors:
 
@@ -319,7 +319,7 @@ Important public protocol types:
 
 ## i18n
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/i18n"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/i18n"`.
 
 Source anchors:
 
@@ -343,7 +343,7 @@ Key i18n objects:
 
 ## devtools
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/devtools"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/devtools"`.
 
 Source anchors:
 
@@ -384,7 +384,7 @@ Internal kernel note:
 
 ## head
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/head"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/head"`.
 
 Source anchors:
 
@@ -398,7 +398,7 @@ Source anchors:
 
 ## pwa
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/pwa"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/pwa"`.
 
 Source anchors:
 
@@ -426,7 +426,7 @@ Key PWA objects:
 
 ## plugin
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/plugin"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/plugin"`.
 
 Source anchors:
 
@@ -454,7 +454,7 @@ Boundary note:
 
 ## virtualization
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/virtualization"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/virtualization"`.
 
 Source anchors:
 
@@ -474,7 +474,7 @@ Key virtualization objects:
 
 ## prerender
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/prerender"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/prerender"`.
 
 Source anchors:
 
@@ -486,7 +486,7 @@ Source anchors:
 
 ## diagnostics
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/diagnostics"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/diagnostics"`.
 
 Source anchors:
 
@@ -498,7 +498,7 @@ Source anchors:
 
 ## hotreload
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/hotreload"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/hotreload"`.
 
 Source anchors:
 
@@ -513,7 +513,7 @@ Source anchors:
 
 ## logging
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/logging"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/logging"`.
 
 Source anchors:
 
@@ -541,7 +541,7 @@ Record shape notes:
 
 ## utils
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/utils"` in js/wasm builds.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/utils"` in js/wasm builds.
 
 Source anchors:
 
@@ -558,7 +558,7 @@ Source anchors:
 
 ## testkit/render
 
-Import with `import render "github.com/monstercameron/GoWebComponents/v7/testkit/render"`.
+Import with `import render "github.com/monstercameron/GoWebComponents/v8/testkit/render"`.
 
 Source anchors:
 
@@ -578,7 +578,7 @@ Important fixture surface:
 
 ## testkit/hooks
 
-Import with `import hooks "github.com/monstercameron/GoWebComponents/v7/testkit/hooks"`.
+Import with `import hooks "github.com/monstercameron/GoWebComponents/v8/testkit/hooks"`.
 
 Source anchors:
 
@@ -595,7 +595,7 @@ Key hook harness object:
 
 ## testkit/router
 
-Import with `import routertest "github.com/monstercameron/GoWebComponents/v7/testkit/router"`.
+Import with `import routertest "github.com/monstercameron/GoWebComponents/v8/testkit/router"`.
 
 Source anchors:
 
@@ -614,7 +614,7 @@ Important router fixture surface:
 
 ## testkit/ssr
 
-Import with `import ssr "github.com/monstercameron/GoWebComponents/v7/testkit/ssr"`.
+Import with `import ssr "github.com/monstercameron/GoWebComponents/v8/testkit/ssr"`.
 
 Source anchors:
 
@@ -634,7 +634,7 @@ Key SSR test objects:
 
 ## query
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/query"`. Source: [query/query.go](../../query/query.go). Consume in components via the `ui.UseQuery` / `ui.UseMutation` / `ui.UseSuspenseQuery` hooks.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/query"`. Source: [query/query.go](../../query/query.go). Consume in components via the `ui.UseQuery` / `ui.UseMutation` / `ui.UseSuspenseQuery` hooks.
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -645,7 +645,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/query"`. Sourc
 
 ## serverfn
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/serverfn"`. Source: [serverfn/serverfn.go](../../serverfn/serverfn.go). Generate stubs/wiring with `gwc server gen`.
+Import with `import "github.com/monstercameron/GoWebComponents/v8/serverfn"`. Source: [serverfn/serverfn.go](../../serverfn/serverfn.go). Generate stubs/wiring with `gwc server gen`.
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -655,7 +655,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/serverfn"`. So
 
 ## wholestack
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/wholestack"`. Source: [wholestack/wholestack.go](../../wholestack/wholestack.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v8/wholestack"`. Source: [wholestack/wholestack.go](../../wholestack/wholestack.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -663,7 +663,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/wholestack"`. 
 
 ## localfirst
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/localfirst"`. Source: [localfirst/localfirst.go](../../localfirst/localfirst.go), [localfirst/presence.go](../../localfirst/presence.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v8/localfirst"`. Source: [localfirst/localfirst.go](../../localfirst/localfirst.go), [localfirst/presence.go](../../localfirst/presence.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -675,7 +675,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/localfirst"`. 
 
 ## agentui
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/agentui"`. Source: [agentui/agentui.go](../../agentui/agentui.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v8/agentui"`. Source: [agentui/agentui.go](../../agentui/agentui.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -685,7 +685,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/agentui"`. Sou
 
 ## timetravel
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/timetravel"`. Source: [timetravel/timetravel.go](../../timetravel/timetravel.go), [timetravel/devpanel/devpanel.go](../../timetravel/devpanel/devpanel.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v8/timetravel"`. Source: [timetravel/timetravel.go](../../timetravel/timetravel.go), [timetravel/devpanel/devpanel.go](../../timetravel/devpanel/devpanel.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -695,7 +695,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/timetravel"`. 
 
 ## anim
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/anim"`. Source: [anim/anim.go](../../anim/anim.go), [anim/transitions.go](../../anim/transitions.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v8/anim"`. Source: [anim/anim.go](../../anim/anim.go), [anim/transitions.go](../../anim/transitions.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -706,7 +706,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/anim"`. Source
 
 ## ui/erroroverlay
 
-Import with `import "github.com/monstercameron/GoWebComponents/v7/ui/erroroverlay"`. Source: [ui/erroroverlay/erroroverlay.go](../../ui/erroroverlay/erroroverlay.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v8/ui/erroroverlay"`. Source: [ui/erroroverlay/erroroverlay.go](../../ui/erroroverlay/erroroverlay.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -717,23 +717,23 @@ Import with `import "github.com/monstercameron/GoWebComponents/v7/ui/erroroverla
 Use quick package-level checks rather than a full suite when you are validating this browser chapter:
 
 ```powershell
-go doc github.com/monstercameron/GoWebComponents/v7/ui
-go doc github.com/monstercameron/GoWebComponents/v7/html
-go doc github.com/monstercameron/GoWebComponents/v7/fetch
-go doc github.com/monstercameron/GoWebComponents/v7/state
-go doc github.com/monstercameron/GoWebComponents/v7/router
-go doc github.com/monstercameron/GoWebComponents/v7/interop
+go doc github.com/monstercameron/GoWebComponents/v8/ui
+go doc github.com/monstercameron/GoWebComponents/v8/html
+go doc github.com/monstercameron/GoWebComponents/v8/fetch
+go doc github.com/monstercameron/GoWebComponents/v8/state
+go doc github.com/monstercameron/GoWebComponents/v8/router
+go doc github.com/monstercameron/GoWebComponents/v8/interop
 ```
 
 For test support and companion packages:
 
 ```powershell
-go doc github.com/monstercameron/GoWebComponents/v7/devtools
-go doc github.com/monstercameron/GoWebComponents/v7/head
-go doc github.com/monstercameron/GoWebComponents/v7/pwa
-go doc github.com/monstercameron/GoWebComponents/v7/plugin
-go doc github.com/monstercameron/GoWebComponents/v7/i18n
-go doc github.com/monstercameron/GoWebComponents/v7/testkit/render
+go doc github.com/monstercameron/GoWebComponents/v8/devtools
+go doc github.com/monstercameron/GoWebComponents/v8/head
+go doc github.com/monstercameron/GoWebComponents/v8/pwa
+go doc github.com/monstercameron/GoWebComponents/v8/plugin
+go doc github.com/monstercameron/GoWebComponents/v8/i18n
+go doc github.com/monstercameron/GoWebComponents/v8/testkit/render
 ```
 
 ## Topic Pagination

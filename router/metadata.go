@@ -3,7 +3,7 @@ package router
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 const managedMetadataAttr = "data-gwc-router-managed"

@@ -19,12 +19,12 @@ import (
 	"go.opentelemetry.io/otel/trace/embedded"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
-	"github.com/monstercameron/GoWebComponents/v7/internal/telemetryredaction"
-	"github.com/monstercameron/GoWebComponents/v7/serverfn"
-	"github.com/monstercameron/GoWebComponents/v7/telemetry"
-	gwctrace "github.com/monstercameron/GoWebComponents/v7/trace"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/telemetryredaction"
+	"github.com/monstercameron/GoWebComponents/v8/serverfn"
+	"github.com/monstercameron/GoWebComponents/v8/telemetry"
+	gwctrace "github.com/monstercameron/GoWebComponents/v8/trace"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // fakeProvider is an in-memory TracerProvider: the otel sdk module is not a

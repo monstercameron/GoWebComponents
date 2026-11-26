@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/workbench"
-	"github.com/monstercameron/GoWebComponents/v7/workbench/gallery"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/workbench"
+	"github.com/monstercameron/GoWebComponents/v8/workbench/gallery"
 )
 
 // TestGalleryRendersStoryNamesAndPreviews renders the gallery headlessly and asserts each

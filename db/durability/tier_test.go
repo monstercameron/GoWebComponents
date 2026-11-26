@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/db/durability"
+	"github.com/monstercameron/GoWebComponents/v8/db/durability"
 )
 
 // v5 P3.6 — OPFS backend, single-writer.

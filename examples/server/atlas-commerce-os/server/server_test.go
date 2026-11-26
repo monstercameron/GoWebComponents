@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/server/auth"
-	serverdb "github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/server/db"
+	serverauth "github.com/monstercameron/GoWebComponents/v8/examples/server/atlas-commerce-os/server/auth"
+	serverdb "github.com/monstercameron/GoWebComponents/v8/examples/server/atlas-commerce-os/server/db"
 )
 
 func TestAppRootRedirectsToDashboard(parseT *testing.T) {

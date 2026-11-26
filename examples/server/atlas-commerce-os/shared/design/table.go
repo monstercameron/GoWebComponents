@@ -1,6 +1,6 @@
 package design
 
-import "github.com/monstercameron/GoWebComponents/v7/css"
+import "github.com/monstercameron/GoWebComponents/v8/css"
 
 // The data table — the primitive Atlas needs most, and the one the old design did
 // not have.

@@ -3,7 +3,7 @@
 
 package exampleboot
 
-import "github.com/monstercameron/GoWebComponents/v7/router"
+import "github.com/monstercameron/GoWebComponents/v8/router"
 
 // RenderExampleRouter mounts the router into the current example host selector.
 func RenderExampleRouter(parseRouter *router.Router) {

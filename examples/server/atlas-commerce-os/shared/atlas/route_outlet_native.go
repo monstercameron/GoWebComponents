@@ -2,7 +2,7 @@
 
 package atlas
 
-import "github.com/monstercameron/GoWebComponents/v7/ui"
+import "github.com/monstercameron/GoWebComponents/v8/ui"
 
 func routeOutletNode() ui.Node {
 	return nil

@@ -4,7 +4,7 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/timetravel"
+	"github.com/monstercameron/GoWebComponents/v8/timetravel"
 )
 
 type ttCounter struct {

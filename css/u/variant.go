@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/css"
+	"github.com/monstercameron/GoWebComponents/v8/css"
 )
 
 // Variants in the u layer mirror Tailwind's prefix variants but compose as

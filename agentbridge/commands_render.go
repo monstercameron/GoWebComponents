@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // RegisterRenderCommands installs bridge.render-tree, which interprets a JSON

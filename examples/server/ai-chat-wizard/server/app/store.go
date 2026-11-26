@@ -12,9 +12,8 @@ import (
 
 	// Pure-Go SQLite via embedded WebAssembly (wazero). No CGo, no modernc/libc.
 	"github.com/google/uuid"
-	"github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v8/examples/server/ai-chat-wizard/server/provider"
 	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 var errUserAlreadyExists = errors.New("user already exists")

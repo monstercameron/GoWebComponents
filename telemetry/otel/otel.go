@@ -19,14 +19,14 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/diagnostics"
-	"github.com/monstercameron/GoWebComponents/v7/internal/telemetryredaction"
-	"github.com/monstercameron/GoWebComponents/v7/serverfn"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/internal/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v8/internal/telemetryredaction"
+	"github.com/monstercameron/GoWebComponents/v8/serverfn"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // ScopeName is the instrumentation scope reported on every span this package starts.
-const ScopeName = "github.com/monstercameron/GoWebComponents/v7/telemetry/otel"
+const ScopeName = "github.com/monstercameron/GoWebComponents/v8/telemetry/otel"
 
 // Options configures a Bridge.
 type Options struct {

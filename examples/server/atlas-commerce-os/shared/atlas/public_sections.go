@@ -86,11 +86,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/css"
-	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/api"
-	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/css"
+	"github.com/monstercameron/GoWebComponents/v8/examples/server/atlas-commerce-os/shared/api"
+	"github.com/monstercameron/GoWebComponents/v8/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // =============================================================================

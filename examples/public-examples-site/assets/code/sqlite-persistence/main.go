@@ -5,14 +5,14 @@ package main
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v7/db/sqlite"
-	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v8/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v8/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v8/examples/internal/examplelog"
 
-	. "github.com/monstercameron/GoWebComponents/v7/css/u"
-	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	. "github.com/monstercameron/GoWebComponents/v8/css/u"
+	. "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 // Typed-CSS palette for this demo. Tints/cyan aren't in the curated token set, so

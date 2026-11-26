@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/sanitize"
+	"github.com/monstercameron/GoWebComponents/v8/sanitize"
 )
 
 // xssMarkers are substrings that must never appear in sanitized output.

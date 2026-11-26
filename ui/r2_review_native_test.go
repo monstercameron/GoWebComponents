@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/anim"
-	"github.com/monstercameron/GoWebComponents/v7/query"
+	"github.com/monstercameron/GoWebComponents/v8/anim"
+	"github.com/monstercameron/GoWebComponents/v8/query"
 )
 
 // TestNativeStateAnyUpdateAppliesUpdater guards against Update storing the updater func itself

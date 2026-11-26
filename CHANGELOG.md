@@ -1,5 +1,68 @@
 # Changelog
 
+## v8.0.0 — dependency slimming, core rendering overhaul, and toolchain cleanup
+
+Version 8 moves the module path from `github.com/monstercameron/GoWebComponents/v7`
+to `github.com/monstercameron/GoWebComponents/v8` because root `go.mod`/`go.sum`
+drops `modernc.org/sqlite` (and 8 transitive packages), consolidates SQLite onto
+`github.com/ncruces/go-sqlite3`, and upgrades `golang.org/x/net` to `v0.63.0`
+(fixing `GO-2026-6860` and `GO-2026-6866`). All exported v7 Go APIs remain
+compatible (`tools/api_compat_guard` passes on both native and `js/wasm`); Go 1.27
+remains the required toolchain floor.
+
+### Migration from v7 to v8
+
+1. Update your `go.mod` requirement and import paths from
+   `github.com/monstercameron/GoWebComponents/v7` to
+   `github.com/monstercameron/GoWebComponents/v8`.
+2. Run `go mod tidy` to pick up the smaller dependency graph (no `modernc.org/sqlite`
+   transitive closure).
+3. If your app opened SQLite directly using the legacy `"sqlite"` driver name
+   registered by `modernc.org/sqlite`, switch to `"sqlite3"` (registered by
+   `github.com/ncruces/go-sqlite3`) or use `db/sqlite`.
+
+### Highlights & Measured Performance
+
+- **Core rendering engine & `Fiber` compaction:** Moved 12 cold profiling,
+  boundary, event-callback, and fine-grained subscription fields behind a lazily
+  allocated `*fiberCold` pointer, packed Cache Line 0 (`parent/child/sibling/alternate`,
+  traversal flags, `typeOf`, `hooks`), moved the scalar tail outside Go GC `ptrdata`,
+  and removed double-zeroing on reused fibers. `unsafe.Sizeof(Fiber{})` shrank from
+  **424 → 264 bytes (-37.7%)** (128-fiber mount slabs: **54.3 → 33.8 KB**).
+- **Zero-`reflect` `isSameType` & streaming SSR escaping:** Fast-pathed component
+  function/singleton comparisons without `reflect.ValueOf` and replaced per-string
+  `html.EscapeString` allocations in `ssr.go`/`ssr_stream.go` with single-compare
+  streaming writes.
+- **Head + tail keyed diff & zero-DOM-readback child-order repair:** Trims both
+  common prefix and common keyed suffix before map hashing; repairs direct host and
+  single-root component lists from Go fiber pointer ranks with **0 `GetFirstChild`/
+  `GetNextSibling`/`IsSameDOMNode` DOM read-backs**; upgrades fallback child-order
+  matching to bidirectional cursor probing (`O(N)` on reversed lists).
+- **Hookless components, CSS rule construction, SSR scope & atom notifications:**
+  Lazy `&Hooks{}` allocation for hookless components, inline single-declaration
+  `css.Rule`, precomputed CSS unit tables, zero-overhead unobserved SSR, lazy SSR
+  `AtomRegistry`, and stack-buffered atom notifications.
+- **Repository & CI hygiene:** Consolidated API compatibility gating onto the
+  single cross-platform `tools/api_compat_guard` JSON baseline (removing 26
+  scattered `api_baseline.txt` files and `internal/apidump`), retired the `parse`-prefix
+  local variable convention, split oversized reconciler files, and upgraded
+  `golang.org/x/net` to `v0.63.0`.
+
+Representative 5-sample `-tags production` (`windows/arm64`) before/after medians:
+
+| Workload | Before → After | Delta |
+| --- | ---: | ---: |
+| `BenchmarkPerformUnitOfWorkFunctionComponentLeaf` | 427.5 → 115.1 ns/op (656 → 16 B/op) | **-73.1%** (-97.6% B) |
+| `BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf` | 462.1 → 118.0 ns/op (656 → 16 B/op) | **-74.5%** (-97.6% B) |
+| `BenchmarkFoldRuleConstructionOnly` | 483.5 → 154.8 ns/op (15 → 2 allocs) | **-68.0%** (-86.7% allocs) |
+| `BenchmarkApplyCommittedChildOrderCurrentVsLegacy/current` | 104,608 → 56,860 ns/op | **-45.6%** |
+| `Fiber` struct footprint (`unsafe.Sizeof`) | 424 → 264 B/fiber | **-37.7%** |
+| `BenchmarkRenderToStringMicro` | 1,198 → 796.2 ns/op (14 → 5 allocs) | **-33.5%** (-64.3% allocs) |
+| `BenchmarkFoldWarmFourBundles` | 849.5 → 627.0 ns/op (16 → 3 allocs) | **-26.2%** (-81.3% allocs) |
+| `BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16` | 1,724 → 1,554 ns/op (160 → 88 B/op) | **-9.9%** (-45.0% B) |
+| `BenchmarkReconcileChildrenStableList16` | 1,133 → 1,027 ns/op (0 allocs) | **-9.4%** |
+| `BenchmarkSSRRenderToString100Rows` | 362.6 → 329.8 µs/op (276.5 → 260.5 KB) | **-9.0%** (-5.8% B) |
+
 ## v7.0.8 — production benchmark correction
 
 This patch includes the v7.0.7 rendering and correctness improvements below

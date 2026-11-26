@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	lintHookHTMLImportPath      = "github.com/monstercameron/GoWebComponents/v7/html"
-	lintHookShorthandImportPath = "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
+	lintHookHTMLImportPath      = "github.com/monstercameron/GoWebComponents/v8/html"
+	lintHookShorthandImportPath = "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
 )
 
 // lintHookInlineHandlerHelp is the help text of the inline-handler heuristic of

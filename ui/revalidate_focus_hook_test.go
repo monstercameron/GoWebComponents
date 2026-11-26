@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/query"
+	"github.com/monstercameron/GoWebComponents/v8/query"
 )
 
 // TestRevalidateOnSignalStalesEveryKey proves the focus/reconnect action marks all cached

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	internalruntime "github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	internalruntime "github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // TestNativeTraceHelpersParseAndNormalize verifies traceparent parsing and ID normalization helpers.

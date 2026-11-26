@@ -5,7 +5,7 @@ package head
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // UseHead applies a Document's title and head tags (description, canonical, robots, OpenGraph,

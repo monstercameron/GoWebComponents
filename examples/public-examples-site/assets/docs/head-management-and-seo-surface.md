@@ -62,10 +62,10 @@ The current companion package is intentionally small and concrete. Use it to red
 
 ```go
 import (
-    headpkg "github.com/monstercameron/GoWebComponents/v7/head"
-    "github.com/monstercameron/GoWebComponents/v7/html"
-    "github.com/monstercameron/GoWebComponents/v7/router"
-    "github.com/monstercameron/GoWebComponents/v7/ui"
+    headpkg "github.com/monstercameron/GoWebComponents/v8/head"
+    "github.com/monstercameron/GoWebComponents/v8/html"
+    "github.com/monstercameron/GoWebComponents/v8/router"
+    "github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 func renderHead(resolved RouteSEO) (string, error) {

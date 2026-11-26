@@ -54,21 +54,21 @@ Current practical reading:
 
 ### Complete Top-Level Package Inventory
 
-For v7 semver compatibility, all 48 public top-level packages remain at the module root. Exported compatibility is mechanically guarded in CI by `tools/api_compat_guard` (`.github/workflows/api-baseline.yml`).
+For semver compatibility, all 48 public top-level packages remain at the module root in v8. Exported compatibility is mechanically guarded in CI by `tools/api_compat_guard` (`.github/workflows/api-baseline.yml`).
 
-| Tier | Packages | Notes / v8 Plan |
+| Tier | Packages | Notes / Future Plan |
 | --- | --- | --- |
-| `Stable` (core) | `ui`, `html` (incl. `html/shorthand`), `css` (incl. `css/u`), `state`, `fetch`, `flags`, `router` | Core v7 surface. |
+| `Stable` (core) | `ui`, `html` (incl. `html/shorthand`), `css` (incl. `css/u`), `state`, `fetch`, `flags`, `router` | Core stable surface. |
 | `Supported companion` | `devtools`, `head`, `plugin`, `i18n`, `interop`, `pwa`, `virtualization`, `hotreload` | Production-safe companions. |
 | `Companion / utility` | `a11y`, `anim`, `desktop`, `diagnostics`, `events`, `logging`, `prerender`, `sanitize`, `telemetry`, `testkit`, `textutil`, `utils`, `validate` | Focused helpers and adapters (`desktop/wails` and `telemetry/otel` already live in nested Go modules). |
-| `Experimental` (v7 root, v8 consolidation candidates) | `agentbridge`, `agentui`, `compute`, `db` (`sqlite`, `offthread`, `durability`), `delta`, `deprecation`, `domain`, `escalate`, `gcpacing`, `kvstate`, `localfirst`, `projection`, `query`, `scheduler`, `servercomponents`, `serverfn`, `timetravel`, `trace`, `wholestack`, `workbench` | Usable in v7 behind app-owned wrappers. Candidate for `exp/` namespace or nested sub-modules in v8. |
+| `Experimental` (root, future consolidation candidates) | `agentbridge`, `agentui`, `compute`, `db` (`sqlite`, `offthread`, `durability`), `delta`, `deprecation`, `domain`, `escalate`, `gcpacing`, `kvstate`, `localfirst`, `projection`, `query`, `scheduler`, `servercomponents`, `serverfn`, `timetravel`, `trace`, `wholestack`, `workbench` | Usable behind app-owned wrappers. Candidate for `exp/` namespace or nested sub-modules in a future major release. |
 
-### Planned v8 Module & Namespace Consolidation
+### Module & Dependency Slimming
 
-To keep v7 strictly non-breaking while reducing top-level discovery sprawl and root `go.mod` weight:
+To keep upgrades predictable while reducing root `go.mod` weight:
 
-- **Namespace experimental packages:** evaluate moving `Experimental` packages (`gcpacing`, `escalate`, `delta`, `projection`, `compute`, `domain`, `wholestack`, `servercomponents`, etc.) under an `exp/` prefix or dedicated companion modules in v8.
-- **Isolate optional heavy engines:** `v7` consolidated SQLite onto a single pure-Go driver (`ncruces/go-sqlite3`, dropping `modernc.org/sqlite` and its transitive dependencies from root `go.mod`); v8 is the planned boundary for splitting `db/sqlite` (and optional heavy codecs/parsers) into nested Go modules so `ncruces/go-sqlite3` and `wazero` leave the root module graph entirely.
+- **Namespace experimental packages:** evaluate moving `Experimental` packages (`gcpacing`, `escalate`, `delta`, `projection`, `compute`, `domain`, `wholestack`, `servercomponents`, etc.) under an `exp/` prefix or dedicated companion modules in a future major release.
+- **Isolate optional heavy engines:** `v8` consolidated SQLite onto a single pure-Go driver (`ncruces/go-sqlite3`, dropping `modernc.org/sqlite` and 8 transitive dependencies from root `go.mod`); splitting `db/sqlite` (and optional heavy codecs/parsers) into nested Go modules would let `ncruces/go-sqlite3` and `wazero` leave the root module graph entirely.
 
 ## Public API Conventions
 
@@ -144,8 +144,8 @@ When you choose to use an experimental API, keep it behind one app-owned wrapper
 package search
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type searchModel struct {
@@ -210,7 +210,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v8/router"
 )
 
 type routeRecord struct {

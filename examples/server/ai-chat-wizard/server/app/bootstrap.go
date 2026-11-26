@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/internal/buildinfo"
+	"github.com/monstercameron/GoWebComponents/v8/examples/server/ai-chat-wizard/internal/buildinfo"
 )
 
 const chatBootShellStyles = `<style>

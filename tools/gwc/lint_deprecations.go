@@ -78,7 +78,7 @@ func buildLintDeprecationRuleImports(parseImports []*ast.ImportSpec) map[string]
 		if parseErr != nil {
 			parseImportPath = strings.Trim(parseSpec.Path.Value, `"`)
 		}
-		if strings.TrimSpace(parseImportPath) != "github.com/monstercameron/GoWebComponents/v7/deprecation" {
+		if strings.TrimSpace(parseImportPath) != "github.com/monstercameron/GoWebComponents/v8/deprecation" {
 			continue
 		}
 		parseLocalName := "deprecation"

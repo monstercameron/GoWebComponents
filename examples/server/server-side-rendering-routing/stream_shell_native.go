@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/monstercameron/GoWebComponents/v7/ui"
+import "github.com/monstercameron/GoWebComponents/v8/ui"
 
 func renderDemoShellStreamShell(parseView demoShellView) ui.Node {
 	return renderDemoShellWithDeferredMode(parseView, true)

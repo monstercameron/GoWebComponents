@@ -5,7 +5,7 @@ package agentbridge
 import (
 	"encoding/json"
 
-	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v8/router"
 )
 
 // writeNavigatePlatform calls router.Navigate on wasm builds where the global

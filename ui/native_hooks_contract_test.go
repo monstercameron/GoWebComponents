@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/anim"
+	"github.com/monstercameron/GoWebComponents/v8/anim"
 )
 
 func TestSafeGoRunsFunctionOnNativeBuild(parseT *testing.T) {

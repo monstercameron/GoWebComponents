@@ -3,8 +3,8 @@ package shorthand
 //go:generate go run ../internal/attrgen ../..
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // InputFn aliases [html.InputFn], the callback shapes OnInput and OnChange accept.

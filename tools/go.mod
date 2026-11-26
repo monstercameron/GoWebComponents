@@ -1,19 +1,19 @@
-module github.com/monstercameron/GoWebComponents/v7/tools
+module github.com/monstercameron/GoWebComponents/v8/tools
 
 go 1.27.0
 
 toolchain go1.27.1
 
 require (
-	github.com/andybalholm/brotli v1.2.6
+	github.com/andybalholm/brotli v1.3.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/gorilla/websocket v1.5.3
-	github.com/monstercameron/GoWebComponents/v7 v7.0.0
+	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
+	github.com/monstercameron/GoWebComponents/v8 v8.0.0
 	github.com/mxschmitt/playwright-go v0.6201.1
-	github.com/ncruces/go-sqlite3 v0.32.0
-	golang.org/x/net v0.60.0
+	github.com/ncruces/go-sqlite3 v0.34.4
+	golang.org/x/net v0.63.0
 )
 
 require (
@@ -29,7 +29,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.5.0 // indirect
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.10.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -38,14 +38,14 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
+	github.com/ncruces/go-sqlite3-wasm/v2 v2.6.35302 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )
 
-replace github.com/monstercameron/GoWebComponents/v7 => ..
+replace github.com/monstercameron/GoWebComponents/v8 => ..

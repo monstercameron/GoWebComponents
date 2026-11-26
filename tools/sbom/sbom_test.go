@@ -23,11 +23,11 @@ func repoRoot(parseT *testing.T) string {
 
 func hasV7Module(parseRaw []byte) bool {
 	parseFirstLine := strings.SplitN(strings.ReplaceAll(string(parseRaw), "\r\n", "\n"), "\n", 2)[0]
-	return strings.TrimSpace(parseFirstLine) == "module github.com/monstercameron/GoWebComponents/v7"
+	return strings.TrimSpace(parseFirstLine) == "module github.com/monstercameron/GoWebComponents/v8"
 }
 
 func TestHasV7ModuleAcceptsCRLF(parseT *testing.T) {
-	if !hasV7Module([]byte("module github.com/monstercameron/GoWebComponents/v7\r\ngo 1.27\r\n")) {
+	if !hasV7Module([]byte("module github.com/monstercameron/GoWebComponents/v8\r\ngo 1.27\r\n")) {
 		parseT.Fatal("CRLF go.mod module declaration was not recognized")
 	}
 }

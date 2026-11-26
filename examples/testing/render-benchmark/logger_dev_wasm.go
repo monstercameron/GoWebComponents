@@ -3,4 +3,4 @@
 
 package main
 
-import _ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
+import _ "github.com/monstercameron/GoWebComponents/v8/examples/internal/examplelog"

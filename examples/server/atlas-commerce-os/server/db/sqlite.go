@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 // Open opens or creates the SQLite database file for the Atlas Commerce OS example server.

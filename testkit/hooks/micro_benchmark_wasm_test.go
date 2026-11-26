@@ -5,7 +5,7 @@ package hooks
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 func BenchmarkRenderHookCurrentMicroWasm(parseB *testing.B) {
