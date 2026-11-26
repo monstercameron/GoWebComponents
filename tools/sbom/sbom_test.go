@@ -77,8 +77,10 @@ func TestGenerateMatchesModuleGraph(parseT *testing.T) {
 	if parseDoc.BOMFormat != "CycloneDX" {
 		parseT.Fatalf("not CycloneDX: %+v", parseDoc.BOMFormat)
 	}
-	if len(parseDoc.Components) < 40 {
-		parseT.Fatalf("expected a substantial dependency graph, got %d components", len(parseDoc.Components))
+	// Root go.mod is intentionally slimmed (nested tools/otel/desktop modules and a
+	// single SQLite driver), so require a realistic non-trivial module graph floor.
+	if len(parseDoc.Components) < 10 {
+		parseT.Fatalf("expected a non-trivial dependency graph, got %d components", len(parseDoc.Components))
 	}
 	parseFound := false
 	for _, parseComponent := range parseDoc.Components {

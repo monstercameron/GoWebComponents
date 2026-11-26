@@ -1,0 +1,23 @@
+func AlternateLinks(parseLinks ...AlternateLink) ui.Node
+func Compose(parseMetadata router.Metadata, parseExtras ...ui.Node) ui.Node
+func Hreflang(parseHrefLang, parseHref string) ui.Node
+func LinkRel(parseRel, parseHref string) ui.Node
+func Merge(parseBase, parseOverride Document, parseOptions ...MergeOptions) Document
+func MetaName(parseName, parseContent string) ui.Node
+func MetaProperty(parseProperty, parseContent string) ui.Node
+func OpenGraph(parseField, parseContent string) ui.Node
+func RenderJSONLD(parseValue any, parseScriptID string) (string, error)
+func RenderToString(parseDocument Document) (string, error)
+func Resolve(parseLayers ...RouteLayer) Document
+func ResourceHints(parseHints ...ResourceHint) ui.Node
+func Robots(parseContent string) ui.Node
+func SocialTags(parseMetadata SocialMetadata) ui.Node
+func Twitter(parseField, parseContent string) ui.Node
+func UseHead(parseDoc Document)
+type AlternateLink struct { Href string HrefLang string Media string Type string Title string }
+type Document struct { Metadata router.Metadata Robots string Social SocialMetadata Alternates []AlternateLink ResourceHints []ResourceHint JSONLD []JSONLDBlock Extras []ui.Node }
+type JSONLDBlock struct { ID string Value any }
+type MergeOptions struct { ClearRobots bool ClearSocial bool ReplaceAlternates bool ReplaceResourceHints bool ReplaceJSONLD bool ReplaceExtras bool }
+type ResourceHint struct { Rel string Href string As string CrossOrigin string Type string Media string }
+type RouteLayer struct { Document Document Merge MergeOptions }
+type SocialMetadata struct { Type string Title string Description string ImageURL string URL string TwitterCard string }

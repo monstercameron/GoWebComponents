@@ -106,10 +106,11 @@ compiled binary with `-test.coverprofile`.
 
 ## Conventions
 
-- **`parse`-prefixed locals.** Every local variable is prefixed `parse`
-  (`parseKey`, `parseValue`, `parseErr`). See
-  [docs/CONVENTIONS.md](docs/CONVENTIONS.md) for the full rationale and the
-  function-naming rules (`verbSubject[Object]`).
+- **Idiomatic Go locals.** Use standard Go names for local variables,
+  parameters, and receivers (`key`, `value`, `err`). Older files still contain
+  legacy `parse`-prefixed locals (`parseKey`, `parseErr`); that convention is
+  retired for new and edited code. See [docs/CONVENTIONS.md](docs/CONVENTIONS.md)
+  for function-naming rules (`verbSubject[Object]`).
 - **GoDoc on every exported symbol**, first word = the symbol name.
 - **No silent panics.** Browser code recovers at every goroutine and
   `js.FuncOf` boundary and emits a structured, agent-readable console report
@@ -135,6 +136,11 @@ compiled binary with `-test.coverprofile`.
 - **Clear stale env before cross-compiling.** If a wasm build behaves oddly,
   confirm `GOOS`/`GOARCH` are what you expect — a leftover `GOOS=js` from a
   previous shell command silently breaks native builds, and vice versa.
+- **Ambiguous `HEAD` in Git on Windows/macOS.** Because the repository has a
+  top-level `head/` package directory, case-insensitive filesystems treat bare
+  `HEAD` as ambiguous in commands like `git rev-list HEAD` or `git diff HEAD`.
+  Pass `--` after the ref (for example, `git rev-list --count HEAD --` or
+  `git diff HEAD --`).
 
 ## Before you open a PR
 

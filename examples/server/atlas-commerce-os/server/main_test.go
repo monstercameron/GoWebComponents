@@ -36,14 +36,14 @@ func (parseListener *atlasStubListener) Addr() net.Addr { return parseListener.a
 
 func openAtlasMainTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	parseDB, parseErr := sql.Open("sqlite", "file:atlas-main-test?mode=memory&cache=shared")
-	if parseErr != nil {
-		t.Fatal(parseErr)
+	db, err := sql.Open("sqlite3", "file:atlas-main-test?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_ = parseDB.Close()
+		_ = db.Close()
 	})
-	return parseDB
+	return db
 }
 
 func atlasMainTestDeps(t *testing.T) (atlasMainDeps, *bytes.Buffer) {

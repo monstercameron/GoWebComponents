@@ -1,0 +1,74 @@
+const DateStyleLong DateStyle
+const DateStyleMedium DateStyle
+const DateStyleShort DateStyle
+const DirectionAuto Direction
+const DirectionLTR Direction
+const DirectionRTL Direction
+const PluralFew PluralCategory
+const PluralMany PluralCategory
+const PluralOne PluralCategory
+const PluralOther PluralCategory
+const PluralTwo PluralCategory
+const PluralZero PluralCategory
+func (*Bundle) DefaultLocale() string
+func (*Bundle) FallbackLocale() string
+func (*Bundle) Locales() []string
+func (*Bundle) Register(parseLocale string, parseCatalog Catalog)
+func (*Bundle) RegisterNamespace(parseLocale string, parseNamespace string, parseEntries NamespaceCatalog)
+func (*Bundle) ToSSRBootstrap(parseOptions SSRBootstrapOptions) ui.SSRI18nBootstrap
+func (*Bundle) Translate(parseLocale string, parseNamespace string, parseKey string, parseArgs Arguments, parseFallbackLocale string) string
+func (*LazyBundle) Bundle() *Bundle
+func (*LazyBundle) EnsureLocale(parseLocale string) error
+func (*LazyBundle) Loaded(parseLocale string) bool
+func (LocaleState) Direction() Direction
+func (LocaleState) FallbackLocale() string
+func (LocaleState) Get() string
+func (LocaleState) Set(parseLocale string)
+func (LocaleState) SupportedLocales() []string
+func (Namespace) Name() string
+func (Namespace) T(parseKey string, parseArgs ...Arguments) string
+func (Runtime) Direction() Direction
+func (Runtime) FormatDate(parseValue time.Time, parseOptions ...DateOptions) string
+func (Runtime) FormatNumber(parseValue float64, parseOptions ...NumberOptions) string
+func (Runtime) Locale() string
+func (Runtime) NS(parseNamespace string) Namespace
+func (Runtime) PrefixPath(parsePath string, parseOptions ...RouteOptions) string
+func (Runtime) SetLocale(parseLocale string)
+func (Runtime) T(parseNamespace string, parseKey string, parseArgs ...Arguments) string
+func BundleFromSSRBootstrap(parsePayload ui.SSRI18nBootstrap) *Bundle
+func DirectionForLocale(parseLocale string) Direction
+func FormatDate(parseLocale string, parseValue time.Time, parseOptions ...DateOptions) string
+func FormatList(parseLocale string, parseItems []string) string
+func FormatNumber(parseLocale string, parseValue float64, parseOptions ...NumberOptions) string
+func FormatRelativeTime(parseLocale string, parseValue time.Time, parseBase time.Time) string
+func NewBundle(parseOptions ...BundleOptions) *Bundle
+func NewLazyBundle(parseBundle *Bundle, parseLoad LocaleLoader) *LazyBundle
+func NormalizeLocale(parseRaw string) string
+func PrefixPath(parseLocale string, parsePath string, parseOptions RouteOptions) string
+func Provider(parseProps ProviderProps) ui.Node
+func ResolvePath(parsePath string, parseOptions RouteOptions) ResolvedPath
+func UseI18n() Runtime
+func UseLocale(parseLocaleOptions LocaleOptions) LocaleState
+func UseLocale(parseOptions LocaleOptions) LocaleState
+type Arguments map[string]any
+type Bundle struct { mu sync.RWMutex defaultLocale string fallbackLocale string onMissing MissingHandler catalogs map[string]Catalog }
+type BundleOptions struct { DefaultLocale string FallbackLocale string OnMissing MissingHandler }
+type Catalog map[string]NamespaceCatalog
+type DateOptions struct { Style DateStyle Location *time.Location }
+type DateStyle string
+type Direction string
+type LazyBundle struct { bundle *Bundle load LocaleLoader mu sync.Mutex loaded map[string]bool inflight map[string]*lazyLoad }
+type LocaleLoader func(parseLocale string) (Catalog, error)
+type LocaleOptions struct { InitialLocale string SupportedLocales []string FallbackLocale string PersistenceKey string DetectBrowser bool OnChange func(string) }
+type LocaleState struct { get func() string set func(string) direction func() Direction supported func() []string fallback func() string }
+type Message struct { Text string PluralArg string Plural map[PluralCategory]string SelectArg string Select map[string]string Default string }
+type MissingHandler func(locale string, namespace string, key string) string
+type Namespace struct { runtime Runtime namespace string }
+type NamespaceCatalog map[string]Message
+type NumberOptions struct { MaximumFractionDigits int }
+type PluralCategory string
+type ProviderProps struct { Locale LocaleState CurrentLocale string FallbackLocale string Bundle *Bundle Child ui.Node Children []ui.Node }
+type ResolvedPath struct { Locale string BasePath string LocalizedPath string PrefixPresent bool }
+type RouteOptions struct { SupportedLocales []string DefaultLocale string OmitDefaultPrefix bool }
+type Runtime struct { locale func() string setLocale func(string) direction func() Direction fallbackLocale string bundle *Bundle }
+type SSRBootstrapOptions struct { Locale string FallbackLocale string Direction Direction IncludeLocales []string IncludeNamespaces []string }

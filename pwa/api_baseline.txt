@@ -1,0 +1,119 @@
+const CacheStorageAssetKindAsset CacheStorageAssetKind
+const CacheStorageAssetKindMedia CacheStorageAssetKind
+const CacheStorageAssetKindScript CacheStorageAssetKind
+const CacheStorageAssetKindShell CacheStorageAssetKind
+const CacheStorageAssetKindStyle CacheStorageAssetKind
+const CacheStorageAssetKindWasm CacheStorageAssetKind
+const CacheStorageStrategyCacheFirst CacheStorageStrategy
+const CacheStorageStrategyNetworkFirst CacheStorageStrategy
+const CacheStorageStrategyStaleWhileRevalidate CacheStorageStrategy
+const ManifestDisplayBrowser ManifestDisplay
+const ManifestDisplayFullscreen ManifestDisplay
+const ManifestDisplayMinimalUI ManifestDisplay
+const ManifestDisplayStandalone ManifestDisplay
+const ManifestDisplayWindowControlsOverlay ManifestDisplay
+const ManifestOrientationAny ManifestOrientation
+const ManifestOrientationLandscape ManifestOrientation
+const ManifestOrientationLandscapePrimary ManifestOrientation
+const ManifestOrientationLandscapeSecondary ManifestOrientation
+const ManifestOrientationNatural ManifestOrientation
+const ManifestOrientationPortrait ManifestOrientation
+const ManifestOrientationPortraitPrimary ManifestOrientation
+const ManifestOrientationPortraitSecondary ManifestOrientation
+const ServiceWorkerStateActivated ServiceWorkerState
+const ServiceWorkerStateActivating ServiceWorkerState
+const ServiceWorkerStateInstalled ServiceWorkerState
+const ServiceWorkerStateInstalling ServiceWorkerState
+const ServiceWorkerStateRedundant ServiceWorkerState
+const ServiceWorkerTypeClassic string
+const ServiceWorkerTypeModule string
+const UpdateViaCacheAll string
+const UpdateViaCacheImports string
+const UpdateViaCacheNone string
+func (*UpdatePrompt) Apply(parseCtx context.Context) error
+func (*UpdatePrompt) Available() bool
+func (*UpdatePrompt) OnChange(parseHandler func(bool))
+func (*UpdatePrompt) Start() error
+func (*UpdatePrompt) Stop()
+func (BackgroundSyncCapabilities) Available() bool
+func (CacheStorageManager) Inspect(parseCtx context.Context, parsePlan CacheStoragePlan) (CacheStorageSnapshot, error)
+func (CacheStorageManager) Sync(parseCtx context.Context, parsePlan CacheStoragePlan) (CacheStorageSnapshot, error)
+func (InstallabilityManager) Prompt(parseInstallCtx context.Context) (InstallPromptResult, error)
+func (InstallabilityManager) State() InstallabilityState
+func (InstallabilityManager) Subscribe(parseInstallHandler func(InstallabilityState)) (InstallabilitySubscription, error)
+func (Manifest) Normalized() Manifest
+func (Manifest) Validate() error
+func (ManifestDisplay) Normalized() ManifestDisplay
+func (ManifestDisplay) Valid() bool
+func (ManifestOrientation) Normalized() ManifestOrientation
+func (ManifestOrientation) Valid() bool
+func (ServiceWorkerRegistration) BackgroundSyncCapabilities() BackgroundSyncCapabilities
+func (ServiceWorkerRegistration) RegisterSync(parseSyncCtx context.Context, parseSyncTag string) error
+func (ServiceWorkerRegistration) ReloadOnControllerChange() (ServiceWorkerSubscription, error)
+func (ServiceWorkerRegistration) SkipWaiting(parseSkipCtx context.Context) error
+func (ServiceWorkerRegistration) Snapshot() ServiceWorkerSnapshot
+func (ServiceWorkerRegistration) SubscribeLifecycle(parseLifecycleHandler func(ServiceWorkerSnapshot)) (ServiceWorkerSubscription, error)
+func (ServiceWorkerRegistration) Unregister(parseUnregisterCtx context.Context) (bool, error)
+func (ServiceWorkerRegistration) Update(parseUpdateCtx context.Context) error
+func (Subscription) Cancel()
+func (WasmReleaseManifest) Normalized() WasmReleaseManifest
+func (WasmReleaseManifest) Revision() string
+func (WasmReleaseManifest) Validate() error
+func BuildCacheStoragePlan(parseAssetPlan ServiceWorkerAssetPlan, parseOptions ...CacheStoragePlanOptions) (CacheStoragePlan, error)
+func BuildMutationQueueDiagnosticsSource(parseMutationQueue *fetch.MutationQueue) func() ([]OfflineQueueEntry, error)
+func BuildServiceWorkerAssetPlan(parseManifest WasmReleaseManifest, parseOptions ...ServiceWorkerAssetPlanOptions) (ServiceWorkerAssetPlan, error)
+func ChooseWasmRollout(parseConfig WasmRolloutConfig, parseClientID string) (WasmRolloutDecision, error)
+func EvaluateVersionSkewRefresh(parseInput VersionSkewRefreshInput) VersionSkewRefreshDecision
+func InspectDiagnostics(parseCtx context.Context, parseOptions DiagnosticsOptions) (DiagnosticsSnapshot, error)
+func InspectDiagnostics(parseDiagnosticsCtx context.Context, parseDiagnosticsOptions DiagnosticsOptions) (DiagnosticsSnapshot, error)
+func MarshalManifestJSON(parseManifest Manifest) ([]byte, error)
+func MarshalManifestJSONIndented(parseManifest Manifest, parsePrefix, parseIndent string) ([]byte, error)
+func NewUpdatePrompt(parseRegistration ServiceWorkerRegistration) *UpdatePrompt
+func ObserveInstallability(parseInstallOptions InstallabilityOptions) (InstallabilityManager, error)
+func ObserveInstallability(parseOptions InstallabilityOptions) (InstallabilityManager, error)
+func OpenCacheStorageManager() (CacheStorageManager, error)
+func ParseWasmReleaseManifestJSON(parseData []byte) (WasmReleaseManifest, error)
+func RegisterServiceWorker(parseCtx context.Context, parseOptions ServiceWorkerOptions) (ServiceWorkerRegistration, error)
+func RegisterServiceWorker(parseServiceCtx context.Context, parseServiceOptions ServiceWorkerOptions) (ServiceWorkerRegistration, error)
+type = InstallabilitySubscription Subscription
+type = ServiceWorkerSubscription Subscription
+type BackgroundSyncCapabilities struct { OneShot bool Periodic bool }
+type CacheStorageAssetKind string
+type CacheStorageEntry struct { URL string Kind CacheStorageAssetKind Strategy CacheStorageStrategy }
+type CacheStorageManager struct { sync func(context.Context, CacheStoragePlan) (CacheStorageSnapshot, error) inspect func(context.Context, CacheStoragePlan) (CacheStorageSnapshot, error) }
+type CacheStoragePlan struct { CacheName string CachePrefix string ManifestRevision string Entries []CacheStorageEntry }
+type CacheStoragePlanOptions struct { CachePrefix string ShellURLs []string ScriptURLs []string StyleURLs []string MediaURLs []string AssetURLs []string ShellStrategy CacheStorageStrategy }
+type CacheStorageSnapshot struct { CacheName string CachePrefix string EntryCount int Entries []CacheStorageEntry CacheNames []string }
+type CacheStorageStrategy string
+type DiagnosticsOptions struct { Manifest *Manifest Installability *InstallabilityManager ServiceWorker *ServiceWorkerRegistration CacheStorage *CacheStorageManager CacheStoragePlan *CacheStoragePlan OfflineQueue func() ([]OfflineQueueEntry, error) }
+type DiagnosticsSnapshot struct { Manifest ManifestDiagnostics Installability InstallabilityState ServiceWorker ServiceWorkerSnapshot CacheStorage CacheStorageSnapshot OfflineQueue OfflineQueueDiagnostics Storage StoragePressureDiagnostics }
+type InstallPromptResult struct { Outcome string Platform string }
+type InstallabilityManager struct { state func() InstallabilityState prompt func(context.Context) (InstallPromptResult, error) subscribe func(func(InstallabilityState)) (InstallabilitySubscription, error) }
+type InstallabilityOptions struct { Manifest *Manifest }
+type InstallabilityState struct { ManifestValid bool ManifestError string PromptAvailable bool Installed bool Reasons []string }
+type Manifest struct { ID string `json:"id,omitempty"` Name string `json:"name,omitempty"` ShortName string `json:"short_name,omitempty"` Description string `json:"description,omitempty"` StartURL string `json:"start_url,omitempty"` Scope string `json:"scope,omitempty"` Display ManifestDisplay `json:"display,omitempty"` DisplayOverride []ManifestDisplay `json:"display_override,omitempty"` Orientation ManifestOrientation `json:"orientation,omitempty"` ThemeColor string `json:"theme_color,omitempty"` BackgroundColor string `json:"background_color,omitempty"` Lang string `json:"lang,omitempty"` Dir string `json:"dir,omitempty"` Categories []string `json:"categories,omitempty"` Icons []ManifestImage `json:"icons,omitempty"` Screenshots []ManifestImage `json:"screenshots,omitempty"` Shortcuts []ManifestShortcut `json:"shortcuts,omitempty"` PreferRelatedApplications bool `json:"prefer_related_applications,omitempty"` RelatedApplications []RelatedApplication `json:"related_applications,omitempty"` }
+type ManifestDiagnostics struct { Valid bool Error string }
+type ManifestDisplay string
+type ManifestImage struct { Src string `json:"src,omitempty"` Sizes string `json:"sizes,omitempty"` Type string `json:"type,omitempty"` Purpose string `json:"purpose,omitempty"` Label string `json:"label,omitempty"` FormFactor string `json:"form_factor,omitempty"` }
+type ManifestOrientation string
+type ManifestShortcut struct { Name string `json:"name,omitempty"` ShortName string `json:"short_name,omitempty"` Description string `json:"description,omitempty"` URL string `json:"url,omitempty"` Icons []ManifestImage `json:"icons,omitempty"` }
+type OfflineQueueDiagnostics struct { TotalEntries int QueuedEntries int RetryingEntries int DeadEntries int OldestCreatedAt time.Time LatestUpdatedAt time.Time }
+type OfflineQueueEntry struct { State string CreatedAt time.Time UpdatedAt time.Time }
+type RelatedApplication struct { Platform string `json:"platform,omitempty"` URL string `json:"url,omitempty"` ID string `json:"id,omitempty"` }
+type ServiceWorkerAssetPlan struct { CacheName string ManifestRevision string WasmURL string ImmutableURLs []string ShellURLs []string PrecacheURLs []string }
+type ServiceWorkerAssetPlanOptions struct { BaseURL string CachePrefix string ImmutableURLs []string ShellURLs []string }
+type ServiceWorkerOptions struct { URL string Scope string Type string UpdateViaCache string }
+type ServiceWorkerRegistration struct { snapshot func() ServiceWorkerSnapshot backgroundSync func() BackgroundSyncCapabilities registerSync func(context.Context, string) error update func(context.Context) error unregister func(context.Context) (bool, error) skipWaiting func(context.Context) error subscribeLifecycle func(func(ServiceWorkerSnapshot)) (ServiceWorkerSubscription, error) reloadOnControllerChange func() (ServiceWorkerSubscription, error) }
+type ServiceWorkerSnapshot struct { Scope string HasController bool Installing ServiceWorkerVersion Waiting ServiceWorkerVersion Active ServiceWorkerVersion }
+type ServiceWorkerState string
+type ServiceWorkerVersion struct { ScriptURL string State ServiceWorkerState }
+type StoragePressureDiagnostics struct { Available bool Persistent bool UsageBytes int64 QuotaBytes int64 IndexedDBBytes int64 CacheStorageBytes int64 UsageRatio float64 Pressure string }
+type Subscription struct { cancel func() }
+type UpdatePrompt struct { registration ServiceWorkerRegistration mu sync.Mutex available bool onChange func(bool) subscription ServiceWorkerSubscription reloadSub ServiceWorkerSubscription started bool }
+type VersionSkewRefreshDecision struct { Mismatch bool ShouldReload bool BypassCache bool LoopGuarded bool SnapshotBeforeReload []byte RestoreAfterReload bool Reason string }
+type VersionSkewRefreshInput struct { ClientBuildID string ServerBuildID string ReloadAlreadyTried bool StateSnapshotJSON []byte VersionsCanMigrate bool }
+type WasmReleaseArtifact struct { Path string `json:"path,omitempty"` Bytes int64 `json:"bytes,omitempty"` SHA256 string `json:"sha256,omitempty"` }
+type WasmReleaseFlags struct { Trimpath bool `json:"trimpath,omitempty"` LDFlags string `json:"ldflags,omitempty"` GCFlags string `json:"gcflags,omitempty"` BuildVCS string `json:"buildvcs,omitempty"` Compression bool `json:"compression,omitempty"` }
+type WasmReleaseManifest struct { Package string `json:"package,omitempty"` Profile string `json:"profile,omitempty"` GOOS string `json:"goos,omitempty"` GOARCH string `json:"goarch,omitempty"` BuildID string `json:"buildId,omitempty"` Flags WasmReleaseFlags `json:"flags"` Artifacts map[string]WasmReleaseArtifact `json:"artifacts,omitempty"` }
+type WasmRolloutConfig struct { Stable WasmReleaseManifest Canary WasmReleaseManifest CanaryPercent int Salt string CacheTTLSeconds int Rollback bool }
+type WasmRolloutDecision struct { Cohort string BuildID string WasmURL string SHA256 string ManifestRevision string CacheTTLSeconds int RolledBack bool }

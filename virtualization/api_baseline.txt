@@ -1,0 +1,15 @@
+func (Range) Len() int
+func (Subscription) Cancel()
+func (ViewportDiagnostics) WithRowLifecycle(parseMounts, parseUnmounts int) ViewportDiagnostics
+func (ViewportState) Diagnostics() ViewportDiagnostics
+func ComputeViewportState(parseConfig ViewportConfig, parseScrollTop, parseViewportHeight float64) (ViewportState, error)
+func List[T any](parseProps ListProps[T]) ui.Node
+func ObserveOwnedViewport(_ interop.Element, parseViewportConfig ViewportConfig, _ func(ViewportState)) (Subscription, error)
+func ObserveOwnedViewport(parseViewportElement interop.Element, parseViewportConfig ViewportConfig, parseViewportHandler func(ViewportState)) (Subscription, error)
+type ListProps struct { OuterProps html.Props ID string Items []T Height float64 RowHeight float64 Overscan int Class string Style map[string]string ItemKey func(T) string RenderRow func(RowRenderProps[T]) ui.Node OnViewportChange func(ViewportDiagnostics) Empty ui.Node InnerClass string }
+type Range struct { Start int End int }
+type RowRenderProps struct { Index int Item T Key string VisibleRange Range RenderedRange Range }
+type Subscription struct { cancel func() }
+type ViewportConfig struct { TotalItems int RowHeight float64 Overscan int }
+type ViewportDiagnostics struct { ScrollTop float64 ViewportHeight float64 TotalItems int TotalHeight float64 RowHeight float64 Overscan int VisibleStart int VisibleEnd int VisibleCount int RenderedStart int RenderedEnd int RenderedCount int OverscanBeforeCount int OverscanAfterCount int MeasurementCount int InvalidationCount int ScrollCorrectionCount int RowMountCount int RowUnmountCount int }
+type ViewportState struct { ScrollTop float64 ViewportHeight float64 TotalItems int TotalHeight float64 RowHeight float64 Overscan int Visible Range Rendered Range }

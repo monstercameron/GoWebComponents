@@ -1,0 +1,69 @@
+const LocalStorage StorageArea
+const SessionStorage StorageArea
+func (AtomKey[T]) Default() T
+func (AtomKey[T]) Global() GlobalAtom[T]
+func (AtomKey[T]) ID() string
+func (Atom[T]) Get() T
+func (Atom[T]) ReactiveRegionSourceIDs() []string
+func (Atom[T]) Set(parseValue T)
+func (Atom[T]) Text(render func(T) string) *Element
+func (Atom[T]) Update(parseFn func(T) T)
+func (ComputedSignal[T]) Get() T
+func (ComputedSignal[T]) Peek() T
+func (ComputedSignal[T]) ReactiveRegionSourceIDs() []string
+func (ComputedSignal[T]) Text(render func(T) string) *Element
+func (ComputedSignal[T]) TextValue() *Element
+func (Computed[T]) Get() T
+func (Derived[T]) Get() T
+func (Derived[T]) ReactiveRegionSourceIDs() []string
+func (Derived[T]) Text(render func(T) string) *Element
+func (GlobalAtom[T]) Get() T
+func (GlobalAtom[T]) ID() string
+func (GlobalAtom[T]) Set(parseValue T)
+func (GlobalAtom[T]) Update(parseFn func(T) T)
+func (Signal[T]) Get() T
+func (Signal[T]) ID() string
+func (Signal[T]) Peek() T
+func (Signal[T]) ReactiveRegionSourceIDs() []string
+func (Signal[T]) Set(parseValue T)
+func (Signal[T]) Text(render func(T) string) *Element
+func (Signal[T]) TextValue() *Element
+func (Signal[T]) Update(parseFn func(T) T)
+func (Snapshot) Select(parseKeys ...string) Snapshot
+func ApplySnapshot(parseSnapshot Snapshot) error
+func ExportSnapshot() (Snapshot, error)
+func GetSnapshot() (Snapshot, error)
+func ImportSnapshot(parseSnapshot Snapshot) error
+func LoadPersistentSnapshot(parseCtx context.Context, parseKey string, parseOptions ...PersistentSnapshotOptions) (Snapshot, bool, error)
+func LoadSnapshot(parseKey string, parseArea StorageArea) (Snapshot, bool, error)
+func MarshalSnapshotJSON(parseSnapshot Snapshot) ([]byte, error)
+func NewAtomKey[T any](parseID string, parseInitial T) AtomKey[T]
+func NewAutoComputed[T any](parseCompute func() T) ComputedSignal[T]
+func NewComputed[T any](parseCompute func() T, parseSources ...reactiveSource) ComputedSignal[T]
+func NewGlobalAtom[T any](parseID string, parseDefault T) GlobalAtom[T]
+func NewKeyedSignal[T any](parseID string, parseInitial T) Signal[T]
+func NewSignal[T any](parseInitial T) Signal[T]
+func RegisterSnapshotMigration(parseFromVersion int, parseMigration SnapshotMigration) error
+func RestorePersistentSnapshot(parseCtx context.Context, parseKey string, parseOptions ...PersistentSnapshotOptions) (bool, error)
+func RestoreSnapshot(parseKey string, parseArea StorageArea) (bool, error)
+func SavePersistentSnapshot(parseCtx context.Context, parseKey string, parseSnapshot Snapshot, parseOptions ...PersistentSnapshotOptions) error
+func SaveSnapshot(parseKey string, parseSnapshot Snapshot, parseArea StorageArea) error
+func Select[T any, U any](parseId string, parseSource selectorSource[T], parseProject func(T) U) Derived[U]
+func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error)
+func UseAtomKey[T any](parseKey AtomKey[T]) Atom[T]
+func UseAtom[T any](parseId string, parseInitialValue T) Atom[T]
+func UseComputed[T any](parseCompute func() T, parseDeps ...any) Computed[T]
+func UseDerived[T any](parseId string, parseCompute func() T, parseDeps ...string) Derived[T]
+func UseSelector[T any, U any](parseId string, parseSource selectorSource[T], parseProject func(T) U) Derived[U]
+type = Element runtime.Element
+type Atom struct { id string get func() T set func(T) }
+type AtomKey struct { id string initial T }
+type Computed struct { get func() T }
+type ComputedSignal struct { compute func() T sourceIDs []string }
+type Derived struct { id string get func() T }
+type GlobalAtom struct { id string def T }
+type PersistentSnapshotOptions struct { DatabaseName string StoreName string DeleteOnCorruption bool FallbackResolver func() (interop.Storage, error) FallbackBackend string StoreResolver func(context.Context) (interop.PersistentStore, error) }
+type Signal struct { atom GlobalAtom[T] }
+type Snapshot map[string]any
+type SnapshotMigration func(Snapshot) (Snapshot, error)
+type StorageArea string

@@ -1,0 +1,77 @@
+const CapabilityAsyncData Capability
+const CapabilityDevtools Capability
+const CapabilityForms Capability
+const CapabilityRouter Capability
+const CapabilitySSR Capability
+const GuardAllow GuardOutcome
+const GuardBlock GuardOutcome
+const GuardRedirect GuardOutcome
+const TierExperimental Tier
+const TierInternal Tier
+const TierStable Tier
+const TierSupportedCompanion Tier
+func (*Host) AddBootstrapProvider(parseProvider BootstrapProvider) error
+func (*Host) AddCacheKeyDecorator(parseDecorator CacheKeyDecorator) error
+func (*Host) AddDevtoolsActionProvider(parseProvider DevtoolsActionProvider) error
+func (*Host) AddDevtoolsSectionProvider(parseProvider DevtoolsSectionProvider) error
+func (*Host) AddFormValidator(parseValidator FormValidator) error
+func (*Host) AddHeadProvider(parseProvider HeadProvider) error
+func (*Host) AddNavigationObserver(parseObserver NavigationObserver) error
+func (*Host) AddPanelProvider(parseProvider PanelProvider) error
+func (*Host) AddRequestObserver(parseObserver RequestObserver) error
+func (*Host) AddRouteGuard(parseGuard RouteGuard) error
+func (*Host) AddSubmitObserver(parseObserver SubmitObserver) error
+func (*Host) BootstrapData() map[string]map[string]any
+func (*Host) Capabilities() []Capability
+func (*Host) Close() error
+func (*Host) DecorateCacheKey(parseKey string) string
+func (*Host) DevtoolsActions() []DevtoolsAction
+func (*Host) DevtoolsSections() []DevtoolsSection
+func (*Host) EvaluateRoute(parseRequest RouteRequest) GuardDecision
+func (*Host) HeadNodes() []ui.Node
+func (*Host) NotifyNavigation(parseEvent NavigationEvent)
+func (*Host) NotifyRequest(parseEvent RequestEvent)
+func (*Host) NotifySubmit(parseSubmission FormSubmission)
+func (*Host) Panels() []Panel
+func (*Host) Plugins() []Manifest
+func (*Host) Register(parsePlugin Plugin) error
+func (*Host) SetValue(parseKey string, parseValue any)
+func (*Host) ValidateForm(parseSubmission FormSubmission) []ValidationIssue
+func (*Host) Value(parseKey string) (any, bool)
+func Allow(parseReason string) GuardDecision
+func Block(parseReason string) GuardDecision
+func Define(parseManifest Manifest, parseSetup DefineFunc) Plugin
+func NewHost(parseOptions HostOptions) *Host
+func Redirect(parsePath, parseReason string) GuardDecision
+type BootstrapPayload struct { Namespace string Data map[string]any }
+type BootstrapProvider func() BootstrapPayload
+type CacheKeyDecorator func(string) string
+type Capability string
+type CleanupFunc func() error
+type DefineFunc func(*Host) (CleanupFunc, error)
+type DevtoolsAction struct { Label string MatchCodes []string MatchSources []string Run func(DevtoolsActionContext) }
+type DevtoolsActionContext struct { Host *Host IssueCode string IssueSource string IssuePath string IssueMessage string IssueDocs string IssueTopFrame string }
+type DevtoolsActionProvider func() []DevtoolsAction
+type DevtoolsSection struct { Name string Summary map[string]string Lines []string }
+type DevtoolsSectionProvider func() DevtoolsSection
+type FormSubmission struct { ID string Intent string Values map[string]string }
+type FormValidator func(FormSubmission) []ValidationIssue
+type GuardDecision struct { Outcome GuardOutcome Reason string Redirect string }
+type GuardOutcome string
+type HeadProvider func() ui.Node
+type Host struct { registerMu sync.Mutex stateMu sync.RWMutex capabilities map[Capability]struct{} plugins []Manifest cleanups []CleanupFunc values map[string]any activePluginRequires map[Capability]struct{} activePluginID string setupGoroutine uint64 routeGuards []RouteGuard navigationObservers []NavigationObserver cacheDecorators []CacheKeyDecorator requestObservers []RequestObserver panelProviders []PanelProvider devtoolsSectionProviders []DevtoolsSectionProvider devtoolsActionProviders []DevtoolsActionProvider headProviders []HeadProvider bootstrapProviders []BootstrapProvider formValidators []FormValidator submitObservers []SubmitObserver }
+type HostOptions struct { Capabilities []Capability }
+type Manifest struct { ID string Version string Description string Tier Tier Requires []Capability }
+type NavigationEvent struct { Path string Source string }
+type NavigationObserver func(NavigationEvent)
+type Panel struct { ID string Title string Summary string }
+type PanelProvider func() Panel
+type Plugin interface { Manifest() Manifest Setup(*Host) (CleanupFunc, error) }
+type RequestEvent struct { Key string Phase string Source string }
+type RequestObserver func(RequestEvent)
+type RouteGuard func(RouteRequest) GuardDecision
+type RouteRequest struct { Path string Tags []string }
+type SubmitObserver func(FormSubmission)
+type Tier string
+type ValidationIssue struct { Field string Message string }
+var PluginPanicHandler

@@ -18,14 +18,12 @@ Fast paths:
 
 - default runtime behavior: [runtime/README.md](runtime/README.md)
 - browser and mock adapters: [platform/README.md](platform/README.md)
-- worker-backed runtime experiments: [runtime2/README.md](runtime2/README.md)
 - repo-wide entry map: [../docs/REFERENCE_MANUAL/README.md](../docs/REFERENCE_MANUAL/README.md)
 
 ## Start Here
 
 - `internal/platform/README.md`: browser and mock platform adapter layout
 - `internal/runtime/README.md`: default single-threaded runtime file map
-- `internal/runtime2/README.md`: experimental multithreaded runtime file map
 
 ## Public APIs
 

@@ -1,0 +1,394 @@
+const ClientError ClientMessageKind
+const ClientEvent ClientMessageKind
+const ClientGoodbye ClientMessageKind
+const ClientHello ClientMessageKind
+const ClientIntent ClientMessageKind
+const ClientInvalidate ClientMessageKind
+const ClientPayloadBinary ClientPayloadEncoding
+const ClientPayloadJSON ClientPayloadEncoding
+const ClientPresenceTopic
+const ClientQuery ClientMessageKind
+const ClientResult ClientMessageKind
+const CodeBlocked ErrorCode
+const CodeCancelled ErrorCode
+const CodeDecode ErrorCode
+const CodeDisposed ErrorCode
+const CodeEncode ErrorCode
+const CodeInvalid ErrorCode
+const CodeMissingExport ErrorCode
+const CodeNotFunction ErrorCode
+const CodePromiseRejected ErrorCode
+const CodeQuotaExceeded ErrorCode
+const CodeRemote ErrorCode
+const CodeTimeout ErrorCode
+const CodeUnauthorized ErrorCode
+const CodeUnavailable ErrorCode
+const NotificationDefault NotificationPermission
+const NotificationDenied NotificationPermission
+const NotificationGranted NotificationPermission
+const SameSiteLax SameSite
+const SameSiteNone SameSite
+const SameSiteStrict SameSite
+const SurfaceIntentCloseWindow SurfaceIntentAction
+const SurfaceIntentFocusPanel SurfaceIntentAction
+const SurfaceIntentFocusWindow SurfaceIntentAction
+const SurfaceIntentOpenPanel SurfaceIntentAction
+const SurfaceSignalIntent SurfaceSignalKind
+const SurfaceSignalRoute SurfaceSignalKind
+const SurfaceSignalSelection SurfaceSignalKind
+const SurfaceSignalSession SurfaceSignalKind
+const WaitNotEqual WaitResult
+const WaitOK WaitResult
+const WaitTimedOut WaitResult
+func (*Error) Error() string
+func (*Error) GWCCode() errcode.Code
+func (*Error) Unwrap() error
+func (Clipboard) ReadText(parseCtx context.Context) (string, error)
+func (Clipboard) WriteText(parseCtx context.Context, parseText string) error
+func (CrossTabChannel) Close() error
+func (CrossTabChannel) Name() string
+func (CrossTabChannel) Publish(parsePayload any) error
+func (CrossTabChannel) Subscribe(parseHandler func(CrossTabEnvelope, error)) (Subscription, error)
+func (CrossTabChannel) Transport() string
+func (Document) ElementByID(parseId string) (Element, bool, error)
+func (Document) ElementsByID(parseIds ...string) (map[string]Element, error)
+func (Document) QuerySelector(parseSelector string) (Element, bool, error)
+func (Document) SetTitle(parseTitle string) error
+func (Document) Title() (string, error)
+func (Element) Blur() error
+func (Element) BoundingClientRect() (Rect, error)
+func (Element) ClassName() string
+func (Element) Click() error
+func (Element) Dispatch(parseName string, parseDetail any) error
+func (Element) Events() (EventTarget, error)
+func (Element) Focus() error
+func (Element) ID() string
+func (Element) Listen(parseName string, parseHandler func(BrowserEvent)) (Subscription, error)
+func (Element) ObserveIntersection(parseHandler func(IntersectionEntry), parseOptions ...IntersectionObserverOptions) (Subscription, error)
+func (Element) ObserveResize(parseHandler func(ResizeEntry)) (Subscription, error)
+func (Element) ScrollIntoView(parseOptions ...ScrollIntoViewOptions) error
+func (Element) ScrollMetrics() (parseScrollTop, parseScrollHeight, parseClientHeight float64, parseErr error)
+func (Element) SetScrollTop(parseScrollTop float64) error
+func (Element) Subscribe(parseName string, parseHandler func(CustomEvent)) (Subscription, error)
+func (Element) TagName() string
+func (EncryptedStore) GetJSON(parseCtx context.Context, parseStorageKey string, parseOut any) (bool, error)
+func (EncryptedStore) PutJSON(parseCtx context.Context, parseStorageKey string, parseValue any) error
+func (EventTarget) Dispatch(parseName string, parseDetail any) error
+func (EventTarget) Listen(parseName string, parseHandler func(BrowserEvent)) (Subscription, error)
+func (EventTarget) Subscribe(parseName string, parseHandler func(CustomEvent)) (Subscription, error)
+func (History) Back() error
+func (History) Forward() error
+func (History) Go(parseDelta int) error
+func (History) Len() (int, error)
+func (History) PushState(parseState any, parseTitle string, parseRawURL string) error
+func (History) ReplaceState(parseState any, parseTitle string, parseRawURL string) error
+func (History) State() (any, error)
+func (Location) Assign(parseRawURL string) error
+func (Location) Hash() string
+func (Location) Href() string
+func (Location) Origin() string
+func (Location) Pathname() string
+func (Location) Reload() error
+func (Location) Replace(parseRawURL string) error
+func (Location) Search() string
+func (MediaQueryList) Matches() bool
+func (MediaQueryList) Media() string
+func (MediaQueryList) Subscribe(parseHandler func(MediaQueryEvent)) (Subscription, error)
+func (MessageChannel) Port1() MessagePort
+func (MessageChannel) Port2() MessagePort
+func (MessagePort) Close() error
+func (MessagePort) GetMessagePortRaw() any
+func (MessagePort) Post(parsePayload any) error
+func (MessagePort) PostPorts(parsePayload any, parsePorts ...MessagePort) error
+func (MessagePort) PostTransferable(parsePayload any, parseBuffers ...Transferable) error
+func (MessagePort) Subscribe(parseHandler func(MessagePortMessage, error)) (Subscription, error)
+func (Module) Call(parseCtx context.Context, parseExport string, parseArgs ...any) (any, error)
+func (Module) CallDefault(parseCtx context.Context, parseArgs ...any) (any, error)
+func (Module) Dispose() error
+func (Module) Value(parseCtx context.Context, parseExport string) (any, error)
+func (PersistentStore) Backend() string
+func (PersistentStore) Clear(parseCtx context.Context) error
+func (PersistentStore) Close() error
+func (PersistentStore) DecodeJSON(parseCtx context.Context, parseKey string, parseTarget any) (bool, error)
+func (PersistentStore) GetItem(parseCtx context.Context, parseKey string) (string, bool, error)
+func (PersistentStore) GetMany(parseCtx context.Context, parseKeys ...string) (map[string]string, error)
+func (PersistentStore) Keys(parseCtx context.Context) ([]string, error)
+func (PersistentStore) Len(parseCtx context.Context) (int, error)
+func (PersistentStore) RemoveItem(parseCtx context.Context, parseKey string) error
+func (PersistentStore) SetItem(parseCtx context.Context, parseKey string, parseValue string) error
+func (PersistentStore) SetJSON(parseCtx context.Context, parseKey string, parseValue any) error
+func (SharedBuffer) AddInt32(parseIndex int, parseDelta int32) (int32, error)
+func (SharedBuffer) AndInt32(parseIndex int, parseMask int32) (int32, error)
+func (SharedBuffer) CompareExchangeInt32(parseIndex int, parseOldValue int32, parseNewValue int32) (int32, error)
+func (SharedBuffer) ExchangeInt32(parseIndex int, parseValue int32) (int32, error)
+func (SharedBuffer) GetByteLength() int
+func (SharedBuffer) GetInt32Length() int
+func (SharedBuffer) GetSharedBufferRaw() any
+func (SharedBuffer) LoadInt32(parseIndex int) (int32, error)
+func (SharedBuffer) NotifyInt32(parseIndex int, parseCount int) (int, error)
+func (SharedBuffer) OrInt32(parseIndex int, parseMask int32) (int32, error)
+func (SharedBuffer) ReadBytes(parseOffset int, parseDest []byte) (int, error)
+func (SharedBuffer) StoreInt32(parseIndex int, parseValue int32) error
+func (SharedBuffer) SubInt32(parseIndex int, parseDelta int32) (int32, error)
+func (SharedBuffer) WaitInt32(parseIndex int, parseExpected int32, parseTimeout time.Duration) (WaitResult, error)
+func (SharedBuffer) WriteBytes(parseOffset int, parseSource []byte) (int, error)
+func (SharedBuffer) XorInt32(parseIndex int, parseMask int32) (int32, error)
+func (Storage) Clear() error
+func (Storage) GetItem(parseKey string) (string, bool, error)
+func (Storage) GetMany(parseKeys ...string) (map[string]string, error)
+func (Storage) Key(parseIndex int) (string, bool, error)
+func (Storage) Len() (int, error)
+func (Storage) RemoveItem(parseKey string) error
+func (Storage) SetItem(parseKey string, parseValue string) error
+func (Subscription) Cancel()
+func (Timer) Cancel() error
+func (Transferable) Bytes() []byte
+func (Transferable) IsDetached() bool
+func (Transferable) Len() int
+func (Value) Await(parseCtx context.Context) (Value, error)
+func (Value) AwaitCall(parseCtx context.Context, parseMethod string, parseArgs ...any) (Value, error)
+func (Value) Bool() bool
+func (Value) Call(parseMethodName string, parseMethodArgs ...any) (Value, error)
+func (Value) Call(parseName string, parseArgs ...any) (Value, error)
+func (Value) Delete(parseName string) error
+func (Value) Delete(parseValueName string) error
+func (Value) Float() float64
+func (Value) Get(parseName string) Value
+func (Value) Get(parseValueName string) Value
+func (Value) Int() int
+func (Value) Invoke(parseArgs ...any) (Value, error)
+func (Value) Invoke(parseCallArgs ...any) (Value, error)
+func (Value) IsNull() bool
+func (Value) IsUndefined() bool
+func (Value) Present() bool
+func (Value) Set(parseName string, parseValue any) error
+func (Value) Set(parseValueName string, parseValueData any) error
+func (Value) SetFunction(parseFunctionName string, parseFunctionHandler func(args ...Value) any) (Subscription, error)
+func (Value) SetFunction(parseName string, parseHandler func(args ...Value) any) (Subscription, error)
+func (Value) String() string
+func (Value) ToGo() (any, error)
+func (Value) Truthy() bool
+func (WindowChannel) Close() error
+func (WindowChannel) Closed() bool
+func (WindowChannel) Focus() error
+func (WindowChannel) Name() string
+func (WindowChannel) Publish(parsePayload any) error
+func (WindowChannel) Subscribe(parseHandler func(WindowEnvelope, error)) (Subscription, error)
+func (WindowChannel) TargetOrigin() string
+func (WindowEnv) Lookup(parseName string) (Value, bool)
+func (WindowEnv) LookupString(parseName string) (string, bool)
+func (WindowEnv) String(parseName string, parseFallback string) string
+func (Worker) Post(parseMessage any) error
+func (Worker) PostPorts(parseMessage any, parsePorts ...MessagePort) error
+func (Worker) PostTransferable(parsePayload any, parseBuffers ...Transferable) error
+func (Worker) Request(parseCtx context.Context, parseName string, parsePayload any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error)
+func (Worker) Restart(parseCtx context.Context) error
+func (Worker) Subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error)
+func (Worker) Terminate() error
+func (WorkerPool) Close() error
+func (WorkerPool) Drain(parseCtx context.Context) error
+func (WorkerPool) GetQueueLimit() int
+func (WorkerPool) GetSize() int
+func (WorkerPool) QueueLimit() int
+func (WorkerPool) Request(parseCtx context.Context, parseName string, parsePayload any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error)
+func (WorkerPool) Size() int
+func (WorkerScope) Error(parseId string, parseName string, parseErrText string, parsePayload any) error
+func (WorkerScope) Message(parseName string, parsePayload any) error
+func (WorkerScope) Post(parseMessage WorkerMessage) error
+func (WorkerScope) PostPorts(parseMessage WorkerMessage, parsePorts ...MessagePort) error
+func (WorkerScope) Progress(parseId string, parseName string, parsePayload any) error
+func (WorkerScope) Ready(parseName string) error
+func (WorkerScope) Result(parseId string, parseName string, parsePayload any) error
+func (WorkerScope) Subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error)
+func AsError(parseErr error) (*Error, bool)
+func ClientCanExchange(parseLocal ClientCapabilities, parsePeer ClientCapabilities, parseTopic string, parseEncoding ClientPayloadEncoding) bool
+func ClientProtocolCompatible(parseLocal ClientCapabilities, parsePeer ClientCapabilities) bool
+func ClientSupportsEncoding(parseCapabilities ClientCapabilities, parseEncoding ClientPayloadEncoding) bool
+func ClientSupportsTopic(parseCapabilities ClientCapabilities, parseTopic string) bool
+func CodeOf(parseErr error) (ErrorCode, bool)
+func CurrentDocument() (Document, error)
+func Decode(parseValue any, parseTarget any) error
+func DecodeClientMessage(parseValue any) (ClientMessage, error)
+func DecodeCrossTabEnvelope[T any](parseMessage CrossTabEnvelope) (DecodedCrossTabEnvelope[T], error)
+func DecodeCustomEvent[T any](parseEvent CustomEvent) (DecodedCustomEvent[T], error)
+func DecodeMessagePortMessage[T any](parseMessage MessagePortMessage) (DecodedMessagePortMessage[T], error)
+func DecodeSurfaceSignal(parseMessage WindowEnvelope) (DecodedWindowEnvelope[SurfaceSignal], error)
+func DecodeWindowEnvelope[T any](parseMessage WindowEnvelope) (DecodedWindowEnvelope[T], error)
+func DecodeWorkerMessage[T any](parseMessage WorkerMessage) (DecodedWorkerMessage[T], error)
+func Decrypt(parseCtx context.Context, parseKey CryptoKey, parseCiphertext []byte, parseIV []byte) ([]byte, error)
+func Encrypt(parseCtx context.Context, parseKey CryptoKey, parsePlaintext []byte) ([]byte, []byte, error)
+func Encrypt(parseCtx context.Context, parseKey CryptoKey, parsePlaintext []byte) (parseCiphertext []byte, parseIV []byte, parseErr error)
+func ExpireCookie(parseName string, parseOptions ...CookieOptions) error
+func FormatTraceparent(parseTraceID string, parseSpanID string, isSampled bool) string
+func GenerateAESKey(parseCtx context.Context) (CryptoKey, error)
+func GetClipboard() (Clipboard, error)
+func GetCookie(parseName string) (string, bool, error)
+func GetDocument() (Document, error)
+func GetDocumentEvents() (EventTarget, error)
+func GetGlobalThis() (Value, error)
+func GetLocalStorage() (Storage, error)
+func GetMediaQuery(parseMediaQuery string) (MediaQueryList, error)
+func GetMediaQuery(parseQuery string) (MediaQueryList, error)
+func GetSessionStorage() (Storage, error)
+func GetSharedMemorySupport() (SharedMemorySupport, error)
+func GetWindowEnv() (WindowEnv, error)
+func GetWindowEvents() (EventTarget, error)
+func GetWindowHistory() (History, error)
+func GetWindowLocation() (Location, error)
+func GetWorkerScope() (WorkerScope, error)
+func GlobalThis() (Value, error)
+func ImportModule(parseCtx context.Context, parseSpecifier string) (Module, error)
+func ImportModule(parseImportCtx context.Context, parseImportSpecifier string) (Module, error)
+func IntlAvailable() bool
+func IntlFormatDate(parseLocale string, parseUnixMillis int64, parseOptions ...IntlDateOptions) (string, error)
+func IntlFormatNumber(parseLocale string, parseValue float64, parseOptions ...IntlNumberOptions) (string, error)
+func IsCode(parseErr error, parseCode ErrorCode) bool
+func IsStoragePersisted(parseCtx context.Context) (bool, error)
+func IsValidSpanID(parseValue string) bool
+func IsValidTraceID(parseValue string) bool
+func KeepAlive()
+func LoadPersistentJSON[T any](parseCtx context.Context, store PersistentStore, parseKey string) (T, bool, error)
+func LocalStorage() (Storage, error)
+func NavigatorClipboard() (Clipboard, error)
+func NewEncryptedStore(parseKey CryptoKey) (EncryptedStore, error)
+func NewGoWASMWorker(parseWorkerCtx context.Context, parseWorkerOptions GoWASMWorkerOptions) (Worker, error)
+func NewSpanID() (string, error)
+func NewTraceID() (string, error)
+func NewTransferable(parseData []byte) (Transferable, error)
+func NotificationPermissionState() (NotificationPermission, error)
+func OpenCrossTabChannel(parseChannelOptions CrossTabChannelOptions) (CrossTabChannel, error)
+func OpenCrossTabChannel(parseOptions CrossTabChannelOptions) (CrossTabChannel, error)
+func OpenGoWASMWorker(parseCtx context.Context, parseOptions GoWASMWorkerOptions) (Worker, error)
+func OpenGoWASMWorker(parseWorkerCtx context.Context, parseWorkerOptions GoWASMWorkerOptions) (Worker, error)
+func OpenMessageChannel() (MessageChannel, error)
+func OpenPersistentStore(parseCtx context.Context, parseOptions PersistentStoreOptions) (PersistentStore, error)
+func OpenPersistentStore(parseStoreCtx context.Context, parseStoreOptions PersistentStoreOptions) (PersistentStore, error)
+func OpenSecondaryWindowChannel(parseOptions WindowChannelOptions) (WindowChannel, error)
+func OpenSecondaryWindowChannel(parseWindowOptions WindowChannelOptions) (WindowChannel, error)
+func OpenSharedBuffer(parseByteLength int) (SharedBuffer, error)
+func OpenWindowOpenerChannel(parseOptions WindowChannelOptions) (WindowChannel, error)
+func OpenWindowOpenerChannel(parseWindowOptions WindowChannelOptions) (WindowChannel, error)
+func OpenWorker(parseCtx context.Context, parseOptions WorkerOptions) (Worker, error)
+func OpenWorker(parseWorkerCtx context.Context, parseWorkerOptions WorkerOptions) (Worker, error)
+func OpenWorkerPool(parseCtx context.Context, parseOptions WorkerPoolOptions) (WorkerPool, error)
+func ParseTraceparent(parseValue string) (TraceContext, error)
+func PostNotification(parseTitle string, parseBody string) error
+func PublishClientBinaryCrossTab(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parsePayload ClientBinaryPayload) error
+func PublishClientBinaryWindow(parseChannel WindowChannel, parseTopic string, parseSelf ClientIdentity, parseTarget string, parsePayload ClientBinaryPayload) error
+func PublishClientEvent(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parsePayload any) error
+func PublishClientGoodbye(parseChannel CrossTabChannel, parseSelf ClientIdentity) error
+func PublishClientGoodbyeWindow(parseChannel WindowChannel, parseSelf ClientIdentity) error
+func PublishClientHello(parseChannel CrossTabChannel, parseSelf ClientIdentity) error
+func PublishClientHelloWindow(parseChannel WindowChannel, parseSelf ClientIdentity) error
+func PublishClientHelloWindowWithCapabilities(parseChannel WindowChannel, parseSelf ClientIdentity, parseCapabilities ClientCapabilities) error
+func PublishClientHelloWithCapabilities(parseChannel CrossTabChannel, parseSelf ClientIdentity, parseCapabilities ClientCapabilities) error
+func PublishClientIntent(parseChannel WindowChannel, parseTopic string, parseSelf ClientIdentity, parseTarget string, parsePayload any) error
+func PublishClientInvalidation(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parseRevision string) error
+func PublishClientMessage(parseChannel CrossTabChannel, parseMessage ClientMessage) error
+func PublishClientQuery(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity) error
+func PublishClientResult(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parseTarget string, parsePayload any) error
+func PublishClientWindowMessage(parseChannel WindowChannel, parseMessage ClientMessage) error
+func PublishIntent(parseChannel WindowChannel, parseAction SurfaceIntentAction, parseTarget string, parseParams map[string]string) error
+func PublishLogout(parseChannel WindowChannel, parseReason string) error
+func PublishRouteFocus(parseChannel WindowChannel, parsePath string, parseQuery string, parseFocusID string) error
+func PublishSelection(parseChannel WindowChannel, parseScope string, parseId string, parseRevision string) error
+func PublishSessionExpired(parseChannel WindowChannel, parseReason string, parseReturnTo string, parseExpiresAt time.Time) error
+func PublishSurfaceSignal(parseChannel WindowChannel, parseSignal SurfaceSignal) error
+func RecoverContainedPanic(parseSubject string)
+func RequestAnimationFrame(parseCallback func(parseTimestampMillis float64)) (parseCancel func())
+func RequestNotificationPermission(parseCtx context.Context) (NotificationPermission, error)
+func RequestPersistentStorage(parseCtx context.Context) (bool, error)
+func RequestWorkerDecoded[Req any, Progress any, Result any](parseCtx context.Context, parseWorker WorkerRequester, parseName string, parsePayload Req, parseOnProgress func(DecodedWorkerMessage[Progress], error)) (Result, error)
+func ScheduleInterval(parseInterval time.Duration, parseFn func()) (Timer, error)
+func ScheduleInterval(parseTimerInterval time.Duration, parseTimerFn func()) (Timer, error)
+func ScheduleTimeout(parseDelay time.Duration, parseFn func()) (Timer, error)
+func ScheduleTimeout(parseTimerDelay time.Duration, parseTimerFn func()) (Timer, error)
+func SessionStorage() (Storage, error)
+func SetContainedPanicHandler(parseHandler func(parseSubject string, parseRecovered any))
+func SetCookie(parseName string, parseValue string, parseOptions ...CookieOptions) error
+func SetInterval(parseTimerInterval time.Duration, parseTimerFn func()) (Timer, error)
+func SetTimeout(parseTimerDelay time.Duration, parseTimerFn func()) (Timer, error)
+func SharedWindowEnv() (WindowEnv, error)
+func SubscribeClientMessages(parseChannel CrossTabChannel, parseHandler func(ClientMessage, error)) (Subscription, error)
+func SubscribeClientWindowMessages(parseChannel WindowChannel, parseHandler func(ClientMessage, error)) (Subscription, error)
+func SubscribeDecodedCrossTab[T any](parseChannel CrossTabChannel, parseHandler func(DecodedCrossTabEnvelope[T], error)) (Subscription, error)
+func SubscribeDecodedMessagePort[T any](parsePort MessagePort, parseHandler func(DecodedMessagePortMessage[T], error)) (Subscription, error)
+func SubscribeDecodedWindow[T any](parseChannel WindowChannel, parseHandler func(DecodedWindowEnvelope[T], error)) (Subscription, error)
+func SubscribeDecodedWorker[T any](parseWorker Worker, parseHandler func(DecodedWorkerMessage[T], error)) (Subscription, error)
+func SubscribeDecoded[T any](parseTarget EventTarget, parseName string, parseHandler func(DecodedCustomEvent[T], error)) (Subscription, error)
+func SubscribeSurfaceSignals(parseChannel WindowChannel, parseHandler func(DecodedWindowEnvelope[SurfaceSignal], error)) (Subscription, error)
+func WrapElement(parseValue js.Value) Element
+type BrowserEvent struct { Type string Detail any Target Element CurrentTarget Element }
+type ClientBinaryPayload struct { ContentType string `json:"contentType,omitempty"` Bytes []byte `json:"-"` }
+type ClientCapabilities struct { ProtocolVersion string `json:"protocolVersion,omitempty"` Transports []string `json:"transports,omitempty"` Encodings []string `json:"encodings,omitempty"` Topics []string `json:"topics,omitempty"` MaxJSONBytes int `json:"maxJsonBytes,omitempty"` MaxBinaryBytes int `json:"maxBinaryBytes,omitempty"` }
+type ClientIdentity struct { ID string `json:"id"` App string `json:"app"` Surface string `json:"surface"` Role string `json:"role,omitempty"` Version string `json:"version,omitempty"` }
+type ClientMessage struct { ID string `json:"id,omitempty"` Kind ClientMessageKind `json:"kind"` Topic string `json:"topic"` Source ClientIdentity `json:"source"` Capabilities *ClientCapabilities `json:"capabilities,omitempty"` Target string `json:"target,omitempty"` Encoding ClientPayloadEncoding `json:"encoding,omitempty"` ContentType string `json:"contentType,omitempty"` Payload any `json:"payload,omitempty"` Revision string `json:"revision,omitempty"` Error string `json:"error,omitempty"` SentAt time.Time `json:"sentAt"` }
+type ClientMessageKind string
+type ClientPayloadEncoding string
+type Clipboard struct { writeText func(context.Context, string) error readText func(context.Context) (string, error) }
+type CookieOptions struct { Path string Domain string MaxAge int Secure bool SameSite SameSite }
+type CrossTabChannel struct { name func() string transport func() string publish func(any) error publishClientBinary func(ClientMessage) error subscribe func(func(CrossTabEnvelope, error)) (Subscription, error) close func() error }
+type CrossTabChannelOptions struct { Name string StorageKey string }
+type CrossTabEnvelope struct { Name string `json:"name"` Payload any `json:"payload"` Source string `json:"source,omitempty"` Sequence int64 `json:"sequence,omitempty"` SentAt time.Time `json:"sentAt"` }
+type CryptoKey struct { raw any }
+type CustomEvent struct { Type string Detail any }
+type DecodedCrossTabEnvelope struct { Name string Payload T Source string Sequence int64 SentAt time.Time }
+type DecodedCustomEvent struct { Type string Detail T }
+type DecodedMessagePortMessage struct { Payload T Ports []MessagePort }
+type DecodedWindowEnvelope struct { Name string Payload T Source string SentAt time.Time }
+type DecodedWorkerMessage struct { ID string Phase string Name string Payload T Error string Ports []MessagePort }
+type Document struct { elementByID func(string) (Element, bool, error) elementsByID func([]string) (map[string]Element, error) querySelector func(string) (Element, bool, error) title func() (string, error) setTitle func(string) error }
+type Element struct { raw any tagName func() string id func() string className func() string focus func() error blur func() error click func() error setScrollTop func(float64) error scrollIntoView func(ScrollIntoViewOptions) error boundingClientRect func() (Rect, error) events func() (EventTarget, error) observeResize func(func(ResizeEntry)) (Subscription, error) observeIntersection func(IntersectionObserverOptions, func(IntersectionEntry)) (Subscription, error) scrollMetrics func() (float64, float64, float64, error) }
+type EncryptedStore struct { key CryptoKey storage Storage }
+type Error struct { Op string Target string Code ErrorCode Err error }
+type ErrorCode string
+type EventTarget struct { dispatch func(string, any) error listen func(string, func(BrowserEvent)) (Subscription, error) subscribe func(string, func(CustomEvent)) (Subscription, error) }
+type GoWASMWorkerOptions struct { RuntimeURL string WASMURL string Name string Ready bool ReadyTimeout time.Duration }
+type History struct { length func() (int, error) state func() (any, error) back func() error forward func() error goDelta func(int) error pushState func(any, string, string) error replaceState func(any, string, string) error }
+type IntersectionEntry struct { Target Element IsIntersecting bool IntersectionRatio float64 BoundingClientRect Rect IntersectionRect Rect RootBounds *Rect }
+type IntersectionObserverOptions struct { Root Element RootMargin string Thresholds []float64 }
+type IntlDateOptions struct { DateStyle string TimeStyle string TimeZone string }
+type IntlNumberOptions struct { Style string Currency string MinimumFractionDigits int MaximumFractionDigits int UseGrouping *bool }
+type Location struct { href func() string pathname func() string search func() string hash func() string origin func() string assign func(string) error replace func(string) error reload func() error }
+type MediaQueryEvent struct { Matches bool Media string }
+type MediaQueryList struct { matches func() bool media func() string subscribe func(func(MediaQueryEvent)) (Subscription, error) }
+type MessageChannel struct { port1 MessagePort port2 MessagePort }
+type MessagePort struct { raw any post func(any) error postPorts func(any, ...MessagePort) error subscribe func(func(MessagePortMessage, error)) (Subscription, error) close func() error }
+type MessagePortMessage struct { Payload any Ports []MessagePort }
+type Module struct { call func(context.Context, string, ...any) (any, error) callDefault func(context.Context, ...any) (any, error) value func(context.Context, string) (any, error) dispose func() error }
+type NotificationPermission string
+type PersistentStore struct { backend func() string getItem func(context.Context, string) (string, bool, error) setItem func(context.Context, string, string) error removeItem func(context.Context, string) error clear func(context.Context) error keys func(context.Context) ([]string, error) length func(context.Context) (int, error) close func() error }
+type PersistentStoreBlockedEvent struct { DatabaseName string StoreName string RequestedVersion int }
+type PersistentStoreOptions struct { Name string DatabaseName string Version int DeleteOnCorruption bool OnBlocked func(PersistentStoreBlockedEvent) FallbackResolver func() (Storage, error) FallbackBackend string }
+type Rect struct { X float64 Y float64 Width float64 Height float64 Top float64 Right float64 Bottom float64 Left float64 }
+type ResizeEntry struct { Target Element ContentRect Rect }
+type SameSite string
+type ScrollIntoViewOptions struct { Behavior string Block string Inline string }
+type SharedBuffer struct { raw any getByteLength func() int readBytes func(int, []byte) (int, error) writeBytes func(int, []byte) (int, error) getInt32Length func() int loadInt32 func(int) (int32, error) storeInt32 func(int, int32) error addInt32 func(int, int32) (int32, error) subInt32 func(int, int32) (int32, error) andInt32 func(int, int32) (int32, error) orInt32 func(int, int32) (int32, error) xorInt32 func(int, int32) (int32, error) exchangeInt32 func(int, int32) (int32, error) compareExchangeInt32 func(int, int32, int32) (int32, error) waitInt32 func(int, int32, time.Duration) (string, error) notifyInt32 func(int, int) (int, error) }
+type SharedMemorySupport struct { IsCrossOriginIsolated bool HasSharedArrayBuffer bool HasAtomics bool CanUseSharedMemory bool }
+type Storage struct { getItem func(string) (string, bool, error) getMany func([]string) (map[string]string, error) setItem func(string, string) error removeItem func(string) error clear func() error length func() (int, error) key func(int) (string, bool, error) }
+type Subscription struct { cancel func() }
+type SurfaceIntentAction string
+type SurfaceIntentSignal struct { Action SurfaceIntentAction `json:"action"` Target string `json:"target,omitempty"` Params map[string]string `json:"params,omitempty"` }
+type SurfaceRouteSignal struct { Path string `json:"path"` Query string `json:"query,omitempty"` FocusID string `json:"focusId,omitempty"` Replace bool `json:"replace,omitempty"` }
+type SurfaceSelectionSignal struct { Scope string `json:"scope,omitempty"` ID string `json:"id"` Revision string `json:"revision,omitempty"` }
+type SurfaceSessionSignal struct { Status string `json:"status"` Reason string `json:"reason,omitempty"` ReturnTo string `json:"returnTo,omitempty"` ExpiresAt time.Time `json:"expiresAt"` }
+type SurfaceSignal struct { Kind SurfaceSignalKind `json:"kind"` Session *SurfaceSessionSignal `json:"session,omitempty"` Route *SurfaceRouteSignal `json:"route,omitempty"` Selection *SurfaceSelectionSignal `json:"selection,omitempty"` Intent *SurfaceIntentSignal `json:"intent,omitempty"` }
+type SurfaceSignalKind string
+type Timer struct { cancel func() error }
+type TraceContext struct { TraceID string SpanID string Sampled bool }
+type Transferable struct { data []byte }
+type Transferable struct { raw js.Value }
+type Value struct { raw any }
+type WaitResult string
+type WindowChannel struct { name func() string targetOrigin func() string publish func(any) error publishClientBinary func(ClientMessage) error subscribe func(func(WindowEnvelope, error)) (Subscription, error) focus func() error close func() error closed func() bool }
+type WindowChannelOptions struct { URL string Name string Features string TargetOrigin string }
+type WindowEnv struct { lookup func(string) (Value, bool) }
+type WindowEnvelope struct { Name string `json:"name"` Payload any `json:"payload"` Source string `json:"source,omitempty"` SentAt time.Time `json:"sentAt"` }
+type Worker struct { post func(any) error postPorts func(any, ...MessagePort) error postTransferable func(any, []Transferable) error subscribe func(func(WorkerMessage, error)) (Subscription, error) request func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) terminate func() error restart func(context.Context) error }
+type WorkerMessage struct { ID string `json:"id"` Phase string `json:"phase"` Name string `json:"name"` Payload any `json:"payload"` Error string `json:"error,omitempty"` Ports []MessagePort }
+type WorkerOptions struct { URL string Name string Type string Ready bool ReadyTimeout time.Duration }
+type WorkerPool struct { request func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) close func() error drain func(context.Context) error getSize func() int getQueueLimit func() int }
+type WorkerPoolOptions struct { Size int QueueLimit int OpenWorker func(context.Context) (Worker, error) }
+type WorkerRequester interface { Request(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) }
+type WorkerScope struct { post func(WorkerMessage) error postPorts func(WorkerMessage, ...MessagePort) error subscribe func(func(WorkerMessage, error)) (Subscription, error) }

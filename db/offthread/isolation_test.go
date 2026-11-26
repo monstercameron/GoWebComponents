@@ -15,10 +15,8 @@ import (
 // linker felt about dead code that day, while an import edge is exact and fails
 // the moment someone adds a convenience import.
 //
-// The check runs for js/wasm specifically. On native, db/sqlite uses
-// modernc.org/sqlite instead of ncruces+wazero, so a native-only check would
-// pass while the browser binary carried the engine — the exact false negative
-// worth avoiding.
+// The check runs for js/wasm specifically so browser-only build tags cannot
+// smuggle the SQLite engine into app.wasm while native tests pass.
 
 // enginePackages are the import paths that mean "the SQLite engine is linked".
 var enginePackages = []string{

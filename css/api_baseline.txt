@@ -1,0 +1,403 @@
+const Amber500 Color
+const Auto Length
+const BgAuto BgSizeValue
+const BgContain BgSizeValue
+const BgCover BgSizeValue
+const Black Color
+const Circle GradientShape
+const ContrastLess MediaQuery
+const ContrastMore MediaQuery
+const CurrentCo Color
+const Dark MediaQuery
+const Ease Easing
+const EaseIn Easing
+const EaseInOut Easing
+const EaseOut Easing
+const Ellipse GradientShape
+const Even NthArg
+const ForcedColors MediaQuery
+const Full Length
+const Green500 Color
+const GridAuto GridPlacement
+const HoverCapable MediaQuery
+const Light MediaQuery
+const LineDashed LineStyle
+const LineDotted LineStyle
+const LineDouble LineStyle
+const LineGroove LineStyle
+const LineHidden LineStyle
+const LineNone LineStyle
+const LineRidge LineStyle
+const LineSolid LineStyle
+const Linear Easing
+const MonoStack FontStack
+const MotionOK MediaQuery
+const NoHover MediaQuery
+const NoImage Image
+const Odd NthArg
+const Print MediaQuery
+const PropAll TransitionProperty
+const PropColors TransitionProperty
+const PropOpacity TransitionProperty
+const PropShadow TransitionProperty
+const PropTransform TransitionProperty
+const Red500 Color
+const Red600 Color
+const ReducedData MediaQuery
+const ReducedMotion MediaQuery
+const ReducedTransparency MediaQuery
+const SansStack FontStack
+const SerifStack FontStack
+const Shadow2xl ShadowToken
+const ShadowLg ShadowToken
+const ShadowMd ShadowToken
+const ShadowNone ShadowToken
+const ShadowSm ShadowToken
+const ShadowXl ShadowToken
+const Sky400 Color
+const Sky500 Color
+const Sky600 Color
+const Slate100 Color
+const Slate200 Color
+const Slate300 Color
+const Slate400 Color
+const Slate50 Color
+const Slate500 Color
+const Slate600 Color
+const Slate700 Color
+const Slate800 Color
+const Slate900 Color
+const ToBottom GradientDirection
+const ToBottomLeft GradientDirection
+const ToBottomRight GradientDirection
+const ToLeft GradientDirection
+const ToRight GradientDirection
+const ToTop GradientDirection
+const ToTopLeft GradientDirection
+const ToTopRight GradientDirection
+const TrackAuto Track
+const TrackMaxContent Track
+const TrackMinContent Track
+const Transparent Color
+const White Color
+const Zero Length
+func (Angle) String() string
+func (BgSizeValue) String() string
+func (Color) String() string
+func (ColorStop) String() string
+func (Duration) String() string
+func (Dynamic) Class() html.PropOption
+func (Dynamic) Rule() Rule
+func (Dynamic) Style() html.PropOption
+func (FontStack) String() string
+func (GridPlacement) String() string
+func (Image) String() string
+func (Length) String() string
+func (LineStyle) String() string
+func (Number) String() string
+func (Selector) String() string
+func (ShadowToken) String() string
+func (Sheet) String() string
+func (Theme) RootRules() []Rule
+func (Track) String() string
+func Active(rules ...Rule) []Rule
+func ActiveTheme() Theme
+func Adjacent(target Selector, rules ...Rule) []Rule
+func After(rules ...Rule) []Rule
+func AnB(a, b int) NthArg
+func Animation(duration Duration, timing Easing) Rule
+func At(offset string, rules ...Rule) Frame
+func AttrEq(parseName, parseValue string) Selector
+func AttrSel(parseName string) Selector
+func Before(rules ...Rule) []Rule
+func Bg(c Color) Rule
+func BgImage(images ...Image) Rule
+func BgPosition(x, y Length) Rule
+func BgSize(sizes ...BgSizeValue) Rule
+func BgSizeXY(w, h Length) BgSizeValue
+func Border(width Length, c Color) Rule
+func BorderBottom(width Length, c Color) Rule
+func BorderBottomStyle(s LineStyle) Rule
+func BorderColor(c Color) Rule
+func BorderLeft(width Length, c Color) Rule
+func BorderLeftStyle(s LineStyle) Rule
+func BorderRight(width Length, c Color) Rule
+func BorderRightStyle(s LineStyle) Rule
+func BorderSpacing(v Length) Rule
+func BorderStyle(s LineStyle) Rule
+func BorderTop(width Length, c Color) Rule
+func BorderTopStyle(s LineStyle) Rule
+func BorderWidth(v Length) Rule
+func BorderX(width Length, c Color) Rule
+func BorderY(width Length, c Color) Rule
+func Bottom(v Length) Rule
+func BreakpointValue(parseName string) (Length, bool)
+func Ch(n float64) Length
+func Child(target Selector, rules ...Rule) []Rule
+func CircleAt(x, y Length) GradientShape
+func CircleSizedAt(radius Length, x, y Length) GradientShape
+func Clamp(min, preferred, max Length) Length
+func Class(parts ...any) html.PropOption
+func ClassSel(parseName string) Selector
+func ColorHint(pos Length) ColorStop
+func ColorMix(a, b Color, pct float64) Color
+func ColorValue(parseName string) (Color, bool)
+func ColumnGap(v Length) Rule
+func ConicGradient(from Angle, x, y Length, stops ...ColorStop) Image
+func CriticalCSS() string
+func CubicBezier(p1, p2, p3, p4 float64) Easing
+func Custom(parseName string, parseValue string) Rule
+func CustomAngle(parseName string, parseValue Angle) Rule
+func CustomColor(parseName string, parseValue Color) Rule
+func CustomDuration(parseName string, parseValue Duration) Rule
+func CustomFontStack(parseName string, parseValue FontStack) Rule
+func CustomLength(parseName string, parseValue Length) Rule
+func CustomNumber(parseName string, parseValue Number) Rule
+func CustomShadow(parseName string, parseValue ShadowToken) Rule
+func DataTheme(parseName string, parseRules ...Rule) []Rule
+func DeclareLayers(parseNames ...string)
+func DefaultTheme() Theme
+func DefineUtility(parseName string, rules ...Rule) []Rule
+func DefineVariant(selectorTemplate string) func(...Rule) []Rule
+func Deg(n float64) Angle
+func Descendant(target Selector, rules ...Rule) []Rule
+func Disabled(rules ...Rule) []Rule
+func DynamicLength(parseName, parseProperty string, parseValue Length) Dynamic
+func DynamicVar(parseName, parseProperty, parseValue string) Dynamic
+func El(parseTag string) Selector
+func EllipseAt(x, y Length) GradientShape
+func EmitThemeTokens(parseTheme Theme)
+func Ems(n float64) Length
+func FirstChild(rules ...Rule) []Rule
+func FitContent(limit Length) Track
+func Flex(grow, shrink Number, basis Length) Rule
+func FlexBasis(v Length) Rule
+func FlexGrow(n Number) Rule
+func FlexShrink(n Number) Rule
+func Focus(rules ...Rule) []Rule
+func FocusVisible(rules ...Rule) []Rule
+func Font(stack FontStack) Rule
+func FontSize(v Length) Rule
+func FontSizeValue(parseName string) (Length, bool)
+func FontStackOf(parseFamilies ...string) FontStack
+func Fr(n float64) Track
+func Gap(v Length) Rule
+func Global(parseSelector string, parseRules ...Rule)
+func GridArea(parseName string) Rule
+func GridAreas(parseRows ...string) Rule
+func GridAutoColumns(tracks ...Track) Rule
+func GridAutoRows(tracks ...Track) Rule
+func GridCols(tracks ...Track) Rule
+func GridColumn(p GridPlacement) Rule
+func GridLineAt(parseN int) GridPlacement
+func GridLineName(parseName string) GridPlacement
+func GridRange(start, end GridPlacement) GridPlacement
+func GridRow(p GridPlacement) Rule
+func GridRows(tracks ...Track) Rule
+func GridSpan(parseN int) GridPlacement
+func H(v Length) Rule
+func Harvest() string
+func HarvestedClasses() []string
+func Has(target Selector, rules ...Rule) []Rule
+func Hex(parseValue string) Color
+func Hover(rules ...Rule) []Rule
+func Inject(parseID string, parseCSS string)
+func Inset(v Length) Rule
+func InsetX(v Length) Rule
+func InsetY(v Length) Rule
+func Is(targets []Selector, rules ...Rule) []Rule
+func Keyframes(parseName string, frames ...Frame) Rule
+func LastChild(rules ...Rule) []Rule
+func Layer(parseName string, parseRules ...Rule) Sheet
+func LayerGlobal(parseName string, parseSelector string, parseRules ...Rule)
+func Left(v Length) Rule
+func LineHeight(n Number) Rule
+func LineHeightLen(v Length) Rule
+func LinearGradient(a Angle, stops ...ColorStop) Image
+func LinearGradientTo(dir GradientDirection, stops ...ColorStop) Image
+func Margin(v Length) Rule
+func MarginX(v Length) Rule
+func MarginY(v Length) Rule
+func MarkImportant(parseRule Rule) Rule
+func MaskImage(images ...Image) Rule
+func MaskSize(sizes ...BgSizeValue) Rule
+func MaxHeight(v Length) Rule
+func MaxLen(values ...Length) Length
+func MaxW(px int) MediaQuery
+func MaxWidth(v Length) Rule
+func Media(query MediaQuery, rules ...Rule) []Rule
+func MediaAll(queries ...MediaQuery) MediaQuery
+func MinHeight(v Length) Rule
+func MinLen(values ...Length) Length
+func MinMax(min, max Track) Track
+func MinW(px int) MediaQuery
+func MinWidth(v Length) Rule
+func Ms(n int) Duration
+func New(rules ...Rule) Sheet
+func Not(target Selector, rules ...Rule) []Rule
+func Nth(n int) NthArg
+func NthChild(arg NthArg, rules ...Rule) []Rule
+func NthOfType(arg NthArg, rules ...Rule) []Rule
+func Num(n float64) Number
+func Opacity(n float64) Rule
+func OpacityNum(n Number) Rule
+func Order(parseN int) Rule
+func Outline(width Length, c Color) Rule
+func OutlineOffset(v Length) Rule
+func OutlineStyle(s LineStyle) Rule
+func Padding(v Length) Rule
+func PaddingX(v Length) Rule
+func PaddingY(v Length) Rule
+func Percent(n float64) Length
+func Preflight()
+func PreflightInLayer(parseLayer string)
+func Prop(parseName string) TransitionProperty
+func Property(parseName, parseValue string) Rule
+func Px(n int) Length
+func RGB(r, g, b int) Color
+func RGBA(r, g, b int, a float64) Color
+func RadialGradient(shape GradientShape, stops ...ColorStop) Image
+func RadiusValue(parseName string) (Length, bool)
+func Raw(parseProperty, parseValue string) Rule
+func RawDuration(parseValue string) Duration
+func RawFontStack(parseValue string) FontStack
+func RawImage(parseValue string) Image
+func RawLength(parseValue string) Length
+func RawMedia(parseQuery string) MediaQuery
+func RawShadow(parseValue string) ShadowToken
+func Rem(n float64) Length
+func Repeat(count int, tracks ...Track) Track
+func RepeatFill(tracks ...Track) Track
+func RepeatFit(tracks ...Track) Track
+func RepeatingLinearGradient(dir GradientDirection, stops ...ColorStop) Image
+func RepeatingRadialGradient(shape GradientShape, stops ...ColorStop) Image
+func Reset()
+func Right(v Length) Rule
+func Root(parseRules ...Rule)
+func Rotate(a Angle) TransformFn
+func Rounded(v Length) Rule
+func RoundedBottom(v Length) Rule
+func RoundedLeft(v Length) Rule
+func RoundedRight(v Length) Rule
+func RoundedTop(v Length) Rule
+func RowGap(v Length) Rule
+func Rules(parts ...any) []Rule
+func S(n float64) Duration
+func Scale(n float64) TransformFn
+func ScaleXY(x, y float64) TransformFn
+func ScrollPadding(v Length) Rule
+func ScrollPaddingTop(v Length) Rule
+func Seed(parseClasses ...string)
+func SeedFromDocument()
+func Sel(parseFragment string) Selector
+func SetSink(parseSink Sink) Sink
+func Shadow(token ShadowToken) Rule
+func ShadowInset(x, y, blur, spread Length, c Color) ShadowToken
+func ShadowOf(x, y, blur, spread Length, c Color) ShadowToken
+func Shadows(tokens ...ShadowToken) ShadowToken
+func SheetRef(parseSheet Sheet) Selector
+func Sibling(target Selector, rules ...Rule) []Rule
+func SpacingValue(parseIndex int) Length
+func Stop(c Color) ColorStop
+func StopAt(c Color, pos Length) ColorStop
+func StopSpan(c Color, from, to Length) ColorStop
+func StyleBlock() string
+func TextColor(c Color) Rule
+func TextDecorationColor(c Color) Rule
+func TextDecorationThickness(v Length) Rule
+func TextIndent(v Length) Rule
+func TextOverflowEllipsis() Rule
+func TextUnderlineOffset(v Length) Rule
+func Top(v Length) Rule
+func TrackLen(v Length) Track
+func Tracking(v Length) Rule
+func Transform(fns ...TransformFn) Rule
+func Transition(property TransitionProperty, duration Duration, easing Easing) Rule
+func TransitionDuration(duration Duration) Rule
+func TransitionLonghands(property TransitionProperty, duration Duration, easing Easing) Rule
+func TransitionProps(parseProps ...TransitionProperty) TransitionProperty
+func TranslateX(v Length) TransformFn
+func TranslateY(v Length) TransformFn
+func Turn(n float64) Angle
+func URLImage(parsePath string) Image
+func UseTheme(parseTheme Theme)
+func Utility(parseName string) (rules []Rule, ok bool)
+func Var(parseName string) Color
+func VarAngle(parseName string) Angle
+func VarDuration(parseName string) Duration
+func VarFontStack(parseName string) FontStack
+func VarLength(parseName string) Length
+func VarNumber(parseName string) Number
+func Vh(n float64) Length
+func Vw(n float64) Length
+func W(v Length) Rule
+func WhenDisabled(rules ...Rule) []Rule
+func Within(parseAncestor string, parseRules ...Rule) []Rule
+func WordSpacing(v Length) Rule
+func ZIndex(n int) Rule
+type Angle string
+type BgSizeValue string
+type Color string
+type ColorStop string
+type Duration string
+type Dynamic struct { varName string property string value string }
+type Easing string
+type FontStack string
+type Frame struct { Offset string Rules []Rule }
+type GradientDirection string
+type GradientShape string
+type GridPlacement string
+type Image string
+type Length string
+type LineStyle string
+type MediaQuery string
+type NthArg string
+type Number string
+type Rule struct { decls []declaration scope scope raw []string declHash uint64 }
+type Selector string
+type ShadowToken string
+type Sheet string
+type Sink interface { Emit(parseClass string, parseCSS string) }
+type Theme struct { Spacing map[int]Length Colors map[string]Color FontSizes map[string]Length Breakpoints map[string]Length Radii map[string]Length }
+type Track string
+type TransformFn string
+type TransitionProperty string
+var AlignContent
+var AlignSelf
+var Appearance
+var BgClip
+var BgOrigin
+var BgRepeat
+var BorderCollapse
+var ColorScheme
+var Cursor
+var Display
+var FlexDir
+var FlexWrap
+var FontStyle
+var FontVariantLigatures
+var FontVariantNumeric
+var FontWeight
+var Items
+var Justify
+var JustifyItems
+var JustifySelf
+var MaskRepeat
+var Overflow
+var OverflowWrap
+var OverflowX
+var OverflowY
+var OverscrollBehavior
+var OverscrollBehaviorX
+var OverscrollBehaviorY
+var PointerEvents
+var Position
+var TableLayout
+var TextAlign
+var TextDecoration
+var TextDecorationStyle
+var TextTransform
+var TextWrap
+var UserSelect
+var VerticalAlign
+var WhiteSpace

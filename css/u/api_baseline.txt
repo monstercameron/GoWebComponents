@@ -1,0 +1,422 @@
+const Amber500 Color
+const Auto Length
+const BgAuto
+const BgContain
+const BgCover
+const Black
+const ColorAmber500 ColorToken
+const ColorBlack ColorToken
+const ColorCurrent ColorToken
+const ColorGreen500 ColorToken
+const ColorRed500 ColorToken
+const ColorRed600 ColorToken
+const ColorSky400 ColorToken
+const ColorSky500 ColorToken
+const ColorSky600 ColorToken
+const ColorSlate100 ColorToken
+const ColorSlate200 ColorToken
+const ColorSlate300 ColorToken
+const ColorSlate400 ColorToken
+const ColorSlate50 ColorToken
+const ColorSlate500 ColorToken
+const ColorSlate600 ColorToken
+const ColorSlate700 ColorToken
+const ColorSlate800 ColorToken
+const ColorSlate900 ColorToken
+const ColorTransparent ColorToken
+const ColorWhite ColorToken
+const CurrentColor Color
+const Ease
+const EaseIn
+const EaseInOut
+const EaseOut
+const Even NthArg
+const Full Length
+const Green500 Color
+const GridAuto
+const LineDashed
+const LineDotted
+const LineDouble
+const LineHidden
+const LineNone
+const LineSolid
+const Linear
+const MonoStack
+const NoImage
+const Odd NthArg
+const PropAll
+const PropColors
+const PropOpacity
+const PropShadow
+const PropTransform
+const RadiusFull Radius
+const RadiusLg Radius
+const RadiusMd Radius
+const RadiusNone Radius
+const RadiusSm Radius
+const RadiusXl Radius
+const Red500
+const Red600 Color
+const SansStack
+const SerifStack
+const Shadow2xl
+const ShadowLg
+const ShadowMd
+const ShadowNone
+const ShadowSm
+const ShadowXl
+const Sky400 Color
+const Sky500
+const Sky600 Color
+const Slate100
+const Slate200 Color
+const Slate300 Color
+const Slate400 Color
+const Slate50 Color
+const Slate500
+const Slate600 Color
+const Slate700 Color
+const Slate800
+const Slate900
+const Spacing0 Spacing
+const Spacing1 Spacing
+const Spacing10 Spacing
+const Spacing12 Spacing
+const Spacing16 Spacing
+const Spacing2 Spacing
+const Spacing20 Spacing
+const Spacing24 Spacing
+const Spacing3 Spacing
+const Spacing4 Spacing
+const Spacing5 Spacing
+const Spacing6 Spacing
+const Spacing8 Spacing
+const Text2xl TextScale
+const Text3xl TextScale
+const Text4xl TextScale
+const TextBase TextScale
+const TextLg TextScale
+const TextSm TextScale
+const TextXl TextScale
+const TextXs TextScale
+const ToBottom
+const ToBottomLeft
+const ToBottomRight
+const ToLeft
+const ToRight
+const ToTop
+const ToTopLeft
+const ToTopRight
+const TrackAuto
+const TrackMaxContent
+const TrackMinContent
+const Transparent Color
+const White
+const Zero Length
+func Active(rules ...css.Rule) []css.Rule
+func Bg(c css.Color) css.Rule
+func BgC(c ColorToken) css.Rule
+func BgToken(name string) css.Rule
+func Border(c css.Color) css.Rule
+func BorderC(c ColorToken) css.Rule
+func ContrastLess(rules ...css.Rule) []css.Rule
+func ContrastMore(rules ...css.Rule) []css.Rule
+func Dark(rules ...css.Rule) []css.Rule
+func Fg(c css.Color) css.Rule
+func Focus(rules ...css.Rule) []css.Rule
+func ForcedColors(rules ...css.Rule) []css.Rule
+func Gap(index Spacing) css.Rule
+func GapV(v css.Length) css.Rule
+func GroupHover(rules ...css.Rule) []css.Rule
+func H(index Spacing) css.Rule
+func Hover(rules ...css.Rule) []css.Rule
+func Important(rules ...css.Rule) []css.Rule
+func Lg(rules ...css.Rule) []css.Rule
+func Light(rules ...css.Rule) []css.Rule
+func M(index Spacing) css.Rule
+func Md(rules ...css.Rule) []css.Rule
+func MotionOK(rules ...css.Rule) []css.Rule
+func MtN(index Spacing) css.Rule
+func Mx(index Spacing) css.Rule
+func My(index Spacing) css.Rule
+func Opacity(pct int) css.Rule
+func Pad(index Spacing) css.Rule
+func PadX(index Spacing) css.Rule
+func PadY(index Spacing) css.Rule
+func PeerFocus(rules ...css.Rule) []css.Rule
+func Print(rules ...css.Rule) []css.Rule
+func ReducedMotion(rules ...css.Rule) []css.Rule
+func Rounded(r Radius) css.Rule
+func Sm(rules ...css.Rule) []css.Rule
+func TextC(c ColorToken) css.Rule
+func TextSize(scale TextScale) css.Rule
+func TextToken(name string) css.Rule
+func W(index Spacing) css.Rule
+func WhenDisabled(rules ...css.Rule) []css.Rule
+func Xl(rules ...css.Rule) []css.Rule
+func Xl2(rules ...css.Rule) []css.Rule
+type = Angle css.Angle
+type = BgSizeValue css.BgSizeValue
+type = Color css.Color
+type = ColorStop css.ColorStop
+type = Direction css.GradientDirection
+type = Duration css.Duration
+type = Easing css.Easing
+type = FontStack css.FontStack
+type = Frame css.Frame
+type = Image css.Image
+type = Length css.Length
+type = LineStyle css.LineStyle
+type = MediaQ css.MediaQuery
+type = NthArg css.NthArg
+type = Number css.Number
+type = Placement css.GridPlacement
+type = Rule css.Rule
+type = Selector css.Selector
+type = ShadowToken css.ShadowToken
+type = Shape css.GradientShape
+type = Sheet css.Sheet
+type = Sink css.Sink
+type = Theme css.Theme
+type = TransProp css.TransitionProperty
+type ColorToken string
+type Radius string
+type Spacing int
+type TextScale string
+var Absolute
+var Adjacent
+var After
+var AlignContent
+var AlignSelf
+var AnB
+var Animation
+var Appearance
+var At
+var AttrEq
+var AttrSel
+var Before
+var BgClip
+var BgImage
+var BgOrigin
+var BgPosition
+var BgRepeat
+var BgSize
+var BgSizeXY
+var Block
+var BorderBottom
+var BorderCollapse
+var BorderColor
+var BorderLeft
+var BorderRight
+var BorderSpacing
+var BorderStyle
+var BorderTop
+var BorderWidth
+var BorderX
+var BorderY
+var Bottom
+var CSSVar
+var Ch
+var Child
+var CircleAt
+var CircleSizedAt
+var Clamp
+var Class
+var ClassSel
+var ColorHint
+var ColorMix
+var ColorScheme
+var ColumnGap
+var ConicGradient
+var CubicBezier
+var Cursor
+var Custom
+var CustomAngle
+var CustomColor
+var CustomDuration
+var CustomFontStack
+var CustomLength
+var CustomNumber
+var CustomShadow
+var DefaultTheme
+var DefineUtility
+var DefineVariant
+var Deg
+var Descendant
+var El
+var EllipseAt
+var Ems
+var FitContent
+var Fixed
+var Flex
+var FlexBasis
+var FlexCol
+var FlexGrow
+var FlexOf
+var FlexRow
+var FlexShrink
+var FlexWrap
+var FocusVisible
+var Font
+var FontBold
+var FontMedium
+var FontNormal
+var FontSemibold
+var FontSize
+var FontStackOf
+var FontStyle
+var FontVariantLigatures
+var FontVariantNumeric
+var Fr
+var Grid
+var GridArea
+var GridAreas
+var GridAutoColumns
+var GridAutoRows
+var GridCols
+var GridColumn
+var GridLineAt
+var GridLineName
+var GridRange
+var GridRow
+var GridRows
+var GridSpan
+var HFull
+var Harvest
+var Has
+var Hex
+var Hide
+var Inline
+var InlineBlock
+var InlineFlex
+var Inset
+var InsetX
+var InsetY
+var Is
+var ItemsCenter
+var ItemsEnd
+var ItemsStart
+var ItemsStretch
+var JustifyAround
+var JustifyBetween
+var JustifyCenter
+var JustifyEnd
+var JustifyItems
+var JustifySelf
+var JustifyStart
+var Keyframes
+var Left
+var LineHeight
+var LineHeightLen
+var LinearGradientTo
+var MarkImportant
+var MaskImage
+var MaskRepeat
+var MaskSize
+var MaxHeight
+var MaxLen
+var MaxW
+var MaxWidth
+var Media
+var MinHeight
+var MinLen
+var MinMax
+var MinW
+var MinWidth
+var Ms
+var New
+var Not
+var Nth
+var NthChild
+var NthOfType
+var Num
+var Order
+var Outline
+var OutlineOffset
+var OutlineStyle
+var Overflow
+var OverflowWrap
+var OverflowX
+var OverflowY
+var OverscrollBehavior
+var OverscrollBehaviorX
+var OverscrollBehaviorY
+var Percent
+var PointerEvents
+var Prop
+var Px
+var RGB
+var RGBA
+var Raw
+var RawFontStack
+var RawImage
+var RawLength
+var RawMedia
+var RawShadow
+var Relative
+var Rem
+var RepeatFill
+var RepeatFit
+var RepeatingLinearGradient
+var RepeatingRadialGradient
+var Reset
+var Right
+var Rotate
+var RoundedBottomV
+var RoundedLeftV
+var RoundedRightV
+var RoundedTopV
+var RowGap
+var Rules
+var S
+var Scale
+var ScaleXY
+var ScrollPadding
+var ScrollPaddingTop
+var Seed
+var Sel
+var SetSink
+var Shadow
+var ShadowInset
+var ShadowOf
+var Shadows
+var SheetRef
+var Sibling
+var Sticky
+var StopAt
+var StopSpan
+var TableLayout
+var TextAlign
+var TextDecoration
+var TextDecorationColor
+var TextDecorationStyle
+var TextDecorationThickness
+var TextIndent
+var TextOverflowEllipsis
+var TextTransform
+var TextUnderlineOffset
+var TextWrap
+var Top
+var TrackLen
+var Tracking
+var Transform
+var Transition
+var TransitionDuration
+var TransitionLonghands
+var TransitionProps
+var TranslateX
+var TranslateY
+var Turn
+var URLImage
+var UseTheme
+var UserSelect
+var Utility
+var VarFontStack
+var VerticalAlign
+var Vh
+var Vw
+var WAuto
+var WFull
+var WhiteSpace
+var WordSpacing
+var ZIndex

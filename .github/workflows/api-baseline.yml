@@ -36,7 +36,9 @@ jobs:
           go test -count=1 \
             ./serverfn/ ./query/ ./localfirst/ ./agentui/ ./validate/ \
             ./anim/ ./timetravel/ ./workbench/ ./wholestack/ \
-            ./ui/ ./html/ ./router/ ./fetch/ \
+            ./ui/ ./html/ ./html/shorthand/ ./router/ ./fetch/ \
+            ./state/ ./flags/ ./css/ ./css/u/ ./devtools/ ./head/ \
+            ./plugin/ ./i18n/ ./interop/ ./pwa/ ./virtualization/ ./hotreload/ \
             -run 'APIBaseline|ApiBaseline|API_BASELINE'
 
       - name: Public-API compatibility guard (native + wasm)

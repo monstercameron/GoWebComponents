@@ -163,7 +163,7 @@ func TestRunBenchmarkPackagePassesTagsToGoTest(parseT *testing.T) {
 		parseT.Fatalf("untagged run must skip and add no -tags flag: %+v", parseDev)
 	}
 	parseProd := parseRun("production")
-	if !parseProd.OK || len(parseProd.Benchmarks) != 1 || !strings.Contains(parseProd.Command, "go test -tags production -run") {
+	if !parseProd.OK || len(parseProd.Benchmarks) != 1 || !strings.Contains(parseProd.Command, "go test -tags production -trimpath -run") {
 		parseT.Fatalf("tagged run must reach the child: %+v", parseProd)
 	}
 }
