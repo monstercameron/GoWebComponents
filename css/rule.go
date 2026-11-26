@@ -14,8 +14,12 @@ import (
 // with css.New. A Rule carries no class identity of its own — identity is minted
 // at New time from the canonical serialization of the folded rule-set.
 type Rule struct {
-	decls []declaration
-	scope scope
+	// single holds the common 1-declaration rule inline so decl(prop, val) avoids
+	// allocating a 1-element []declaration slice on every typed CSS property call.
+	single    declaration
+	hasSingle bool
+	decls     []declaration
+	scope     scope
 	// raw holds complete, class-independent CSS blocks (e.g. an @keyframes body)
 	// that must travel with the rule and participate in hashing/emission.
 	raw []string
@@ -32,6 +36,24 @@ type Rule struct {
 	// rewrite its scope, and excluding scope means those copies keep a valid hash
 	// instead of silently carrying a stale one.
 	declHash uint64
+}
+
+// hashSingleDecl computes the exact same FNV-1a content hash as hashDecls for a
+// single declaration without allocating a slice.
+func hashSingleDecl(property, value string) uint64 {
+	h := fnvOffset1
+	for i := 0; i < len(property); i++ {
+		h = (h ^ uint64(property[i])) * fnvPrime1
+	}
+	h = (h ^ 0xfe) * fnvPrime1
+	for i := 0; i < len(value); i++ {
+		h = (h ^ uint64(value[i])) * fnvPrime1
+	}
+	h = (h ^ 0xfd) * fnvPrime1
+	if h == 0 {
+		return 1
+	}
+	return h
 }
 
 // hashDecls computes the content hash stored in Rule.declHash. It must stay in
@@ -83,17 +105,29 @@ func (s scope) template() string {
 
 // decl is the internal constructor shared by every typed property.
 func decl(property, value string) Rule {
-	parseDecls := []declaration{{property: property, value: value}}
-	return Rule{decls: parseDecls, declHash: hashDecls(parseDecls)}
+	return Rule{
+		single:    declaration{property: property, value: value},
+		hasSingle: true,
+		declHash:  hashSingleDecl(property, value),
+	}
 }
 
 // MarkImportant returns a copy of the rule with "!important" appended to every
 // declaration value (idempotent). It is the typed analog of Tailwind's "!"
 // modifier.
-func MarkImportant(parseRule Rule) Rule {
-	next := parseRule
-	next.decls = make([]declaration, len(parseRule.decls))
-	for i, d := range parseRule.decls {
+func MarkImportant(rule Rule) Rule {
+	next := rule
+	if rule.hasSingle && len(rule.decls) == 0 {
+		value := rule.single.value
+		if !strings.Contains(value, "!important") {
+			value += " !important"
+		}
+		next.single = declaration{property: rule.single.property, value: value}
+		next.declHash = hashSingleDecl(next.single.property, next.single.value)
+		return next
+	}
+	next.decls = make([]declaration, len(rule.decls))
+	for i, d := range rule.decls {
 		value := d.value
 		if !strings.Contains(value, "!important") {
 			value += " !important"
@@ -189,7 +223,7 @@ func canonicalize(rules []Rule) (canonical string, groups []renderGroup, raws []
 				raws = append(raws, block)
 			}
 		}
-		if len(r.decls) == 0 {
+		if !r.hasSingle && len(r.decls) == 0 {
 			continue
 		}
 		key := groupKey{
@@ -201,6 +235,9 @@ func canonicalize(rules []Rule) (canonical string, groups []renderGroup, raws []
 			bucket = map[string]string{}
 			buckets[key] = bucket
 			order = append(order, key)
+		}
+		if r.hasSingle {
+			bucket[r.single.property] = r.single.value
 		}
 		for _, d := range r.decls {
 			// last write wins for a repeated property within the same scope.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // FuzzRenderBootstrapScriptBreakout fuzzes the SSR inline-bootstrap renderer for

@@ -6,7 +6,7 @@ import (
 	"context"
 	"strings"
 
-	appRouter "github.com/monstercameron/GoWebComponents/v7/router"
+	appRouter "github.com/monstercameron/GoWebComponents/v8/router"
 )
 
 // BuildGuardBlocked returns a guard that always blocks navigation with reason.

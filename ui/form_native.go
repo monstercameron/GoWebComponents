@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 const DefaultCSRFHeaderName = "X-CSRF-Token"

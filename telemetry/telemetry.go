@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/devtools"
-	"github.com/monstercameron/GoWebComponents/v7/internal/gwcattrs"
-	"github.com/monstercameron/GoWebComponents/v7/internal/telemetryredaction"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/devtools"
+	"github.com/monstercameron/GoWebComponents/v8/internal/gwcattrs"
+	"github.com/monstercameron/GoWebComponents/v8/internal/telemetryredaction"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type RUMEvent struct {
@@ -42,7 +42,7 @@ type ExportOptions struct {
 }
 
 const (
-	scopeName        = "github.com/monstercameron/GoWebComponents/v7/telemetry"
+	scopeName        = "github.com/monstercameron/GoWebComponents/v8/telemetry"
 	otlpKindInternal = 1
 	otlpKindServer   = 2
 	otlpKindClient   = 3

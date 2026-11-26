@@ -68,22 +68,41 @@ const ssrAtomScopeContextKey int64 = -1<<62 + 1
 // else stays nil on purpose — a scope has no scheduler and no DOM adapter, so a
 // setter called during a server render finds no live tree to schedule against and
 // degrades to a plain registry write, which is exactly what SSR wants.
-func newSSRAtomScope(parseInitialAtoms map[string]any) *Runtime {
+// getAtomRegistry returns the runtime's AtomRegistry, lazily initializing it
+// once on SSR request scopes so SSR renders that never touch atoms avoid
+// allocating an AtomRegistry and its internal maps.
+func (rt *Runtime) getAtomRegistry() *AtomRegistry {
+	if rt == nil {
+		return nil
+	}
+	if rt.ssrRequestScope {
+		rt.ssrAtomRegistryOnce.Do(func() {
+			if rt.atomRegistry == nil {
+				rt.atomRegistry = NewAtomRegistry()
+			}
+		})
+	}
+	return rt.atomRegistry
+}
+
+func newSSRAtomScope(initialAtoms map[string]any) *Runtime {
 	if !ssrAtomScopingEnabled() {
 		return nil
 	}
-	parseScope := &Runtime{
-		atomRegistry:    NewAtomRegistry(),
-		deletions:       make([]*Fiber, 0),
+	scope := &Runtime{
 		ssrRequestScope: true,
 	}
-	for parseID, parseValue := range parseInitialAtoms {
-		if parseID == "" {
-			continue
+	if len(initialAtoms) > 0 {
+		registry := NewAtomRegistry()
+		for id, value := range initialAtoms {
+			if id == "" {
+				continue
+			}
+			registry.InitAtom(id, value)
 		}
-		parseScope.atomRegistry.InitAtom(parseID, parseValue)
+		scope.atomRegistry = registry
 	}
-	return parseScope
+	return scope
 }
 
 // ssrAtomScopeForRender returns the scope one SSR entry point should render under.
@@ -98,18 +117,35 @@ func newSSRAtomScope(parseInitialAtoms map[string]any) *Runtime {
 //
 // A top-level render finds no ambient scope and gets a fresh one — which is the
 // property the whole file exists for.
-func ssrAtomScopeForRender(parseInitialAtoms map[string]any) *Runtime {
-	parseInherited := ssrRequestAtomScope()
-	if parseInherited == nil {
-		return newSSRAtomScope(parseInitialAtoms)
+func ssrAtomScopeForRender(initialAtoms map[string]any) *Runtime {
+	inherited := ssrRequestAtomScope()
+	if inherited == nil {
+		return newSSRAtomScope(initialAtoms)
 	}
-	for parseID, parseValue := range parseInitialAtoms {
-		if parseID == "" {
-			continue
+	if len(initialAtoms) > 0 {
+		registry := inherited.getAtomRegistry()
+		for id, value := range initialAtoms {
+			if id == "" {
+				continue
+			}
+			registry.InitAtom(id, value)
 		}
-		parseInherited.atomRegistry.InitAtom(parseID, parseValue)
 	}
-	return parseInherited
+	return inherited
+}
+
+// newTopLevelSSRContext allocates one root SSR context map carrying both the
+// lazy hook-owner sentinel and the per-render atom scope (when enabled),
+// avoiding the double map allocation of building them in two passes.
+func newTopLevelSSRContext(initialAtoms map[string]any) map[int64]any {
+	scope := ssrAtomScopeForRender(initialAtoms)
+	if scope == nil {
+		return map[int64]any{ssrHookOwnerContextKey: ssrHookOwnerLazy}
+	}
+	return map[int64]any{
+		ssrHookOwnerContextKey: ssrHookOwnerLazy,
+		ssrAtomScopeContextKey: scope,
+	}
 }
 
 // withSSRAtomScope returns parseParent extended with parseScope. A nil scope

@@ -6,7 +6,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // TestPopstateLeaveGuardCancelsBlockedBackForward pins the #82 finding (1) fix: a

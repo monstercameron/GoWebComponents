@@ -31,7 +31,7 @@ func TestPlainFiberDeletionSkipsAtomRegistry(parseT *testing.T) {
 	for parseAtomID, parseSet := range parseRt.atomRegistry.subscriptions {
 		for parseFiber := range parseSet {
 			hasRecordedAtoms := parseFiber.hooks != nil && len(parseFiber.hooks.atoms) > 0
-			if !hasRecordedAtoms && len(parseFiber.reactiveSourceIDs) == 0 {
+			if !hasRecordedAtoms && len(parseFiber.getReactiveSourceIDs()) == 0 {
 				parseT.Fatalf("fiber subscribed to %q without recording it on hooks.atoms or reactiveSourceIDs", parseAtomID)
 			}
 		}

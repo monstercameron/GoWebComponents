@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
 )
 
 // AtomRegistry manages global state atoms with fine-grained reactivity.
@@ -260,16 +260,42 @@ func (parseAr *AtomRegistry) setAtomAndNotify(parseId string, parseValue any, pa
 		return
 	}
 
-	parseFibers := parseAr.setValueAndCollectSubscribers(parseId, parseValue)
-	for _, parseDerivedID := range parseAr.listDependents(parseId) {
-		parseDerivedFibers, parseErr := parseAr.recomputeDerived(parseDerivedID, map[string]bool{parseId: true})
-		if parseErr != nil {
-			ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
-			continue
+	var inline [8]*Fiber
+	parseFibers, hasDependents := parseAr.setValueAndCollectSubscribersInto(parseId, parseValue, inline[:0])
+	if hasDependents {
+		for _, parseDerivedID := range parseAr.listDependents(parseId) {
+			parseDerivedFibers, parseErr := parseAr.recomputeDerived(parseDerivedID, map[string]bool{parseId: true})
+			if parseErr != nil {
+				ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
+				continue
+			}
+			parseFibers = append(parseFibers, parseDerivedFibers...)
 		}
-		parseFibers = append(parseFibers, parseDerivedFibers...)
 	}
 	notifyFibersUnique(parseFibers, parseNotify)
+}
+
+// setAtomAndNotifyOrigin writes one atom and schedules subscribed fibers directly
+// with the given update origin, avoiding per-write notify closure and small-slice
+// heap allocations.
+func (ar *AtomRegistry) setAtomAndNotifyOrigin(id string, value any, rt *Runtime, origin string) {
+	if rt == nil {
+		_ = ar.SetAtom(id, value)
+		return
+	}
+	var inline [8]*Fiber
+	fibers, hasDependents := ar.setValueAndCollectSubscribersInto(id, value, inline[:0])
+	if hasDependents {
+		for _, derivedID := range ar.listDependents(id) {
+			derivedFibers, err := ar.recomputeDerived(derivedID, map[string]bool{id: true})
+			if err != nil {
+				ReportDiagnostic("state", DiagnosticWarning, err.Error())
+				continue
+			}
+			fibers = append(fibers, derivedFibers...)
+		}
+	}
+	notifyFibersUniqueOrigin(fibers, rt, origin)
 }
 
 // updateAtomAndNotify atomically applies parseFn to the atom's current value
@@ -286,6 +312,7 @@ func (parseAr *AtomRegistry) setAtomAndNotify(parseId string, parseValue any, pa
 // current value the update is a no-op and no subscriber is notified, matching
 // the Set no-op-on-equal behavior.
 func (parseAr *AtomRegistry) updateAtomAndNotify(parseId string, parseDefault any, parseFn func(any) any, parseNotify func(*Fiber)) {
+	var inline [8]*Fiber
 	parseAr.mu.Lock()
 	parseCurrent, parseOk := parseAr.atoms[parseId]
 	if !parseOk {
@@ -298,21 +325,60 @@ func (parseAr *AtomRegistry) updateAtomAndNotify(parseId string, parseDefault an
 	}
 	parseAr.atoms[parseId] = parseNext
 	parseAr.bumpAtomVersionLocked(parseId)
-	parseFibers := parseAr.collectSubscribersLocked(parseId)
+	parseFibers := parseAr.collectSubscribersIntoLocked(parseId, inline[:0])
+	hasDependents := len(parseAr.dependents[parseId]) > 0
 	parseAr.mu.Unlock()
 
 	if parseNotify == nil {
 		return
 	}
-	for _, parseDerivedID := range parseAr.listDependents(parseId) {
-		parseDerivedFibers, parseErr := parseAr.recomputeDerived(parseDerivedID, map[string]bool{parseId: true})
-		if parseErr != nil {
-			ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
-			continue
+	if hasDependents {
+		for _, parseDerivedID := range parseAr.listDependents(parseId) {
+			parseDerivedFibers, parseErr := parseAr.recomputeDerived(parseDerivedID, map[string]bool{parseId: true})
+			if parseErr != nil {
+				ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
+				continue
+			}
+			parseFibers = append(parseFibers, parseDerivedFibers...)
 		}
-		parseFibers = append(parseFibers, parseDerivedFibers...)
 	}
 	notifyFibersUnique(parseFibers, parseNotify)
+}
+
+// updateAtomAndNotifyOrigin atomically transforms one atom and schedules
+// subscribed fibers directly without allocating a notify closure.
+func (ar *AtomRegistry) updateAtomAndNotifyOrigin(id string, defaultVal any, fn func(any) any, rt *Runtime, origin string) {
+	var inline [8]*Fiber
+	ar.mu.Lock()
+	current, ok := ar.atoms[id]
+	if !ok {
+		current = defaultVal
+	}
+	next := fn(current)
+	if fastEqual(current, next) {
+		ar.mu.Unlock()
+		return
+	}
+	ar.atoms[id] = next
+	ar.bumpAtomVersionLocked(id)
+	fibers := ar.collectSubscribersIntoLocked(id, inline[:0])
+	hasDependents := len(ar.dependents[id]) > 0
+	ar.mu.Unlock()
+
+	if rt == nil {
+		return
+	}
+	if hasDependents {
+		for _, derivedID := range ar.listDependents(id) {
+			derivedFibers, err := ar.recomputeDerived(derivedID, map[string]bool{id: true})
+			if err != nil {
+				ReportDiagnostic("state", DiagnosticWarning, err.Error())
+				continue
+			}
+			fibers = append(fibers, derivedFibers...)
+		}
+	}
+	notifyFibersUniqueOrigin(fibers, rt, origin)
 }
 
 // setValueAndCollectSubscribers is a core package helper.
@@ -325,17 +391,39 @@ func (parseAr *AtomRegistry) setValueAndCollectSubscribers(parseId string, parse
 	return parseFibers
 }
 
+// setValueAndCollectSubscribersInto stores one atom value, collects its
+// subscribers into buf (typically stack-backed), and reports whether any derived
+// atoms depend on id — all under a single lock acquisition.
+func (ar *AtomRegistry) setValueAndCollectSubscribersInto(id string, value any, buf []*Fiber) ([]*Fiber, bool) {
+	ar.mu.Lock()
+	ar.atoms[id] = value
+	ar.bumpAtomVersionLocked(id)
+	fibers := ar.collectSubscribersIntoLocked(id, buf)
+	hasDependents := len(ar.dependents[id]) > 0
+	ar.mu.Unlock()
+	return fibers, hasDependents
+}
+
 // collectSubscribersLocked is a core package helper.
 func (parseAr *AtomRegistry) collectSubscribersLocked(parseId string) []*Fiber {
-	parseSubs, parseOk := parseAr.subscriptions[parseId]
-	if !parseOk || len(parseSubs) == 0 {
-		return nil
+	return parseAr.collectSubscribersIntoLocked(parseId, nil)
+}
+
+// collectSubscribersIntoLocked appends all fibers subscribed to id into buf.
+func (ar *AtomRegistry) collectSubscribersIntoLocked(id string, buf []*Fiber) []*Fiber {
+	subs, ok := ar.subscriptions[id]
+	if !ok || len(subs) == 0 {
+		return buf
 	}
-	parseFibers := make([]*Fiber, 0, len(parseSubs))
-	for parseFiber := range parseSubs {
-		parseFibers = append(parseFibers, parseFiber)
+	if cap(buf)-len(buf) < len(subs) {
+		next := make([]*Fiber, len(buf), len(buf)+len(subs))
+		copy(next, buf)
+		buf = next
 	}
-	return parseFibers
+	for fiber := range subs {
+		buf = append(buf, fiber)
+	}
+	return buf
 }
 
 // listDependents is a core package helper.
@@ -444,6 +532,49 @@ func (parseAr *AtomRegistry) setDerivedValueIfGenerationAndDependenciesMatch(
 	parseFibers := parseAr.collectSubscribersLocked(parseId)
 	parseAr.mu.Unlock()
 	return parseFibers, true
+}
+
+// notifyFibersUniqueOrigin schedules each distinct fiber in fibers directly with origin.
+func notifyFibersUniqueOrigin(fibers []*Fiber, rt *Runtime, origin string) {
+	if rt == nil || len(fibers) == 0 {
+		return
+	}
+	if len(fibers) == 1 {
+		if fibers[0] != nil {
+			rt.ScheduleSubscribedFiberUpdateWithOrigin(fibers[0], origin)
+		}
+		return
+	}
+	if len(fibers) <= 4 {
+		var seen [4]*Fiber
+		n := 0
+		for _, fiber := range fibers {
+			if fiber == nil {
+				continue
+			}
+			dup := false
+			for i := 0; i < n; i++ {
+				if seen[i] == fiber {
+					dup = true
+					break
+				}
+			}
+			if !dup {
+				seen[n] = fiber
+				n++
+				rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, origin)
+			}
+		}
+		return
+	}
+	seen := make(map[*Fiber]bool, len(fibers))
+	for _, fiber := range fibers {
+		if fiber == nil || seen[fiber] {
+			continue
+		}
+		seen[fiber] = true
+		rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, origin)
+	}
 }
 
 // notifyFibersUnique is a core package helper.
@@ -719,7 +850,8 @@ func (parseAr *AtomRegistry) RestoreSnapshot(parseSnapshot map[string]any) []*Fi
 // Unlike useState which is local to a component, atoms are shared across components.
 // When an atom updates, only components that use that specific atom re-render.
 func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (func() T, func(any)) {
-	if parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		panic(actionableGoUseAtomRegistryPanic())
 	}
 
@@ -805,23 +937,16 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 			return parseInitialValue
 		}
 
-		set := func(parseNewValueOrUpdater any) {
-			apply := func(parseUpdateOrigin string) {
-				parseCurrentValue := get()
-				parseNewValue, parseOk3 := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater)
-				if !parseOk3 {
-					return
-				}
-
-				if fastEqual(parseCurrentValue, parseNewValue) {
-					return
-				}
-
-				parseRt.atomRegistry.setAtomAndNotify(parseId, parseNewValue, func(parseFiber2 *Fiber) {
-					parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber2, parseUpdateOrigin)
-				})
+		applyUpdate := func(newValueOrUpdater any, updateOrigin string) {
+			currentValue := get()
+			newValue, ok := resolveStateUpdateValue(currentValue, newValueOrUpdater)
+			if !ok || fastEqual(currentValue, newValue) {
+				return
 			}
+			parseRt.getAtomRegistry().setAtomAndNotifyOrigin(parseId, newValue, parseRt, updateOrigin)
+		}
 
+		set := func(parseNewValueOrUpdater any) {
 			// Same off-loop routing as GoUseState. An atom is MORE exposed to
 			// this, not less: it is the natural place to publish a worker reply
 			// or a subscription event, so its setter is more likely than a
@@ -830,23 +955,23 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 				parseRt.PostAsync(func() {
 					if parseRt.ShouldDeferStateUpdates() {
 						parseRt.ScheduleTransition(func() {
-							apply("transition")
+							applyUpdate(parseNewValueOrUpdater, "transition")
 						})
 						return
 					}
-					apply("atom-async")
+					applyUpdate(parseNewValueOrUpdater, "atom-async")
 				})
 				return
 			}
 
 			if parseRt.ShouldDeferStateUpdates() {
 				parseRt.ScheduleTransition(func() {
-					apply("transition")
+					applyUpdate(parseNewValueOrUpdater, "transition")
 				})
 				return
 			}
 
-			apply("atom")
+			applyUpdate(parseNewValueOrUpdater, "atom")
 		}
 
 		parseHooks.atomFuncs[parseAtomIdx] = atomAccessorValue{getter: get, setter: set}
@@ -871,17 +996,17 @@ func (parseRt *Runtime) CleanupAtomSubscriptions(parseFiber *Fiber) {
 	// Optimization: Only unsubscribe from atoms this fiber is actually using
 	if parseFiber.hooks != nil && len(parseFiber.hooks.atoms) > 0 {
 		parseRt.atomRegistry.UnsubscribeMany(parseFiber.hooks.atoms, parseFiber)
-		if len(parseFiber.reactiveSourceIDs) > 0 {
-			parseRt.atomRegistry.UnsubscribeMany(parseFiber.reactiveSourceIDs, parseFiber)
-			parseFiber.reactiveSourceIDs = nil
-			parseFiber.reactiveAtomID = ""
+		if parseFiber.cold != nil && len(parseFiber.cold.reactiveSourceIDs) > 0 {
+			parseRt.atomRegistry.UnsubscribeMany(parseFiber.cold.reactiveSourceIDs, parseFiber)
+			parseFiber.cold.reactiveSourceIDs = nil
+			parseFiber.cold.reactiveAtomID = ""
 		}
 		return
 	}
-	if len(parseFiber.reactiveSourceIDs) > 0 {
-		parseRt.atomRegistry.UnsubscribeMany(parseFiber.reactiveSourceIDs, parseFiber)
-		parseFiber.reactiveSourceIDs = nil
-		parseFiber.reactiveAtomID = ""
+	if parseFiber.cold != nil && len(parseFiber.cold.reactiveSourceIDs) > 0 {
+		parseRt.atomRegistry.UnsubscribeMany(parseFiber.cold.reactiveSourceIDs, parseFiber)
+		parseFiber.cold.reactiveSourceIDs = nil
+		parseFiber.cold.reactiveAtomID = ""
 		return
 	}
 
@@ -897,31 +1022,27 @@ func (parseRt *Runtime) CleanupAtomSubscriptions(parseFiber *Fiber) {
 
 // GetAtomValue is a helper to get an atom value directly (for debugging/testing)
 func (parseRt *Runtime) GetAtomValue(parseId string) (any, bool) {
-	if parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return nil, false
 	}
-	return parseRt.atomRegistry.GetAtom(parseId)
+	return registry.GetAtom(parseId)
 }
 
 // SetAtomValue is a helper to set an atom value directly (for debugging/testing)
 func (parseRt *Runtime) SetAtomValue(parseId string, parseValue any) error {
-	if parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
-	}
-	apply := func(parseUpdateOrigin string) {
-		parseRt.atomRegistry.setAtomAndNotify(parseId, parseValue, func(parseFiber *Fiber) {
-			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, parseUpdateOrigin)
-		})
 	}
 	if parseRt.ShouldDeferStateUpdates() {
 		parseRt.ScheduleTransition(func() {
-			apply("transition")
+			registry.setAtomAndNotifyOrigin(parseId, parseValue, parseRt, "transition")
 		})
 		return nil
 	}
 
-	apply("atom")
-
+	registry.setAtomAndNotifyOrigin(parseId, parseValue, parseRt, "atom")
 	return nil
 }
 
@@ -931,23 +1052,18 @@ func (parseRt *Runtime) SetAtomValue(parseId string, parseValue any) error {
 // the atom has no entry yet. parseFn MUST be pure and MUST NOT re-enter the atom
 // registry (that deadlocks under the held lock); see updateAtomAndNotify.
 func (parseRt *Runtime) UpdateAtomValue(parseId string, parseDefault any, parseFn func(any) any) error {
-	if parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
-	}
-	apply := func(parseUpdateOrigin string) {
-		parseRt.atomRegistry.updateAtomAndNotify(parseId, parseDefault, parseFn, func(parseFiber *Fiber) {
-			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, parseUpdateOrigin)
-		})
 	}
 	if parseRt.ShouldDeferStateUpdates() {
 		parseRt.ScheduleTransition(func() {
-			apply("transition")
+			registry.updateAtomAndNotifyOrigin(parseId, parseDefault, parseFn, parseRt, "transition")
 		})
 		return nil
 	}
 
-	apply("atom")
-
+	registry.updateAtomAndNotifyOrigin(parseId, parseDefault, parseFn, parseRt, "atom")
 	return nil
 }
 
@@ -957,13 +1073,14 @@ func (parseRt *Runtime) UpdateAtomValue(parseId string, parseDefault any, parseF
 // clobbers a value written earlier (the G39 pre-render-write-survives guarantee)
 // and never schedules a spurious render. Returns true if it seeded.
 func (parseRt *Runtime) InitAtomValue(parseId string, parseValue any) bool {
-	if parseRt == nil || parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return false
 	}
-	if _, parseExists := parseRt.atomRegistry.GetAtom(parseId); parseExists {
+	if _, parseExists := registry.GetAtom(parseId); parseExists {
 		return false
 	}
-	parseRt.atomRegistry.InitAtom(parseId, parseValue)
+	registry.InitAtom(parseId, parseValue)
 	return true
 }
 
@@ -980,36 +1097,40 @@ func (parseRt *Runtime) InitAtomValue(parseId string, parseValue any) bool {
 // so a caller cannot accidentally cut a mounted component off from its updates;
 // see deleteAtomIfUnsubscribed.
 func (parseRt *Runtime) DeleteAtomValueIfUnsubscribed(parseId string) bool {
-	if parseRt == nil || parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return false
 	}
-	return parseRt.atomRegistry.deleteAtomIfUnsubscribed(parseId)
+	return registry.deleteAtomIfUnsubscribed(parseId)
 }
 
 // RegisterDerivedAtom is a core package helper.
 func (parseRt *Runtime) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() any) error {
-	if parseRt == nil || parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
 	}
-	return parseRt.atomRegistry.RegisterDerivedAtom(parseId, parseDeps, parseCompute)
+	return registry.RegisterDerivedAtom(parseId, parseDeps, parseCompute)
 }
 
 // SnapshotAtoms returns a copy of all currently registered atoms.
 func (parseRt *Runtime) SnapshotAtoms() map[string]any {
-	if parseRt == nil || parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return map[string]any{}
 	}
-	return parseRt.atomRegistry.Snapshot()
+	return registry.Snapshot()
 }
 
 // RestoreAtomSnapshot merges atom values from snapshot and schedules updates for
 // any subscribed fibers.
 func (parseRt *Runtime) RestoreAtomSnapshot(parseSnapshot map[string]any) error {
-	if parseRt == nil || parseRt.atomRegistry == nil {
+	registry := parseRt.getAtomRegistry()
+	if registry == nil {
 		return errcode.New(errcode.RuntimeAtomRegistryNil, "atom registry not initialized (create the runtime with NewRuntime before registering, reading, or updating atoms)")
 	}
 	apply := func(parseUpdateOrigin string) {
-		for _, parseFiber := range parseRt.atomRegistry.RestoreSnapshot(parseSnapshot) {
+		for _, parseFiber := range registry.RestoreSnapshot(parseSnapshot) {
 			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, parseUpdateOrigin)
 		}
 	}

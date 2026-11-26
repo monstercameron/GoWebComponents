@@ -7,7 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 )
 
 // Feature identifies a portable desktop workflow, not a UI rollout flag.
@@ -234,12 +234,21 @@ func OpenFiles(parseContext context.Context, parseOptions FileDialogOptions) (Fi
 }
 
 // OpenDirectory opens a directory picker using the connected desktop host.
-func OpenDirectory(parseContext context.Context, parseOptions FileDialogOptions) (FileSelection, error) {
-	parseClient, parseErr := Connect()
-	if parseErr != nil {
-		return FileSelection{}, parseErr
+func OpenDirectory(ctx context.Context, options FileDialogOptions) (FileSelection, error) {
+	client, err := Connect()
+	if err != nil {
+		return FileSelection{}, err
 	}
-	return parseClient.OpenDirectory(parseContext, parseOptions)
+	return client.OpenDirectory(ctx, options)
+}
+
+// OpenDirectories opens a multiple-directory picker using the connected desktop host.
+func OpenDirectories(ctx context.Context, options FileDialogOptions) (FileSelection, error) {
+	client, err := Connect()
+	if err != nil {
+		return FileSelection{}, err
+	}
+	return client.OpenDirectories(ctx, options)
 }
 
 // SaveFile selects a save destination without creating or overwriting a file.
@@ -262,8 +271,13 @@ func (parseClient Client) OpenFiles(parseContext context.Context, parseOptions F
 }
 
 // OpenDirectory selects one directory through this explicitly injected client.
-func (parseClient Client) OpenDirectory(parseContext context.Context, parseOptions FileDialogOptions) (FileSelection, error) {
-	return parseClient.getFileSelection(parseContext, "open-directory", parseOptions)
+func (client Client) OpenDirectory(ctx context.Context, options FileDialogOptions) (FileSelection, error) {
+	return client.getFileSelection(ctx, "open-directory", options)
+}
+
+// OpenDirectories selects multiple directories through this explicitly injected client.
+func (client Client) OpenDirectories(ctx context.Context, options FileDialogOptions) (FileSelection, error) {
+	return client.getFileSelection(ctx, "open-directories", options)
 }
 
 // SaveFile selects a save destination; no file is written by this operation.
@@ -294,34 +308,34 @@ func (parseClient Client) getFileSelection(parseContext context.Context, parseKi
 }
 
 // validateFileDialogRequest bounds portable input before either transport or native work.
-func validateFileDialogRequest(parseRequest FileDialogRequest) error {
-	if parseRequest.Version != 1 {
+func validateFileDialogRequest(request FileDialogRequest) error {
+	if request.Version != 1 {
 		return errors.New("unsupported file-dialog contract version")
 	}
-	switch parseRequest.Kind {
-	case "open-file", "open-files", "open-directory", "save-file":
+	switch request.Kind {
+	case "open-file", "open-files", "open-directory", "open-directories", "save-file":
 	default:
 		return errors.New("unknown file-dialog operation")
 	}
-	parseOptions := parseRequest.Options
-	if parseRequest.Kind != "save-file" && parseOptions.Filename != "" {
+	options := request.Options
+	if request.Kind != "save-file" && options.Filename != "" {
 		return errors.New("filename applies only to SaveFile")
 	}
-	if parseRequest.Kind == "open-directory" && len(parseOptions.Filters) != 0 {
-		return errors.New("file filters do not apply to OpenDirectory")
+	if (request.Kind == "open-directory" || request.Kind == "open-directories") && len(options.Filters) != 0 {
+		return errors.New("file filters do not apply to directory pickers")
 	}
-	if len(parseOptions.Filters) > 16 {
+	if len(options.Filters) > 16 {
 		return errors.New("too many file filters")
 	}
-	parseStrings := []string{parseOptions.Title, parseOptions.Directory, parseOptions.Filename, parseOptions.ButtonText}
-	for _, parseFilter := range parseOptions.Filters {
-		if parseFilter.Name == "" || parseFilter.Pattern == "" {
+	values := []string{options.Title, options.Directory, options.Filename, options.ButtonText}
+	for _, filter := range options.Filters {
+		if filter.Name == "" || filter.Pattern == "" {
 			return errors.New("file filter name and pattern required")
 		}
-		parseStrings = append(parseStrings, parseFilter.Name, parseFilter.Pattern)
+		values = append(values, filter.Name, filter.Pattern)
 	}
-	for _, parseValue := range parseStrings {
-		if len(parseValue) > 4096 || !utf8.ValidString(parseValue) || strings.ContainsRune(parseValue, 0) {
+	for _, value := range values {
+		if len(value) > 4096 || !utf8.ValidString(value) || strings.ContainsRune(value, 0) {
 			return errors.New("invalid or oversized dialog text")
 		}
 	}
@@ -329,18 +343,19 @@ func validateFileDialogRequest(parseRequest FileDialogRequest) error {
 }
 
 // validateFileSelection rejects ambiguous cancellation and malformed backend results.
-func validateFileSelection(parseKind string, parseSelection FileSelection) error {
-	if parseSelection.Cancelled {
-		if len(parseSelection.Paths) != 0 {
+func validateFileSelection(kind string, selection FileSelection) error {
+	if selection.Cancelled {
+		if len(selection.Paths) != 0 {
 			return errors.New("cancelled selection contains paths")
 		}
 		return nil
 	}
-	if len(parseSelection.Paths) == 0 || len(parseSelection.Paths) > 256 || (parseKind != "open-files" && len(parseSelection.Paths) != 1) {
+	isMultiple := kind == "open-files" || kind == "open-directories"
+	if len(selection.Paths) == 0 || len(selection.Paths) > 256 || (!isMultiple && len(selection.Paths) != 1) {
 		return errors.New("invalid file selection count")
 	}
-	for _, parsePath := range parseSelection.Paths {
-		if parsePath == "" || len(parsePath) > 32768 || !utf8.ValidString(parsePath) || strings.ContainsRune(parsePath, 0) {
+	for _, path := range selection.Paths {
+		if path == "" || len(path) > 32768 || !utf8.ValidString(path) || strings.ContainsRune(path, 0) {
 			return errors.New("invalid selected path")
 		}
 	}

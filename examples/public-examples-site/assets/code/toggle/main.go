@@ -6,12 +6,12 @@ package main
 import (
 	"fmt"
 
-	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v8/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v8/examples/shared"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 func ToggleExample() ui.Node {

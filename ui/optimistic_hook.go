@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v7/query"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/query"
 )
 
 // UseAsyncMutation is the async sibling of UseMutation: the returned function applies the

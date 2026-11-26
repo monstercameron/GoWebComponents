@@ -17,7 +17,7 @@ Use the owning domain:
 sidebar composer thread model conv toolbar user canvas
 
 Rules
-- All new functions and variables start with a verb.
+- New functions start with a verb; local variables use standard idiomatic Go names (the legacy `parse`-prefix convention is retired for new/edited code).
 - Subject names the domain, not the data type.
 - Add Object only when needed.
 - Booleans start with is, has, can, or should.
@@ -170,9 +170,9 @@ apply at once.
 Module path
 github.com/monstercameron/GoWebComponents
 Import public packages by that path, e.g.
-  "github.com/monstercameron/GoWebComponents/v7/ui"
-  "github.com/monstercameron/GoWebComponents/v7/html"
-  . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"   // dot-import sugar
+  "github.com/monstercameron/GoWebComponents/v8/ui"
+  "github.com/monstercameron/GoWebComponents/v8/html"
+  . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"   // dot-import sugar
 
 Mental model
 React-style components + hooks on a fiber runtime, written in Go, compiled to
@@ -199,19 +199,19 @@ Minimal app (entry file MUST be js/wasm - see build constraint)
   package main
 
   import (
-    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-    "github.com/monstercameron/GoWebComponents/v7/ui"
+    . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v8/ui"
   )
 
   // App renders the root component.
   func App() ui.Node {
-    parseCount := ui.UseState(0)
-    parseInc := ui.UseEvent(func() {
-      parseCount.Update(func(parsePrev int) int { return parsePrev + 1 })
+    count := ui.UseState(0)
+    inc := ui.UseEvent(func() {
+      count.Update(func(prev int) int { return prev + 1 })
     })
     return Div(Class("p-4"),
-      Div(Class("text-2xl"), Textf("count: %d", parseCount.Get())),
-      Button(OnClick(parseInc), Class("mt-2 rounded bg-cyan-500 px-3 py-1"), Text("+")),
+      Div(Class("text-2xl"), Textf("count: %d", count.Get())),
+      Button(OnClick(inc), Class("mt-2 rounded bg-cyan-500 px-3 py-1"), Text("+")),
     )
   }
 
@@ -326,8 +326,9 @@ Browser tests live under test/playwrightgo/ (build tag `playwrightgo`); run with
 
 Hard rules (these cause real bugs if broken)
 - Hooks at the top level of the component only - never conditional/loop/goroutine/closure.
-- All local variables are `parse`-prefixed (see Conventions); exported names are
-  ordinary Go; functions are `verbSubject`; GoDoc first word = the symbol name.
+- Local variables use standard idiomatic Go names (do not add new `parse`-prefixed
+  locals; see `docs/CONVENTIONS.md`); functions are `verbSubject`; GoDoc first word
+  = the symbol name.
 - Add the `_native.go` stub whenever you add a `_wasm.go` browser file.
 - Do not introduce a raw-HTML sink (innerHTML/outerHTML) on the render path;
   use text/attribute APIs or the `sanitize` package. A guard test enforces this.
@@ -337,7 +338,7 @@ Hard rules (these cause real bugs if broken)
 
 More docs
 - docs/REFERENCE_MANUAL/  (workflows, devtools/testing, assets/PWA, boundaries)
-- docs/CONVENTIONS.md     (the naming/`parse`-prefix contract in full)
+- docs/CONVENTIONS.md     (naming, platform split, errors, and deprecation conventions)
 - docs/capabilities + docs/errorcodes (capability matrix + error codes)
 - README.md               (overview + quick start)
 - examples/public/        (runnable single-file apps; counter is the canonical one)

@@ -7,7 +7,7 @@ import (
 	"runtime/metrics"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/projection"
+	"github.com/monstercameron/GoWebComponents/v8/projection"
 )
 
 // v5 M12 — render-thread resident projection memory, and the GC pause it costs.

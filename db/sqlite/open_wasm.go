@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	_ "github.com/ncruces/go-sqlite3/driver" // registers database/sql driver "sqlite3"
-	_ "github.com/ncruces/go-sqlite3/embed"  // embeds the SQLite wasm binary
 )
 
 // openDriver (wasm) backs the database with ncruces/go-sqlite3. Memory uses an

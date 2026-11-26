@@ -9,43 +9,44 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/ncruces/go-sqlite3/driver" // registers database/sql driver "sqlite3"
 )
 
-// openDriver (native) backs the database with modernc.org/sqlite so the same
-// calling code runs in the gwc native test lane. Memory maps to an in-memory
-// database; durable backends are approximated by a temp file on disk.
-func openDriver(parseCtx context.Context, parseOptions Options) (*DB, error) {
-	var parseDSN string
-	switch parseOptions.Persistence {
+// openDriver (native) backs the database with ncruces/go-sqlite3 so native and
+// js/wasm builds share the same SQLite engine and driver behavior without cgo.
+// Memory maps to an in-memory database; durable backends are approximated by a
+// temp file on disk.
+func openDriver(ctx context.Context, options Options) (*DB, error) {
+	var dsn string
+	switch options.Persistence {
 	case Memory:
-		parseDSN = ":memory:"
+		dsn = ":memory:"
 	default:
-		parseDir := filepath.Join(os.TempDir(), "gwc-sqlite")
-		if parseErr := os.MkdirAll(parseDir, 0o755); parseErr != nil {
-			return nil, fmt.Errorf("create sqlite dir: %w", parseErr)
+		dir := filepath.Join(os.TempDir(), "gwc-sqlite")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, fmt.Errorf("create sqlite dir: %w", err)
 		}
-		parsePath := filepath.Join(parseDir, sanitizeName(parseOptions.Name)+".db")
-		parseDSN = "file:" + filepath.ToSlash(parsePath)
+		path := filepath.Join(dir, sanitizeName(options.Name)+".db")
+		dsn = "file:" + filepath.ToSlash(path)
 	}
 
-	parseSDB, parseErr := sql.Open("sqlite", parseDSN)
-	if parseErr != nil {
-		return nil, fmt.Errorf("open sqlite: %w", parseErr)
+	sdb, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	parseSDB.SetMaxOpenConns(1)
-	if parseErr := parseSDB.PingContext(parseCtx); parseErr != nil {
-		if parseCloseErr := parseSDB.Close(); parseCloseErr != nil {
-			return nil, fmt.Errorf("ping sqlite: %v (close: %w)", parseErr, parseCloseErr)
+	sdb.SetMaxOpenConns(1)
+	if err := sdb.PingContext(ctx); err != nil {
+		if closeErr := sdb.Close(); closeErr != nil {
+			return nil, fmt.Errorf("ping sqlite: %v (close: %w)", err, closeErr)
 		}
-		return nil, fmt.Errorf("ping sqlite: %w", parseErr)
+		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
-	if parseErr := applyPragmas(parseCtx, parseSDB, defaultPragmas(parseOptions.Pragmas)); parseErr != nil {
-		if parseCloseErr := parseSDB.Close(); parseCloseErr != nil {
-			return nil, fmt.Errorf("apply sqlite pragmas: %v (close: %w)", parseErr, parseCloseErr)
+	if err := applyPragmas(ctx, sdb, defaultPragmas(options.Pragmas)); err != nil {
+		if closeErr := sdb.Close(); closeErr != nil {
+			return nil, fmt.Errorf("apply sqlite pragmas: %v (close: %w)", err, closeErr)
 		}
-		return nil, parseErr
+		return nil, err
 	}
 	// Durability on native is the OS file itself; no flush hook needed.
-	return &DB{sdb: parseSDB}, nil
+	return &DB{sdb: sdb}, nil
 }

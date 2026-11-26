@@ -5,7 +5,7 @@ package pwa
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 )
 
 func TestOpenCacheStorageManagerReportsUnavailableOnNativeBuilds(parseT *testing.T) {

@@ -3,9 +3,9 @@
 Client-side SQLite for GWC — a `database/sql`-flavored, context-first API that runs **inside the
 browser wasm app with no cgo**.
 
-- **wasm:** backed by [`ncruces/go-sqlite3`](https://github.com/ncruces/go-sqlite3) (SQLite compiled
-  to wasm, executed via wazero). ~2.5 MB gzip added to the bundle.
-- **native:** backed by `modernc.org/sqlite`, so the same calling code runs in the `gwc` native test lane.
+- **wasm & native:** backed by [`ncruces/go-sqlite3`](https://github.com/ncruces/go-sqlite3)
+  (SQLite compiled to wasm, executed via wazero), so browser builds and the `gwc` native test lane
+  share one pure-Go SQLite engine without cgo (~2.5 MB gzip in browser bundles).
 
 ## Public API
 

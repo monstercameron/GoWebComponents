@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 )
 
 // TestNativeClientRejectsInvalidInputBeforeEncoding prevents JSON from silently repairing invalid UTF-8.
@@ -65,23 +65,35 @@ func TestNativeMessageReplyMatchesKind(parseTest *testing.T) {
 }
 
 // TestNativeMessageKindsAndButtonSemantics verifies the bounded portable dialog contract.
-func TestNativeMessageKindsAndButtonSemantics(parseTest *testing.T) {
-	for _, parseKind := range []string{"warning", "error"} {
-		if parseErr := validateMessageRequest(MessageRequest{Kind: parseKind, DefaultButton: "Ok", CancelButton: "Ok"}); parseErr != nil {
-			parseTest.Errorf("%s rejected its only button as default/cancel: %v", parseKind, parseErr)
+func TestNativeMessageKindsAndButtonSemantics(t *testing.T) {
+	for _, kind := range []string{"warning", "error"} {
+		if err := validateMessageRequest(MessageRequest{Kind: kind, DefaultButton: "Ok", CancelButton: "Ok"}); err != nil {
+			t.Errorf("%s rejected its only button as default/cancel: %v", kind, err)
 		}
-		if parseErr := validateMessageRequest(MessageRequest{Kind: parseKind, Buttons: []string{"Continue"}}); parseErr == nil {
-			parseTest.Errorf("%s accepted unsupported custom button", parseKind)
+		if err := validateMessageRequest(MessageRequest{Kind: kind, Buttons: []string{"Continue"}}); err == nil {
+			t.Errorf("%s accepted unsupported custom button", kind)
 		}
 	}
-	if parseErr := validateMessageRequest(MessageRequest{Kind: "question", DefaultButton: "No", CancelButton: "No"}); parseErr != nil {
-		parseTest.Fatalf("question default rejected: %v", parseErr)
+	if err := validateMessageRequest(MessageRequest{Kind: "question", DefaultButton: "No", CancelButton: "No"}); err != nil {
+		t.Fatalf("question default rejected: %v", err)
 	}
-	if parseErr := validateMessageRequest(MessageRequest{Kind: "question", CancelButton: "Yes"}); parseErr == nil {
-		parseTest.Fatal("question accepted Yes as cancel")
+	if err := validateMessageRequest(MessageRequest{Kind: "question", Buttons: []string{"Save", "Discard", "Cancel"}, DefaultButton: "Save", CancelButton: "Cancel"}); err != nil {
+		t.Fatalf("custom question buttons rejected: %v", err)
 	}
-	if parseErr := validateMessageReply(MessageRequest{Kind: "error"}, MessageReply{Button: "Yes"}); parseErr == nil {
-		parseTest.Fatal("error dialog accepted a question button")
+	if err := validateMessageRequest(MessageRequest{Kind: "question", Buttons: []string{"Save", "Save"}}); err == nil {
+		t.Fatal("duplicate question button labels accepted")
+	}
+	if err := validateMessageRequest(MessageRequest{Kind: "question", Buttons: []string{"   "}}); err == nil {
+		t.Fatal("blank question button label accepted")
+	}
+	if err := validateMessageRequest(MessageRequest{Kind: "question", Buttons: []string{"Save", "Discard"}, CancelButton: "Missing"}); err == nil {
+		t.Fatal("unknown cancel button accepted")
+	}
+	if err := validateMessageReply(MessageRequest{Kind: "question", Buttons: []string{"Save", "Discard"}}, MessageReply{Button: "Save"}); err != nil {
+		t.Fatalf("custom question reply rejected: %v", err)
+	}
+	if err := validateMessageReply(MessageRequest{Kind: "error"}, MessageReply{Button: "Yes"}); err == nil {
+		t.Fatal("error dialog accepted a question button")
 	}
 }
 

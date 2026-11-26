@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 
 	"example.com/gwc-wails-counter/contracts"
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -107,10 +107,10 @@ func (parseService *APIService) Run(parseContext context.Context, parseAction st
 	}
 	parseResult.WindowID = fmt.Sprint(parseWindow.ID())
 	switch parseAction {
-	case "open-file", "open-files", "open-directory", "save-path":
+	case "open-file", "open-files", "open-directory", "open-directories", "save-path":
 		parseKind := parseAction
 		parseOptions := desktop.FileDialogOptions{Title: "API Lab — " + parseAction, Directory: parseService.parseFixture, Filters: []desktop.FileFilter{{Name: "Text files", Pattern: "*.txt"}}}
-		if parseAction == "open-directory" {
+		if parseAction == "open-directory" || parseAction == "open-directories" {
 			parseOptions.Filters = nil
 		}
 		if parseAction == "save-path" {
@@ -220,7 +220,7 @@ func applyPickerSelection(parseResult *contracts.APIResult, parseAction string, 
 
 func apiActionFeature(parseAction string) desktop.Feature {
 	switch parseAction {
-	case "open-file", "open-files", "open-directory", "save-path":
+	case "open-file", "open-files", "open-directory", "open-directories", "save-path":
 		return desktop.FileDialogs
 	case "clipboard-write", "clipboard-read":
 		return desktop.Clipboard
@@ -311,7 +311,7 @@ func (parseService *APIService) GetReport(parseContext context.Context) (contrac
 		parseCopy[parseIndex] = parseValue
 		parseCopy[parseIndex].Paths = append([]string(nil), parseValue.Paths...)
 	}
-	return contracts.APIReport{Platform: runtime.GOOS, WailsVersion: "v3.0.0-beta.17", FixtureDir: parseService.parseFixture, Results: parseCopy}, nil
+	return contracts.APIReport{Platform: runtime.GOOS, WailsVersion: "v3.1.0", FixtureDir: parseService.parseFixture, Results: parseCopy}, nil
 }
 
 // RecordObservation stores an explicit human-observed result.
@@ -552,7 +552,7 @@ func (parseService *APIService) checkOpen(parseContext context.Context) error {
 // isAPIAction reports whether an action is supported.
 func isAPIAction(parseAction string) bool {
 	switch parseAction {
-	case "open-file", "open-files", "open-directory", "save-path", "message-info", "message-question", "window-info", "window-resize", "window-maximize", "window-restore", "window-fullscreen", "window-unfullscreen", "clipboard-write", "clipboard-read", "screens":
+	case "open-file", "open-files", "open-directory", "open-directories", "save-path", "message-info", "message-question", "window-info", "window-resize", "window-maximize", "window-restore", "window-fullscreen", "window-unfullscreen", "clipboard-write", "clipboard-read", "screens":
 		return true
 	default:
 		return false

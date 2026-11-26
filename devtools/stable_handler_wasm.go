@@ -5,7 +5,7 @@ package devtools
 import (
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // Stable event handlers for devtools' own UI.

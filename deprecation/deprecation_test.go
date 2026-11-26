@@ -3,7 +3,7 @@ package deprecation
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v8/diagnostics"
 )
 
 // captureEmit replaces the package-level emit var with a function that appends

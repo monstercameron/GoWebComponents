@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/serverfn"
+	"github.com/monstercameron/GoWebComponents/v8/serverfn"
 )
 
 // ServerFnPrefix re-exports the path server functions are mounted under.

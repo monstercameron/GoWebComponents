@@ -5,7 +5,7 @@ package main
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v7/examples/shared/renderworker"
+	"github.com/monstercameron/GoWebComponents/v8/examples/shared/renderworker"
 )
 
 // setBackgroundWorkerCustomHandlers registers optional user-defined request handlers for local MT experiments.

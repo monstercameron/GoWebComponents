@@ -6,179 +6,272 @@ import (
 	"context"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // TestNativeBackendMissingCallerNeverUsesFocusedWindow verifies every adapter operation requires its caller.
-func TestNativeBackendMissingCallerNeverUsesFocusedWindow(parseTest *testing.T) {
-	parseBackend := NewNativeBackend()
-	if _, parseErr := parseBackend.ClipboardRead(context.Background()); parseErr == nil {
-		parseTest.Fatal("clipboard read accepted missing caller")
+func TestNativeBackendMissingCallerNeverUsesFocusedWindow(t *testing.T) {
+	backend := NewNativeBackend()
+	if _, err := backend.ClipboardRead(context.Background()); err == nil {
+		t.Fatal("clipboard read accepted missing caller")
 	}
-	if parseErr := parseBackend.ClipboardWrite(context.Background(), desktop.ClipboardWriteRequest{Text: "x"}); parseErr == nil {
-		parseTest.Fatal("clipboard write accepted missing caller")
+	if err := backend.ClipboardWrite(context.Background(), desktop.ClipboardWriteRequest{Text: "x"}); err == nil {
+		t.Fatal("clipboard write accepted missing caller")
 	}
-	if _, parseErr := parseBackend.ShowMessage(context.Background(), desktop.MessageRequest{Kind: "info"}); parseErr == nil {
-		parseTest.Fatal("message accepted missing caller")
+	if _, err := backend.ShowMessage(context.Background(), desktop.MessageRequest{Kind: "info"}); err == nil {
+		t.Fatal("message accepted missing caller")
 	}
-	if _, parseErr := parseBackend.Window(context.Background(), desktop.WindowRequest{Action: "info"}); parseErr == nil {
-		parseTest.Fatal("window accepted missing caller")
+	if _, err := backend.Window(context.Background(), desktop.WindowRequest{Action: "info"}); err == nil {
+		t.Fatal("window accepted missing caller")
 	}
-	if _, parseErr := parseBackend.Screens(context.Background()); parseErr == nil {
-		parseTest.Fatal("screens accepted missing caller")
+	if _, err := backend.Screens(context.Background()); err == nil {
+		t.Fatal("screens accepted missing caller")
 	}
-	parseSystem := parseBackend.(desktop.SystemEnvironmentBackend)
-	if _, parseErr := parseSystem.SystemEnvironment(context.Background()); parseErr == nil {
-		parseTest.Fatal("system environment accepted missing caller")
+	systemBackend := backend.(desktop.SystemEnvironmentBackend)
+	if _, err := systemBackend.SystemEnvironment(context.Background()); err == nil {
+		t.Fatal("system environment accepted missing caller")
 	}
-	parseURLs := parseBackend.(desktop.ExternalURLBackend)
-	if parseErr := parseURLs.OpenExternalURL(context.Background(), desktop.ExternalURLOpenRequest{URL: "https://example.com"}); parseErr == nil {
-		parseTest.Fatal("external URL accepted missing caller")
+	urlsBackend := backend.(desktop.ExternalURLBackend)
+	if err := urlsBackend.OpenExternalURL(context.Background(), desktop.ExternalURLOpenRequest{URL: "https://example.com"}); err == nil {
+		t.Fatal("external URL accepted missing caller")
 	}
-	parseAutostart := parseBackend.(desktop.AutostartBackend)
-	if _, parseErr := parseAutostart.AutostartStatus(context.Background()); parseErr == nil {
-		parseTest.Fatal("autostart status accepted missing caller")
+	autostartBackend := backend.(desktop.AutostartBackend)
+	if _, err := autostartBackend.AutostartStatus(context.Background()); err == nil {
+		t.Fatal("autostart status accepted missing caller")
 	}
-	if parseErr := parseAutostart.AutostartEnable(context.Background()); parseErr == nil {
-		parseTest.Fatal("autostart enable accepted missing caller")
+	if err := autostartBackend.AutostartEnable(context.Background()); err == nil {
+		t.Fatal("autostart enable accepted missing caller")
 	}
-	if parseErr := parseAutostart.AutostartDisable(context.Background()); parseErr == nil {
-		parseTest.Fatal("autostart disable accepted missing caller")
+	if err := autostartBackend.AutostartDisable(context.Background()); err == nil {
+		t.Fatal("autostart disable accepted missing caller")
 	}
-	parseFileManager := parseBackend.(desktop.FileManagerBackend)
-	if parseErr := parseFileManager.RevealPath(context.Background(), desktop.FileManagerRevealRequest{Path: `C:\fixture`}); parseErr == nil {
-		parseTest.Fatal("file manager accepted missing caller")
+	fileManagerBackend := backend.(desktop.FileManagerBackend)
+	if err := fileManagerBackend.RevealPath(context.Background(), desktop.FileManagerRevealRequest{Path: `C:\fixture`}); err == nil {
+		t.Fatal("file manager accepted missing caller")
 	}
 }
 
-// TestWindowsMessageRequestValidationMatchesMessageBox verifies only native button families are accepted.
-func TestWindowsMessageRequestValidationMatchesMessageBox(parseTest *testing.T) {
-	for _, parseRequest := range []desktop.MessageRequest{
+// TestWindowsMessageRequestValidationMatchesV310Capabilities verifies MessageBox and TaskDialog rules.
+func TestWindowsMessageRequestValidationMatchesV310Capabilities(t *testing.T) {
+	for _, req := range []desktop.MessageRequest{
 		{Kind: "info", Buttons: []string{"Ok"}, DefaultButton: "Ok", CancelButton: "Ok"},
 		{Kind: "warning"},
 		{Kind: "error"},
 		{Kind: "question", DefaultButton: "No"},
+		{Kind: "question", CancelButton: "No"},
+		{Kind: "question", Buttons: []string{"Save", "Discard", "Cancel"}, DefaultButton: "Save", CancelButton: "Cancel"},
+		{Kind: "question", Buttons: []string{"Confirm"}, DefaultButton: "Confirm"},
 	} {
-		if parseErr := validateWindowsMessageRequest(parseRequest); parseErr != nil {
-			parseTest.Errorf("accepted native request rejected: %+v: %v", parseRequest, parseErr)
+		if err := validateWindowsMessageRequest(req); err != nil {
+			t.Errorf("accepted native request rejected: %+v: %v", req, err)
 		}
 	}
-	for _, parseRequest := range []desktop.MessageRequest{
+	for _, req := range []desktop.MessageRequest{
 		{Kind: "info", Buttons: []string{"Continue"}},
-		{Kind: "question", Buttons: []string{"Yes", "Maybe"}},
+		{Kind: "warning", DefaultButton: "Yes"},
+		{Kind: "error", CancelButton: "No"},
 		{Kind: "question", DefaultButton: "Ok"},
-		{Kind: "question", CancelButton: "No"},
+		{Kind: "question", CancelButton: "Missing"},
+		{Kind: "question", Buttons: []string{"A", "B", "C", "D"}},
+		{Kind: "question", Buttons: []string{"Save", "Save"}},
+		{Kind: "question", Buttons: []string{"   "}},
+		{Kind: "unknown"},
 	} {
-		if parseErr := validateWindowsMessageRequest(parseRequest); parseErr == nil {
-			parseTest.Errorf("unsupported native request accepted: %+v", parseRequest)
+		if err := validateWindowsMessageRequest(req); err == nil {
+			t.Errorf("unsupported native request accepted: %+v", req)
 		}
 	}
 }
 
 // TestWindowUsesCallerAndReportsRuntimeState verifies typed operations target only the context window.
-func TestWindowUsesCallerAndReportsRuntimeState(parseTest *testing.T) {
-	parseWindow := &parseWindowFake{parseID: 7, parseName: "caller", parseX: -20, parseY: 30, parseWidth: 640, parseHeight: 480, parseZoom: 1.25, isFocused: true, isVisible: true, isResizable: true}
-	parseContext := context.WithValue(context.Background(), application.WindowKey, application.Window(parseWindow))
-	parseBackend := nativeBackend{}
-	parseInfo, parseErr := parseBackend.Window(parseContext, desktop.WindowRequest{Action: "set-position", X: 12, Y: 34})
-	if parseErr != nil {
-		parseTest.Fatal(parseErr)
+func TestWindowUsesCallerAndReportsRuntimeState(t *testing.T) {
+	win := &fakeWindow{
+		id:        7,
+		name:      "caller",
+		x:         -20,
+		y:         30,
+		width:     640,
+		height:    480,
+		zoom:      1.25,
+		focused:   true,
+		visible:   true,
+		resizable: true,
+		screenID:  "display-1",
+		borders:   &application.LRTB{Top: 32, Left: 8, Bottom: 8, Right: 8},
 	}
-	if parseWindow.parseAction != "set-position" || parseWindow.parseX != 12 || parseWindow.parseY != 34 {
-		parseTest.Fatalf("operation not applied to caller: %+v", parseWindow)
+	ctx := context.WithValue(context.Background(), application.WindowKey, application.Window(win))
+	backend := nativeBackend{}
+
+	info, err := backend.Window(ctx, desktop.WindowRequest{Action: "set-position", X: 12, Y: 34})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if parseInfo.ID != "7" || parseInfo.Name != "caller" || parseInfo.X != 12 || parseInfo.Y != 34 || parseInfo.Width != 640 || parseInfo.Height != 480 || !parseInfo.Focused || !parseInfo.Visible || !parseInfo.Resizable || parseInfo.Zoom != 1.25 {
-		parseTest.Fatalf("unexpected window info: %+v", parseInfo)
+	if win.lastAction != "set-position" || win.x != 12 || win.y != 34 {
+		t.Fatalf("operation not applied to caller: %+v", win)
 	}
-	parseInfo, parseErr = parseBackend.Window(parseContext, desktop.WindowRequest{Action: "set-zoom", Zoom: 1.5})
-	if parseErr != nil || parseWindow.parseAction != "set-zoom" || parseInfo.Zoom != 1.5 {
-		parseTest.Fatalf("bounded zoom not applied to caller: info=%+v window=%+v err=%v", parseInfo, parseWindow, parseErr)
+	if info.ID != "7" || info.Name != "caller" || info.X != 12 || info.Y != 34 || info.Width != 640 || info.Height != 480 || !info.Focused || !info.Visible || !info.Resizable || info.Zoom != 1.25 || info.ScreenID != "display-1" || info.BorderSizes == nil || info.BorderSizes.Top != 32 {
+		t.Fatalf("unexpected window info: %+v", info)
+	}
+
+	// Sub-1.0 zoom is supported on Windows in Wails v3.1.0 (#6166).
+	info, err = backend.Window(ctx, desktop.WindowRequest{Action: "set-zoom", Zoom: 0.5})
+	if err != nil || win.lastAction != "set-zoom" || info.Zoom != 0.5 {
+		t.Fatalf("sub-1.0 zoom not applied to caller: info=%+v window=%+v err=%v", info, win, err)
+	}
+
+	info, err = backend.Window(ctx, desktop.WindowRequest{Action: "set-ignore-mouse-events", Enabled: true})
+	if err != nil || !info.IgnoreMouseEvents || !win.ignoreMouse {
+		t.Fatalf("ignore-mouse not applied: info=%+v err=%v", info, err)
+	}
+
+	info, err = backend.Window(ctx, desktop.WindowRequest{Action: "set-enabled", Enabled: false})
+	if err != nil || win.lastAction != "set-enabled" || win.enabled {
+		t.Fatalf("set-enabled not applied: info=%+v window=%+v err=%v", info, win, err)
+	}
+
+	for _, action := range []string{"hide", "show", "reload", "snap-assist", "close"} {
+		if _, err = backend.Window(ctx, desktop.WindowRequest{Action: action}); err != nil {
+			t.Fatalf("action %q failed: %v", action, err)
+		}
+		if win.lastAction != action {
+			t.Fatalf("action %q did not dispatch: last=%q", action, win.lastAction)
+		}
 	}
 }
 
-// TestWindowRejectsNoOpFullscreenCaptionButton keeps Windows capability claims honest.
-func TestWindowRejectsNoOpFullscreenCaptionButton(parseTest *testing.T) {
-	parseWindow := &parseWindowFake{parseID: 7, parseName: "caller", parseWidth: 640, parseHeight: 480, parseZoom: 1}
-	parseContext := context.WithValue(context.Background(), application.WindowKey, application.Window(parseWindow))
-	_, parseErr := (nativeBackend{}).Window(parseContext, desktop.WindowRequest{Action: "set-fullscreen-button-state", State: "disabled"})
-	if !interop.IsCode(parseErr, interop.CodeUnavailable) {
-		parseTest.Fatalf("Windows no-op reported success: %v", parseErr)
+// TestWindowRejectsUnsupportedWindowsNoOps keeps Windows capability claims honest.
+func TestWindowRejectsUnsupportedWindowsNoOps(t *testing.T) {
+	win := &fakeWindow{id: 7, name: "caller", width: 640, height: 480, zoom: 1}
+	ctx := context.WithValue(context.Background(), application.WindowKey, application.Window(win))
+	for _, req := range []desktop.WindowRequest{
+		{Action: "set-fullscreen-button-state", State: "disabled"},
+		{Action: "force-reload"},
+	} {
+		_, err := (nativeBackend{}).Window(ctx, req)
+		if !interop.IsCode(err, interop.CodeUnavailable) {
+			t.Fatalf("Windows no-op %q reported wrong error: %v", req.Action, err)
+		}
 	}
 }
 
-// TestWindowRejectsZoomBelowWindowsFloor prevents Wails from silently clamping a request.
-func TestWindowRejectsZoomBelowWindowsFloor(parseTest *testing.T) {
-	parseWindow := &parseWindowFake{parseID: 7, parseName: "caller", parseWidth: 640, parseHeight: 480, parseZoom: 1}
-	parseContext := context.WithValue(context.Background(), application.WindowKey, application.Window(parseWindow))
-	_, parseErr := (nativeBackend{}).Window(parseContext, desktop.WindowRequest{Action: "set-zoom", Zoom: 0.5})
-	if !interop.IsCode(parseErr, interop.CodeInvalid) || parseWindow.parseAction != "" || parseWindow.parseZoom != 1 {
-		parseTest.Fatalf("sub-floor zoom reached Wails: action=%q zoom=%v err=%v", parseWindow.parseAction, parseWindow.parseZoom, parseErr)
+// TestWindowRejectsOutOfBoundsZoom enforces portable zoom bounds before calling Wails.
+func TestWindowRejectsOutOfBoundsZoom(t *testing.T) {
+	win := &fakeWindow{id: 7, name: "caller", width: 640, height: 480, zoom: 1}
+	ctx := context.WithValue(context.Background(), application.WindowKey, application.Window(win))
+	for _, zoom := range []float64{0.1, 5.5} {
+		_, err := (nativeBackend{}).Window(ctx, desktop.WindowRequest{Action: "set-zoom", Zoom: zoom})
+		if !interop.IsCode(err, interop.CodeInvalid) || win.lastAction != "" || win.zoom != 1 {
+			t.Fatalf("out-of-bounds zoom %v reached Wails: action=%q zoom=%v err=%v", zoom, win.lastAction, win.zoom, err)
+		}
 	}
 }
 
-type parseWindowFake struct {
+type fakeWindow struct {
 	application.Window
-	parseAction                          string
-	parseName                            string
-	parseID, parseX, parseY              int
-	parseWidth, parseHeight              int
-	parseZoom                            float64
-	isFocused, isMinimised, isMaximised  bool
-	isFullscreen, isVisible, isResizable bool
+	lastAction                     string
+	name                           string
+	screenID                       string
+	borders                        *application.LRTB
+	id, x, y                       int
+	width, height                  int
+	zoom                           float64
+	focused, minimised, maximised  bool
+	fullscreen, visible, resizable bool
+	ignoreMouse, enabled           bool
 }
 
 // ID returns deterministic fake identity.
-func (parseWindow *parseWindowFake) ID() uint { return uint(parseWindow.parseID) }
+func (w *fakeWindow) ID() uint { return uint(w.id) }
 
 // Name returns deterministic fake name.
-func (parseWindow *parseWindowFake) Name() string { return parseWindow.parseName }
+func (w *fakeWindow) Name() string { return w.name }
 
 // Position returns deterministic fake position.
-func (parseWindow *parseWindowFake) Position() (int, int) {
-	return parseWindow.parseX, parseWindow.parseY
-}
+func (w *fakeWindow) Position() (int, int) { return w.x, w.y }
 
 // RelativePosition returns deterministic fake client-relative position.
-func (parseWindow *parseWindowFake) RelativePosition() (int, int) {
-	return parseWindow.parseX, parseWindow.parseY
-}
+func (w *fakeWindow) RelativePosition() (int, int) { return w.x, w.y }
 
 // SetPosition records a caller-owned move.
-func (parseWindow *parseWindowFake) SetPosition(parseX, parseY int) {
-	parseWindow.parseAction, parseWindow.parseX, parseWindow.parseY = "set-position", parseX, parseY
-}
+func (w *fakeWindow) SetPosition(x, y int) { w.lastAction, w.x, w.y = "set-position", x, y }
 
 // Width returns deterministic fake width.
-func (parseWindow *parseWindowFake) Width() int { return parseWindow.parseWidth }
+func (w *fakeWindow) Width() int { return w.width }
 
 // Height returns deterministic fake height.
-func (parseWindow *parseWindowFake) Height() int { return parseWindow.parseHeight }
+func (w *fakeWindow) Height() int { return w.height }
 
 // GetZoom returns deterministic fake zoom.
-func (parseWindow *parseWindowFake) GetZoom() float64 { return parseWindow.parseZoom }
+func (w *fakeWindow) GetZoom() float64 { return w.zoom }
 
 // SetZoom records a caller-owned bounded zoom change.
-func (parseWindow *parseWindowFake) SetZoom(parseZoom float64) application.Window {
-	parseWindow.parseAction, parseWindow.parseZoom = "set-zoom", parseZoom
-	return parseWindow
+func (w *fakeWindow) SetZoom(zoom float64) application.Window {
+	w.lastAction, w.zoom = "set-zoom", zoom
+	return w
 }
 
 // IsFocused returns deterministic fake focus state.
-func (parseWindow *parseWindowFake) IsFocused() bool { return parseWindow.isFocused }
+func (w *fakeWindow) IsFocused() bool { return w.focused }
 
 // IsMinimised returns deterministic fake minimized state.
-func (parseWindow *parseWindowFake) IsMinimised() bool { return parseWindow.isMinimised }
+func (w *fakeWindow) IsMinimised() bool { return w.minimised }
 
 // IsMaximised returns deterministic fake maximized state.
-func (parseWindow *parseWindowFake) IsMaximised() bool { return parseWindow.isMaximised }
+func (w *fakeWindow) IsMaximised() bool { return w.maximised }
 
 // IsFullscreen returns deterministic fake fullscreen state.
-func (parseWindow *parseWindowFake) IsFullscreen() bool { return parseWindow.isFullscreen }
+func (w *fakeWindow) IsFullscreen() bool { return w.fullscreen }
 
 // IsVisible returns deterministic fake visibility state.
-func (parseWindow *parseWindowFake) IsVisible() bool { return parseWindow.isVisible }
+func (w *fakeWindow) IsVisible() bool { return w.visible }
 
 // Resizable returns deterministic fake resizable state.
-func (parseWindow *parseWindowFake) Resizable() bool { return parseWindow.isResizable }
+func (w *fakeWindow) Resizable() bool { return w.resizable }
+
+// IsIgnoreMouseEvents returns deterministic fake mouse pass-through state.
+func (w *fakeWindow) IsIgnoreMouseEvents() bool { return w.ignoreMouse }
+
+// SetIgnoreMouseEvents records a mouse pass-through toggle.
+func (w *fakeWindow) SetIgnoreMouseEvents(ignore bool) application.Window {
+	w.lastAction, w.ignoreMouse = "set-ignore-mouse-events", ignore
+	return w
+}
+
+// SetEnabled records an input-enabled toggle.
+func (w *fakeWindow) SetEnabled(enabled bool) {
+	w.lastAction, w.enabled = "set-enabled", enabled
+}
+
+// GetScreen returns deterministic fake screen metadata.
+func (w *fakeWindow) GetScreen() (*application.Screen, error) {
+	if w.screenID == "" {
+		return nil, nil
+	}
+	return &application.Screen{ID: w.screenID}, nil
+}
+
+// GetBorderSizes returns deterministic fake border thicknesses.
+func (w *fakeWindow) GetBorderSizes() *application.LRTB { return w.borders }
+
+// Show records a visibility show request.
+func (w *fakeWindow) Show() application.Window {
+	w.lastAction, w.visible = "show", true
+	return w
+}
+
+// Hide records a visibility hide request.
+func (w *fakeWindow) Hide() application.Window {
+	w.lastAction, w.visible = "hide", false
+	return w
+}
+
+// Close records a caller-owned close request.
+func (w *fakeWindow) Close() { w.lastAction = "close" }
+
+// Reload records a caller-owned reload request.
+func (w *fakeWindow) Reload() { w.lastAction = "reload" }
+
+// SnapAssist records a caller-owned Snap Assist request.
+func (w *fakeWindow) SnapAssist() { w.lastAction = "snap-assist" }

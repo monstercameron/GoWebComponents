@@ -37,11 +37,11 @@ func boundaryCapturedError(parseFiber *Fiber) error {
 	if parseFiber == nil {
 		return nil
 	}
-	if parseFiber.boundaryError != nil {
-		return parseFiber.boundaryError
+	if err := parseFiber.getBoundaryError(); err != nil {
+		return err
 	}
 	if parseFiber.alternate != nil {
-		return parseFiber.alternate.boundaryError
+		return parseFiber.alternate.getBoundaryError()
 	}
 	return nil
 }
@@ -155,11 +155,13 @@ func (parseRt *Runtime) setBoundaryError(parseBoundary *Fiber, parseErr error, p
 	if parseBoundary == nil {
 		return
 	}
-	parseBoundary.boundaryError = parseErr
-	parseBoundary.boundaryPhase = parsePhase
+	cold := parseBoundary.ensureCold()
+	cold.boundaryError = parseErr
+	cold.boundaryPhase = parsePhase
 	if parseBoundary.alternate != nil {
-		parseBoundary.alternate.boundaryError = parseErr
-		parseBoundary.alternate.boundaryPhase = parsePhase
+		altCold := parseBoundary.alternate.ensureCold()
+		altCold.boundaryError = parseErr
+		altCold.boundaryPhase = parsePhase
 	}
 }
 
@@ -168,11 +170,13 @@ func (parseRt *Runtime) clearBoundaryError(parseBoundary *Fiber) {
 	if parseBoundary == nil {
 		return
 	}
-	parseBoundary.boundaryError = nil
-	parseBoundary.boundaryPhase = ""
-	if parseBoundary.alternate != nil {
-		parseBoundary.alternate.boundaryError = nil
-		parseBoundary.alternate.boundaryPhase = ""
+	if parseBoundary.cold != nil {
+		parseBoundary.cold.boundaryError = nil
+		parseBoundary.cold.boundaryPhase = ""
+	}
+	if parseBoundary.alternate != nil && parseBoundary.alternate.cold != nil {
+		parseBoundary.alternate.cold.boundaryError = nil
+		parseBoundary.alternate.cold.boundaryPhase = ""
 	}
 }
 
@@ -248,9 +252,10 @@ func (parseRt *Runtime) renderBoundaryChildren(parseBoundary *Fiber) {
 	}
 
 	if parseErr := boundaryCapturedError(parseBoundary); parseErr != nil {
-		parseBoundary.boundaryError = parseErr
-		if parseBoundary.boundaryPhase == "" && parseBoundary.alternate != nil {
-			parseBoundary.boundaryPhase = parseBoundary.alternate.boundaryPhase
+		cold := parseBoundary.ensureCold()
+		cold.boundaryError = parseErr
+		if cold.boundaryPhase == "" && parseBoundary.alternate != nil {
+			cold.boundaryPhase = parseBoundary.alternate.getBoundaryPhase()
 		}
 		parseFallback := parseRt.renderBoundaryFallback(parseBoundary, parseErr)
 		if parseFallback != nil {

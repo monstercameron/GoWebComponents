@@ -90,9 +90,9 @@ import (
 	"fmt"
 	"testing"
 
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	render "github.com/monstercameron/GoWebComponents/v7/test/render"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	render "github.com/monstercameron/GoWebComponents/v8/test/render"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // renderSaveSettingsButton renders one small stateful control for a consumer-facing fixture test.
@@ -138,10 +138,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/devtools"
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/logging"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/devtools"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/logging"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // renderDiagnosticsShell embeds a small summary, the full panel, and the focused error overlay.
@@ -200,7 +200,7 @@ When a team needs reproducible troubleshooting, capture a local bug bundle, deri
 ```go gwc:build
 package support
 
-import "github.com/monstercameron/GoWebComponents/v7/devtools"
+import "github.com/monstercameron/GoWebComponents/v8/devtools"
 
 type supportArtifacts struct {
 	BugJSON           []byte

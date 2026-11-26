@@ -6,86 +6,101 @@ import (
 	"context"
 	"runtime"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // SystemEnvironment returns typed Windows environment information from Wails.
-func (nativeBackend) SystemEnvironment(parseContext context.Context) (desktop.SystemEnvironmentInfo, error) {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return desktop.SystemEnvironmentInfo{}, parseErr
+func (nativeBackend) SystemEnvironment(ctx context.Context) (desktop.SystemEnvironmentInfo, error) {
+	if err := validateCaller(ctx); err != nil {
+		return desktop.SystemEnvironmentInfo{}, err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return desktop.SystemEnvironmentInfo{}, unavailable("Wails application unavailable")
 	}
-	parseTheme := "light"
-	if parseApp.Env.IsDarkMode() {
-		parseTheme = "dark"
+	theme := "light"
+	if app.Env.IsDarkMode() {
+		theme = "dark"
 	}
-	return desktop.SystemEnvironmentInfo{OS: runtime.GOOS, Architecture: runtime.GOARCH, Theme: parseTheme, AccentColor: parseApp.Env.GetAccentColor()}, nil
+	info := desktop.SystemEnvironmentInfo{
+		OS:           runtime.GOOS,
+		Architecture: runtime.GOARCH,
+		Theme:        theme,
+		AccentColor:  app.Env.GetAccentColor(),
+	}
+	if envInfo := app.Env.Info(); envInfo.OSInfo != nil {
+		info.OSName = envInfo.OSInfo.Name
+		info.OSVersion = envInfo.OSInfo.Version
+		info.OSBranding = envInfo.OSInfo.Branding
+	}
+	return info, nil
 }
 
 // OpenExternalURL opens one prevalidated web URL in the default browser.
-func (nativeBackend) OpenExternalURL(parseContext context.Context, parseRequest desktop.ExternalURLOpenRequest) error {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return parseErr
+func (nativeBackend) OpenExternalURL(ctx context.Context, req desktop.ExternalURLOpenRequest) error {
+	if err := validateCaller(ctx); err != nil {
+		return err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return unavailable("Wails application unavailable")
 	}
-	return parseApp.Browser.OpenURL(parseRequest.URL)
+	return app.Browser.OpenURL(req.URL)
 }
 
 // RevealPath reveals one prevalidated existing local path in Windows File Explorer.
-func (nativeBackend) RevealPath(parseContext context.Context, parseRequest desktop.FileManagerRevealRequest) error {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return parseErr
+func (nativeBackend) RevealPath(ctx context.Context, req desktop.FileManagerRevealRequest) error {
+	if err := validateCaller(ctx); err != nil {
+		return err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return unavailable("Wails application unavailable")
 	}
-	return parseApp.Env.OpenFileManager(parseRequest.Path, parseRequest.SelectFile)
+	return app.Env.OpenFileManager(req.Path, req.SelectFile)
 }
 
 // AutostartStatus inspects the current application's Wails autostart registration.
-func (nativeBackend) AutostartStatus(parseContext context.Context) (desktop.AutostartStatus, error) {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return desktop.AutostartStatus{}, parseErr
+func (nativeBackend) AutostartStatus(ctx context.Context) (desktop.AutostartStatus, error) {
+	if err := validateCaller(ctx); err != nil {
+		return desktop.AutostartStatus{}, err
 	}
-	parseApp := application.Get()
-	if parseApp == nil || parseApp.Autostart == nil {
+	app := application.Get()
+	if app == nil || app.Autostart == nil {
 		return desktop.AutostartStatus{}, unavailable("Wails autostart unavailable")
 	}
-	parseStatus, parseErr := parseApp.Autostart.Status()
-	if parseErr != nil {
-		return desktop.AutostartStatus{}, parseErr
+	status, err := app.Autostart.Status()
+	if err != nil {
+		return desktop.AutostartStatus{}, err
 	}
-	return desktop.AutostartStatus{Enabled: parseStatus.Enabled, Path: parseStatus.Path, Strategy: string(parseStatus.Strategy)}, nil
+	return desktop.AutostartStatus{
+		Enabled:  status.Enabled,
+		Path:     status.Path,
+		Strategy: string(status.Strategy),
+	}, nil
 }
 
 // AutostartEnable explicitly enables Wails autostart with default options.
-func (nativeBackend) AutostartEnable(parseContext context.Context) error {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return parseErr
+func (nativeBackend) AutostartEnable(ctx context.Context) error {
+	if err := validateCaller(ctx); err != nil {
+		return err
 	}
-	parseApp := application.Get()
-	if parseApp == nil || parseApp.Autostart == nil {
+	app := application.Get()
+	if app == nil || app.Autostart == nil {
 		return unavailable("Wails autostart unavailable")
 	}
-	return parseApp.Autostart.Enable()
+	return app.Autostart.Enable()
 }
 
 // AutostartDisable explicitly disables Wails autostart.
-func (nativeBackend) AutostartDisable(parseContext context.Context) error {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return parseErr
+func (nativeBackend) AutostartDisable(ctx context.Context) error {
+	if err := validateCaller(ctx); err != nil {
+		return err
 	}
-	parseApp := application.Get()
-	if parseApp == nil || parseApp.Autostart == nil {
+	app := application.Get()
+	if app == nil || app.Autostart == nil {
 		return unavailable("Wails autostart unavailable")
 	}
-	return parseApp.Autostart.Disable()
+	return app.Autostart.Disable()
 }

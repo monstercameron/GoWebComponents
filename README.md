@@ -31,10 +31,10 @@ certified.
 See the [Windows API coverage matrix](docs/windows-api-coverage.md) for exact
 operations, capability gates, native-host-only boundaries and verification scope.
 
-Version 7 development uses the `/v7` module path. The v6 line remains the latest
-stable major until the v7 release candidate and stable tags are published. See
-the [v7 migration guide](docs/MIGRATION_V7.md) before upgrading; the release
-candidate remains subject to the documented final acceptance gates.
+Version 8 is the current major line on the `/v8` module path (`v8.0.0`; see
+[CHANGELOG.md](CHANGELOG.md)). Upgrading from v6? Read the
+[v7 migration guide](docs/MIGRATION_V7.md) first; upgrading from v7 to v8 only
+requires updating `/v7` import paths to `/v8` and running `go mod tidy`.
 
 ## Why GoWebComponents
 
@@ -87,23 +87,23 @@ published template.
 Install the stable v7 module:
 
 ```bash
-go get github.com/monstercameron/GoWebComponents/v7@v7.0.1
+go get github.com/monstercameron/GoWebComponents/v8@latest
 ```
 
 Import public packages from the module path exactly as declared in `go.mod`:
 
 ```go
 import (
-  "github.com/monstercameron/GoWebComponents/v7/css"
-  "github.com/monstercameron/GoWebComponents/v7/css/u"
-  "github.com/monstercameron/GoWebComponents/v7/fetch"
-  "github.com/monstercameron/GoWebComponents/v7/flags"
-  "github.com/monstercameron/GoWebComponents/v7/hotreload"
-  "github.com/monstercameron/GoWebComponents/v7/html"
-    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-  "github.com/monstercameron/GoWebComponents/v7/router"
-  "github.com/monstercameron/GoWebComponents/v7/state"
-  "github.com/monstercameron/GoWebComponents/v7/ui"
+  "github.com/monstercameron/GoWebComponents/v8/css"
+  "github.com/monstercameron/GoWebComponents/v8/css/u"
+  "github.com/monstercameron/GoWebComponents/v8/fetch"
+  "github.com/monstercameron/GoWebComponents/v8/flags"
+  "github.com/monstercameron/GoWebComponents/v8/hotreload"
+  "github.com/monstercameron/GoWebComponents/v8/html"
+    . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+  "github.com/monstercameron/GoWebComponents/v8/router"
+  "github.com/monstercameron/GoWebComponents/v8/state"
+  "github.com/monstercameron/GoWebComponents/v8/ui"
 )
 ```
 
@@ -137,7 +137,7 @@ Use these entry docs instead of wandering the tree blindly:
 
 - Library user: [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md) and [docs/REFERENCE_MANUAL/01-getting-started.md](docs/REFERENCE_MANUAL/01-getting-started.md)
 - Package author working in public APIs: [ui/README.md](ui/README.md), [html/README.md](html/README.md), [state/README.md](state/README.md), [fetch/README.md](fetch/README.md), [flags/README.md](flags/README.md), [router/README.md](router/README.md)
-- Framework contributor: [internal/README.md](internal/README.md), [internal/runtime/README.md](internal/runtime/README.md), [internal/platform/README.md](internal/platform/README.md), [internal/runtime2/README.md](internal/runtime2/README.md)
+- Framework contributor: [internal/README.md](internal/README.md), [internal/runtime/README.md](internal/runtime/README.md), [internal/platform/README.md](internal/platform/README.md)
 - Desktop app author: [desktop/README.md](desktop/README.md) and [Windows API Lab](examples/desktop/wails-counter/WINDOWS_API_TESTER.md)
 - Tooling contributor: [tools/README.md](tools/README.md), [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md), [tools/gwc/docs/README.md](tools/gwc/docs/README.md)
 - Example explorer: [examples/README.md](examples/README.md)
@@ -150,7 +150,7 @@ If you are contributing to the repo rather than just consuming the module, use t
 - `ui/`, `html/`, `html/shorthand/`, `css/`, `css/u/`, `state/`, `fetch/`, `flags/`, `router/`: primary public library packages
 - `devtools/`, `head/`, `hotreload/`, `i18n/`, `logging/`, `plugin/`, `prerender/`, `pwa/`, `virtualization/`: companion public packages
 - `desktop/`: portable desktop contracts; `desktop/wails/`: isolated native host adapter
-- `internal/platform/`, `internal/runtime/`, `internal/runtime2/`: platform adapters and runtime internals
+- `internal/platform/`, `internal/runtime/`: platform adapters and runtime internals
 - `testkit/`: reusable consumer-facing test helpers
 - `test/`: repo-owned validation suites, fixtures, and browser coverage
 - `tools/gwc/`, `tools/livereload/`, `tools/runnerconfig/`: developer tooling and repo automation
@@ -161,7 +161,7 @@ If you are contributing to the repo rather than just consuming the module, use t
 - `bin/`, `log/`: ignored local runtime outputs and local log sinks
 
 For the fuller human-oriented docs entrypoint, use [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md).
-Local package maps live in the directory READMEs for the larger implementation areas, especially `internal/platform/`, `internal/runtime/`, `internal/runtime2/`, and `tools/runnerconfig/`.
+Local package maps live in the directory READMEs for the larger implementation areas, especially `internal/platform/`, `internal/runtime/`, and `tools/runnerconfig/`.
 
 ## Starter App Example
 
@@ -173,10 +173,10 @@ package main
 import (
     "fmt"
 
-    "github.com/monstercameron/GoWebComponents/v7/css"
-    "github.com/monstercameron/GoWebComponents/v7/css/u"
-    . "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-    "github.com/monstercameron/GoWebComponents/v7/ui"
+    "github.com/monstercameron/GoWebComponents/v8/css"
+    "github.com/monstercameron/GoWebComponents/v8/css/u"
+    . "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type StarterAppProps struct {
@@ -339,6 +339,8 @@ The preferred public surface is:
 - `head`: optional companion SSR head composition helpers for router metadata, social tags, robots tags, JSON-LD, alternate locale links, and resource hints
 - `plugin`: supported companion host for explicit plugin manifests, capability-checked registration, and subsystem hook contributions layered on public APIs
 - `hotreload`: state-preserving development reload bridge and snapshot helpers for standalone wasm apps
+
+Additional specialized and experimental packages live at the module root for v7 compatibility (for example `db`, `kvstate`, `localfirst`, `serverfn`, `query`, `agentbridge`, `agentui`, `timetravel`, `workbench`); see the [Complete Top-Level Package Inventory](docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md#complete-top-level-package-inventory) for every package's stability tier and planned v8 consolidation.
 
 ## Feature Overview
 

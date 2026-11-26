@@ -3,9 +3,9 @@ package design
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/css"
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/css"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // THE CATALOG MANIFEST — the storefront's answer, and the reason this file exists.

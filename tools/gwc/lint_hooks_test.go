@@ -17,11 +17,11 @@ func TestCollectLintHookRuleIssuesFlagsBoundedViolations(parseT *testing.T) {
 	parseSource := `package app
 
 import (
-	gwcui "github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/state"
-	"github.com/monstercameron/GoWebComponents/v7/fetch"
-	"github.com/monstercameron/GoWebComponents/v7/flags"
-	"github.com/monstercameron/GoWebComponents/v7/router"
+	gwcui "github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/state"
+	"github.com/monstercameron/GoWebComponents/v8/fetch"
+	"github.com/monstercameron/GoWebComponents/v8/flags"
+	"github.com/monstercameron/GoWebComponents/v8/router"
 )
 
 func Component() gwcui.Node {
@@ -111,7 +111,7 @@ func TestCollectLintHookRuleIssuesHandlesDotImportsAndTargets(parseT *testing.T)
 	}
 	parseScopedSource := `package scoped
 
-import . "github.com/monstercameron/GoWebComponents/v7/ui"
+import . "github.com/monstercameron/GoWebComponents/v8/ui"
 
 func Component() {
 	if true {
@@ -121,7 +121,7 @@ func Component() {
 `
 	parseOtherSource := `package other
 
-import "github.com/monstercameron/GoWebComponents/v7/ui"
+import "github.com/monstercameron/GoWebComponents/v8/ui"
 
 func Component() {
 	if true {
@@ -164,7 +164,7 @@ func TestCollectLintHookRuleIssuesSkipsTestFixtures(parseT *testing.T) {
 	parseFixturePath := filepath.Join(parseRoot, "component_test.go")
 	parseSource := `package app
 
-import "github.com/monstercameron/GoWebComponents/v7/ui"
+import "github.com/monstercameron/GoWebComponents/v8/ui"
 
 func Component() {
 	if true {
@@ -199,7 +199,7 @@ func TestCollectLintHookRuleIssuesSkipsBenchmarkFixtures(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
 	parseSource := `package fixture
 
-import "github.com/monstercameron/GoWebComponents/v7/ui"
+import "github.com/monstercameron/GoWebComponents/v8/ui"
 
 func Component() {
 	for range []int{1} {
@@ -237,7 +237,7 @@ func TestBuildLintSummaryIncludesHookRuleIssues(parseT *testing.T) {
 	parseSourcePath := filepath.Join(parseRoot, "component.go")
 	parseSource := `package app
 
-import "github.com/monstercameron/GoWebComponents/v7/ui"
+import "github.com/monstercameron/GoWebComponents/v8/ui"
 
 func Component() {
 	if true {

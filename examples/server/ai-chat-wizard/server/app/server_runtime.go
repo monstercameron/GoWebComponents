@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v7/tools/agenthub"
+	chatpb "github.com/monstercameron/GoWebComponents/v8/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v8/tools/agenthub"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

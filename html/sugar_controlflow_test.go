@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // TestMapIndexedThreadsIndex verifies MapIndexed passes the element index and

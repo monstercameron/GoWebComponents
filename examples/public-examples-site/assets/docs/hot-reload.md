@@ -33,8 +33,8 @@ The repo supports in-page WASM module replacement with a state-preserving reload
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/hotreload"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/hotreload"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 func main() {

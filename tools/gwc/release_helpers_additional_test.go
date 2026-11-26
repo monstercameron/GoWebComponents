@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/pwa"
+	"github.com/monstercameron/GoWebComponents/v8/pwa"
 	playwright "github.com/mxschmitt/playwright-go"
 )
 

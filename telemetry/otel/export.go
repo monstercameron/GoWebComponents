@@ -13,10 +13,10 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/gwcattrs"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/telemetry"
-	gwctrace "github.com/monstercameron/GoWebComponents/v7/trace"
+	"github.com/monstercameron/GoWebComponents/v8/internal/gwcattrs"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/telemetry"
+	gwctrace "github.com/monstercameron/GoWebComponents/v8/trace"
 )
 
 // ResolveTraceID keeps a valid W3C trace id and otherwise derives a deterministic

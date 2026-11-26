@@ -16,10 +16,9 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
-	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v8/examples/server/ai-chat-wizard/proto"
 	playwright "github.com/mxschmitt/playwright-go"
 	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 )
@@ -698,14 +697,14 @@ func parseHasExample100DiagnosticLogEntry(parseLogs []string, parseTokens ...str
 	return false
 }
 
-// TestExample100ErrorBoundaryDiagnosticLog verifies that each of the three error-surface paths — route boot auth
-// failure, panel fetch failure, and mutation submit failure — shows a calm fallback UI and also emits at least one
+// TestExample100ErrorBoundaryDiagnosticLog verifies that each of the three error-surface paths â€” route boot auth
+// failure, panel fetch failure, and mutation submit failure â€” shows a calm fallback UI and also emits at least one
 // structured diagnostic console log entry so the failure can never be silently swallowed without an operator signal.
 func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
 
-	// ── 1. Route boot auth failure ─────────────────────────────────────────────
+	// â”€â”€ 1. Route boot auth failure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 	// Poison the auth token before the WASM app boots on /app. The client should
 	// redirect to /login (not blank the screen) and emit a diagnostic auth log.
 	parseT.Run("route boot auth failure emits diagnostic log", func(parseT *testing.T) {
@@ -738,7 +737,7 @@ func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
 				parseT.Fatalf("goto /app with poisoned token: %v", parseErr)
 			}
 
-			// The authenticated shell must not blank the screen — it must either stay
+			// The authenticated shell must not blank the screen â€” it must either stay
 			// on /app or redirect to /login within 5 s.
 			if _, parseWaitErr := parsePage.WaitForFunction(`() => {
 				const p = window.location.pathname;
@@ -752,13 +751,13 @@ func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
 			if parseFinalPathStr == "" || (!strings.HasPrefix(parseFinalPathStr, "/app") &&
 				!strings.HasPrefix(parseFinalPathStr, "/login") &&
 				!strings.HasPrefix(parseFinalPathStr, "/auth")) {
-				parseT.Errorf("route boot fallback: unexpected final path %q — expected /login, /auth/*, or /app", parseFinalPathStr)
+				parseT.Errorf("route boot fallback: unexpected final path %q â€” expected /login, /auth/*, or /app", parseFinalPathStr)
 			}
 
 			// The app body must not be blank.
 			parseBodyText, _ := parsePage.Evaluate(`() => ((document.body && document.body.innerText) || "").trim()`)
 			if parseBodyTextStr := strings.TrimSpace(fmt.Sprintf("%v", parseBodyText)); parseBodyTextStr == "" {
-				parseT.Error("route boot fallback: body is blank — the error boundary swallowed the failure silently")
+				parseT.Error("route boot fallback: body is blank â€” the error boundary swallowed the failure silently")
 			}
 
 			// At least one diagnostic console log must mention an auth session event
@@ -779,7 +778,7 @@ func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
 		})
 	})
 
-	// ── 2. Panel fetch failure (admin dashboard) ──────────────────────────────
+	// â”€â”€ 2. Panel fetch failure (admin dashboard) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 	// Drop a required store table so the dashboard RPC fails, then navigate to
 	// /app/dashboard as admin. The client must show an error panel and emit a
 	// diagnostic admin/dashboard log entry.
@@ -823,7 +822,7 @@ func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
 			// Body must not be blank.
 			parseBodyText, _ := parsePage.Evaluate(`() => ((document.body && document.body.innerText) || "").trim()`)
 			if parseBodyTextStr := strings.TrimSpace(fmt.Sprintf("%v", parseBodyText)); parseBodyTextStr == "" {
-				parseT.Error("panel fetch fallback: body is blank — the error boundary swallowed the failure silently")
+				parseT.Error("panel fetch fallback: body is blank â€” the error boundary swallowed the failure silently")
 			}
 
 			// Diagnostic log must mention the dashboard fetch failure.
@@ -843,7 +842,7 @@ func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
 		})
 	})
 
-	// ── 3. Mutation submit failure (settings name save) ───────────────────────
+	// â”€â”€ 3. Mutation submit failure (settings name save) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 	// Force the gRPC bridge offline after login so the name save RPC fails. The
 	// client must surface an error state (not blank) and emit a diagnostic log
 	// entry for the failed mutation.
@@ -898,13 +897,13 @@ func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
 				return !window.location.pathname.startsWith("/app/settings");
 			}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(6000)}); parseWaitErr != nil {
 				parseDebug, _ := parsePage.Evaluate(`() => ({ path: window.location.pathname, body: ((document.body && document.body.innerText) || "").slice(0, 800) })`)
-				parseT.Logf("mutation submit fallback: no error UI marker in time — treating as navigated-away fallback; debug=%#v", parseDebug)
+				parseT.Logf("mutation submit fallback: no error UI marker in time â€” treating as navigated-away fallback; debug=%#v", parseDebug)
 			}
 
 			// Body must not be blank.
 			parseBodyText, _ := parsePage.Evaluate(`() => ((document.body && document.body.innerText) || "").trim()`)
 			if parseBodyTextStr := strings.TrimSpace(fmt.Sprintf("%v", parseBodyText)); parseBodyTextStr == "" {
-				parseT.Error("mutation submit fallback: body is blank — the error boundary swallowed the failure silently")
+				parseT.Error("mutation submit fallback: body is blank â€” the error boundary swallowed the failure silently")
 			}
 
 			// Diagnostic log must mention the mutation failure.

@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -190,7 +189,7 @@ func runSeedTestDB() (string, error) {
 		}
 	}
 
-	// conv4 — billing and workspace context (realistic product-demo content)
+	// conv4 â€” billing and workspace context (realistic product-demo content)
 	parseR4, parseErr2 := parseDb.Exec(
 		parseQueries.insertConversation,
 		parseUserID, uuid.NewString(), parseNow.Add(-10*time.Minute).Format(time.RFC3339), "Workspace billing overview",
@@ -218,7 +217,7 @@ func runSeedTestDB() (string, error) {
 		}
 	}
 
-	// conv5 — admin incident and resolution (realistic admin-demo content)
+	// conv5 â€” admin incident and resolution (realistic admin-demo content)
 	parseR5, parseErr2 := parseDb.Exec(
 		parseQueries.insertConversation,
 		parseAdminUserID, uuid.NewString(), parseNow.Add(-45*time.Minute).Format(time.RFC3339), "Provider routing incident: resolved",

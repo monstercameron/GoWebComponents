@@ -4,9 +4,9 @@
 package exampleboot
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 const (

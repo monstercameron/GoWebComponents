@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // Ported from React's ReactDOMServerIntegrationElements dangerouslySetInnerHTML

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	gwcruntime "github.com/monstercameron/GoWebComponents/v7/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	gwcruntime "github.com/monstercameron/GoWebComponents/v8/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 const (

@@ -3,9 +3,9 @@
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/i18n"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	. "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/i18n"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // renderPricingShell renders the full standalone pricing page navigated to via the SW router.

@@ -7,7 +7,7 @@ package render
 import (
 	stdtesting "testing"
 
-	base "github.com/monstercameron/GoWebComponents/v7/testkit/render"
+	base "github.com/monstercameron/GoWebComponents/v8/testkit/render"
 )
 
 type Option = base.Option

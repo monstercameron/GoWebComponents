@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/monstercameron/GoWebComponents/v7/deprecation"
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/deprecation"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // Options represents configuration for HTTP fetch operations.

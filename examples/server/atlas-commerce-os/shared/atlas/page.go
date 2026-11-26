@@ -12,11 +12,11 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/monstercameron/GoWebComponents/v7/css"
-	"github.com/monstercameron/GoWebComponents/v7/examples/server/atlas-commerce-os/shared/design"
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/css"
+	"github.com/monstercameron/GoWebComponents/v8/examples/server/atlas-commerce-os/shared/design"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

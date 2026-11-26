@@ -40,9 +40,9 @@ Use these tiers when deciding what your app can rely on:
 
 | Tier | Meaning | Current examples | Change policy |
 | --- | --- | --- | --- |
-| `Stable` | long-term production surface in core | `ui`, `html`, `state`, `fetch`, `flags`, `router`, documented SSR and hydration entrypoints | breaking changes only in major releases with migration guidance |
-| `Supported companion` | production-safe integration surface outside the smallest core | `devtools`, `head`, `plugin` | major-version breaking changes only; additive diagnostics or fields may grow in minor releases |
-| `Experimental` | public and usable, but still proving shape or lifecycle | transitions, deferred values, async boundaries, `fetch.UseCachedResource`, advanced router loaders or guards, alternative bootstrap transports, compiler-assisted experiments | shape may change in minor releases with release notes and migration guidance |
+| `Stable` | long-term production surface in core | `ui`, `html`, `html/shorthand`, `css`, `css/u`, `state`, `fetch`, `flags`, `router`, documented SSR and hydration entrypoints | breaking changes only in major releases with migration guidance |
+| `Supported companion` | production-safe integration surface outside the smallest core | `devtools`, `head`, `plugin`, `i18n`, `interop`, `pwa`, `virtualization`, `hotreload` | major-version breaking changes only; additive diagnostics or fields may grow in minor releases |
+| `Experimental` | public and usable, but still proving shape or lifecycle | transitions, deferred values, async boundaries, `fetch.UseCachedResource`, advanced router loaders or guards, alternative bootstrap transports, and the specialized packages listed in the inventory below | shape may change in minor releases with release notes and migration guidance |
 | `Internal` | unsupported implementation detail or repo-only helper | `internal/*`, example glue, runtime internals, repo tooling harnesses | no semver promise for consumer apps |
 
 Current practical reading:
@@ -51,6 +51,24 @@ Current practical reading:
 - if you need optional but supported integrations, `Supported companion` is acceptable
 - if you use `Experimental`, hide it behind app-owned wrappers
 - if it is `Internal`, do not build product code on it
+
+### Complete Top-Level Package Inventory
+
+For semver compatibility, all 48 public top-level packages remain at the module root in v8. Exported compatibility is mechanically guarded in CI by `tools/api_compat_guard` (`.github/workflows/api-baseline.yml`).
+
+| Tier | Packages | Notes / Future Plan |
+| --- | --- | --- |
+| `Stable` (core) | `ui`, `html` (incl. `html/shorthand`), `css` (incl. `css/u`), `state`, `fetch`, `flags`, `router` | Core stable surface. |
+| `Supported companion` | `devtools`, `head`, `plugin`, `i18n`, `interop`, `pwa`, `virtualization`, `hotreload` | Production-safe companions. |
+| `Companion / utility` | `a11y`, `anim`, `desktop`, `diagnostics`, `events`, `logging`, `prerender`, `sanitize`, `telemetry`, `testkit`, `textutil`, `utils`, `validate` | Focused helpers and adapters (`desktop/wails` and `telemetry/otel` already live in nested Go modules). |
+| `Experimental` (root, future consolidation candidates) | `agentbridge`, `agentui`, `compute`, `db` (`sqlite`, `offthread`, `durability`), `delta`, `deprecation`, `domain`, `escalate`, `gcpacing`, `kvstate`, `localfirst`, `projection`, `query`, `scheduler`, `servercomponents`, `serverfn`, `timetravel`, `trace`, `wholestack`, `workbench` | Usable behind app-owned wrappers. Candidate for `exp/` namespace or nested sub-modules in a future major release. |
+
+### Module & Dependency Slimming
+
+To keep upgrades predictable while reducing root `go.mod` weight:
+
+- **Namespace experimental packages:** evaluate moving `Experimental` packages (`gcpacing`, `escalate`, `delta`, `projection`, `compute`, `domain`, `wholestack`, `servercomponents`, etc.) under an `exp/` prefix or dedicated companion modules in a future major release.
+- **Isolate optional heavy engines:** `v8` consolidated SQLite onto a single pure-Go driver (`ncruces/go-sqlite3`, dropping `modernc.org/sqlite` and 8 transitive dependencies from root `go.mod`); splitting `db/sqlite` (and optional heavy codecs/parsers) into nested Go modules would let `ncruces/go-sqlite3` and `wazero` leave the root module graph entirely.
 
 ## Public API Conventions
 
@@ -126,8 +144,8 @@ When you choose to use an experimental API, keep it behind one app-owned wrapper
 package search
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type searchModel struct {
@@ -192,7 +210,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v8/router"
 )
 
 type routeRecord struct {
@@ -288,7 +306,7 @@ Use this boundary table when deciding which layer owns an extension:
 | --- | --- | --- | --- | --- |
 | `plugin` | application-owned public companion | `Supported companion` | route guards, request observers, app-owned devtools sections or actions, head providers, bootstrap payloads, form validators | deep framework inspection, runtime internals, hidden lifecycle control |
 | `internal/pluginruntime` | framework-owned internal kernel | `Internal` | first-party plugins, health tracking, guarded plugin startup, typed service lookup, contribution registration | app code, third-party plugin contracts, semver promises |
-| interposers | framework-owned adapters | `Internal` | hiding `runtime` versus `runtime2`, DOM adapter, router, fetch, asset, and security implementation details behind stable kernel service contracts | exposing raw internal structs to plugins |
+| interposers | framework-owned adapters | `Internal` | hiding `runtime`, DOM adapter, router, fetch, asset, and security implementation details behind stable kernel service contracts | exposing raw internal structs to plugins |
 
 Current built-in internal service families are:
 
@@ -297,7 +315,6 @@ Current built-in internal service families are:
 - DOM, style, and event inspection
 - asset, cache, and release inspection
 - security and capture services
-- runtime2 metadata for worker-backed and transport-backed regions
 
 Current built-in internal contribution families are:
 
@@ -319,7 +336,7 @@ Interposers exist so that plugin-facing services can stay stable while implement
 
 - plugins talk to normalized service contracts
 - the kernel talks to interposers
-- interposers adapt `internal/runtime`, `internal/runtime2`, browser adapters, router state, fetch state, asset state, and security state
+- interposers adapt `internal/runtime`, browser adapters, router state, fetch state, asset state, and security state
 
 This avoids freezing internal runtime structures just because one plugin needs deep visibility.
 
@@ -415,8 +432,7 @@ Several areas remain intentionally bounded:
 - compiler-assisted authoring stays opt-in and must never become the only path for ordinary apps
 - virtualization is treated as companion-package territory first
 - server-interactive UI and richer streaming SSR stay experimental until latency, backpressure, offline, and reconnect behavior are defensible
-- multithreaded runtime and `runtime2` work remain performance and architecture experiments, not the default app model
-- the internal plugin kernel may normalize `runtime` and `runtime2` for first-party plugins, but that does not upgrade `runtime2` itself into the default app model
+- multithreaded/worker runtime experiments (`runtime2` was retired from the tree; see `CHANGELOG.md`) remain deferred research rather than the default app model
 - worker pools, shared buffers, and alternative transports should be earned by measured workload pressure
 
 ## Migration And Release Discipline

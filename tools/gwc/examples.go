@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	gwchtml "github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	gwchtml "github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type exampleLink struct {

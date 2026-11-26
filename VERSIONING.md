@@ -12,13 +12,13 @@ commits the actual rules so a release's number is predictable, not a judgment ca
 | **Minor** (`x.Y.0`) | A backward-compatible **addition**. | New exported function/type/method; a new package; a new optional field with a zero-value default. |
 | **Patch** (`x.y.Z`) | A backward-compatible **fix** with no API change. | Bug fixes, performance, docs, internal refactors, new tests. |
 
-The stable v7 module is **`github.com/monstercameron/GoWebComponents/v7`**,
-starting at `v7.0.0`. A v6 consumer must change its module requirement and
-imports from `/v6` to `/v7` to upgrade. Consumers that need the release
-candidate can continue to pin `v7.0.0-rc.1` explicitly.
+The stable v8 module is **`github.com/monstercameron/GoWebComponents/v8`**,
+starting at `v8.0.0`. A v7 consumer upgrades by changing its module requirement
+and imports from `/v7` to `/v8` and running `go mod tidy` (to pick up the
+slimmed root `go.sum` after SQLite driver consolidation).
 
-**v7 requires Go 1.27.** Its `go.mod` declares `go 1.27.0`, with toolchain
-`go1.27.1`. Raising the Go floor ships with the v7 major bump.
+**v8 requires Go 1.27.** Its `go.mod` declares `go 1.27.0`, with toolchain
+`go1.27.1`.
 
 It previously moved to `/v5` in v5.0.0 because retiring runtime2 as a renderer removed `ui.ParallelRegion`
 and the surrounding public API, and changed the `ui.Hydrate`/`ui.HydrateInto`
@@ -26,17 +26,17 @@ signatures — exactly the trigger in the Major row above. The change had been s
 on the branch under `/v4`, where `go get -u` would have delivered it to consumers
 with no import-path signal; that is what a major version exists to prevent.
 
-"Exported API" is defined concretely as the surface captured by the **API-baseline tests**
-(`internal/apidump` + each package's `api_baseline.txt`): exported types with their shape,
-funcs, methods, consts, and vars. That makes the major/minor boundary mechanical, not
-subjective:
+"Exported API" is defined concretely as the surface captured by the **API compatibility guard**
+(`tools/api_compat_guard` + `tools/api_compat_guard/api_compatibility_baseline.json`): exported
+types with their shape, funcs, methods, consts, and vars across native and `js/wasm`. That makes
+the major/minor boundary mechanical, not subjective:
 
-- A baseline diff that **removes or changes** an existing line ⇒ **major**.
-- A baseline diff that **only adds** lines ⇒ **minor**.
+- A baseline diff that **removes or changes** an existing signature ⇒ **major**.
+- A baseline diff that **only adds** signatures ⇒ **minor**.
 - No baseline diff ⇒ **patch** (or no version-affecting change).
 
-Regenerating a baseline (`UPDATE_API_BASELINE=1 go test ./<pkg>/`) is therefore a deliberate
-act that should be reviewed against this table before release.
+Regenerating the baseline (`go -C tools run ./api_compat_guard --module-root=.. -update`) is
+therefore a deliberate act that should be reviewed against this table before release.
 
 ## The CHANGELOG is the migration log
 
@@ -72,15 +72,16 @@ baseline line disappears), so the policy is enforced, not just promised.
 
 ## API-baseline merge gate
 
-The API-baseline tests (`internal/apidump` + each package's `api_baseline.txt`) run as a
-**required PR check** via `.github/workflows/api-baseline.yml` — not only at release. An
-accidental breaking change to an exported surface fails the PR before merge, so a major-bump
-trigger can never land silently on `main`. Intentional changes regenerate the baseline
-(`UPDATE_API_BASELINE=1 go test ./<pkg>/`) as a reviewed commit, classified by the table above.
+The API compatibility guard (`tools/api_compat_guard`) runs as a **required PR check** via
+`.github/workflows/api-baseline.yml` — not only at release. An accidental breaking change to an
+exported surface fails the PR before merge, so a major-bump trigger can never land silently on
+`main`. Intentional changes regenerate the baseline
+(`go -C tools run ./api_compat_guard --module-root=.. -update`) as a reviewed commit, classified
+by the table above.
 
 ## Pre-1.0 / pre-stable surfaces
 
 Packages or symbols documented as **Experimental** (see the reference manual's stability
 notes) are exempt from the major-bump rule until they graduate to **Stable** — at which point
-they gain an `api_baseline.txt` and fall under the table above. Graduating a surface to Stable
-is itself a minor release.
+they join the `tools/api_compat_guard` baseline and fall under the table above. Graduating a
+surface to Stable is itself a minor release.

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/deprecation"
+	"github.com/monstercameron/GoWebComponents/v8/deprecation"
 )
 
 // Variants wrap inner rules in a selector and/or at-rule scope. They compose by
@@ -53,10 +53,18 @@ func After(rules ...Rule) []Rule {
 func withDefaultContent(rules []Rule) []Rule {
 	hasContent := false
 	for _, r := range rules {
+		if r.hasSingle && r.single.property == "content" {
+			hasContent = true
+			break
+		}
 		for _, d := range r.decls {
 			if d.property == "content" {
 				hasContent = true
+				break
 			}
+		}
+		if hasContent {
+			break
 		}
 	}
 	if hasContent {

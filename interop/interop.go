@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
 )
 
 type ErrorCode string

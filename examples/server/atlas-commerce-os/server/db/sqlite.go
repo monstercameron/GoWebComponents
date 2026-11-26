@@ -9,21 +9,22 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
-func Open(parseCtx context.Context, parseSqlitePath string) (*sql.DB, error) {
-	if parseErr := os.MkdirAll(filepath.Dir(parseSqlitePath), 0o755); parseErr != nil {
-		return nil, fmt.Errorf("create sqlite directory: %w", parseErr)
+// Open opens or creates the SQLite database file for the Atlas Commerce OS example server.
+func Open(ctx context.Context, sqlitePath string) (*sql.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(sqlitePath), 0o755); err != nil {
+		return nil, fmt.Errorf("create sqlite directory: %w", err)
 	}
-	parseDsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", filepath.ToSlash(parseSqlitePath))
-	parseDatabase, parseErr2 := sql.Open("sqlite", parseDsn)
-	if parseErr2 != nil {
-		return nil, fmt.Errorf("open sqlite: %w", parseErr2)
+	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", filepath.ToSlash(sqlitePath))
+	database, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	if parseErr3 := parseDatabase.PingContext(parseCtx); parseErr3 != nil {
-		_ = parseDatabase.Close()
-		return nil, fmt.Errorf("ping sqlite: %w", parseErr3)
+	if err := database.PingContext(ctx); err != nil {
+		_ = database.Close()
+		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
-	return parseDatabase, nil
+	return database, nil
 }

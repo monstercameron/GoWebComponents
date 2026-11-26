@@ -77,13 +77,13 @@ type Effect struct {
 
 // Fiber represents a unit of work in the virtual DOM tree.
 type Fiber struct {
-	// Tree structure - grouped for traversal locality (Cache Line 0)
+	// Tree structure, traversal flags, typeOf, and hooks fit in Cache Line 0
+	// (bytes 0..63) so sibling/ancestor walks touch one cache line per fiber.
 	parent    *Fiber
 	child     *Fiber
 	sibling   *Fiber
 	alternate *Fiber
 
-	// Flags - grouped with tree pointers for fast traversal checks (Cache Line 0)
 	dirty               bool
 	subtreeDirty        bool
 	needsUpdate         bool
@@ -91,8 +91,6 @@ type Fiber struct {
 	needsChildReconcile bool
 	needsChildOrder     bool
 	// subtreeCommit reports that at least one descendant has DOM commit work.
-	// It occupies the final byte in this flag block's existing pointer-alignment
-	// padding, so commit pruning does not enlarge Fiber.
 	subtreeCommit bool
 	// renderPhaseUpdate is set when a hook setter is called while this fiber is
 	// rendering (a render-phase update). renderFunctionComponent re-runs the
@@ -100,14 +98,42 @@ type Fiber struct {
 	// does not match the latest state.
 	renderPhaseUpdate bool
 
-	// Component info
-	hooks                  *Hooks
-	props                  map[string]any
-	children               []any
-	getHostAttrs           []HostAttr
-	contextValues          map[int64]any
-	hydration              *hydrationBoundary
-	childHydration         *hydrationBoundary
+	typeOf any
+	hooks  *Hooks
+
+	// Pointer-bearing component and host state (grouped before the scalar tail
+	// so Go's GC pointer bitmap ends before the trailing scalar block).
+	dom            DOMNode
+	props          map[string]any
+	children       []any
+	getHostAttrs   []HostAttr
+	contextValues  map[int64]any
+	hydration      *hydrationBoundary
+	childHydration *hydrationBoundary
+	// key mirrors Element.Key for fast-lane elements; map-built fibers keep
+	// their key in props and the key helpers consult this field first.
+	key         string
+	textContent string
+	effects     []Effect
+	// Cold profiling, boundary, event-callback, and fine-grained subscription
+	// state kept out-of-line so ordinary host and text fibers stay compact.
+	cold         *fiberCold
+	updateOrigin string
+	ownerRuntime *Runtime
+
+	// Pointer-free scalar tail (14 bytes padded to 16; outside GC ptrdata).
+	// slotGap counts the absent (nil) children that sat directly before this
+	// fiber in its parent's child list. Absent children build no fiber, so
+	// without it a fiber's position in the chain stops matching its position in
+	// the element list and toggling an optional child shifts every sibling after
+	// it onto the wrong old fiber. Zero is the common case.
+	slotGap   uint16
+	effectTag effectTagKind
+	// updateLane records which priority lane marked this fiber dirty (v5 P2.2),
+	// so a pass can tell whether the work belongs to it or should be deferred.
+	// Zero means "no lane recorded" and always renders, keeping legacy callers
+	// working unchanged.
+	updateLane             UpdateLane
 	hydrated               bool
 	hasDirectText          bool
 	isCompactHostProps     bool
@@ -116,8 +142,7 @@ type Fiber struct {
 	fragmentHintValid      bool
 	// underFineGrained caches whether an ancestor is a fine-grained region.
 	// ancestorFlagsValid distinguishes a runtime-built false value from a
-	// synthetic/test fiber whose ancestry must still be inspected. These occupy
-	// existing pointer-alignment padding after the nearby host-state flags.
+	// synthetic/test fiber whose ancestry must still be inspected.
 	underFineGrained   bool
 	ancestorFlagsValid bool
 	// serializedUnbound marks a host/text node that already exists inside a
@@ -125,28 +150,15 @@ type Fiber struct {
 	// in Go yet. The parent binds one direct child level before reconciling it,
 	// avoiding two Go/JS bridge crossings for every descendant on pure mount.
 	serializedUnbound bool
-	// slotGap counts the absent (nil) children that sat directly before this
-	// fiber in its parent's child list. Absent children build no fiber, so
-	// without it a fiber's position in the chain stops matching its position in
-	// the element list and toggling an optional child shifts every sibling after
-	// it onto the wrong old fiber. Zero is the common case. It fills existing
-	// pointer-alignment padding after serializedUnbound.
-	slotGap uint16
+	fineGrained       bool
+}
 
-	// Interfaces and Strings (16 bytes each)
-	typeOf any
-	dom    DOMNode
-	// key mirrors Element.Key for fast-lane elements; map-built fibers keep
-	// their key in props and the key helpers consult this field first.
-	key         string
-	textContent string
-	effectTag   effectTagKind
-
-	// Slices (24 bytes each)
-	effects        []Effect
-	eventCallbacks []EventHandler
-
-	// Counters
+// fiberCold holds profiling, boundary, event-callback, and fine-grained
+// subscription fields that are empty on most host and text fibers. Moving them
+// behind a lazily allocated pointer trims Fiber by 144 bytes (over two cache
+// lines) and shrinks mount slabs by ~34%.
+type fiberCold struct {
+	eventCallbacks    []EventHandler
 	renderDurationNs  int64
 	diffDurationNs    int64
 	commitDurationNs  int64
@@ -158,14 +170,166 @@ type Fiber struct {
 	asyncWait         <-chan struct{}
 	reactiveAtomID    string
 	reactiveSourceIDs []string
-	fineGrained       bool
-	updateOrigin      string
-	// updateLane records which priority lane marked this fiber dirty (v5 P2.2),
-	// so a pass can tell whether the work belongs to it or should be deferred.
-	// Zero means "no lane recorded" and always renders, keeping legacy callers
-	// working unchanged.
-	updateLane   UpdateLane
-	ownerRuntime *Runtime
+}
+
+// ensureCold returns the fiber's cold storage block, allocating it lazily on first write.
+func (f *Fiber) ensureCold() *fiberCold {
+	if f.cold == nil {
+		f.cold = new(fiberCold)
+	}
+	return f.cold
+}
+
+// getEventCallbacks returns the fiber's registered event callbacks, if any.
+func (f *Fiber) getEventCallbacks() []EventHandler {
+	if f == nil || f.cold == nil {
+		return nil
+	}
+	return f.cold.eventCallbacks
+}
+
+// getReactiveSourceIDs returns the fiber's subscribed fine-grained atom IDs, if any.
+func (f *Fiber) getReactiveSourceIDs() []string {
+	if f == nil || f.cold == nil {
+		return nil
+	}
+	return f.cold.reactiveSourceIDs
+}
+
+// getReactiveAtomID returns the fiber's joined reactive atom ID string, if any.
+func (f *Fiber) getReactiveAtomID() string {
+	if f == nil || f.cold == nil {
+		return ""
+	}
+	return f.cold.reactiveAtomID
+}
+
+// getBoundaryError returns the fiber's captured error-boundary error, if any.
+func (f *Fiber) getBoundaryError() error {
+	if f == nil || f.cold == nil {
+		return nil
+	}
+	return f.cold.boundaryError
+}
+
+// getBoundaryPhase returns the fiber's captured error-boundary phase, if any.
+func (f *Fiber) getBoundaryPhase() string {
+	if f == nil || f.cold == nil {
+		return ""
+	}
+	return f.cold.boundaryPhase
+}
+
+// getAsyncSuspension returns the fiber's active async suspension, if any.
+func (f *Fiber) getAsyncSuspension() *Suspension {
+	if f == nil || f.cold == nil {
+		return nil
+	}
+	return f.cold.asyncSuspension
+}
+
+// getAsyncWait returns the fiber's active async suspension wait channel, if any.
+func (f *Fiber) getAsyncWait() <-chan struct{} {
+	if f == nil || f.cold == nil {
+		return nil
+	}
+	return f.cold.asyncWait
+}
+
+// getRenderDurationNs returns the recorded render duration in nanoseconds.
+func (f *Fiber) getRenderDurationNs() int64 {
+	if f == nil || f.cold == nil {
+		return 0
+	}
+	return f.cold.renderDurationNs
+}
+
+// getDiffDurationNs returns the recorded diff duration in nanoseconds.
+func (f *Fiber) getDiffDurationNs() int64 {
+	if f == nil || f.cold == nil {
+		return 0
+	}
+	return f.cold.diffDurationNs
+}
+
+// getCommitDurationNs returns the recorded commit duration in nanoseconds.
+func (f *Fiber) getCommitDurationNs() int64 {
+	if f == nil || f.cold == nil {
+		return 0
+	}
+	return f.cold.commitDurationNs
+}
+
+// getEffectDurationNs returns the recorded effect duration in nanoseconds.
+func (f *Fiber) getEffectDurationNs() int64 {
+	if f == nil || f.cold == nil {
+		return 0
+	}
+	return f.cold.effectDurationNs
+}
+
+// getCleanupDurationNs returns the recorded cleanup duration in nanoseconds.
+func (f *Fiber) getCleanupDurationNs() int64 {
+	if f == nil || f.cold == nil {
+		return 0
+	}
+	return f.cold.cleanupDurationNs
+}
+
+// setRenderDurationNs records the fiber's render duration without allocating cold state for zero values.
+func (f *Fiber) setRenderDurationNs(v int64) {
+	if v == 0 && f.cold == nil {
+		return
+	}
+	f.ensureCold().renderDurationNs = v
+}
+
+// setDiffDurationNs records the fiber's diff duration without allocating cold state for zero values.
+func (f *Fiber) setDiffDurationNs(v int64) {
+	if v == 0 && f.cold == nil {
+		return
+	}
+	f.ensureCold().diffDurationNs = v
+}
+
+// addCommitDurationNs accumulates commit duration without allocating cold state for zero values.
+func (f *Fiber) addCommitDurationNs(v int64) {
+	if v == 0 {
+		return
+	}
+	f.ensureCold().commitDurationNs += v
+}
+
+// setEffectDurationNs sets effect duration without allocating cold state for zero values.
+func (f *Fiber) setEffectDurationNs(v int64) {
+	if v == 0 && f.cold == nil {
+		return
+	}
+	f.ensureCold().effectDurationNs = v
+}
+
+// addEffectDurationNs accumulates effect duration without allocating cold state for zero values.
+func (f *Fiber) addEffectDurationNs(v int64) {
+	if v == 0 {
+		return
+	}
+	f.ensureCold().effectDurationNs += v
+}
+
+// addCleanupDurationNs accumulates cleanup duration without allocating cold state for zero values.
+func (f *Fiber) addCleanupDurationNs(v int64) {
+	if v == 0 {
+		return
+	}
+	f.ensureCold().cleanupDurationNs += v
+}
+
+// resetRenderAndDiffDurationNs zeroes render and diff timings when cold state is present.
+func (f *Fiber) resetRenderAndDiffDurationNs() {
+	if f.cold != nil {
+		f.cold.renderDurationNs = 0
+		f.cold.diffDurationNs = 0
+	}
 }
 
 // componentPropsBox lets typed component elements keep their props without a

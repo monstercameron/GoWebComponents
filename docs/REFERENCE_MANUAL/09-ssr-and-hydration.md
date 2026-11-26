@@ -117,8 +117,8 @@ import (
 	"fmt"
 	"net/http"
 
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // renderLandingPage returns one server-rendered page tree.
@@ -160,7 +160,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type productPageData struct {
@@ -217,8 +217,8 @@ func handleProductsPage(getW http.ResponseWriter, getR *http.Request) {
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 // main restores the inline bootstrap payload and hydrates the existing DOM tree.
@@ -255,7 +255,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // handleDocsPage emits a sidecar bootstrap reference instead of inlining a larger payload.
@@ -294,9 +294,9 @@ package client
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v7/router"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	"github.com/monstercameron/GoWebComponents/v8/router"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 type docsBootstrapData struct {

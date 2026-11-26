@@ -13,13 +13,13 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/devtools"
-	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v7/fetch"
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/router"
-	"github.com/monstercameron/GoWebComponents/v7/state"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/devtools"
+	"github.com/monstercameron/GoWebComponents/v8/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v8/fetch"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/router"
+	"github.com/monstercameron/GoWebComponents/v8/state"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type Attrs = router.Attrs

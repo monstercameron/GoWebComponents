@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/i18n"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	. "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/i18n"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // parseConversationRelativeTime renders a conversation start timestamp as a

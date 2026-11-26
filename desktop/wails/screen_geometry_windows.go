@@ -6,65 +6,57 @@ import (
 	"context"
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // ScreenGeometry performs the exact pinned Wails ScreenManager transform or nearest-screen operation.
-func (parseBackend nativeBackend) ScreenGeometry(parseContext context.Context, parseRequest desktop.ScreenGeometryRequest) (desktop.ScreenGeometryReply, error) {
-	if _, parseErr := getCaller(parseContext); parseErr != nil {
-		return desktop.ScreenGeometryReply{}, parseErr
+func (nativeBackend) ScreenGeometry(ctx context.Context, req desktop.ScreenGeometryRequest) (desktop.ScreenGeometryReply, error) {
+	if err := validateCaller(ctx); err != nil {
+		return desktop.ScreenGeometryReply{}, err
 	}
-	parseApp := application.Get()
-	if parseApp == nil || parseApp.Screen == nil {
+	app := application.Get()
+	if app == nil || app.Screen == nil {
 		return desktop.ScreenGeometryReply{}, unavailable("Wails screen manager unavailable")
 	}
-	parsePoint := application.Point{X: parseRequest.Point.X, Y: parseRequest.Point.Y}
-	parseRect := application.Rect{X: parseRequest.Rect.X, Y: parseRequest.Rect.Y, Width: parseRequest.Rect.Width, Height: parseRequest.Rect.Height}
-	switch parseRequest.Operation {
+	point := application.Point{X: req.Point.X, Y: req.Point.Y}
+	rect := application.Rect{X: req.Rect.X, Y: req.Rect.Y, Width: req.Rect.Width, Height: req.Rect.Height}
+	switch req.Operation {
 	case desktop.ScreenDipToPhysicalPoint:
-		return desktop.ScreenGeometryReply{Point: getScreenPoint(parseApp.Screen.DipToPhysicalPoint(parsePoint))}, nil
+		return desktop.ScreenGeometryReply{Point: getScreenPoint(app.Screen.DipToPhysicalPoint(point))}, nil
 	case desktop.ScreenPhysicalToDipPoint:
-		return desktop.ScreenGeometryReply{Point: getScreenPoint(parseApp.Screen.PhysicalToDipPoint(parsePoint))}, nil
+		return desktop.ScreenGeometryReply{Point: getScreenPoint(app.Screen.PhysicalToDipPoint(point))}, nil
 	case desktop.ScreenDipToPhysicalRect:
-		return desktop.ScreenGeometryReply{Rect: getScreenRect(parseApp.Screen.DipToPhysicalRect(parseRect))}, nil
+		return desktop.ScreenGeometryReply{Rect: getScreenRect(app.Screen.DipToPhysicalRect(rect))}, nil
 	case desktop.ScreenPhysicalToDipRect:
-		return desktop.ScreenGeometryReply{Rect: getScreenRect(parseApp.Screen.PhysicalToDipRect(parseRect))}, nil
+		return desktop.ScreenGeometryReply{Rect: getScreenRect(app.Screen.PhysicalToDipRect(rect))}, nil
 	case desktop.ScreenNearestDipPoint:
-		return getNearestScreenPointReply(parseApp.Screen.ScreenNearestDipPoint(parsePoint))
+		return buildNearestScreenReply(app.Screen.ScreenNearestDipPoint(point))
 	case desktop.ScreenNearestPhysicalPoint:
-		return getNearestScreenPointReply(parseApp.Screen.ScreenNearestPhysicalPoint(parsePoint))
+		return buildNearestScreenReply(app.Screen.ScreenNearestPhysicalPoint(point))
 	case desktop.ScreenNearestDipRect:
-		return getNearestScreenRectReply(parseApp.Screen.ScreenNearestDipRect(parseRect))
+		return buildNearestScreenReply(app.Screen.ScreenNearestDipRect(rect))
 	case desktop.ScreenNearestPhysicalRect:
-		return getNearestScreenRectReply(parseApp.Screen.ScreenNearestPhysicalRect(parseRect))
+		return buildNearestScreenReply(app.Screen.ScreenNearestPhysicalRect(rect))
 	default:
 		return desktop.ScreenGeometryReply{}, invalid("unknown screen geometry operation")
 	}
 }
 
 // getScreenPoint converts one Wails point without exposing application types.
-func getScreenPoint(parsePoint application.Point) desktop.ScreenPoint {
-	return desktop.ScreenPoint{X: parsePoint.X, Y: parsePoint.Y}
+func getScreenPoint(point application.Point) desktop.ScreenPoint {
+	return desktop.ScreenPoint{X: point.X, Y: point.Y}
 }
 
 // getScreenRect converts one Wails rectangle without exposing application types.
-func getScreenRect(parseRect application.Rect) desktop.ScreenRect {
-	return desktop.ScreenRect{X: parseRect.X, Y: parseRect.Y, Width: parseRect.Width, Height: parseRect.Height}
+func getScreenRect(rect application.Rect) desktop.ScreenRect {
+	return desktop.ScreenRect{X: rect.X, Y: rect.Y, Width: rect.Width, Height: rect.Height}
 }
 
-// getNearestScreenPointReply converts a Wails nearest-screen result.
-func getNearestScreenPointReply(parseScreen *application.Screen) (desktop.ScreenGeometryReply, error) {
-	if parseScreen == nil || parseScreen.ID == "" {
+// buildNearestScreenReply converts a Wails nearest-screen result.
+func buildNearestScreenReply(screen *application.Screen) (desktop.ScreenGeometryReply, error) {
+	if screen == nil || screen.ID == "" {
 		return desktop.ScreenGeometryReply{}, errors.New("nearest screen unavailable")
 	}
-	return desktop.ScreenGeometryReply{ScreenID: parseScreen.ID}, nil
-}
-
-// getNearestScreenRectReply converts a Wails nearest-screen result.
-func getNearestScreenRectReply(parseScreen *application.Screen) (desktop.ScreenGeometryReply, error) {
-	if parseScreen == nil || parseScreen.ID == "" {
-		return desktop.ScreenGeometryReply{}, errors.New("nearest screen unavailable")
-	}
-	return desktop.ScreenGeometryReply{ScreenID: parseScreen.ID}, nil
+	return desktop.ScreenGeometryReply{ScreenID: screen.ID}, nil
 }

@@ -2,7 +2,7 @@
 
 package hotreload
 
-import "github.com/monstercameron/GoWebComponents/v7/deprecation"
+import "github.com/monstercameron/GoWebComponents/v8/deprecation"
 
 // Configure is disabled in production builds.
 func Configure(parseConfig Config) {

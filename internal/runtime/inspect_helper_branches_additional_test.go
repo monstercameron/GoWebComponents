@@ -314,18 +314,17 @@ func TestBoundaryHelperBranchesCoverFallbacksAndReset(parseT *testing.T) {
 		parseT.Fatalf("expected onError panic diagnostic, got %+v", parseDiagnostics)
 	}
 
-	parseAlternate := &Fiber{boundaryError: errors.New("old"), boundaryPhase: "effect"}
+	parseAlternate := &Fiber{cold: &fiberCold{boundaryError: errors.New("old"), boundaryPhase: "effect"}}
 	parseResetBoundary := &Fiber{
-		boundaryError: errors.New("old"),
-		boundaryPhase: "effect",
-		alternate:     parseAlternate,
+		cold:      &fiberCold{boundaryError: errors.New("old"), boundaryPhase: "effect"},
+		alternate: parseAlternate,
 	}
 	parseRt.updateScheduled = true
 	parseRt.resetBoundary(parseResetBoundary)
-	if parseResetBoundary.boundaryError != nil || parseResetBoundary.boundaryPhase != "" {
+	if parseResetBoundary.getBoundaryError() != nil || parseResetBoundary.getBoundaryPhase() != "" {
 		parseT.Fatalf("expected boundary state cleared, got %#v", parseResetBoundary)
 	}
-	if parseAlternate.boundaryError != nil || parseAlternate.boundaryPhase != "" {
+	if parseAlternate.getBoundaryError() != nil || parseAlternate.getBoundaryPhase() != "" {
 		parseT.Fatalf("expected alternate boundary state cleared, got %#v", parseAlternate)
 	}
 	if !parseResetBoundary.dirty || !parseResetBoundary.needsUpdate || parseResetBoundary.updateOrigin != "error-boundary" {

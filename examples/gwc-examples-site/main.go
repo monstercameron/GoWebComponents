@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/pwa"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	_ "github.com/monstercameron/GoWebComponents/v8/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/pwa"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 const (

@@ -9,27 +9,27 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-const parseTrayIconPNG = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHUlEQVR42mNkYPj/n4ECwESJ5lEDRg0YNWAwGQAAN8cCHXKDgfsAAAAASUVORK5CYII="
+const defaultTrayIconPNG = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHUlEQVR42mNkYPj/n4ECwESJ5lEDRg0YNWAwGQAAN8cCHXKDgfsAAAAASUVORK5CYII="
 
 type nativeTrayShortcutState struct {
-	parseOperationMutex sync.Mutex
-	parseMutex          sync.Mutex
-	parseOwners         map[uint]*nativeOwnerState
-	invokeUI            func(func())
+	opMu     sync.Mutex
+	mu       sync.Mutex
+	owners   map[uint]*nativeOwnerState
+	invokeUI func(func())
 }
 
 type nativeOwnerState struct {
-	parseWindow              application.Window
-	parseTrays               map[string]*application.SystemTray
-	parseTrayMenus           map[string]*application.Menu
-	parseTrayGenerations     map[string]uint64
-	parseShortcuts           map[string]string
-	parseShortcutGenerations map[string]uint64
+	window              application.Window
+	trays               map[string]*application.SystemTray
+	trayMenus           map[string]*application.Menu
+	trayGenerations     map[string]uint64
+	shortcuts           map[string]string
+	shortcutGenerations map[string]uint64
 }
 
 func init() {
@@ -39,279 +39,333 @@ func init() {
 
 // newNativeTrayShortcutState constructs isolated caller ownership state.
 func newNativeTrayShortcutState() *nativeTrayShortcutState {
-	return &nativeTrayShortcutState{parseOwners: make(map[uint]*nativeOwnerState), invokeUI: application.InvokeSync}
+	return &nativeTrayShortcutState{
+		owners:   make(map[uint]*nativeOwnerState),
+		invokeUI: application.InvokeSync,
+	}
 }
 
 // runTrayUI publishes one complete tray mutation on the Wails UI thread.
-func (parseState *nativeTrayShortcutState) runTrayUI(parseAction func()) {
-	parseState.invokeUI(parseAction)
+func (s *nativeTrayShortcutState) runTrayUI(action func()) {
+	s.invokeUI(action)
 }
 
-// ConfigureTray creates, atomically replaces, or removes a caller-owned tray icon.
-func (parseBackend *nativeBackend) ConfigureTray(parseContext context.Context, parseRequest desktop.TrayRequest) error {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return parseErr
+// ConfigureTray creates, updates in-place, positions relative to, or removes a caller-owned tray icon.
+func (b *nativeBackend) ConfigureTray(ctx context.Context, req desktop.TrayRequest) error {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return err
 	}
-	parseState := parseBackend.parseTrayShortcuts
-	if parseState == nil {
+	state := b.trayShortcuts
+	if state == nil {
 		return unavailable("tray state unavailable")
 	}
-	var parseApp *application.App
-	var parseIcon []byte
-	if parseRequest.Action == "upsert" {
-		parseApp = application.Get()
-		if parseApp == nil || parseApp.SystemTray == nil {
+	var app *application.App
+	var icon []byte
+	var darkIcon []byte
+	if req.Action == "upsert" {
+		app = application.Get()
+		if app == nil || app.SystemTray == nil {
 			return unavailable("Wails system tray unavailable")
 		}
-		parseIcon, parseErr = base64.StdEncoding.DecodeString(parseTrayIconPNG)
-		if parseErr != nil {
+		icon, err = base64.StdEncoding.DecodeString(defaultTrayIconPNG)
+		if err != nil {
 			return unavailable("embedded tray icon unavailable")
 		}
-		if len(parseRequest.Icon) != 0 {
-			parseIcon = append([]byte(nil), parseRequest.Icon...)
+		if len(req.Icon) != 0 {
+			icon = append([]byte(nil), req.Icon...)
+		}
+		if len(req.DarkModeIcon) != 0 {
+			darkIcon = append([]byte(nil), req.DarkModeIcon...)
 		}
 	}
-	parseState.parseOperationMutex.Lock()
-	defer parseState.parseOperationMutex.Unlock()
-	parseState.parseMutex.Lock()
-	parseOwner := parseState.getOwnerLocked(parseWindow)
-	parseExisting, parseExists := parseOwner.parseTrays[parseRequest.ID]
-	parseExistingMenu := parseOwner.parseTrayMenus[parseRequest.ID]
-	if parseRequest.Action == "show" || parseRequest.Action == "hide" {
-		if !parseExists {
-			parseState.parseMutex.Unlock()
+
+	state.opMu.Lock()
+	defer state.opMu.Unlock()
+	state.mu.Lock()
+	owner := state.getOwnerLocked(win)
+	existing, exists := owner.trays[req.ID]
+	existingMenu := owner.trayMenus[req.ID]
+
+	switch req.Action {
+	case "show", "hide":
+		if !exists {
+			state.mu.Unlock()
 			return invalid("tray identifier is not registered")
 		}
-		parseState.parseMutex.Unlock()
-		if parseRequest.Action == "show" {
-			parseExisting.Show()
+		state.mu.Unlock()
+		if req.Action == "show" {
+			existing.Show()
 		} else {
-			parseExisting.Hide()
+			existing.Hide()
 		}
 		return nil
-	}
-	if parseRequest.Action == "remove" {
-		if !parseExists {
-			parseState.parseMutex.Unlock()
+	case "position-window":
+		if !exists {
+			state.mu.Unlock()
 			return invalid("tray identifier is not registered")
 		}
-		delete(parseOwner.parseTrays, parseRequest.ID)
-		delete(parseOwner.parseTrayMenus, parseRequest.ID)
-		parseState.parseMutex.Unlock()
-		destroyTrayResources(parseExisting, parseExistingMenu)
+		state.mu.Unlock()
+		return existing.PositionWindow(win, req.Offset)
+	case "remove":
+		if !exists {
+			state.mu.Unlock()
+			return invalid("tray identifier is not registered")
+		}
+		delete(owner.trays, req.ID)
+		delete(owner.trayMenus, req.ID)
+		state.mu.Unlock()
+		state.destroyTrayResources(existing, existingMenu)
 		return nil
 	}
-	if !parseExists && len(parseOwner.parseTrays) >= 32 {
-		parseState.parseMutex.Unlock()
+
+	if !exists && len(owner.trays) >= 32 {
+		state.mu.Unlock()
 		return invalid("caller tray limit reached")
 	}
-	parseID := parseRequest.ID
-	parseGeneration := parseOwner.parseTrayGenerations[parseID] + 1
-	parseOwner.parseTrayGenerations[parseID] = parseGeneration
-	parseState.parseMutex.Unlock()
-	var parseMenu *application.Menu
-	var parseTray *application.SystemTray
-	// The Windows tray becomes visible during New. Publish its complete callback
-	// state in one UI turn so WndProc cannot observe a partially configured tray.
-	parseState.runTrayUI(func() {
-		if parseRequest.Menu != nil {
-			parseMenu = application.NewMenu()
-			buildTrayMenuItems(parseState, parseWindow, parseMenu, parseID, parseGeneration, parseRequest.Menu.Items)
+	trayID := req.ID
+	generation := owner.trayGenerations[trayID] + 1
+	owner.trayGenerations[trayID] = generation
+	state.mu.Unlock()
+
+	var menu *application.Menu
+	var tray *application.SystemTray
+	// Publish the complete tray state in one UI turn so WndProc never observes a
+	// partially configured tray. Reuse an existing tray handle in place to avoid
+	// taskbar icon flicker on updates.
+	state.runTrayUI(func() {
+		if req.Menu != nil {
+			menu = application.NewMenu()
+			buildTrayMenuItems(state, win, menu, trayID, generation, req.Menu.Items)
 		}
-		parseTray = parseApp.SystemTray.New().SetIcon(parseIcon)
-		parseTray.SetTooltip(parseRequest.Tooltip)
-		parseTray.OnClick(func() { parseState.emitTrayEvent(parseWindow, parseID, parseGeneration, "click", "") })
-		parseTray.OnRightClick(func() {
-			if parseState.emitTrayEvent(parseWindow, parseID, parseGeneration, "right-click", "") && parseMenu != nil {
-				parseTray.OpenMenu()
+		if exists && existing != nil {
+			tray = existing
+			tray.SetIcon(icon)
+			if len(darkIcon) != 0 {
+				tray.SetDarkModeIcon(darkIcon)
+			}
+			tray.SetLabel(req.Label)
+			tray.SetTooltip(req.Tooltip)
+			tray.OnClick(func() { state.emitTrayEvent(win, trayID, generation, "click", "") })
+			tray.OnRightClick(func() {
+				if state.emitTrayEvent(win, trayID, generation, "right-click", "") && menu != nil {
+					tray.OpenMenu()
+				}
+			})
+			tray.OnDoubleClick(func() {
+				state.emitTrayEvent(win, trayID, generation, "double-click", "")
+			})
+			tray.SetMenu(menu)
+			if existingMenu != nil {
+				existingMenu.Destroy()
+			}
+			return
+		}
+		tray = app.SystemTray.New().SetIcon(icon)
+		if len(darkIcon) != 0 {
+			tray.SetDarkModeIcon(darkIcon)
+		}
+		if req.Label != "" {
+			tray.SetLabel(req.Label)
+		}
+		tray.SetTooltip(req.Tooltip)
+		tray.OnClick(func() { state.emitTrayEvent(win, trayID, generation, "click", "") })
+		tray.OnRightClick(func() {
+			if state.emitTrayEvent(win, trayID, generation, "right-click", "") && menu != nil {
+				tray.OpenMenu()
 			}
 		})
-		parseTray.OnDoubleClick(func() {
-			parseState.emitTrayEvent(parseWindow, parseID, parseGeneration, "double-click", "")
+		tray.OnDoubleClick(func() {
+			state.emitTrayEvent(win, trayID, generation, "double-click", "")
 		})
-		if parseMenu != nil {
-			parseTray.SetMenu(parseMenu)
+		if menu != nil {
+			tray.SetMenu(menu)
 		}
 	})
-	parseState.parseMutex.Lock()
-	parseOwner.parseTrays[parseID] = parseTray
-	parseOwner.parseTrayMenus[parseID] = parseMenu
-	parseState.parseMutex.Unlock()
-	if parseExists {
-		destroyTrayResources(parseExisting, parseExistingMenu)
-	}
+
+	state.mu.Lock()
+	owner.trays[trayID] = tray
+	owner.trayMenus[trayID] = menu
+	state.mu.Unlock()
 	return nil
 }
 
 // destroyTrayResources releases tray and menu native objects on the Wails UI thread.
-func destroyTrayResources(parseTray *application.SystemTray, parseMenu *application.Menu) {
-	application.InvokeSync(func() {
-		if parseTray != nil {
-			parseTray.Destroy()
+func (s *nativeTrayShortcutState) destroyTrayResources(tray *application.SystemTray, menu *application.Menu) {
+	s.runTrayUI(func() {
+		if tray != nil {
+			tray.Destroy()
 		}
-		if parseMenu != nil {
-			parseMenu.Destroy()
+		if menu != nil {
+			menu.Destroy()
 		}
 	})
 }
 
 // buildTrayMenuItems converts a validated portable menu to typed tray callbacks.
-func buildTrayMenuItems(parseState *nativeTrayShortcutState, parseWindow application.Window, parseMenu *application.Menu, parseTrayID string, parseGeneration uint64, parseItems []desktop.MenuItem) {
-	for _, parseDefinition := range parseItems {
-		switch parseDefinition.Kind {
+func buildTrayMenuItems(state *nativeTrayShortcutState, win application.Window, menu *application.Menu, trayID string, generation uint64, items []desktop.MenuItem) {
+	for _, def := range items {
+		switch def.Kind {
 		case desktop.MenuItemSeparator:
-			parseMenu.AddSeparator()
+			menu.AddSeparator()
 		case desktop.MenuItemSubmenu:
-			parseItem := application.NewSubMenuItem(parseDefinition.Label).SetEnabled(parseDefinition.Enabled)
-			parseMenu.Append(application.NewMenuFromItems(parseItem))
-			buildTrayMenuItems(parseState, parseWindow, parseItem.GetSubmenu(), parseTrayID, parseGeneration, parseDefinition.Items)
+			item := application.NewSubMenuItem(def.Label).SetEnabled(def.Enabled)
+			menu.Append(application.NewMenuFromItems(item))
+			buildTrayMenuItems(state, win, item.GetSubmenu(), trayID, generation, def.Items)
 		default:
-			var parseItem *application.MenuItem
-			if parseDefinition.Kind == desktop.MenuItemCheckbox {
-				parseItem = parseMenu.AddCheckbox(parseDefinition.Label, parseDefinition.Checked)
-			} else if parseDefinition.Kind == desktop.MenuItemRadio {
-				parseItem = parseMenu.AddRadio(parseDefinition.Label, parseDefinition.Checked)
-			} else {
-				parseItem = parseMenu.Add(parseDefinition.Label)
+			var item *application.MenuItem
+			switch def.Kind {
+			case desktop.MenuItemCheckbox:
+				item = menu.AddCheckbox(def.Label, def.Checked)
+			case desktop.MenuItemRadio:
+				item = menu.AddRadio(def.Label, def.Checked)
+			default:
+				item = menu.Add(def.Label)
 			}
-			parseItem.SetEnabled(parseDefinition.Enabled)
-			parseItemID := parseDefinition.ID
-			parseItem.OnClick(func(*application.Context) {
-				parseState.emitTrayEvent(parseWindow, parseTrayID, parseGeneration, "menu", parseItemID)
+			item.SetEnabled(def.Enabled)
+			itemID := def.ID
+			item.OnClick(func(*application.Context) {
+				state.emitTrayEvent(win, trayID, generation, "menu", itemID)
 			})
 		}
 	}
 }
 
 // emitTrayEvent suppresses callbacks from removed or replaced tray generations.
-func (parseState *nativeTrayShortcutState) emitTrayEvent(parseWindow application.Window, parseID string, parseGeneration uint64, parseKind, parseItemID string) bool {
-	parseState.parseMutex.Lock()
-	parseOwner := parseState.parseOwners[parseWindow.ID()]
+func (s *nativeTrayShortcutState) emitTrayEvent(win application.Window, id string, generation uint64, kind, itemID string) bool {
+	s.mu.Lock()
+	owner := s.owners[win.ID()]
 	isCurrent := false
-	if parseOwner != nil {
-		_, parseExists := parseOwner.parseTrays[parseID]
-		isCurrent = parseExists && parseOwner.parseTrayGenerations[parseID] == parseGeneration
+	if owner != nil {
+		_, exists := owner.trays[id]
+		isCurrent = exists && owner.trayGenerations[id] == generation
 	}
-	parseState.parseMutex.Unlock()
+	s.mu.Unlock()
 	if isCurrent {
-		parseWindow.EmitEvent(desktop.TrayEventTopic, desktop.TrayEvent{ID: parseID, Kind: parseKind, ItemID: parseItemID})
+		win.EmitEvent(desktop.TrayEventTopic, desktop.TrayEvent{ID: id, Kind: kind, ItemID: itemID})
 	}
 	return isCurrent
 }
 
 // ConfigureShortcut creates, atomically replaces, or removes a caller-owned global shortcut.
-func (parseBackend *nativeBackend) ConfigureShortcut(parseContext context.Context, parseRequest desktop.ShortcutRequest) error {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return parseErr
+func (b *nativeBackend) ConfigureShortcut(ctx context.Context, req desktop.ShortcutRequest) error {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return err
 	}
-	parseState := parseBackend.parseTrayShortcuts
-	if parseState == nil {
+	state := b.trayShortcuts
+	if state == nil {
 		return unavailable("shortcut state unavailable")
 	}
-	parseApp := application.Get()
-	if parseApp == nil || parseApp.GlobalShortcut == nil {
+	app := application.Get()
+	if app == nil || app.GlobalShortcut == nil {
 		return unavailable("Wails global shortcuts unavailable")
 	}
-	parseState.parseOperationMutex.Lock()
-	defer parseState.parseOperationMutex.Unlock()
-	parseState.parseMutex.Lock()
-	parseOwner := parseState.getOwnerLocked(parseWindow)
-	parseExisting, parseExists := parseOwner.parseShortcuts[parseRequest.ID]
-	if parseRequest.Action == "remove" {
-		if !parseExists {
-			parseState.parseMutex.Unlock()
+	state.opMu.Lock()
+	defer state.opMu.Unlock()
+	state.mu.Lock()
+	owner := state.getOwnerLocked(win)
+	existing, exists := owner.shortcuts[req.ID]
+	if req.Action == "remove" {
+		if !exists {
+			state.mu.Unlock()
 			return invalid("shortcut identifier is not registered")
 		}
-		parseState.parseMutex.Unlock()
-		if parseErr = parseApp.GlobalShortcut.Unregister(parseExisting); parseErr != nil {
-			return fmt.Errorf("unregister global shortcut: %w", parseErr)
+		state.mu.Unlock()
+		if err = app.GlobalShortcut.Unregister(existing); err != nil {
+			return fmt.Errorf("unregister global shortcut: %w", err)
 		}
-		parseState.parseMutex.Lock()
-		delete(parseOwner.parseShortcuts, parseRequest.ID)
-		parseState.parseMutex.Unlock()
+		state.mu.Lock()
+		delete(owner.shortcuts, req.ID)
+		state.mu.Unlock()
 		return nil
 	}
-	if parseExists && parseExisting == parseRequest.Accelerator {
-		parseState.parseMutex.Unlock()
+	if exists && existing == req.Accelerator {
+		state.mu.Unlock()
 		return nil
 	}
-	if !parseExists && len(parseOwner.parseShortcuts) >= 32 {
-		parseState.parseMutex.Unlock()
+	if !exists && len(owner.shortcuts) >= 32 {
+		state.mu.Unlock()
 		return invalid("caller shortcut limit reached")
 	}
-	parseID := parseRequest.ID
-	parseGeneration := parseOwner.parseShortcutGenerations[parseID] + 1
-	parseState.parseMutex.Unlock()
-	if parseErr = parseApp.GlobalShortcut.Register(parseRequest.Accelerator, func() {
-		parseState.emitShortcutEvent(parseWindow, parseID, parseGeneration)
-	}); parseErr != nil {
-		return fmt.Errorf("register global shortcut: %w", parseErr)
+	shortcutID := req.ID
+	generation := owner.shortcutGenerations[shortcutID] + 1
+	state.mu.Unlock()
+	if err = app.GlobalShortcut.Register(req.Accelerator, func() {
+		state.emitShortcutEvent(win, shortcutID, generation)
+	}); err != nil {
+		return fmt.Errorf("register global shortcut: %w", err)
 	}
-	if parseExists {
-		if parseErr = parseApp.GlobalShortcut.Unregister(parseExisting); parseErr != nil {
-			_ = parseApp.GlobalShortcut.Unregister(parseRequest.Accelerator)
-			return fmt.Errorf("replace global shortcut: %w", parseErr)
+	if exists {
+		if err = app.GlobalShortcut.Unregister(existing); err != nil {
+			_ = app.GlobalShortcut.Unregister(req.Accelerator)
+			return fmt.Errorf("replace global shortcut: %w", err)
 		}
 	}
-	parseState.parseMutex.Lock()
-	parseOwner.parseShortcuts[parseID] = parseRequest.Accelerator
-	parseOwner.parseShortcutGenerations[parseID] = parseGeneration
-	parseState.parseMutex.Unlock()
+	state.mu.Lock()
+	owner.shortcuts[shortcutID] = req.Accelerator
+	owner.shortcutGenerations[shortcutID] = generation
+	state.mu.Unlock()
 	return nil
 }
 
 // emitShortcutEvent suppresses callbacks from removed or replaced shortcut generations.
-func (parseState *nativeTrayShortcutState) emitShortcutEvent(parseWindow application.Window, parseID string, parseGeneration uint64) {
-	parseState.parseMutex.Lock()
-	parseOwner := parseState.parseOwners[parseWindow.ID()]
+func (s *nativeTrayShortcutState) emitShortcutEvent(win application.Window, id string, generation uint64) {
+	s.mu.Lock()
+	owner := s.owners[win.ID()]
 	isCurrent := false
-	if parseOwner != nil {
-		_, parseExists := parseOwner.parseShortcuts[parseID]
-		isCurrent = parseExists && parseOwner.parseShortcutGenerations[parseID] == parseGeneration
+	if owner != nil {
+		_, exists := owner.shortcuts[id]
+		isCurrent = exists && owner.shortcutGenerations[id] == generation
 	}
-	parseState.parseMutex.Unlock()
+	s.mu.Unlock()
 	if isCurrent {
-		parseWindow.EmitEvent(desktop.ShortcutEventTopic, desktop.ShortcutEvent{ID: parseID})
+		win.EmitEvent(desktop.ShortcutEventTopic, desktop.ShortcutEvent{ID: id})
 	}
 }
 
 // getOwnerLocked returns caller state and installs its one-time closing cleanup.
-func (parseState *nativeTrayShortcutState) getOwnerLocked(parseWindow application.Window) *nativeOwnerState {
-	parseOwner := parseState.parseOwners[parseWindow.ID()]
-	if parseOwner != nil {
-		return parseOwner
+func (s *nativeTrayShortcutState) getOwnerLocked(win application.Window) *nativeOwnerState {
+	owner := s.owners[win.ID()]
+	if owner != nil {
+		return owner
 	}
-	parseOwner = &nativeOwnerState{parseWindow: parseWindow, parseTrays: make(map[string]*application.SystemTray), parseTrayMenus: make(map[string]*application.Menu), parseTrayGenerations: make(map[string]uint64), parseShortcuts: make(map[string]string), parseShortcutGenerations: make(map[string]uint64)}
-	parseState.parseOwners[parseWindow.ID()] = parseOwner
-	parseWindow.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
-		parseState.cleanupOwner(parseWindow.ID())
+	owner = &nativeOwnerState{
+		window:              win,
+		trays:               make(map[string]*application.SystemTray),
+		trayMenus:           make(map[string]*application.Menu),
+		trayGenerations:     make(map[string]uint64),
+		shortcuts:           make(map[string]string),
+		shortcutGenerations: make(map[string]uint64),
+	}
+	s.owners[win.ID()] = owner
+	win.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
+		s.cleanupOwner(win.ID())
 	})
-	return parseOwner
+	return owner
 }
 
 // cleanupOwner releases every operating-system resource owned by one closing window.
-func (parseState *nativeTrayShortcutState) cleanupOwner(parseWindowID uint) {
-	parseState.parseOperationMutex.Lock()
-	defer parseState.parseOperationMutex.Unlock()
-	parseState.parseMutex.Lock()
-	parseOwner := parseState.parseOwners[parseWindowID]
-	if parseOwner == nil {
-		parseState.parseMutex.Unlock()
+func (s *nativeTrayShortcutState) cleanupOwner(windowID uint) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+	s.mu.Lock()
+	owner := s.owners[windowID]
+	if owner == nil {
+		s.mu.Unlock()
 		return
 	}
-	delete(parseState.parseOwners, parseWindowID)
-	parseState.parseMutex.Unlock()
-	for parseID, parseTray := range parseOwner.parseTrays {
-		destroyTrayResources(parseTray, parseOwner.parseTrayMenus[parseID])
+	delete(s.owners, windowID)
+	s.mu.Unlock()
+	for id, tray := range owner.trays {
+		s.destroyTrayResources(tray, owner.trayMenus[id])
 	}
-	parseApp := application.Get()
-	if parseApp == nil || parseApp.GlobalShortcut == nil {
+	app := application.Get()
+	if app == nil || app.GlobalShortcut == nil {
 		return
 	}
-	for _, parseAccelerator := range parseOwner.parseShortcuts {
-		if parseErr := parseApp.GlobalShortcut.Unregister(parseAccelerator); parseErr != nil && !errors.Is(parseErr, context.Canceled) {
+	for _, accelerator := range owner.shortcuts {
+		if err := app.GlobalShortcut.Unregister(accelerator); err != nil && !errors.Is(err, context.Canceled) {
 			// Window teardown is best effort; Wails performs an application-wide final cleanup.
 			continue
 		}

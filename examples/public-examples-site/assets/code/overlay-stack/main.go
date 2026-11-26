@@ -5,13 +5,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v8/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v8/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	"github.com/monstercameron/GoWebComponents/v8/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 const overlayStackRoot = "#overlay-stack-root"

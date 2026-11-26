@@ -3,37 +3,30 @@
 These conventions are applied consistently across the framework. New code is
 expected to match them so the codebase reads as one voice.
 
-## `parse`-prefixed local variables
+## Local variable naming (idiomatic Go)
 
-**Every local variable is prefixed `parse`**: `parseKey`, `parseValue`,
-`parseErr`, `parseResult`, `parseIndex`. This includes loop variables, receiver
-helpers, and intermediate results.
+Use clear, idiomatic Go names for local variables, parameters, and receivers
+(`key`, `value`, `err`, `result`, `idx`, `r`, `s`), following standard Go
+conventions (short names in tight scopes, descriptive names in wider scopes).
 
 ```go
-func ScopeCacheKey(parseSegments ...string) string {
-	parseParts := make([]string, 0, len(parseSegments))
-	for _, parseSegment := range parseSegments {
-		parseSegment = strings.TrimSpace(parseSegment)
-		if parseSegment != "" {
-			parseParts = append(parseParts, parseSegment)
+func ScopeCacheKey(segments ...string) string {
+	parts := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		segment = strings.TrimSpace(segment)
+		if segment != "" {
+			parts = append(parts, segment)
 		}
 	}
-	return strings.Join(parseParts, ":")
+	return strings.Join(parts, ":")
 }
 ```
 
-Why a single uniform prefix:
-
-- It makes locals instantly distinguishable from package-level identifiers,
-  exported API, and struct fields at a glance, with no per-name judgement.
-- It keeps generated, hand-written, and refactored code visually identical,
-  which matters in a codebase where the same logic often exists in a
-  `*_native.go` / `*_wasm.go` pair.
-- It removes a whole class of naming bikeshedding from review.
-
-The prefix applies to **locals only**. Exported and package-level identifiers,
-struct fields, method receivers' field names, and constants keep ordinary Go
-names.
+> **Historical note (`parse`-prefixed locals):** Older parts of the codebase
+> prefixed local variables with `parse` (`parseKey`, `parseErr`, `parseRt`).
+> That convention is **retired for new and edited code**. Do not add new
+> `parse`-prefixed locals, and do not perform mechanical repo-wide renames of
+> untouched legacy files solely to strip the prefix.
 
 ## Function naming: `verbSubject[Object]`
 
@@ -51,7 +44,7 @@ buildToolbarSelectOption
 
 Rules:
 
-- All functions and variables start with a verb where one applies.
+- Functions start with a verb where one applies.
 - The subject names the domain (`sidebar`, `thread`, `cache`), not the data
   type (`string`, `slice`).
 - Add an object only when it disambiguates.

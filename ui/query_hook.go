@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v7/query"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/query"
 )
 
 // UseQuery subscribes the calling component to a key in a query.Cache and returns the

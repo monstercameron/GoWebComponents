@@ -5,8 +5,8 @@ package ui
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 )
 
 // elementValueForRef returns the live js.Value for a DOMRef, and whether it is

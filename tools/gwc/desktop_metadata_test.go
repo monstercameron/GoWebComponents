@@ -9,7 +9,7 @@ func TestValidateScaffoldDesktopMetadataAcceptsIsolatedTarget(parseT *testing.T)
 		FrontendEntry: "frontend/main.go",
 		AssetsDir:     "assets",
 		OutputPath:    "bin/wails-counter.exe",
-		WailsVersion:  "v3.0.0-beta.17",
+		WailsVersion:  desktopWailsVersion,
 	}
 	if parseErr := validateScaffoldDesktopMetadata(&parseMetadata); parseErr != nil {
 		parseT.Fatalf("valid desktop metadata rejected: %v", parseErr)
@@ -28,7 +28,7 @@ func TestValidateScaffoldDesktopMetadataRejectsMalformedPaths(parseT *testing.T)
 	}
 	for _, parseCase := range parseCases {
 		parseT.Run(parseCase.name, func(parseT *testing.T) {
-			parseMetadata := scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: "bin/app.exe", WailsVersion: "v3.0.0-beta.17"}
+			parseMetadata := scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: "bin/app.exe", WailsVersion: desktopWailsVersion}
 			parseCase.edit(&parseMetadata)
 			if parseErr := validateScaffoldDesktopMetadata(&parseMetadata); parseErr == nil {
 				parseT.Fatal("malformed desktop metadata was accepted")
@@ -39,7 +39,7 @@ func TestValidateScaffoldDesktopMetadataRejectsMalformedPaths(parseT *testing.T)
 
 func TestValidateScaffoldDesktopMetadataRejectsOverlappingOutput(parseT *testing.T) {
 	for _, parseOutput := range []string{"assets/app.exe", "assets", "frontend/main.go"} {
-		parseMetadata := scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: parseOutput, WailsVersion: "v3.0.0-beta.17"}
+		parseMetadata := scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: parseOutput, WailsVersion: desktopWailsVersion}
 		if parseErr := validateScaffoldDesktopMetadata(&parseMetadata); parseErr == nil {
 			parseT.Fatalf("overlapping output %q was accepted", parseOutput)
 		}

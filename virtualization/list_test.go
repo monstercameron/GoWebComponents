@@ -9,9 +9,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // buildListTestNode renders List through a component wrapper so list tests stay within a valid hook context on both native and wasm targets.

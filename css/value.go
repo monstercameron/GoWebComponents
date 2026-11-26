@@ -12,17 +12,89 @@ type Length string
 
 func (l Length) String() string { return string(l) }
 
+const (
+	pxTableMin      = -16
+	pxTableMax      = 256
+	remQuarterMax   = 32 // 0.00rem .. 8.00rem in 0.25rem increments
+	percentTableMax = 100
+	msTableMax      = 500
+)
+
+var (
+	// Initialized via var expressions (not func init) so package-level vars in
+	// other files of package css (e.g. DefaultTheme) observe populated tables
+	// regardless of file init order.
+	pxTable         = buildPxTable()
+	remQuarterTable = buildRemQuarterTable()
+	percentIntTable = buildPercentIntTable()
+	msTable         = buildMsTable()
+)
+
+func buildPxTable() [pxTableMax - pxTableMin + 1]Length {
+	var table [pxTableMax - pxTableMin + 1]Length
+	for n := pxTableMin; n <= pxTableMax; n++ {
+		table[n-pxTableMin] = Length(strconv.Itoa(n) + "px")
+	}
+	return table
+}
+
+func buildRemQuarterTable() [remQuarterMax + 1]Length {
+	var table [remQuarterMax + 1]Length
+	for q := 0; q <= remQuarterMax; q++ {
+		table[q] = Length(trimFloat(float64(q)/4) + "rem")
+	}
+	return table
+}
+
+func buildPercentIntTable() [percentTableMax + 1]Length {
+	var table [percentTableMax + 1]Length
+	for p := 0; p <= percentTableMax; p++ {
+		table[p] = Length(strconv.Itoa(p) + "%")
+	}
+	return table
+}
+
+func buildMsTable() [msTableMax + 1]Duration {
+	var table [msTableMax + 1]Duration
+	for ms := 0; ms <= msTableMax; ms++ {
+		table[ms] = Duration(strconv.Itoa(ms) + "ms")
+	}
+	return table
+}
+
 // Px is an integer pixel length: Px(8) -> "8px".
-func Px(n int) Length { return Length(strconv.Itoa(n) + "px") }
+func Px(n int) Length {
+	if n >= pxTableMin && n <= pxTableMax {
+		return pxTable[n-pxTableMin]
+	}
+	return Length(strconv.Itoa(n) + "px")
+}
 
 // Rem is a rem length: Rem(0.5) -> "0.5rem".
-func Rem(n float64) Length { return Length(trimFloat(n) + "rem") }
+func Rem(n float64) Length {
+	if n >= 0 && n <= float64(remQuarterMax)/4 {
+		q := n * 4
+		qi := int(q)
+		if float64(qi) == q && qi >= 0 && qi <= remQuarterMax {
+			return remQuarterTable[qi]
+		}
+	}
+	return Length(trimFloat(n) + "rem")
+}
 
 // Ems is an em length: Ems(1.5) -> "1.5em".
 func Ems(n float64) Length { return Length(trimFloat(n) + "em") }
 
 // Percent is a percentage length: Percent(50) -> "50%".
-func Percent(n float64) Length { return Length(trimFloat(n) + "%") }
+func Percent(n float64) Length {
+	if n >= 0 && n <= percentTableMax {
+		pi := int(n)
+		if float64(pi) == n && pi >= 0 && pi <= percentTableMax {
+			return percentIntTable[pi]
+		}
+	}
+	return Length(trimFloat(n) + "%")
+}
 
 // Vh / Vw are viewport-relative lengths.
 func Vh(n float64) Length { return Length(trimFloat(n) + "vh") }
@@ -87,7 +159,12 @@ type Duration string
 func (d Duration) String() string { return string(d) }
 
 // Ms is a millisecond duration: Ms(120) -> "120ms".
-func Ms(n int) Duration { return Duration(strconv.Itoa(n) + "ms") }
+func Ms(n int) Duration {
+	if n >= 0 && n <= msTableMax {
+		return msTable[n]
+	}
+	return Duration(strconv.Itoa(n) + "ms")
+}
 
 // S is a second duration: S(0.2) -> "0.2s".
 func S(n float64) Duration { return Duration(trimFloat(n) + "s") }
@@ -124,18 +201,39 @@ type Color string
 
 func (c Color) String() string { return string(c) }
 
+func isHexByte(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
 // Hex builds a color from a hex string, tolerating a missing leading '#':
 // Hex("0af") and Hex("#0af") both -> "#0af". As a typed constructor it is
 // safe-by-construction: any non-hex characters are dropped, so an untrusted string
 // can never inject CSS or break out (e.g. Hex("</style>") -> "#e"). An empty/all-
 // invalid input falls back to "#000000".
-func Hex(parseValue string) Color {
-	var b strings.Builder
-	for i := 0; i < len(parseValue); i++ {
-		c := parseValue[i]
-		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
-			b.WriteByte(c)
-			if b.Len() == 8 { // cap at #RRGGBBAA
+func Hex(value string) Color {
+	// Zero-allocation fast path for already-normalized "#rgb", "#rgba", "#rrggbb", "#rrggbbaa".
+	if n := len(value); (n == 4 || n == 5 || n == 7 || n == 9) && value[0] == '#' {
+		valid := true
+		for i := 1; i < n; i++ {
+			if !isHexByte(value[i]) {
+				valid = false
+				break
+			}
+		}
+		if valid {
+			return Color(value)
+		}
+	}
+
+	var buf [9]byte
+	buf[0] = '#'
+	digits := 0
+	for i := 0; i < len(value); i++ {
+		c := value[i]
+		if isHexByte(c) {
+			digits++
+			buf[digits] = c
+			if digits == 8 { // cap at #RRGGBBAA
 				break
 			}
 		}
@@ -143,9 +241,9 @@ func Hex(parseValue string) Color {
 	// Only 3/4/6/8-digit forms are legal CSS hex colors; anything else (e.g.
 	// Hex("12345")) the browser silently drops. Fall back to black rather than
 	// emit a dead value.
-	switch b.Len() {
+	switch digits {
 	case 3, 4, 6, 8:
-		return Color("#" + b.String())
+		return Color(string(buf[:digits+1]))
 	default:
 		return Color("#000000")
 	}

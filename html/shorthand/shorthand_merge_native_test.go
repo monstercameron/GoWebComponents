@@ -5,7 +5,7 @@ package shorthand
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // These regression tests for #77 construct event-handler PropOptions outside a

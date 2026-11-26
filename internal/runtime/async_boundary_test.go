@@ -120,18 +120,18 @@ func TestSuspensionHelpersAndStateMirroring(parseT *testing.T) {
 		parseT.Fatalf("findNearestAsyncBoundary without boundary = %#v", parseFound)
 	}
 	parseRt.setAsyncBoundarySuspension(parseBoundary, parseSuspension)
-	if parseBoundary.asyncSuspension != parseSuspension || parseAlternate.asyncSuspension != parseSuspension {
+	if parseBoundary.getAsyncSuspension() != parseSuspension || parseAlternate.getAsyncSuspension() != parseSuspension {
 		parseT.Fatal("setAsyncBoundarySuspension should mirror to alternate")
 	}
 	if asyncBoundaryCapturedSuspension(parseBoundary) != parseSuspension {
 		parseT.Fatal("asyncBoundaryCapturedSuspension should prefer current fiber")
 	}
-	parseBoundary.asyncSuspension = nil
+	parseBoundary.ensureCold().asyncSuspension = nil
 	if asyncBoundaryCapturedSuspension(parseBoundary) != parseSuspension {
 		parseT.Fatal("asyncBoundaryCapturedSuspension should fall back to alternate")
 	}
 	parseRt.clearAsyncBoundarySuspension(parseBoundary)
-	if parseBoundary.asyncSuspension != nil || parseAlternate.asyncSuspension != nil {
+	if parseBoundary.getAsyncSuspension() != nil || parseAlternate.getAsyncSuspension() != nil {
 		parseT.Fatal("clearAsyncBoundarySuspension should clear both generations")
 	}
 	parseRt.setAsyncBoundarySuspension(nil, parseSuspension)

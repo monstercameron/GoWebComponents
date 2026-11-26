@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 )
 
 type parseChildWindowBackend struct {
@@ -71,16 +71,39 @@ func TestChildWindowCreateRejectsURLAndBoundsBeforeBackend(parseTest *testing.T)
 	}
 }
 
-// TestChildWindowControlAllowsLifecycleOnly verifies application quit is absent.
-func TestChildWindowControlAllowsLifecycleOnly(parseTest *testing.T) {
-	for _, parseAction := range []string{"show", "hide", "close"} {
-		if parseErr := validateChildWindowControlRequest(ChildWindowControlRequest{ID: "child", Action: parseAction}); parseErr != nil {
-			parseTest.Fatalf("action %q rejected: %v", parseAction, parseErr)
+// TestChildWindowControlAllowsBoundedActions verifies application quit and arbitrary URLs remain absent.
+func TestChildWindowControlAllowsBoundedActions(t *testing.T) {
+	for _, req := range []ChildWindowControlRequest{
+		{ID: "child", Action: "show"},
+		{ID: "child", Action: "hide"},
+		{ID: "child", Action: "close"},
+		{ID: "child", Action: "focus"},
+		{ID: "child", Action: "minimize"},
+		{ID: "child", Action: "unminimize"},
+		{ID: "child", Action: "maximize"},
+		{ID: "child", Action: "unmaximize"},
+		{ID: "child", Action: "restore"},
+		{ID: "child", Action: "center"},
+		{ID: "child", Action: "set-title", Title: "Inspector"},
+		{ID: "child", Action: "resize", Width: 640, Height: 480},
+		{ID: "child", Action: "set-bounds", X: 20, Y: 30, Width: 640, Height: 480},
+	} {
+		if err := validateChildWindowControlRequest(req); err != nil {
+			t.Fatalf("request %+v rejected: %v", req, err)
 		}
 	}
-	for _, parseAction := range []string{"quit", "set-url", "destroy-parent"} {
-		if parseErr := validateChildWindowControlRequest(ChildWindowControlRequest{ID: "child", Action: parseAction}); parseErr == nil {
-			parseTest.Fatalf("action %q must be rejected", parseAction)
+	for _, req := range []ChildWindowControlRequest{
+		{ID: "child", Action: "quit"},
+		{ID: "child", Action: "set-url"},
+		{ID: "child", Action: "destroy-parent"},
+		{ID: "child", Action: "show", Title: "extra"},
+		{ID: "child", Action: "resize", Width: 0, Height: 480},
+		{ID: "child", Action: "resize", Width: 640, Height: 480, X: 1},
+		{ID: "child", Action: "set-title", Title: "bad\x00title"},
+		{ID: "child", Action: "set-bounds", X: 100001, Y: 0, Width: 640, Height: 480},
+	} {
+		if err := validateChildWindowControlRequest(req); err == nil {
+			t.Fatalf("request %+v must be rejected", req)
 		}
 	}
 }
@@ -111,9 +134,15 @@ func TestChildWindowClientWireMethods(parseTest *testing.T) {
 	if _, parseErr := parseClient.InspectChildWindow(context.Background(), "child"); parseErr != nil {
 		parseTest.Fatal(parseErr)
 	}
-	for _, parseCall := range []func(context.Context, string) (ChildWindowInfo, error){parseClient.ShowChildWindow, parseClient.HideChildWindow, parseClient.CloseChildWindow} {
+	for _, parseCall := range []func(context.Context, string) (ChildWindowInfo, error){parseClient.ShowChildWindow, parseClient.HideChildWindow, parseClient.CloseChildWindow, parseClient.FocusChildWindow} {
 		if _, parseErr := parseCall(context.Background(), "child"); parseErr != nil {
 			parseTest.Fatal(parseErr)
 		}
+	}
+	if _, err := parseClient.ResizeChildWindow(context.Background(), "child", 800, 600); err != nil {
+		parseTest.Fatal(err)
+	}
+	if _, err := parseClient.SetChildWindowTitle(context.Background(), "child", "Updated"); err != nil {
+		parseTest.Fatal(err)
 	}
 }

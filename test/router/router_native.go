@@ -5,7 +5,7 @@ package routertest
 import (
 	stdtesting "testing"
 
-	base "github.com/monstercameron/GoWebComponents/v7/testkit/router"
+	base "github.com/monstercameron/GoWebComponents/v8/testkit/router"
 )
 
 type Fixture = base.Fixture

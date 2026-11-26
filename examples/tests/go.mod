@@ -1,4 +1,4 @@
-module github.com/monstercameron/GoWebComponents/v7/examples/tests
+module github.com/monstercameron/GoWebComponents/v8/examples/tests
 
 go 1.27.0
 
@@ -11,4 +11,4 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 )
 
-replace github.com/monstercameron/GoWebComponents/v7 => ../..
+replace github.com/monstercameron/GoWebComponents/v8 => ../..

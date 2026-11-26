@@ -208,10 +208,10 @@ func TestRuntimeInspectCapturesFineGrainedMetadata(parseT *testing.T) {
 		fineGrainedDescendantTextCommits: 7,
 	}
 	parseReactive := &Fiber{
-		typeOf:         ReactiveTextNodeType,
-		fineGrained:    true,
-		reactiveAtomID: "count",
-		updateOrigin:   "fine-grained",
+		typeOf:       ReactiveTextNodeType,
+		fineGrained:  true,
+		cold:         &fiberCold{reactiveAtomID: "count"},
+		updateOrigin: "fine-grained",
 	}
 	parseRoot := &Fiber{typeOf: "ROOT", child: parseReactive}
 	parseReactive.parent = parseRoot
@@ -374,15 +374,17 @@ func testSignatureComponent() *Element {
 
 func TestRuntimeInspectCollectsHotBranchesAndTiming(parseT *testing.T) {
 	parseRt := &Runtime{}
-	parseGrandchild := &Fiber{typeOf: "span", commitDurationNs: int64(1 * time.Millisecond)}
+	parseGrandchild := &Fiber{typeOf: "span", cold: &fiberCold{commitDurationNs: int64(1 * time.Millisecond)}}
 	parseChild := &Fiber{
-		typeOf:            "section",
-		renderDurationNs:  int64(2 * time.Millisecond),
-		diffDurationNs:    int64(1 * time.Millisecond),
-		commitDurationNs:  int64(2 * time.Millisecond),
-		effectDurationNs:  int64(3 * time.Millisecond),
-		cleanupDurationNs: int64(1 * time.Millisecond),
-		child:             parseGrandchild,
+		typeOf: "section",
+		cold: &fiberCold{
+			renderDurationNs:  int64(2 * time.Millisecond),
+			diffDurationNs:    int64(1 * time.Millisecond),
+			commitDurationNs:  int64(2 * time.Millisecond),
+			effectDurationNs:  int64(3 * time.Millisecond),
+			cleanupDurationNs: int64(1 * time.Millisecond),
+		},
+		child: parseGrandchild,
 	}
 	parseRoot := &Fiber{typeOf: "ROOT", child: parseChild}
 	parseChild.parent = parseRoot

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 func stageExampleWasmFixtures(parseT *testing.T, parseBinaryNames ...string) string {
@@ -1069,8 +1069,8 @@ package app
 import (
 	"database/sql"
 
-	"github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/server/app"
-	"github.com/monstercameron/GoWebComponents/v7/fetch"
+	"github.com/monstercameron/GoWebComponents/v8/examples/server/ai-chat-wizard/server/app"
+	"github.com/monstercameron/GoWebComponents/v8/fetch"
 )
 
 func leak() {
@@ -1118,7 +1118,7 @@ func TestBuildDoctorGoldenPathAuditFlagsRouteShapeWarnings(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
 	parseRouteSource := `package main
 
-import "github.com/monstercameron/GoWebComponents/v7/router"
+import "github.com/monstercameron/GoWebComponents/v8/router"
 
 var (
 	homeRoute = router.MustDefineRoute("/")
@@ -1439,7 +1439,7 @@ func TestBuildDoctorStateOwnershipCheckFlagsMixedPersistenceHeuristic(parseT *te
 	if parseErr := os.MkdirAll(parseClientDir, 0755); parseErr != nil {
 		parseT.Fatalf("mkdir client dir: %v", parseErr)
 	}
-	parseClientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport \"github.com/monstercameron/GoWebComponents/v7/fetch\"\n\nfunc mixedOwnership() {\n\t_ = fetch.UseCachedResource(\n\t_ = localStorage\n}\n")
+	parseClientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport \"github.com/monstercameron/GoWebComponents/v8/fetch\"\n\nfunc mixedOwnership() {\n\t_ = fetch.UseCachedResource(\n\t_ = localStorage\n}\n")
 	if parseErr2 := os.WriteFile(filepath.Join(parseClientDir, "state.go"), parseClientFile, 0644); parseErr2 != nil {
 		parseT.Fatalf("write state.go: %v", parseErr2)
 	}

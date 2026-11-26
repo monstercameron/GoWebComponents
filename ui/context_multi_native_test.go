@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // Deepens the ReactNewContext port: multiple independent contexts coexist; a

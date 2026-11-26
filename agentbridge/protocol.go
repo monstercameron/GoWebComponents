@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v7/deprecation"
+	"github.com/monstercameron/GoWebComponents/v8/deprecation"
 )
 
 // ProtocolName identifies the agent bridge wire protocol in every envelope.

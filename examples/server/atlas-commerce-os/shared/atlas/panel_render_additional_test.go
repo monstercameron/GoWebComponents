@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // atlasNativeRenderMu serializes native renders across this package's tests, and

@@ -8,277 +8,282 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 type menuWindowState struct {
-	parseCancel        func()
-	parseMenuToken     *menuConfigToken
-	parseInstalledMenu *application.Menu
-	parseContexts      map[string]*menuContextState
-	parseOperation     sync.Mutex
+	cancel        func()
+	menuToken     *menuConfigToken
+	installedMenu *application.Menu
+	contexts      map[string]*menuContextState
+	opMu          sync.Mutex
 }
 
 type menuContextState struct {
-	parseName  string
-	parseToken *menuConfigToken
-	parseMenu  *application.ContextMenu
+	name  string
+	token *menuConfigToken
+	menu  *application.ContextMenu
 }
 
-type menuConfigToken struct{ parseID uint64 }
+type menuConfigToken struct{ id uint64 }
 
 var menuConfigSequence atomic.Uint64
 
 // newMenuConfigToken returns a process-unique identity that is never reset on removal.
 func newMenuConfigToken() *menuConfigToken {
-	return &menuConfigToken{parseID: menuConfigSequence.Add(1)}
+	return &menuConfigToken{id: menuConfigSequence.Add(1)}
 }
 
 var menuWindows = struct {
 	sync.Mutex
-	parseStates map[uint]*menuWindowState
-}{parseStates: map[uint]*menuWindowState{}}
+	states map[uint]*menuWindowState
+}{states: map[uint]*menuWindowState{}}
 
 // ReplaceMenu replaces the Wails application menu from a validated declarative tree.
-func (nativeBackend) ReplaceMenu(parseContext context.Context, parseDefinition desktop.Menu) error {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return parseErr
+func (nativeBackend) ReplaceMenu(ctx context.Context, definition desktop.Menu) error {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return err
 	}
 	menuWindows.Lock()
-	parseState := getMenuWindowStateLocked(parseWindow)
+	state := getMenuWindowStateLocked(win)
 	menuWindows.Unlock()
-	parseState.parseOperation.Lock()
-	defer parseState.parseOperation.Unlock()
-	parseToken := newMenuConfigToken()
+	state.opMu.Lock()
+	defer state.opMu.Unlock()
+
+	token := newMenuConfigToken()
 	menuWindows.Lock()
-	if menuWindows.parseStates[parseWindow.ID()] != parseState {
+	if menuWindows.states[win.ID()] != state {
 		menuWindows.Unlock()
 		return unavailable("calling window closed")
 	}
-	parseState.parseMenuToken = parseToken
-	parsePrevious := parseState.parseInstalledMenu
+	state.menuToken = token
+	previous := state.installedMenu
 	menuWindows.Unlock()
-	parseMenu := application.NewMenu()
-	buildMenuItems(parseWindow, parseMenu, parseDefinition.Items, parseState, parseToken, "")
-	parseWindow.SetMenu(parseMenu)
+
+	menu := application.NewMenu()
+	buildMenuItems(win, menu, definition.Items, state, token, "")
+	win.SetMenu(menu)
+
 	menuWindows.Lock()
-	if menuWindows.parseStates[parseWindow.ID()] == parseState && parseState.parseMenuToken == parseToken {
-		parseState.parseInstalledMenu = parseMenu
+	if menuWindows.states[win.ID()] == state && state.menuToken == token {
+		state.installedMenu = menu
 	}
 	menuWindows.Unlock()
-	if parsePrevious != nil {
-		parsePrevious.Destroy()
+	if previous != nil {
+		previous.Destroy()
 	}
 	return nil
 }
 
 // InstallContextMenu installs a caller-window scoped Wails context menu.
-func (nativeBackend) InstallContextMenu(parseContext context.Context, parseRequest desktop.ContextMenuRequest) error {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return parseErr
+func (nativeBackend) InstallContextMenu(ctx context.Context, req desktop.ContextMenuRequest) error {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return unavailable("Wails application unavailable")
 	}
 	menuWindows.Lock()
-	parseState := getMenuWindowStateLocked(parseWindow)
+	state := getMenuWindowStateLocked(win)
 	menuWindows.Unlock()
-	parseState.parseOperation.Lock()
-	defer parseState.parseOperation.Unlock()
+	state.opMu.Lock()
+	defer state.opMu.Unlock()
+
 	menuWindows.Lock()
-	if menuWindows.parseStates[parseWindow.ID()] != parseState {
+	if menuWindows.states[win.ID()] != state {
 		menuWindows.Unlock()
 		return unavailable("calling window closed")
 	}
-	parsePrevious := parseState.parseContexts[parseRequest.ID]
-	parseToken := newMenuConfigToken()
-	parseName := fmt.Sprintf("gwc-%d-%s-%d", parseWindow.ID(), parseRequest.ID, parseToken.parseID)
-	parseState.parseContexts[parseRequest.ID] = &menuContextState{parseName: parseName, parseToken: parseToken}
+	previous := state.contexts[req.ID]
+	token := newMenuConfigToken()
+	name := fmt.Sprintf("gwc-%d-%s-%d", win.ID(), req.ID, token.id)
+	entry := &menuContextState{name: name, token: token}
+	state.contexts[req.ID] = entry
 	menuWindows.Unlock()
-	if parsePrevious != nil {
-		parseApp.ContextMenu.Remove(parsePrevious.parseName)
+
+	if previous != nil {
+		app.ContextMenu.Remove(previous.name)
 	}
-	parseMenu := application.NewDeferredContextMenu(parseName)
-	buildMenuItems(parseWindow, parseMenu.Menu, parseRequest.Menu.Items, parseState, parseToken, parseRequest.ID)
-	parseEntry := parseState.parseContexts[parseRequest.ID]
-	parseEntry.parseMenu = parseMenu
-	if parsePrevious != nil && parsePrevious.parseMenu != nil {
-		parsePrevious.parseMenu.Destroy()
-		parsePrevious.parseMenu.Menu.Destroy()
+	menu := application.NewDeferredContextMenu(name)
+	buildMenuItems(win, menu.Menu, req.Menu.Items, state, token, req.ID)
+	entry.menu = menu
+	if previous != nil && previous.menu != nil {
+		previous.menu.Destroy()
+		previous.menu.Menu.Destroy()
 	}
 	return nil
 }
 
 // ShowContextMenu shows only a context menu installed for the invoking window.
-func (nativeBackend) ShowContextMenu(parseContext context.Context, parseRequest desktop.ContextMenuShowRequest) error {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return parseErr
+func (nativeBackend) ShowContextMenu(ctx context.Context, req desktop.ContextMenuShowRequest) error {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return err
 	}
 	menuWindows.Lock()
-	parseState := menuWindows.parseStates[parseWindow.ID()]
-	var parseEntry *menuContextState
-	if parseState != nil {
-		parseEntry = parseState.parseContexts[parseRequest.ID]
+	state := menuWindows.states[win.ID()]
+	var entry *menuContextState
+	if state != nil {
+		entry = state.contexts[req.ID]
 	}
 	menuWindows.Unlock()
-	if parseEntry == nil {
+	if entry == nil {
 		return invalid("context menu is not installed for caller window")
 	}
-	parseState.parseOperation.Lock()
-	defer parseState.parseOperation.Unlock()
+	state.opMu.Lock()
+	defer state.opMu.Unlock()
 	menuWindows.Lock()
-	isCurrent := menuWindows.parseStates[parseWindow.ID()] == parseState && parseState.parseContexts[parseRequest.ID] == parseEntry
+	isCurrent := menuWindows.states[win.ID()] == state && state.contexts[req.ID] == entry
 	menuWindows.Unlock()
 	if !isCurrent {
 		return invalid("context menu is not installed for caller window")
 	}
-	parseWindow.OpenContextMenu(&application.ContextMenuData{Id: parseEntry.parseName, X: parseRequest.X, Y: parseRequest.Y, Data: parseRequest.Data})
+	win.OpenContextMenu(&application.ContextMenuData{Id: entry.name, X: req.X, Y: req.Y, Data: req.Data})
 	return nil
 }
 
 // RemoveContextMenu removes only a context menu installed for the invoking window.
-func (nativeBackend) RemoveContextMenu(parseContext context.Context, parseID string) error {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return parseErr
+func (nativeBackend) RemoveContextMenu(ctx context.Context, id string) error {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return unavailable("Wails application unavailable")
 	}
 	menuWindows.Lock()
-	parseState := menuWindows.parseStates[parseWindow.ID()]
+	state := menuWindows.states[win.ID()]
 	menuWindows.Unlock()
-	if parseState == nil {
+	if state == nil {
 		return invalid("context menu is not installed for caller window")
 	}
-	parseState.parseOperation.Lock()
-	defer parseState.parseOperation.Unlock()
+	state.opMu.Lock()
+	defer state.opMu.Unlock()
 	menuWindows.Lock()
-	parseEntry := parseState.parseContexts[parseID]
-	if menuWindows.parseStates[parseWindow.ID()] != parseState || parseEntry == nil {
+	entry := state.contexts[id]
+	if menuWindows.states[win.ID()] != state || entry == nil {
 		menuWindows.Unlock()
 		return invalid("context menu is not installed for caller window")
 	}
-	delete(parseState.parseContexts, parseID)
+	delete(state.contexts, id)
 	menuWindows.Unlock()
-	parseApp.ContextMenu.Remove(parseEntry.parseName)
-	if parseEntry.parseMenu != nil {
-		parseEntry.parseMenu.Destroy()
-		parseEntry.parseMenu.Menu.Destroy()
+	app.ContextMenu.Remove(entry.name)
+	if entry.menu != nil {
+		entry.menu.Destroy()
+		entry.menu.Menu.Destroy()
 	}
 	return nil
 }
 
 // getMenuWindowStateLocked returns lifecycle state while menuWindows is held.
-func getMenuWindowStateLocked(parseWindow application.Window) *menuWindowState {
-	parseWindowID := parseWindow.ID()
-	if parseState := menuWindows.parseStates[parseWindowID]; parseState != nil {
-		return parseState
+func getMenuWindowStateLocked(win application.Window) *menuWindowState {
+	windowID := win.ID()
+	if state := menuWindows.states[windowID]; state != nil {
+		return state
 	}
-	parseState := &menuWindowState{parseContexts: map[string]*menuContextState{}}
+	state := &menuWindowState{contexts: map[string]*menuContextState{}}
 	// Wails runs cancellable close hooks before WindowClosing listeners, so this
 	// cleanup runs only after the close was accepted rather than on a vetoed attempt.
-	parseState.parseCancel = parseWindow.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
-		parseState.parseOperation.Lock()
-		defer parseState.parseOperation.Unlock()
+	state.cancel = win.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
+		state.opMu.Lock()
+		defer state.opMu.Unlock()
 		menuWindows.Lock()
-		if menuWindows.parseStates[parseWindowID] != parseState {
+		if menuWindows.states[windowID] != state {
 			menuWindows.Unlock()
 			return
 		}
-		delete(menuWindows.parseStates, parseWindowID)
-		parseContexts := parseState.parseContexts
-		parseInstalled := parseState.parseInstalledMenu
+		delete(menuWindows.states, windowID)
+		contexts := state.contexts
+		installed := state.installedMenu
 		menuWindows.Unlock()
-		if parseApp := application.Get(); parseApp != nil {
-			for _, parseEntry := range parseContexts {
-				parseApp.ContextMenu.Remove(parseEntry.parseName)
-				if parseEntry.parseMenu != nil {
-					parseEntry.parseMenu.Destroy()
-					parseEntry.parseMenu.Menu.Destroy()
+		if app := application.Get(); app != nil {
+			for _, entry := range contexts {
+				app.ContextMenu.Remove(entry.name)
+				if entry.menu != nil {
+					entry.menu.Destroy()
+					entry.menu.Menu.Destroy()
 				}
 			}
 		}
-		parseWindow.SetMenu(application.NewMenu())
-		if parseInstalled != nil {
-			parseInstalled.Destroy()
+		win.SetMenu(application.NewMenu())
+		if installed != nil {
+			installed.Destroy()
 		}
 	})
-	menuWindows.parseStates[parseWindowID] = parseState
-	return parseState
+	menuWindows.states[windowID] = state
+	return state
 }
 
 // buildMenuItems converts portable menu nodes without exposing Wails types upstream.
-func buildMenuItems(parseWindow application.Window, parseMenu *application.Menu, parseItems []desktop.MenuItem, parseState *menuWindowState, parseToken *menuConfigToken, parseMenuID string) {
-	for _, parseDefinition := range parseItems {
-		switch parseDefinition.Kind {
+func buildMenuItems(win application.Window, menu *application.Menu, items []desktop.MenuItem, state *menuWindowState, token *menuConfigToken, menuID string) {
+	for _, def := range items {
+		switch def.Kind {
 		case desktop.MenuItemSeparator:
-			parseMenu.AddSeparator()
+			menu.AddSeparator()
 		case desktop.MenuItemSubmenu:
-			parseItem := application.NewSubMenuItem(parseDefinition.Label).SetEnabled(parseDefinition.Enabled)
-			configureMenuPresentation(parseItem, parseDefinition)
-			parseMenu.Append(application.NewMenuFromItems(parseItem))
-			buildMenuItems(parseWindow, parseItem.GetSubmenu(), parseDefinition.Items, parseState, parseToken, parseMenuID)
+			item := application.NewSubMenuItem(def.Label).SetEnabled(def.Enabled)
+			applyMenuPresentation(item, def)
+			menu.Append(application.NewMenuFromItems(item))
+			buildMenuItems(win, item.GetSubmenu(), def.Items, state, token, menuID)
 		case desktop.MenuItemCheckbox:
-			parseItem := parseMenu.AddCheckbox(parseDefinition.Label, parseDefinition.Checked).SetEnabled(parseDefinition.Enabled)
-			configureMenuItem(parseWindow, parseItem, parseDefinition, parseState, parseToken, parseMenuID)
+			item := menu.AddCheckbox(def.Label, def.Checked).SetEnabled(def.Enabled)
+			configureMenuItem(win, item, def, state, token, menuID)
 		case desktop.MenuItemRadio:
-			parseItem := parseMenu.AddRadio(parseDefinition.Label, parseDefinition.Checked).SetEnabled(parseDefinition.Enabled)
-			configureMenuItem(parseWindow, parseItem, parseDefinition, parseState, parseToken, parseMenuID)
+			item := menu.AddRadio(def.Label, def.Checked).SetEnabled(def.Enabled)
+			configureMenuItem(win, item, def, state, token, menuID)
 		default:
-			parseItem := parseMenu.Add(parseDefinition.Label).SetEnabled(parseDefinition.Enabled)
-			configureMenuItem(parseWindow, parseItem, parseDefinition, parseState, parseToken, parseMenuID)
+			item := menu.Add(def.Label).SetEnabled(def.Enabled)
+			configureMenuItem(win, item, def, state, token, menuID)
 		}
 	}
 }
 
 // configureMenuItem applies optional presentation and emits only typed selection data.
-func configureMenuItem(parseWindow application.Window, parseItem *application.MenuItem, parseDefinition desktop.MenuItem, parseState *menuWindowState, parseToken *menuConfigToken, parseMenuID string) {
-	configureMenuPresentation(parseItem, parseDefinition)
-	parseID := parseDefinition.ID
-	parseKind := parseDefinition.Kind
-	parseItem.OnClick(func(parseContext *application.Context) {
+func configureMenuItem(win application.Window, item *application.MenuItem, def desktop.MenuItem, state *menuWindowState, token *menuConfigToken, menuID string) {
+	applyMenuPresentation(item, def)
+	itemID := def.ID
+	itemKind := def.Kind
+	item.OnClick(func(menuCtx *application.Context) {
 		menuWindows.Lock()
-		isCurrent := isMenuConfigCurrentLocked(parseWindow.ID(), parseState, parseToken, parseMenuID)
+		isCurrent := isMenuConfigCurrentLocked(win.ID(), state, token, menuID)
 		menuWindows.Unlock()
 		if !isCurrent {
 			return
 		}
-		parseSelection := desktop.MenuSelection{ID: parseID, MenuID: parseMenuID, Data: parseContext.ContextMenuData()}
-		if parseKind == desktop.MenuItemCheckbox || parseKind == desktop.MenuItemRadio {
-			isChecked := parseContext.IsChecked()
-			parseSelection.Checked = &isChecked
+		selection := desktop.MenuSelection{ID: itemID, MenuID: menuID, Data: menuCtx.ContextMenuData()}
+		if itemKind == desktop.MenuItemCheckbox || itemKind == desktop.MenuItemRadio {
+			isChecked := menuCtx.IsChecked()
+			selection.Checked = &isChecked
 		}
-		parseWindow.EmitEvent(desktop.MenuSelectedTopic, parseSelection)
+		win.EmitEvent(desktop.MenuSelectedTopic, selection)
 	})
 }
 
 // isMenuConfigCurrentLocked checks allocation identity while menuWindows is held.
-func isMenuConfigCurrentLocked(parseWindowID uint, parseState *menuWindowState, parseToken *menuConfigToken, parseMenuID string) bool {
-	if menuWindows.parseStates[parseWindowID] != parseState {
+func isMenuConfigCurrentLocked(windowID uint, state *menuWindowState, token *menuConfigToken, menuID string) bool {
+	if menuWindows.states[windowID] != state {
 		return false
 	}
-	if parseMenuID == "" {
-		return parseState.parseMenuToken == parseToken
+	if menuID == "" {
+		return state.menuToken == token
 	}
-	parseContext := parseState.parseContexts[parseMenuID]
-	return parseContext != nil && parseContext.parseToken == parseToken
+	entry := state.contexts[menuID]
+	return entry != nil && entry.token == token
 }
 
-// configureMenuPresentation applies Wails-supported declarative presentation fields.
-func configureMenuPresentation(parseItem *application.MenuItem, parseDefinition desktop.MenuItem) {
-	if parseDefinition.Shortcut != "" {
-		parseItem.SetAccelerator(parseDefinition.Shortcut)
+// applyMenuPresentation applies Wails-supported declarative presentation fields.
+func applyMenuPresentation(item *application.MenuItem, def desktop.MenuItem) {
+	if def.Shortcut != "" {
+		item.SetAccelerator(def.Shortcut)
 	}
-	parseItem.SetHidden(parseDefinition.Hidden)
-	if len(parseDefinition.Icon) != 0 {
-		parseItem.SetBitmap(append([]byte(nil), parseDefinition.Icon...))
+	item.SetHidden(def.Hidden)
+	if len(def.Icon) != 0 {
+		item.SetBitmap(append([]byte(nil), def.Icon...))
 	}
 }

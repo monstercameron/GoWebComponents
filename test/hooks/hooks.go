@@ -7,7 +7,7 @@ package hooks
 import (
 	stdtesting "testing"
 
-	base "github.com/monstercameron/GoWebComponents/v7/testkit/hooks"
+	base "github.com/monstercameron/GoWebComponents/v8/testkit/hooks"
 )
 
 type Harness[T any] = base.Harness[T]

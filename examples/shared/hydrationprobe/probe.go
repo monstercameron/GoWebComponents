@@ -8,8 +8,8 @@ package hydrationprobe
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // HydrationProbe renders a small, deterministic tree. It uses an initial UseState

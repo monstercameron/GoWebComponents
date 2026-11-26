@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	appRouter "github.com/monstercameron/GoWebComponents/v7/router"
-	routertest "github.com/monstercameron/GoWebComponents/v7/test/router"
-	base "github.com/monstercameron/GoWebComponents/v7/testkit/router"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	appRouter "github.com/monstercameron/GoWebComponents/v8/router"
+	routertest "github.com/monstercameron/GoWebComponents/v8/test/router"
+	base "github.com/monstercameron/GoWebComponents/v8/testkit/router"
 )
 
 func parityRoute(_ appRouter.Attrs) *appRouter.Element {

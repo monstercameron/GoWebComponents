@@ -205,13 +205,15 @@ func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecor
 	// allocations.  The roots form a stable two-fiber cycle (current.alternate
 	// is the previous generation, which becomes the next wip), so there is no
 	// growing chain to leak and isFiberDirty only ever follows one hop.
-	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	wipRoot, reusedCold := acquireWorkInProgressForOverwrite(parseRt.currentRoot)
+	parseRt.wipRoot = wipRoot
 	*parseRt.wipRoot = Fiber{
 		typeOf:       parseRt.currentRoot.typeOf,
 		dom:          parseRt.currentRoot.dom,
 		props:        parseRt.currentRoot.props,
 		children:     parseRt.currentRoot.children,
 		alternate:    parseRt.currentRoot,
+		cold:         resetColdForReuse(reusedCold),
 		dirty:        true,
 		ownerRuntime: parseRt,
 	}
@@ -420,7 +422,8 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 		parseRt.currentRoot.alternate = nil
 	}
 
-	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	wipRoot, reusedCold := acquireWorkInProgressForOverwrite(parseRt.currentRoot)
+	parseRt.wipRoot = wipRoot
 	parseChildren := []any{parseElement}
 	*parseRt.wipRoot = Fiber{
 		typeOf:       "ROOT",
@@ -428,6 +431,7 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 		props:        map[string]any{"children": parseChildren},
 		children:     parseChildren,
 		alternate:    parseRt.currentRoot,
+		cold:         resetColdForReuse(reusedCold),
 		dirty:        true,
 		ownerRuntime: parseRt,
 	}
@@ -525,7 +529,8 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 		parseRt.currentRoot.alternate = nil
 	}
 
-	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	wipRoot, reusedCold := acquireWorkInProgressForOverwrite(parseRt.currentRoot)
+	parseRt.wipRoot = wipRoot
 	parseChildren := []any{parseElement}
 	*parseRt.wipRoot = Fiber{
 		typeOf:       "ROOT",
@@ -533,6 +538,7 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 		props:        map[string]any{"children": parseChildren},
 		children:     parseChildren,
 		alternate:    parseRt.currentRoot,
+		cold:         resetColdForReuse(reusedCold),
 		dirty:        true,
 		hydration:    newHydrationBoundary(parseContainer, parseRt.domAdapter.GetFirstChild(parseContainer)),
 		ownerRuntime: parseRt,
@@ -587,7 +593,7 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 	if parseFiber == nil {
 		return
 	}
-	if parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleUpdateForFiberWithOrigin) {
+	if parseRt.shouldPostAsyncStateUpdate() && parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleUpdateForFiberWithOrigin) {
 		return
 	}
 	if parseRt.hydrating {
@@ -675,7 +681,7 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	if parseFiber == nil {
 		return
 	}
-	if parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleGranularUpdateForFiberWithOrigin) {
+	if parseRt.shouldPostAsyncStateUpdate() && parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleGranularUpdateForFiberWithOrigin) {
 		return
 	}
 	if parseRt.hydrating {

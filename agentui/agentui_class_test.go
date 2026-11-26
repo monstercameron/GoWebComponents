@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/agentui"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/agentui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // TestClassPropIsConfinedToAgentUINamespace pins that agent-supplied utility

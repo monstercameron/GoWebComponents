@@ -1,9 +1,9 @@
 // Package sqlite is GWC's client-side SQLite battery: a database/sql-flavored,
 // context-first API that runs inside the browser wasm app with no cgo.
 //
-// On js/wasm it is backed by github.com/ncruces/go-sqlite3 (SQLite compiled to
-// wasm, executed via wazero). On native builds it is backed by
-// modernc.org/sqlite so the same calling code runs in the gwc native test lane.
+// Both js/wasm and native builds are backed by github.com/ncruces/go-sqlite3
+// (SQLite compiled to wasm, executed via wazero) so the same calling code and
+// SQLite engine run in browsers and in the gwc native test lane without cgo.
 //
 // Durability options (see Persistence):
 //

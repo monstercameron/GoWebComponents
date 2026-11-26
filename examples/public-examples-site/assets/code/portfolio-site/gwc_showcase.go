@@ -9,7 +9,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/router"
+	"github.com/monstercameron/GoWebComponents/v8/router"
 )
 
 // GWCShowcaseSection presents GoWebComponents capabilities with feature cards.

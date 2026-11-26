@@ -7,7 +7,7 @@ import (
 	"syscall/js"
 	"time"
 
-	gwcruntime "github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	gwcruntime "github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // buildWebSocketInitialState returns the browser WebSocket initial state.

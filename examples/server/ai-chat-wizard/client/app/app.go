@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v7/i18n"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/logging"
-	"github.com/monstercameron/GoWebComponents/v7/router"
-	"github.com/monstercameron/GoWebComponents/v7/state"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	chatpb "github.com/monstercameron/GoWebComponents/v8/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v8/i18n"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/logging"
+	"github.com/monstercameron/GoWebComponents/v8/router"
+	"github.com/monstercameron/GoWebComponents/v8/state"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 // ParseApp renders the chat wizard application shell.

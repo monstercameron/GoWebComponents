@@ -57,8 +57,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          # The blocking govulncheck gate requires the crypto/x509 fix in 1.27.3.
-          go-version: "1.27.3"
+          # Use latest Go 1.27.x patch for the blocking govulncheck gate.
+          go-version: "1.27.x"
 
       - name: Build Generated Test Assets
         run: |
@@ -194,16 +194,16 @@ jobs:
             # Manual releases have no tag yet, so validate the checked-out candidate.
             $main = @(
               'package main',
-              'import "github.com/monstercameron/GoWebComponents/v7/ui"',
+              'import "github.com/monstercameron/GoWebComponents/v8/ui"',
               'var _ = ui.Text("release-smoke")',
               'func main() {}'
             ) -join "`n"
             Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
             if ($env:RELEASE_EVENT -eq 'workflow_dispatch') {
-              go mod edit "-require=github.com/monstercameron/GoWebComponents/v7@$($env:RELEASE_TAG)" "-replace=github.com/monstercameron/GoWebComponents/v7=$parseCandidateRoot"
+              go mod edit "-require=github.com/monstercameron/GoWebComponents/v8@$($env:RELEASE_TAG)" "-replace=github.com/monstercameron/GoWebComponents/v8=$parseCandidateRoot"
               if ($LASTEXITCODE -ne 0) { throw 'Configure candidate consumer failed' }
             } else {
-              go get "github.com/monstercameron/GoWebComponents/v7@$($env:RELEASE_TAG)"
+              go get "github.com/monstercameron/GoWebComponents/v8@$($env:RELEASE_TAG)"
               if ($LASTEXITCODE -ne 0) { throw 'Fetch exact release candidate failed' }
             }
             # Populate go.sum for the full transitive closure so the consumer build resolves every

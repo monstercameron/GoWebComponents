@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 const atlasFilterSyncDelay = 280 * time.Millisecond

@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
 )
 
 // isValidSSRAttrName reports whether a name conforms to the HTML attribute
@@ -65,7 +65,7 @@ func renderToStringScoped(parseElement *Element, parseInitialAtoms map[string]an
 		}
 	}()
 
-	parseCtx := withSSRAtomScope(ssrHookOwnerContext(nil), ssrAtomScopeForRender(parseInitialAtoms))
+	parseCtx := newTopLevelSSRContext(parseInitialAtoms)
 	var parseBuilder strings.Builder
 	if parseErr2 := renderElementToString(&parseBuilder, parseElement, parseCtx); parseErr2 != nil {
 		return "", parseErr2
@@ -117,7 +117,7 @@ func renderElementToString(parseBuilder *strings.Builder, parseElement *Element,
 	if parseTyp, parseOk := parseElement.Type.(string); parseOk {
 		switch parseTyp {
 		case "TEXT_ELEMENT":
-			parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
+			writeSerializedEscapedString(parseBuilder, parseElement.TextContent)
 			return nil
 		case "FRAGMENT":
 			return renderChildrenToString(parseBuilder, parseElement.Children, parseCtx)
@@ -139,10 +139,10 @@ func renderElementToString(parseBuilder *strings.Builder, parseElement *Element,
 	if _, parseOk4 := parseElement.Type.(*ReactiveTextElementType); parseOk4 {
 		parseGetter, _ := parseElement.Props[reactiveTextGetterProp].(func() string)
 		if parseGetter == nil {
-			parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
+			writeSerializedEscapedString(parseBuilder, parseElement.TextContent)
 			return nil
 		}
-		parseBuilder.WriteString(html.EscapeString(parseGetter()))
+		writeSerializedEscapedString(parseBuilder, parseGetter())
 		return nil
 	}
 	if _, parseOk5 := parseElement.Type.(*ReactiveRegionElementType); parseOk5 {
@@ -442,7 +442,7 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 		parseBuilder.WriteString(parseTag)
 		writeSSRProps(parseBuilder, parseProps, "value")
 		parseBuilder.WriteByte('>')
-		parseBuilder.WriteString(html.EscapeString(parseTextareaValue))
+		writeSerializedEscapedString(parseBuilder, parseTextareaValue)
 		parseBuilder.WriteString("</")
 		parseBuilder.WriteString(parseTag)
 		parseBuilder.WriteByte('>')
@@ -482,7 +482,7 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 	}
 
 	if parseElement.hasDirectText {
-		parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
+		writeSerializedEscapedString(parseBuilder, parseElement.TextContent)
 	} else if parseErr := renderChildrenToString(parseBuilder, getElementChildren(parseElement), parseCtx); parseErr != nil {
 		return parseErr
 	}
@@ -504,9 +504,9 @@ func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any, 
 				return parseErr
 			}
 		case string:
-			parseBuilder.WriteString(html.EscapeString(parseValue))
+			writeSerializedEscapedString(parseBuilder, parseValue)
 		default:
-			parseBuilder.WriteString(html.EscapeString(fmt.Sprint(parseValue)))
+			writeSerializedEscapedString(parseBuilder, fmt.Sprint(parseValue))
 		}
 	}
 	return nil
@@ -682,7 +682,7 @@ func writeSSRCompactAttrs(parseBuilder *strings.Builder, parseAttrs []HostAttr) 
 		parseBuilder.WriteByte(' ')
 		parseBuilder.WriteString(parseName)
 		parseBuilder.WriteString(`="`)
-		parseBuilder.WriteString(html.EscapeString(parseValue))
+		writeSerializedEscapedString(parseBuilder, parseValue)
 		parseBuilder.WriteByte('"')
 	}
 }
@@ -723,19 +723,19 @@ func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any, par
 			parseBuilder.WriteByte(' ')
 			parseBuilder.WriteString(parseName)
 			parseBuilder.WriteString(`="`)
-			parseBuilder.WriteString(html.EscapeString(parseTyped))
+			writeSerializedEscapedString(parseBuilder, parseTyped)
 			parseBuilder.WriteByte('"')
 		case map[string]string:
 			parseBuilder.WriteByte(' ')
 			parseBuilder.WriteString(parseName)
 			parseBuilder.WriteString(`="`)
-			parseBuilder.WriteString(html.EscapeString(serializeStyleMap(parseTyped)))
+			writeSerializedEscapedString(parseBuilder, serializeStyleMap(parseTyped))
 			parseBuilder.WriteByte('"')
 		default:
 			parseBuilder.WriteByte(' ')
 			parseBuilder.WriteString(parseName)
 			parseBuilder.WriteString(`="`)
-			parseBuilder.WriteString(html.EscapeString(fmt.Sprint(parseTyped)))
+			writeSerializedEscapedString(parseBuilder, fmt.Sprint(parseTyped))
 			parseBuilder.WriteByte('"')
 		}
 	}

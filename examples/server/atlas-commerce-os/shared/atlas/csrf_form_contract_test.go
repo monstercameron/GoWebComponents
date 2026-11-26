@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
+	"github.com/monstercameron/GoWebComponents/v8/html"
 )
 
 func TestAtlasPrependCSRFTokenRendersHiddenFormControl(parseT *testing.T) {

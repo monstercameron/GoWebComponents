@@ -60,14 +60,16 @@ func buildProfilingScenarioRuntime(parseScenario string) *Runtime {
 	parseComponent := func() *Element { return nil }
 	parseRoot := &Fiber{typeOf: "ROOT"}
 	parseChild := &Fiber{
-		typeOf:            parseComponent,
-		parent:            parseRoot,
-		renderDurationNs:  int64(3 * time.Millisecond),
-		diffDurationNs:    int64(2 * time.Millisecond),
-		commitDurationNs:  int64(2 * time.Millisecond),
-		effectDurationNs:  int64(1 * time.Millisecond),
-		cleanupDurationNs: int64(1 * time.Millisecond),
-		updateOrigin:      parseScenario,
+		typeOf: parseComponent,
+		parent: parseRoot,
+		cold: &fiberCold{
+			renderDurationNs:  int64(3 * time.Millisecond),
+			diffDurationNs:    int64(2 * time.Millisecond),
+			commitDurationNs:  int64(2 * time.Millisecond),
+			effectDurationNs:  int64(1 * time.Millisecond),
+			cleanupDurationNs: int64(1 * time.Millisecond),
+		},
+		updateOrigin: parseScenario,
 	}
 	parseRoot.child = parseChild
 	parseRuntime := &Runtime{currentRoot: parseRoot}

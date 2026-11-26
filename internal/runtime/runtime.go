@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
 )
 
 var (
@@ -190,7 +190,8 @@ type Runtime struct {
 	// hook tells "I am inside a server render, use this request's registry" from
 	// "I am a browser/reconciler render, use the process-global one". Never set on
 	// a runtime that renders to a DOM.
-	ssrRequestScope bool
+	ssrRequestScope     bool
+	ssrAtomRegistryOnce sync.Once
 
 	// Hot reload restore queue for component-local state snapshots.
 	pendingHotReloadComponents []HotReloadComponentSnapshot

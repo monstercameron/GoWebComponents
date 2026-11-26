@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strconv"
 
-	_ "github.com/monstercameron/GoWebComponents/v7/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v8/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v7/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/v7/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v8/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 type TodoItemProps struct {

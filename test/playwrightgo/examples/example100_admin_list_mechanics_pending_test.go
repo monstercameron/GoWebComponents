@@ -12,10 +12,9 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v7/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v8/examples/server/ai-chat-wizard/proto"
 	playwright "github.com/mxschmitt/playwright-go"
 	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 // TestExample100AdminListMechanicsRegression validates admin list-query mechanics and list-state navigation stability.

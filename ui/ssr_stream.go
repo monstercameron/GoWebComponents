@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 const (
@@ -39,9 +39,12 @@ func firstSSRStreamOptions(parseOptions []SSRStreamOptions) SSRStreamOptions {
 	return parseOptions[0]
 }
 
-func renderToStreamObserved(parseCtx context.Context, parseWriter io.Writer, parseRoot Node, parseObservability SSRObservabilityOptions, parseOptions SSRStreamOptions) error {
-	parseStart := time.Now()
-	parseErr := runtime.RenderToStream(parseCtx, parseWriter, parseRoot, parseOptions)
-	dispatchSSRObservation(parseObservability, newSSRRenderObservation(parseObservability, time.Since(parseStart), parseErr))
-	return parseErr
+func renderToStreamObserved(ctx context.Context, writer io.Writer, root Node, observability SSRObservabilityOptions, options SSRStreamOptions) error {
+	if !hasSSRObservers(observability) {
+		return runtime.RenderToStream(ctx, writer, root, options)
+	}
+	start := time.Now()
+	err := runtime.RenderToStream(ctx, writer, root, options)
+	dispatchSSRObservation(observability, newSSRRenderObservation(observability, time.Since(start), err))
+	return err
 }

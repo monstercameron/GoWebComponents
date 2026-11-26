@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -18,91 +18,112 @@ type fileDialogs struct{}
 func NewFileDialogs() desktop.FileDialogBackend { return fileDialogs{} }
 
 // SelectPaths translates portable options and uses the RPC caller as native owner.
-func (fileDialogs) SelectPaths(parseContext context.Context, parseRequest desktop.FileDialogRequest) (desktop.FileSelection, error) {
-	parseUnavailable := func(parseMessage string) (desktop.FileSelection, error) {
-		return desktop.FileSelection{}, &interop.Error{Op: "desktop", Target: desktop.FileDialogMethod, Code: interop.CodeUnavailable, Err: errors.New(parseMessage)}
+func (fileDialogs) SelectPaths(ctx context.Context, req desktop.FileDialogRequest) (desktop.FileSelection, error) {
+	failUnavailable := func(message string) (desktop.FileSelection, error) {
+		return desktop.FileSelection{}, &interop.Error{
+			Op:     "desktop",
+			Target: desktop.FileDialogMethod,
+			Code:   interop.CodeUnavailable,
+			Err:    errors.New(message),
+		}
 	}
-	if parseContext == nil {
-		return parseUnavailable("calling window context required")
+	if ctx == nil {
+		return failUnavailable("calling window context required")
 	}
-	if parseErr := parseContext.Err(); parseErr != nil {
-		return desktop.FileSelection{}, parseErr
+	if err := ctx.Err(); err != nil {
+		return desktop.FileSelection{}, err
 	}
-	parseWindow, isWindow := parseContext.Value(application.WindowKey).(application.Window)
-	if !isWindow || parseWindow == nil {
-		return parseUnavailable("calling window unavailable")
+	win, isWindow := ctx.Value(application.WindowKey).(application.Window)
+	if !isWindow || win == nil {
+		return failUnavailable("calling window unavailable")
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
-		return parseUnavailable("Wails application unavailable")
+	app := application.Get()
+	if app == nil {
+		return failUnavailable("Wails application unavailable")
 	}
-	parseOptions := parseRequest.Options
+	opts := req.Options
 	// The Wails Windows common-file-dialog adapter does not expose these controls;
 	// reject them instead of silently dropping caller intent.
-	if parseOptions.ShowHiddenFiles || parseOptions.ButtonText != "" {
-		return desktop.FileSelection{}, &interop.Error{Op: "desktop", Target: desktop.FileDialogMethod, Code: interop.CodeInvalid, Err: errors.New("Windows file dialogs do not support hidden-file visibility or custom button text")}
-	}
-	var parsePaths []string
-	var parseErr error
-	if parseRequest.Kind == "save-file" {
-		parseDialog := parseApp.Dialog.SaveFile()
-		parseDialog.SetOptions(&application.SaveFileDialogOptions{Title: parseOptions.Title})
-		parseDialog.SetDirectory(parseOptions.Directory).SetFilename(parseOptions.Filename).AttachToWindow(parseWindow)
-		for _, parseFilter := range parseOptions.Filters {
-			parseDialog.AddFilter(parseFilter.Name, parseFilter.Pattern)
+	if opts.ShowHiddenFiles || opts.ButtonText != "" {
+		return desktop.FileSelection{}, &interop.Error{
+			Op:     "desktop",
+			Target: desktop.FileDialogMethod,
+			Code:   interop.CodeInvalid,
+			Err:    errors.New("Windows file dialogs do not support hidden-file visibility or custom button text"),
 		}
-		var parsePath string
-		parsePath, parseErr = parseDialog.PromptForSingleSelection()
-		if parsePath != "" {
-			parsePaths = []string{parsePath}
+	}
+	var paths []string
+	var err error
+	if req.Kind == "save-file" {
+		dialog := app.Dialog.SaveFile()
+		dialog.SetOptions(&application.SaveFileDialogOptions{Title: opts.Title})
+		dialog.SetDirectory(opts.Directory).SetFilename(opts.Filename).AttachToWindow(win)
+		for _, filter := range opts.Filters {
+			dialog.AddFilter(filter.Name, filter.Pattern)
+		}
+		var path string
+		path, err = dialog.PromptForSingleSelection()
+		if path != "" {
+			paths = []string{path}
 		}
 	} else {
-		parseDialog := parseApp.Dialog.OpenFile().SetTitle(parseOptions.Title).SetDirectory(parseOptions.Directory).AttachToWindow(parseWindow)
-		switch parseRequest.Kind {
-		case "open-file", "open-files":
-			parseDialog.CanChooseFiles(true).CanChooseDirectories(false)
+		dialog := app.Dialog.OpenFile().SetTitle(opts.Title).SetDirectory(opts.Directory).AttachToWindow(win)
+		isMultiple := false
+		switch req.Kind {
+		case "open-file":
+			dialog.CanChooseFiles(true).CanChooseDirectories(false)
+		case "open-files":
+			dialog.CanChooseFiles(true).CanChooseDirectories(false)
+			isMultiple = true
 		case "open-directory":
-			parseDialog.CanChooseFiles(false).CanChooseDirectories(true)
+			dialog.CanChooseFiles(false).CanChooseDirectories(true)
+		case "open-directories":
+			dialog.CanChooseFiles(false).CanChooseDirectories(true)
+			isMultiple = true
 		default:
-			return desktop.FileSelection{}, &interop.Error{Op: "desktop", Code: interop.CodeInvalid, Err: errors.New("unknown file-dialog operation")}
+			return desktop.FileSelection{}, &interop.Error{
+				Op:   "desktop",
+				Code: interop.CodeInvalid,
+				Err:  errors.New("unknown file-dialog operation"),
+			}
 		}
-		for _, parseFilter := range parseOptions.Filters {
-			parseDialog.AddFilter(parseFilter.Name, parseFilter.Pattern)
+		for _, filter := range opts.Filters {
+			dialog.AddFilter(filter.Name, filter.Pattern)
 		}
-		if parseRequest.Kind == "open-files" {
-			parsePaths, parseErr = parseDialog.PromptForMultipleSelection()
+		if isMultiple {
+			paths, err = dialog.PromptForMultipleSelection()
 		} else {
-			var parsePath string
-			parsePath, parseErr = parseDialog.PromptForSingleSelection()
-			if parsePath != "" {
-				parsePaths = []string{parsePath}
+			var path string
+			path, err = dialog.PromptForSingleSelection()
+			if path != "" {
+				paths = []string{path}
 			}
 		}
 	}
-	if isPickerCancelled(parseErr) {
+	if isPickerCancelled(err) {
 		return desktop.FileSelection{Paths: []string{}, Cancelled: true}, nil
 	}
-	if parseErr != nil {
-		return desktop.FileSelection{}, parseErr
+	if err != nil {
+		return desktop.FileSelection{}, err
 	}
-	return desktop.FileSelection{Paths: parsePaths, Cancelled: len(parsePaths) == 0}, nil
+	return desktop.FileSelection{Paths: paths, Cancelled: len(paths) == 0}, nil
 }
 
-// isPickerCancelled isolates beta.17's private cancellation sentinel compatibility.
+// isPickerCancelled isolates Wails v3's private CFD cancellation sentinel.
 // The upstream internal package cannot be imported. Match only a single exact leaf;
-// mixed joined errors must remain failures. Remove this shim when upstream exports it.
-func isPickerCancelled(parseErr error) bool {
-	if parseErr == nil {
+// mixed joined errors must remain failures.
+func isPickerCancelled(err error) bool {
+	if err == nil {
 		return false
 	}
 	for {
-		if _, isJoined := parseErr.(interface{ Unwrap() []error }); isJoined {
+		if _, isJoined := err.(interface{ Unwrap() []error }); isJoined {
 			return false
 		}
-		parseNext := errors.Unwrap(parseErr)
-		if parseNext == nil {
-			return parseErr.Error() == "cancelled by user"
+		next := errors.Unwrap(err)
+		if next == nil {
+			return err.Error() == "cancelled by user"
 		}
-		parseErr = parseNext
+		err = next
 	}
 }

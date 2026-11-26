@@ -723,7 +723,9 @@ func prepareFiberForHotReload(parseRt *Runtime, parseFiber *Fiber) {
 		parseRt.CleanupAtomSubscriptions(parseFiber)
 	}
 	parseFiber.effects = nil
-	parseFiber.eventCallbacks = nil
+	if parseFiber.cold != nil {
+		parseFiber.cold.eventCallbacks = nil
+	}
 
 	prepareFiberForHotReload(parseRt, parseFiber.child)
 	prepareFiberForHotReload(parseRt, parseFiber.sibling)
@@ -843,7 +845,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			parseRt.strictPreviewRender(parseFiber)
 		}
 		setCurrentFiberOwned(parseFiber, parseRt.renderPassOwnerID())
-		parseFiber.renderDurationNs = 0
+		parseFiber.setRenderDurationNs(0)
 		if parseAttempt == 0 && parseRestore != nil {
 			parseFiber.hooks = &Hooks{owner: parseFiber, hotReloadRestore: parseRestore}
 		} else if parseFiber.alternate != nil && parseFiber.alternate.hooks != nil {
@@ -865,7 +867,10 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			beginHookOrderRender(parseFiber.hooks)
 			parseFiber.hooks.hotReloadRestore = nil
 		} else {
-			parseFiber.hooks = &Hooks{owner: parseFiber}
+			// Leave hooks nil for hookless components; any hook call lazily allocates
+			// &Hooks{owner: fiber} on demand, avoiding a 200+ byte heap allocation per
+			// pure presentational component render.
+			parseFiber.hooks = nil
 		}
 
 		if parseFiber.effects != nil {
@@ -873,8 +878,6 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			// pre-reload component, which is exactly what a reload is replacing.
 			clear(parseFiber.effects)
 			parseFiber.effects = parseFiber.effects[:0]
-		} else {
-			parseFiber.effects = make([]Effect, 0)
 		}
 
 		var parseElement *Element
@@ -883,9 +886,9 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		renderStart := commitTimingStart()
 		parseRt.activeRenderFiber = parseFiber
 		func() {
-			defer SetCurrentFiber(nil)
-			defer func() { parseRt.activeRenderFiber = nil }()
 			defer func() {
+				parseRt.activeRenderFiber = nil
+				SetCurrentFiber(nil)
 				if parseRecovered := recover(); parseRecovered != nil {
 					var isHandled bool
 					if parseSuspension, parseOk := AsSuspension(parseRecovered); parseOk {
@@ -917,7 +920,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			}
 		}()
 		renderDurationNs := commitTimingSinceNs(renderStart)
-		parseFiber.renderDurationNs = renderDurationNs
+		parseFiber.setRenderDurationNs(renderDurationNs)
 
 		if isHandledPanic {
 			return nil, true, parseNextFromBoundary
@@ -993,6 +996,12 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 
 		if parseFiber.hooks != nil {
 			parseFiber.hooks.hotReloadRestore = nil
+			if hookSignatureRecordingEnabled && parseFiber.alternate != nil && parseFiber.alternate.hooks == nil &&
+				parseFiber.hooks.order == nil && len(parseFiber.hooks.signature) > 0 {
+				// Previous render completed without allocating a Hooks store; synthesize
+				// its zero-hook baseline so a 0 -> N hook change still reports once.
+				parseFiber.hooks.order = &hookOrderTracker{hasPrev: true}
+			}
 			finishHookOrderRender(parseFiber.hooks)
 		}
 		parseRt.recordComponentRenderTrace(parseFiber, renderDurationNs)

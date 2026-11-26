@@ -42,6 +42,12 @@ for discussion before commitment.
 
 ## Exploring
 
+- **v8 module & package-surface consolidation (breaking).** Move experimental
+  top-level packages (`gcpacing`, `escalate`, `delta`, `projection`, `compute`,
+  `domain`, `wholestack`, `servercomponents`, etc.) under an explicit `exp/`
+  namespace or separate sub-modules, and split `db/sqlite` (and optional heavy
+  parsers/codecs) into nested Go modules so `ncruces/go-sqlite3` and `wazero`
+  stay out of the root `go.mod`.
 - A JS-free / native renderer seam (the `DOMAdapter` already exists; the bridge
   cost is the open question — see the native-backend research notes).
 - A broader `gwc add` registry beyond the core a11y catalog.

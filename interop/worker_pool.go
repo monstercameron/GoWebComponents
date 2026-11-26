@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v7/deprecation"
+	"github.com/monstercameron/GoWebComponents/v8/deprecation"
 )
 
 // WorkerRequester defines the request-capable worker surface shared by single

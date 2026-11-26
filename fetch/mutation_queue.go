@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
 )
 
 // mutationQueueLocks serializes each storage key's load-mutate-save sequence.

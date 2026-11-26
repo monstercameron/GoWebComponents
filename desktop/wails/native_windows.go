@@ -6,288 +6,345 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // NewNativeBackend returns the pinned Wails implementation of portable native APIs.
 func NewNativeBackend() desktop.NativeBackend {
-	return &nativeBackend{parseTrayShortcuts: newNativeTrayShortcutState()}
+	return &nativeBackend{trayShortcuts: newNativeTrayShortcutState()}
 }
 
 type nativeBackend struct {
-	parseTrayShortcuts *nativeTrayShortcutState
-	parseWindows       *nativeWindowState
+	trayShortcuts *nativeTrayShortcutState
+	windows       *nativeWindowState
 }
 
 // Features reports capabilities implemented by this Wails adapter.
-func (parseBackend nativeBackend) Features() []desktop.Feature {
-	parseFeatures := []desktop.Feature{desktop.Clipboard, desktop.MessageDialogs, desktop.WindowControls, desktop.WindowPrinting, desktop.WindowEvents, desktop.Screens, desktop.ScreenGeometry, desktop.RuntimeMenus, desktop.SystemTray, desktop.GlobalShortcuts, desktop.SystemEnvironment, desktop.ExternalURLs, desktop.Autostart, desktop.FileManager}
-	if parseBackend.parseWindows != nil {
-		parseFeatures = append(parseFeatures, desktop.ChildWindows)
+func (b nativeBackend) Features() []desktop.Feature {
+	features := []desktop.Feature{
+		desktop.Clipboard,
+		desktop.MessageDialogs,
+		desktop.WindowControls,
+		desktop.WindowPrinting,
+		desktop.WindowEvents,
+		desktop.Screens,
+		desktop.ScreenGeometry,
+		desktop.RuntimeMenus,
+		desktop.SystemTray,
+		desktop.GlobalShortcuts,
+		desktop.SystemEnvironment,
+		desktop.ExternalURLs,
+		desktop.Autostart,
+		desktop.FileManager,
 	}
-	return parseFeatures
+	if b.windows != nil {
+		features = append(features, desktop.ChildWindows)
+	}
+	return features
 }
 
 // ClipboardWrite writes text only when explicitly requested by the caller.
-func (nativeBackend) ClipboardWrite(parseContext context.Context, parseRequest desktop.ClipboardWriteRequest) error {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return parseErr
+func (nativeBackend) ClipboardWrite(ctx context.Context, req desktop.ClipboardWriteRequest) error {
+	if err := validateCaller(ctx); err != nil {
+		return err
 	}
-	parseApp := application.Get()
-	if parseApp == nil || !parseApp.Clipboard.SetText(parseRequest.Text) {
+	app := application.Get()
+	if app == nil || !app.Clipboard.SetText(req.Text) {
 		return unavailable("clipboard write failed")
 	}
 	return nil
 }
 
 // ClipboardRead reads text only when explicitly requested by the caller.
-func (nativeBackend) ClipboardRead(parseContext context.Context) (string, error) {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return "", parseErr
+func (nativeBackend) ClipboardRead(ctx context.Context) (string, error) {
+	if err := validateCaller(ctx); err != nil {
+		return "", err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return "", unavailable("Wails application unavailable")
 	}
-	parseText, parseOK := parseApp.Clipboard.Text()
-	if !parseOK {
+	text, ok := app.Clipboard.Text()
+	if !ok {
 		return "", unavailable("clipboard read failed")
 	}
-	return parseText, nil
+	return text, nil
 }
 
 // ShowMessage displays a caller-owned Wails dialog and returns its exact button label.
-func (nativeBackend) ShowMessage(parseContext context.Context, parseRequest desktop.MessageRequest) (desktop.MessageReply, error) {
-	if parseErr := validateWindowsMessageRequest(parseRequest); parseErr != nil {
-		return desktop.MessageReply{}, parseErr
+func (nativeBackend) ShowMessage(ctx context.Context, req desktop.MessageRequest) (desktop.MessageReply, error) {
+	if err := validateWindowsMessageRequest(req); err != nil {
+		return desktop.MessageReply{}, err
 	}
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return desktop.MessageReply{}, parseErr
+	win, err := getCaller(ctx)
+	if err != nil {
+		return desktop.MessageReply{}, err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return desktop.MessageReply{}, unavailable("Wails application unavailable")
 	}
-	parseDialog := parseApp.Dialog.Info()
-	switch parseRequest.Kind {
+	dialog := app.Dialog.Info()
+	switch req.Kind {
 	case "question":
-		parseDialog = parseApp.Dialog.Question()
+		dialog = app.Dialog.Question()
 	case "warning":
-		parseDialog = parseApp.Dialog.Warning()
+		dialog = app.Dialog.Warning()
 	case "error":
-		parseDialog = parseApp.Dialog.Error()
+		dialog = app.Dialog.Error()
 	}
-	parseChosen := make(chan string, 1)
-	parseDialog.SetTitle(parseRequest.Title).SetMessage(parseRequest.Message).AttachToWindow(parseWindow)
-	parseButtons := parseRequest.Buttons
-	if len(parseButtons) == 0 {
-		if parseRequest.Kind == "question" {
-			parseButtons = []string{"Yes", "No"}
+	chosen := make(chan string, 1)
+	dialog.SetTitle(req.Title).SetMessage(req.Message).AttachToWindow(win)
+	buttons := req.Buttons
+	if len(buttons) == 0 {
+		if req.Kind == "question" {
+			buttons = []string{"Yes", "No"}
 		} else {
-			parseButtons = []string{"Ok"}
+			buttons = []string{"Ok"}
 		}
 	}
-	parseAdded := make(map[string]*application.Button, len(parseButtons))
-	for _, parseLabel := range parseButtons {
-		parseLabelCopy := parseLabel
-		parseButton := parseDialog.AddButton(parseLabel)
-		parseButton.OnClick(func() { parseChosen <- parseLabelCopy })
-		parseAdded[parseLabel] = parseButton
+	added := make(map[string]*application.Button, len(buttons))
+	for _, label := range buttons {
+		labelCopy := label
+		button := dialog.AddButton(label)
+		button.OnClick(func() {
+			select {
+			case chosen <- labelCopy:
+			default:
+			}
+		})
+		added[label] = button
 	}
-	parseDefault := parseRequest.DefaultButton
-	if parseDefault == "" {
-		parseDefault = parseButtons[0]
+	defaultLabel := req.DefaultButton
+	if defaultLabel == "" {
+		defaultLabel = buttons[0]
 	}
-	parseCancel := parseRequest.CancelButton
-	if parseCancel == "" {
-		parseCancel = parseButtons[len(parseButtons)-1]
+	if btn := added[defaultLabel]; btn != nil {
+		dialog.SetDefaultButton(btn)
 	}
-	if parseButton := parseAdded[parseDefault]; parseButton != nil {
-		parseDialog.SetDefaultButton(parseButton)
+	cancelLabel := req.CancelButton
+	if cancelLabel == "" && req.Kind != "question" {
+		cancelLabel = buttons[len(buttons)-1]
 	}
-	if parseButton := parseAdded[parseCancel]; parseButton != nil {
-		parseDialog.SetCancelButton(parseButton)
+	if cancelLabel != "" {
+		if btn := added[cancelLabel]; btn != nil {
+			dialog.SetCancelButton(btn)
+		}
 	}
-	parseDialog.Show()
+	dialog.Show()
 	select {
-	case parseButton := <-parseChosen:
-		return desktop.MessageReply{Button: parseButton}, nil
+	case button := <-chosen:
+		return desktop.MessageReply{Button: button}, nil
 	default:
 		return desktop.MessageReply{}, errors.New("native dialog button unavailable")
 	}
 }
 
-// validateWindowsMessageRequest rejects controls that Windows MessageBox cannot render.
-func validateWindowsMessageRequest(parseRequest desktop.MessageRequest) error {
-	parseButtons := parseRequest.Buttons
-	if len(parseButtons) == 0 {
-		if parseRequest.Kind == "question" {
-			parseButtons = []string{"Yes", "No"}
-		} else {
-			parseButtons = []string{"Ok"}
-		}
+// validateWindowsMessageRequest enforces Windows MessageBox and TaskDialog button rules.
+// Wails v3.1.0 uses TaskDialogIndirect for question dialogs (supporting 1-3 custom buttons
+// plus arbitrary default/cancel roles) and MessageBox for info/warning/error dialogs (Ok only).
+func validateWindowsMessageRequest(req desktop.MessageRequest) error {
+	if len(req.Buttons) > 3 {
+		return invalid("Windows message dialogs support at most 3 buttons")
 	}
-	switch parseRequest.Kind {
+	seen := make(map[string]bool, len(req.Buttons))
+	for _, label := range req.Buttons {
+		if strings.TrimSpace(label) == "" || len(label) > 64 || !utf8.ValidString(label) || strings.ContainsRune(label, 0) {
+			return invalid("invalid Windows message button label")
+		}
+		if seen[label] {
+			return invalid("duplicate Windows message button label")
+		}
+		seen[label] = true
+	}
+	buttons := req.Buttons
+	switch req.Kind {
 	case "info", "warning", "error":
-		if len(parseButtons) != 1 || parseButtons[0] != "Ok" {
+		if len(buttons) == 0 {
+			buttons = []string{"Ok"}
+		}
+		if len(buttons) != 1 || buttons[0] != "Ok" {
 			return invalid("Windows message dialogs support only the Ok button for this kind")
 		}
+		if req.DefaultButton != "" && req.DefaultButton != "Ok" {
+			return invalid("only Ok can be the default for this Windows message dialog")
+		}
+		if req.CancelButton != "" && req.CancelButton != "Ok" {
+			return invalid("only Ok can cancel this Windows message dialog")
+		}
 	case "question":
-		if len(parseButtons) != 2 || parseButtons[0] != "Yes" || parseButtons[1] != "No" {
-			return invalid("Windows question dialogs support only Yes and No buttons")
+		if len(buttons) == 0 {
+			buttons = []string{"Yes", "No"}
+		}
+		if req.DefaultButton != "" && !hasButtonLabel(buttons, req.DefaultButton) {
+			return invalid("default message button is not present")
+		}
+		if req.CancelButton != "" && !hasButtonLabel(buttons, req.CancelButton) {
+			return invalid("cancel message button is not present")
 		}
 	default:
 		return invalid("unknown message kind")
 	}
-	if parseRequest.DefaultButton != "" && parseRequest.DefaultButton != "Ok" && parseRequest.DefaultButton != "Yes" && parseRequest.DefaultButton != "No" {
-		return invalid("unsupported Windows default message button")
-	}
-	if parseRequest.Kind != "question" && parseRequest.DefaultButton != "" && parseRequest.DefaultButton != "Ok" {
-		return invalid("only Ok can be the default for this Windows message dialog")
-	}
-	if parseRequest.Kind == "question" && parseRequest.DefaultButton != "" && parseRequest.DefaultButton != "Yes" && parseRequest.DefaultButton != "No" {
-		return invalid("only Yes or No can be the default for a Windows question dialog")
-	}
-	if parseRequest.CancelButton != "" && parseRequest.CancelButton != "Ok" && parseRequest.CancelButton != "No" {
-		return invalid("unsupported Windows cancel message button")
-	}
-	if parseRequest.Kind != "question" && parseRequest.CancelButton != "" && parseRequest.CancelButton != "Ok" {
-		return invalid("only Ok can cancel this Windows message dialog")
-	}
-	if parseRequest.Kind == "question" && parseRequest.CancelButton != "" {
-		return invalid("Windows question dialogs do not support a cancel button")
-	}
 	return nil
 }
 
-// Window performs a caller-owned window inspection or control.
-func (nativeBackend) Window(parseContext context.Context, parseRequest desktop.WindowRequest) (desktop.WindowInfo, error) {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return desktop.WindowInfo{}, parseErr
+// hasButtonLabel reports whether target exists in labels.
+func hasButtonLabel(labels []string, target string) bool {
+	for _, label := range labels {
+		if label == target {
+			return true
+		}
 	}
-	switch parseRequest.Action {
+	return false
+}
+
+// Window performs a caller-owned window inspection or control.
+func (nativeBackend) Window(ctx context.Context, req desktop.WindowRequest) (desktop.WindowInfo, error) {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return desktop.WindowInfo{}, err
+	}
+	switch req.Action {
 	case "info":
+	case "show":
+		win.Show()
+	case "hide":
+		win.Hide()
+	case "close":
+		info := buildWindowInfo(win)
+		win.Close()
+		return info, nil
+	case "reload":
+		win.Reload()
+	case "force-reload":
+		return desktop.WindowInfo{}, unavailable("force-reload is unsupported on Windows")
+	case "snap-assist":
+		win.SnapAssist()
 	case "set-title":
-		parseWindow.SetTitle(parseRequest.Title)
+		win.SetTitle(req.Title)
 	case "set-screen":
-		parseApp := application.Get()
-		if parseApp == nil {
+		app := application.Get()
+		if app == nil {
 			return desktop.WindowInfo{}, unavailable("Wails application unavailable")
 		}
-		var parseScreen *application.Screen
-		for _, parseCandidate := range parseApp.Screen.GetAll() {
-			if parseCandidate.ID == parseRequest.ScreenID {
-				parseScreen = parseCandidate
+		var targetScreen *application.Screen
+		for _, candidate := range app.Screen.GetAll() {
+			if candidate.ID == req.ScreenID {
+				targetScreen = candidate
 				break
 			}
 		}
-		if parseScreen == nil {
+		if targetScreen == nil {
 			return desktop.WindowInfo{}, invalid("unknown screen id")
 		}
-		parseWindow.SetScreen(parseScreen)
+		win.SetScreen(targetScreen)
 	case "set-position":
-		parseWindow.SetPosition(parseRequest.X, parseRequest.Y)
+		win.SetPosition(req.X, req.Y)
 	case "set-relative-position":
-		parseWindow.SetRelativePosition(parseRequest.X, parseRequest.Y)
+		win.SetRelativePosition(req.X, req.Y)
 	case "set-bounds":
-		parseWindow.SetBounds(application.Rect{X: parseRequest.X, Y: parseRequest.Y, Width: parseRequest.Width, Height: parseRequest.Height})
+		win.SetBounds(application.Rect{X: req.X, Y: req.Y, Width: req.Width, Height: req.Height})
 	case "center":
-		parseWindow.Center()
+		win.Center()
 	case "enable-size-constraints":
-		parseWindow.EnableSizeConstraints()
+		win.EnableSizeConstraints()
 	case "disable-size-constraints":
-		parseWindow.DisableSizeConstraints()
+		win.DisableSizeConstraints()
 	case "resize":
-		if parseRequest.Width <= 0 || parseRequest.Height <= 0 {
+		if req.Width <= 0 || req.Height <= 0 {
 			return desktop.WindowInfo{}, invalid("window dimensions must be positive")
 		}
-		parseWindow.SetSize(parseRequest.Width, parseRequest.Height)
+		win.SetSize(req.Width, req.Height)
 	case "set-min-size":
-		parseWindow.SetMinSize(parseRequest.Width, parseRequest.Height)
+		win.SetMinSize(req.Width, req.Height)
 	case "set-max-size":
-		parseWindow.SetMaxSize(parseRequest.Width, parseRequest.Height)
+		win.SetMaxSize(req.Width, req.Height)
 	case "minimize":
-		parseWindow.Minimise()
+		win.Minimise()
 	case "unminimize":
-		parseWindow.UnMinimise()
+		win.UnMinimise()
 	case "maximize":
-		parseWindow.Maximise()
+		win.Maximise()
 	case "unmaximize":
-		parseWindow.UnMaximise()
+		win.UnMaximise()
 	case "toggle-maximize":
-		parseWindow.ToggleMaximise()
+		win.ToggleMaximise()
 	case "restore":
-		parseWindow.Restore()
+		win.Restore()
 	case "fullscreen":
-		parseWindow.Fullscreen()
+		win.Fullscreen()
 	case "unfullscreen":
-		parseWindow.UnFullscreen()
+		win.UnFullscreen()
 	case "toggle-fullscreen":
-		parseWindow.ToggleFullscreen()
+		win.ToggleFullscreen()
 	case "focus":
-		parseWindow.Focus()
+		win.Focus()
 	case "set-always-on-top":
-		parseWindow.SetAlwaysOnTop(parseRequest.Enabled)
+		win.SetAlwaysOnTop(req.Enabled)
 	case "set-resizable":
-		parseWindow.SetResizable(parseRequest.Enabled)
+		win.SetResizable(req.Enabled)
 	case "set-frameless":
-		parseWindow.SetFrameless(parseRequest.Enabled)
+		win.SetFrameless(req.Enabled)
 	case "toggle-frameless":
-		parseWindow.ToggleFrameless()
+		win.ToggleFrameless()
 	case "show-menu-bar":
-		parseWindow.ShowMenuBar()
+		win.ShowMenuBar()
 	case "hide-menu-bar":
-		parseWindow.HideMenuBar()
+		win.HideMenuBar()
 	case "toggle-menu-bar":
-		parseWindow.ToggleMenuBar()
+		win.ToggleMenuBar()
 	case "set-background-color":
-		parseWindow.SetBackgroundColour(application.NewRGBA(uint8(parseRequest.Red), uint8(parseRequest.Green), uint8(parseRequest.Blue), uint8(parseRequest.Alpha)))
+		win.SetBackgroundColour(application.NewRGBA(uint8(req.Red), uint8(req.Green), uint8(req.Blue), uint8(req.Alpha)))
 	case "set-minimize-button-state":
-		parseWindow.SetMinimiseButtonState(getButtonState(parseRequest.State))
+		win.SetMinimiseButtonState(getButtonState(req.State))
 	case "set-maximize-button-state":
-		parseWindow.SetMaximiseButtonState(getButtonState(parseRequest.State))
+		win.SetMaximiseButtonState(getButtonState(req.State))
 	case "set-close-button-state":
-		parseWindow.SetCloseButtonState(getButtonState(parseRequest.State))
+		win.SetCloseButtonState(getButtonState(req.State))
 	case "set-fullscreen-button-state":
 		return desktop.WindowInfo{}, unavailable("fullscreen caption button is unsupported on Windows")
 	case "flash":
-		parseWindow.Flash(parseRequest.Enabled)
+		win.Flash(req.Enabled)
 	case "set-content-protection":
-		parseWindow.SetContentProtection(parseRequest.Enabled)
+		win.SetContentProtection(req.Enabled)
+	case "set-ignore-mouse-events":
+		win.SetIgnoreMouseEvents(req.Enabled)
+	case "set-enabled":
+		win.SetEnabled(req.Enabled)
 	case "zoom-in":
-		parseWindow.ZoomIn()
+		win.ZoomIn()
 	case "zoom-out":
-		parseWindow.ZoomOut()
+		win.ZoomOut()
 	case "set-zoom":
-		if parseRequest.Zoom < 1 {
-			return desktop.WindowInfo{}, invalid("Windows window zoom must be at least 1")
+		if req.Zoom < 0.25 || req.Zoom > 5 {
+			return desktop.WindowInfo{}, invalid("window zoom out of bounds")
 		}
-		parseWindow.SetZoom(parseRequest.Zoom)
+		win.SetZoom(req.Zoom)
 	case "zoom-reset":
-		parseWindow.ZoomReset()
+		win.ZoomReset()
 	default:
 		return desktop.WindowInfo{}, invalid("unknown window action")
 	}
-	return windowInfo(parseWindow), nil
+	return buildWindowInfo(win), nil
 }
 
 // PrintWindow opens Wails printing only after the separate portable feature gate succeeds.
-func (nativeBackend) PrintWindow(parseContext context.Context) error {
-	parseWindow, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return parseErr
+func (nativeBackend) PrintWindow(ctx context.Context) error {
+	win, err := getCaller(ctx)
+	if err != nil {
+		return err
 	}
-	return parseWindow.Print()
+	return win.Print()
 }
 
 // getButtonState converts a validated portable caption-button state.
-func getButtonState(parseState string) application.ButtonState {
-	switch parseState {
+func getButtonState(state string) application.ButtonState {
+	switch state {
 	case "disabled":
 		return application.ButtonDisabled
 	case "hidden":
@@ -298,61 +355,103 @@ func getButtonState(parseState string) application.ButtonState {
 }
 
 // Screens returns typed monitor metadata without exposing Wails screen objects.
-func (nativeBackend) Screens(parseContext context.Context) ([]desktop.ScreenInfo, error) {
-	if parseErr := parseCaller(parseContext); parseErr != nil {
-		return nil, parseErr
+func (nativeBackend) Screens(ctx context.Context) ([]desktop.ScreenInfo, error) {
+	if err := validateCaller(ctx); err != nil {
+		return nil, err
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
+	app := application.Get()
+	if app == nil {
 		return nil, unavailable("Wails application unavailable")
 	}
-	parseScreens := parseApp.Screen.GetAll()
-	parseResult := make([]desktop.ScreenInfo, 0, len(parseScreens))
-	for _, parseScreen := range parseScreens {
-		parseResult = append(parseResult, desktop.ScreenInfo{ID: parseScreen.ID, Name: parseScreen.Name, Primary: parseScreen.IsPrimary, Scale: parseScreen.ScaleFactor, X: parseScreen.X, Y: parseScreen.Y, Width: parseScreen.Size.Width, Height: parseScreen.Size.Height, WorkArea: getScreenBounds(parseScreen.WorkArea), PhysicalBounds: getScreenBounds(parseScreen.PhysicalBounds), PhysicalWorkArea: getScreenBounds(parseScreen.PhysicalWorkArea), Rotation: parseScreen.Rotation})
+	screens := app.Screen.GetAll()
+	result := make([]desktop.ScreenInfo, 0, len(screens))
+	for _, screen := range screens {
+		result = append(result, desktop.ScreenInfo{
+			ID:               screen.ID,
+			Name:             screen.Name,
+			Primary:          screen.IsPrimary,
+			Scale:            screen.ScaleFactor,
+			X:                screen.X,
+			Y:                screen.Y,
+			Width:            screen.Size.Width,
+			Height:           screen.Size.Height,
+			WorkArea:         getScreenBounds(screen.WorkArea),
+			PhysicalBounds:   getScreenBounds(screen.PhysicalBounds),
+			PhysicalWorkArea: getScreenBounds(screen.PhysicalWorkArea),
+			Rotation:         screen.Rotation,
+		})
 	}
-	return parseResult, nil
+	return result, nil
 }
 
 // getScreenBounds converts Wails geometry without exporting backend types.
-func getScreenBounds(parseBounds application.Rect) desktop.ScreenBounds {
-	return desktop.ScreenBounds{X: parseBounds.X, Y: parseBounds.Y, Width: parseBounds.Width, Height: parseBounds.Height}
+func getScreenBounds(bounds application.Rect) desktop.ScreenBounds {
+	return desktop.ScreenBounds{X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height}
 }
 
 // getCaller resolves the Wails RPC caller window and never falls back to focus.
-func getCaller(parseContext context.Context) (application.Window, error) {
-	if parseContext == nil {
+func getCaller(ctx context.Context) (application.Window, error) {
+	if ctx == nil {
 		return nil, invalid("calling context required")
 	}
-	if parseErr := parseContext.Err(); parseErr != nil {
-		return nil, parseErr
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	parseWindow, parseOK := parseContext.Value(application.WindowKey).(application.Window)
-	if !parseOK || parseWindow == nil {
+	win, ok := ctx.Value(application.WindowKey).(application.Window)
+	if !ok || win == nil {
 		return nil, unavailable("calling window unavailable")
 	}
-	return parseWindow, nil
+	return win, nil
 }
 
-// parseCaller validates a context before a non-window native operation.
-func parseCaller(parseContext context.Context) error {
-	_, parseErr := getCaller(parseContext)
-	return parseErr
+// validateCaller verifies a caller context before a non-window native operation.
+func validateCaller(ctx context.Context) error {
+	_, err := getCaller(ctx)
+	return err
 }
 
-// windowInfo converts a Wails window to the portable contract.
-func windowInfo(parseWindow application.Window) desktop.WindowInfo {
-	parseX, parseY := parseWindow.Position()
-	parseRelativeX, parseRelativeY := parseWindow.RelativePosition()
-	return desktop.WindowInfo{ID: fmt.Sprint(parseWindow.ID()), Name: parseWindow.Name(), X: parseX, Y: parseY, RelativeX: parseRelativeX, RelativeY: parseRelativeY, Width: parseWindow.Width(), Height: parseWindow.Height(), Focused: parseWindow.IsFocused(), Minimised: parseWindow.IsMinimised(), Maximised: parseWindow.IsMaximised(), Fullscreen: parseWindow.IsFullscreen(), Visible: parseWindow.IsVisible(), Resizable: parseWindow.Resizable(), Zoom: parseWindow.GetZoom()}
+// buildWindowInfo converts a Wails window to the portable contract.
+func buildWindowInfo(win application.Window) desktop.WindowInfo {
+	x, y := win.Position()
+	relX, relY := win.RelativePosition()
+	info := desktop.WindowInfo{
+		ID:                fmt.Sprint(win.ID()),
+		Name:              win.Name(),
+		X:                 x,
+		Y:                 y,
+		RelativeX:         relX,
+		RelativeY:         relY,
+		Width:             win.Width(),
+		Height:            win.Height(),
+		Focused:           win.IsFocused(),
+		Minimised:         win.IsMinimised(),
+		Maximised:         win.IsMaximised(),
+		Fullscreen:        win.IsFullscreen(),
+		Visible:           win.IsVisible(),
+		Resizable:         win.Resizable(),
+		Zoom:              win.GetZoom(),
+		IgnoreMouseEvents: win.IsIgnoreMouseEvents(),
+	}
+	if screen, err := win.GetScreen(); err == nil && screen != nil && screen.ID != "" {
+		info.ScreenID = screen.ID
+	}
+	if borders := win.GetBorderSizes(); borders != nil && borders.Top >= 0 && borders.Left >= 0 && borders.Bottom >= 0 && borders.Right >= 0 {
+		info.BorderSizes = &desktop.WindowBorderSizes{
+			Top:    borders.Top,
+			Left:   borders.Left,
+			Bottom: borders.Bottom,
+			Right:  borders.Right,
+		}
+	}
+	return info
 }
 
 // unavailable classifies an unavailable native operation.
-func unavailable(parseMessage string) error {
-	return &interop.Error{Op: "desktop", Code: interop.CodeUnavailable, Err: errors.New(parseMessage)}
+func unavailable(message string) error {
+	return &interop.Error{Op: "desktop", Code: interop.CodeUnavailable, Err: errors.New(message)}
 }
 
 // invalid classifies malformed native input.
-func invalid(parseMessage string) error {
-	return &interop.Error{Op: "desktop", Code: interop.CodeInvalid, Err: errors.New(parseMessage)}
+func invalid(message string) error {
+	return &interop.Error{Op: "desktop", Code: interop.CodeInvalid, Err: errors.New(message)}
 }

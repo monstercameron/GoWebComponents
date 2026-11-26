@@ -14,7 +14,6 @@ import (
 
 	playwright "github.com/mxschmitt/playwright-go"
 	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 // storeExample100BillingSummaryFixture assigns the seeded customer a paid plan so the billing panel has a platform fee.

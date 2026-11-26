@@ -35,11 +35,11 @@ import (
 	"sync/atomic"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v7/gcpacing"
-	h "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
-	"github.com/monstercameron/GoWebComponents/v7/projection"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/gcpacing"
+	h "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
+	"github.com/monstercameron/GoWebComponents/v8/projection"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // rowCount and windowSize size the table the probe interacts with. 5k rows is

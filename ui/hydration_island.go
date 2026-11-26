@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/internal/errcode"
-	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v8/internal/errcode"
+	"github.com/monstercameron/GoWebComponents/v8/internal/runtime"
 )
 
 // NormalizeHydrationIslandOptions returns a canonical island configuration.

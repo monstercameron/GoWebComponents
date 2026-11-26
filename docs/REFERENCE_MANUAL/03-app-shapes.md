@@ -61,9 +61,9 @@ Choose this shape when one browser-mounted shell and local state are enough.
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	. "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 // renderClientOnlyApp renders the smallest useful product-shaped browser app.
@@ -109,10 +109,10 @@ Choose this shape when the app needs multiple screens, route params, clean navig
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/router"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
-	"github.com/monstercameron/GoWebComponents/v7/utils"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/router"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
+	"github.com/monstercameron/GoWebComponents/v8/utils"
 )
 
 type routePageProps struct {
@@ -221,8 +221,8 @@ package main
 import (
 	"net/http"
 
-	. "github.com/monstercameron/GoWebComponents/v7/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	. "github.com/monstercameron/GoWebComponents/v8/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 )
 
 // renderSSRPage renders one request-time HTML tree for the current request.
@@ -292,7 +292,7 @@ Choose this shape when the delivery model matters as much as the component tree.
 ```go
 package main
 
-import "github.com/monstercameron/GoWebComponents/v7/pwa"
+import "github.com/monstercameron/GoWebComponents/v8/pwa"
 
 // buildInstallabilityManifest returns the app-owned manifest for installable delivery.
 func buildInstallabilityManifest() pwa.Manifest {

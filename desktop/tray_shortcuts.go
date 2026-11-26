@@ -6,7 +6,7 @@ import (
 	"errors"
 	"image/png"
 
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 )
 
 // SystemTray identifies caller-owned Windows notification-area icons.
@@ -22,13 +22,16 @@ const (
 	ShortcutEventTopic      = "desktop.shortcut.event"
 )
 
-// TrayRequest creates, replaces, or removes one caller-owned tray icon.
+// TrayRequest creates, replaces, positions relative to, or removes one caller-owned tray icon.
 type TrayRequest struct {
-	Action  string `json:"action"`
-	ID      string `json:"id"`
-	Tooltip string `json:"tooltip,omitempty"`
-	Icon    []byte `json:"icon,omitempty"`
-	Menu    *Menu  `json:"menu,omitempty"`
+	Action       string `json:"action"`
+	ID           string `json:"id"`
+	Label        string `json:"label,omitempty"`
+	Tooltip      string `json:"tooltip,omitempty"`
+	Icon         []byte `json:"icon,omitempty"`
+	DarkModeIcon []byte `json:"darkModeIcon,omitempty"`
+	Menu         *Menu  `json:"menu,omitempty"`
+	Offset       int    `json:"offset,omitempty"`
 }
 
 // ShortcutRequest creates, replaces, or removes one caller-owned global shortcut.
@@ -176,43 +179,80 @@ func (parseHost *NativeHost) ConfigureShortcut(parseContext context.Context, par
 }
 
 // validateTrayRequest bounds tray identity and presentation data.
-func validateTrayRequest(parseRequest TrayRequest) error {
-	if parseErr := validateNativeID(parseRequest.ID); parseErr != nil {
-		return parseErr
+func validateTrayRequest(request TrayRequest) error {
+	if err := validateNativeID(request.ID); err != nil {
+		return err
 	}
-	switch parseRequest.Action {
+	switch request.Action {
 	case "upsert":
-		if len(parseRequest.Tooltip) > 256 {
+		if request.Offset != 0 {
+			return errors.New("tray upsert does not accept a window offset")
+		}
+		if len(request.Label) > 256 {
+			return errors.New("tray label exceeds 256 bytes")
+		}
+		if err := validateNativeText(request.Label, "tray label"); err != nil {
+			return err
+		}
+		if len(request.Tooltip) > 256 {
 			return errors.New("tray tooltip exceeds 256 bytes")
 		}
-		if parseErr := validateNativeText(parseRequest.Tooltip, "tray tooltip"); parseErr != nil {
-			return parseErr
+		if err := validateNativeText(request.Tooltip, "tray tooltip"); err != nil {
+			return err
 		}
-		if len(parseRequest.Icon) > 256*1024 {
-			return errors.New("tray icon exceeds 256 KiB")
+		if err := validateTrayIconBytes(request.Icon, "tray icon"); err != nil {
+			return err
 		}
-		if len(parseRequest.Icon) != 0 {
-			parseConfig, parseErr := png.DecodeConfig(bytes.NewReader(parseRequest.Icon))
-			if parseErr != nil || parseConfig.Width < 1 || parseConfig.Height < 1 || parseConfig.Width > 256 || parseConfig.Height > 256 {
-				return errors.New("tray icon must be valid PNG data up to 256 by 256 pixels")
+		if err := validateTrayIconBytes(request.DarkModeIcon, "tray dark mode icon"); err != nil {
+			return err
+		}
+		if request.Menu != nil {
+			if err := validateMenu(*request.Menu); err != nil {
+				return err
+			}
+			if err := validateTrayMenuItems(request.Menu.Items); err != nil {
+				return err
 			}
 		}
-		if parseRequest.Menu != nil {
-			if parseErr := validateMenu(*parseRequest.Menu); parseErr != nil {
-				return parseErr
-			}
-			if parseErr := validateTrayMenuItems(parseRequest.Menu.Items); parseErr != nil {
-				return parseErr
-			}
+	case "position-window":
+		if request.Label != "" || request.Tooltip != "" || len(request.Icon) != 0 || len(request.DarkModeIcon) != 0 || request.Menu != nil {
+			return errors.New("tray position-window does not accept presentation data")
+		}
+		if request.Offset < -4096 || request.Offset > 4096 {
+			return errors.New("tray window offset out of bounds")
 		}
 	case "remove", "show", "hide":
-		if parseRequest.Tooltip != "" || len(parseRequest.Icon) != 0 || parseRequest.Menu != nil {
+		if request.Label != "" || request.Tooltip != "" || len(request.Icon) != 0 || len(request.DarkModeIcon) != 0 || request.Menu != nil || request.Offset != 0 {
 			return errors.New("tray lifecycle action does not accept presentation data")
 		}
 	default:
 		return errors.New("unknown tray action")
 	}
 	return nil
+}
+
+// validateTrayIconBytes accepts bounded PNG (up to 256x256) or Windows ICO payloads.
+func validateTrayIconBytes(data []byte, label string) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if len(data) > 256*1024 {
+		return errors.New(label + " exceeds 256 KiB")
+	}
+	if config, err := png.DecodeConfig(bytes.NewReader(data)); err == nil {
+		if config.Width >= 1 && config.Height >= 1 && config.Width <= 256 && config.Height <= 256 {
+			return nil
+		}
+		return errors.New(label + " PNG dimensions must be between 1 and 256 pixels")
+	}
+	// Accept valid Windows ICO containers (reserved=0, type=1, count>=1, >= 22-byte header+entry).
+	if len(data) >= 22 && data[0] == 0 && data[1] == 0 && data[2] == 1 && data[3] == 0 {
+		imageCount := int(data[4]) | int(data[5])<<8
+		if imageCount >= 1 && imageCount <= 32 && len(data) >= 6+imageCount*16 {
+			return nil
+		}
+	}
+	return errors.New(label + " must be valid PNG (up to 256 by 256 pixels) or ICO data")
 }
 
 // validateTrayMenuItems rejects presentation Wails cannot preserve and aligns emitted IDs.

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/anim"
+	"github.com/monstercameron/GoWebComponents/v8/anim"
 )
 
 // chatWizardMotionStyles is generated once at init by sampling the anim

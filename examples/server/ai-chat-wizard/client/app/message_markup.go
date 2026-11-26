@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v7/html"
-	"github.com/monstercameron/GoWebComponents/v7/sanitize"
-	"github.com/monstercameron/GoWebComponents/v7/ui"
+	"github.com/monstercameron/GoWebComponents/v8/html"
+	"github.com/monstercameron/GoWebComponents/v8/sanitize"
+	"github.com/monstercameron/GoWebComponents/v8/ui"
 	parseHTML "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )

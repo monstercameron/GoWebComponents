@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
-	"github.com/monstercameron/GoWebComponents/v7/desktop"
-	"github.com/monstercameron/GoWebComponents/v7/interop"
+	"github.com/monstercameron/GoWebComponents/v8/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -22,294 +22,402 @@ import (
 const maximumOwnedWindows = 16
 
 type nativeWindowEntry struct {
-	parseTemplateID string
-	parseTitle      string
-	parseWindow     application.Window
-	parseClosing    atomic.Bool
-	parseClosed     atomic.Bool
+	templateID string
+	title      string
+	window     application.Window
+	closing    atomic.Bool
+	closed     atomic.Bool
 }
 
 type nativeWindowState struct {
-	parseMutex     sync.Mutex
-	parseTemplates map[string]WindowTemplate
-	parseOwners    map[uint]map[string]*nativeWindowEntry
-	parseHooked    map[uint]bool
-	parseClosing   map[uint]bool
+	mu        sync.Mutex
+	templates map[string]WindowTemplate
+	owners    map[uint]map[string]*nativeWindowEntry
+	hooked    map[uint]bool
+	closing   map[uint]bool
 }
 
 // NewNativeBackendWithWindowTemplates creates an adapter with immutable approved child routes.
-func NewNativeBackendWithWindowTemplates(parseTemplates map[string]WindowTemplate) (desktop.NativeBackend, error) {
-	parseState, parseErr := newNativeWindowState(parseTemplates)
-	if parseErr != nil {
-		return nil, parseErr
+func NewNativeBackendWithWindowTemplates(templates map[string]WindowTemplate) (desktop.NativeBackend, error) {
+	state, err := newNativeWindowState(templates)
+	if err != nil {
+		return nil, err
 	}
-	return &nativeBackend{parseTrayShortcuts: newNativeTrayShortcutState(), parseWindows: parseState}, nil
+	return &nativeBackend{trayShortcuts: newNativeTrayShortcutState(), windows: state}, nil
 }
 
 // newNativeWindowState validates and copies host configuration.
-func newNativeWindowState(parseTemplates map[string]WindowTemplate) (*nativeWindowState, error) {
-	if len(parseTemplates) == 0 || len(parseTemplates) > 64 {
+func newNativeWindowState(templates map[string]WindowTemplate) (*nativeWindowState, error) {
+	if len(templates) == 0 || len(templates) > 64 {
 		return nil, invalid("child-window templates must contain 1 to 64 entries")
 	}
-	parseCopy := make(map[string]WindowTemplate, len(parseTemplates))
-	for parseID, parseTemplate := range parseTemplates {
-		if parseID == "" || len(parseID) > 128 || !utf8.ValidString(parseID) || strings.ContainsRune(parseID, 0) {
+	copied := make(map[string]WindowTemplate, len(templates))
+	for id, tmpl := range templates {
+		if id == "" || len(id) > 128 || !utf8.ValidString(id) || strings.ContainsRune(id, 0) {
 			return nil, invalid("invalid child-window template id")
 		}
-		if parseErr := validateWindowTemplate(parseTemplate); parseErr != nil {
-			return nil, parseErr
+		if err := validateWindowTemplate(tmpl); err != nil {
+			return nil, err
 		}
-		parseCopy[parseID] = parseTemplate
+		copied[id] = tmpl
 	}
-	return &nativeWindowState{parseTemplates: parseCopy, parseOwners: map[uint]map[string]*nativeWindowEntry{}, parseHooked: map[uint]bool{}, parseClosing: map[uint]bool{}}, nil
+	return &nativeWindowState{
+		templates: copied,
+		owners:    map[uint]map[string]*nativeWindowEntry{},
+		hooked:    map[uint]bool{},
+		closing:   map[uint]bool{},
+	}, nil
 }
 
-// validateWindowTemplate restricts navigation to a relative asset-server route.
-func validateWindowTemplate(parseTemplate WindowTemplate) error {
-	parseURL, parseErr := url.Parse(parseTemplate.Route)
-	if parseErr != nil || !strings.HasPrefix(parseTemplate.Route, "/") || strings.HasPrefix(parseTemplate.Route, "//") || strings.Contains(parseTemplate.Route, "\\") || parseURL.IsAbs() || parseURL.Host != "" || parseURL.User != nil {
+// validateWindowTemplate restricts navigation to a relative asset-server route and bounds geometry.
+func validateWindowTemplate(tmpl WindowTemplate) error {
+	parsedURL, err := url.Parse(tmpl.Route)
+	if err != nil || !strings.HasPrefix(tmpl.Route, "/") || strings.HasPrefix(tmpl.Route, "//") || strings.Contains(tmpl.Route, "\\") || parsedURL.IsAbs() || parsedURL.Host != "" || parsedURL.User != nil {
 		return invalid("child-window template route must be same-origin and root-relative")
 	}
-	if !utf8.ValidString(parseTemplate.Title) || strings.ContainsRune(parseTemplate.Title, 0) || len(parseTemplate.Title) > 256 {
+	if !utf8.ValidString(tmpl.Title) || strings.ContainsRune(tmpl.Title, 0) || len(tmpl.Title) > 256 {
 		return invalid("invalid child-window template title")
 	}
-	if parseTemplate.Width <= 0 || parseTemplate.Height <= 0 || parseTemplate.Width > 4096 || parseTemplate.Height > 4096 {
+	if tmpl.Width <= 0 || tmpl.Height <= 0 || tmpl.Width > 4096 || tmpl.Height > 4096 {
 		return invalid("child-window template dimensions must be between 1 and 4096")
+	}
+	for _, bound := range []int{tmpl.MinWidth, tmpl.MinHeight, tmpl.MaxWidth, tmpl.MaxHeight} {
+		if bound < 0 || bound > 4096 {
+			return invalid("child-window template size constraints must be between 0 and 4096")
+		}
+	}
+	if tmpl.MaxWidth > 0 && tmpl.MinWidth > tmpl.MaxWidth {
+		return invalid("child-window template min width exceeds max width")
+	}
+	if tmpl.MaxHeight > 0 && tmpl.MinHeight > tmpl.MaxHeight {
+		return invalid("child-window template min height exceeds max height")
+	}
+	if _, ok := resolveWindowBackdrop(tmpl.Backdrop); !ok {
+		return invalid("unknown child-window template backdrop")
 	}
 	return nil
 }
 
-// CreateChildWindow creates a child using only a host-registered route template.
-func (parseBackend nativeBackend) CreateChildWindow(parseContext context.Context, parseRequest desktop.ChildWindowCreateRequest) (desktop.ChildWindowInfo, error) {
-	parseOwner, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return desktop.ChildWindowInfo{}, parseErr
+// resolveWindowBackdrop converts a host-configured backdrop into Wails Windows options.
+func resolveWindowBackdrop(backdrop WindowBackdrop) (application.BackdropType, bool) {
+	switch backdrop {
+	case WindowBackdropDefault, WindowBackdropAuto:
+		return application.Auto, true
+	case WindowBackdropNone:
+		return application.None, true
+	case WindowBackdropMica:
+		return application.Mica, true
+	case WindowBackdropAcrylic:
+		return application.Acrylic, true
+	case WindowBackdropTabbed:
+		return application.Tabbed, true
+	default:
+		return application.Auto, false
 	}
-	if parseBackend.parseWindows == nil {
+}
+
+// CreateChildWindow creates a child using only a host-registered route template.
+func (b nativeBackend) CreateChildWindow(ctx context.Context, req desktop.ChildWindowCreateRequest) (desktop.ChildWindowInfo, error) {
+	owner, err := getCaller(ctx)
+	if err != nil {
+		return desktop.ChildWindowInfo{}, err
+	}
+	if b.windows == nil {
 		return desktop.ChildWindowInfo{}, unavailable("child windows are not configured")
 	}
-	parseState := parseBackend.parseWindows
-	parseState.parseMutex.Lock()
-	parseOwnerID := parseOwner.ID()
-	if !parseState.parseHooked[parseOwnerID] {
+	state := b.windows
+	state.mu.Lock()
+	ownerID := owner.ID()
+	if !state.hooked[ownerID] {
 		// Wails dispatches listeners only after every close hook accepts the event.
 		// Keeping the reservation and accepted-close phases separate means a later
 		// host hook may veto without poisoning this owner's lifecycle state.
-		parseOwner.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-			closeOwnedWindows(parseState, parseOwnerID)
+		owner.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+			closeOwnedWindows(state, ownerID)
 		})
-		parseState.parseHooked[parseOwnerID] = true
+		state.hooked[ownerID] = true
 	}
-	if parseState.parseClosing[parseOwnerID] {
-		parseState.parseMutex.Unlock()
+	if state.closing[ownerID] {
+		state.mu.Unlock()
 		return desktop.ChildWindowInfo{}, unavailable("calling window is closing")
 	}
-	parseTemplate, parseOK := parseState.parseTemplates[parseRequest.TemplateID]
-	if !parseOK {
-		parseState.parseMutex.Unlock()
+	tmpl, ok := state.templates[req.TemplateID]
+	if !ok {
+		state.mu.Unlock()
 		return desktop.ChildWindowInfo{}, invalid("unknown child-window template id")
 	}
-	parseOwned := parseState.parseOwners[parseOwnerID]
-	if parseOwned == nil {
-		parseOwned = map[string]*nativeWindowEntry{}
-		parseState.parseOwners[parseOwnerID] = parseOwned
+	owned := state.owners[ownerID]
+	if owned == nil {
+		owned = map[string]*nativeWindowEntry{}
+		state.owners[ownerID] = owned
 	}
-	if _, parseExists := parseOwned[parseRequest.ID]; parseExists {
-		parseState.parseMutex.Unlock()
+	if _, exists := owned[req.ID]; exists {
+		state.mu.Unlock()
 		return desktop.ChildWindowInfo{}, invalid("child-window id already exists for caller")
 	}
-	if len(parseOwned) >= maximumOwnedWindows {
-		parseState.parseMutex.Unlock()
+	if len(owned) >= maximumOwnedWindows {
+		state.mu.Unlock()
 		return desktop.ChildWindowInfo{}, invalid("caller child-window limit reached")
 	}
-	parseOwned[parseRequest.ID] = nil
-	parseState.parseMutex.Unlock()
-	parseTitle := parseTemplate.Title
-	if parseRequest.Title != "" {
-		parseTitle = parseRequest.Title
+	owned[req.ID] = nil
+	state.mu.Unlock()
+
+	title := tmpl.Title
+	if req.Title != "" {
+		title = req.Title
 	}
-	parseWidth, parseHeight := parseTemplate.Width, parseTemplate.Height
-	if parseRequest.Width != 0 {
-		parseWidth, parseHeight = parseRequest.Width, parseRequest.Height
+	width, height := tmpl.Width, tmpl.Height
+	if req.Width != 0 {
+		width, height = req.Width, req.Height
 	}
-	parseApp := application.Get()
-	if parseApp == nil {
-		removeWindowReservation(parseState, parseOwnerID, parseRequest.ID)
+	app := application.Get()
+	if app == nil {
+		removeWindowReservation(state, ownerID, req.ID)
 		return desktop.ChildWindowInfo{}, unavailable("Wails application unavailable")
 	}
-	parseHash := sha256.Sum256([]byte(parseRequest.ID))
-	parseWindow := application.NewWindow(application.WebviewWindowOptions{Name: fmt.Sprintf("gwc-child-%d-%x", parseOwnerID, parseHash[:8]), Title: parseTitle, Width: parseWidth, Height: parseHeight, URL: parseTemplate.Route})
-	parseEntry := &nativeWindowEntry{parseTemplateID: parseRequest.TemplateID, parseTitle: parseTitle, parseWindow: parseWindow}
+	hash := sha256.Sum256([]byte(req.ID))
+	opts := application.WebviewWindowOptions{
+		Name:        fmt.Sprintf("gwc-child-%d-%x", ownerID, hash[:8]),
+		Title:       title,
+		Width:       width,
+		Height:      height,
+		MinWidth:    tmpl.MinWidth,
+		MinHeight:   tmpl.MinHeight,
+		MaxWidth:    tmpl.MaxWidth,
+		MaxHeight:   tmpl.MaxHeight,
+		Frameless:   tmpl.Frameless,
+		AlwaysOnTop: tmpl.AlwaysOnTop,
+		URL:         tmpl.Route,
+	}
+	if tmpl.Backdrop != WindowBackdropDefault {
+		backdropType, _ := resolveWindowBackdrop(tmpl.Backdrop)
+		opts.BackgroundType = application.BackgroundTypeTranslucent
+		opts.Windows.BackdropType = backdropType
+	}
+	win := application.NewWindow(opts)
+	entry := &nativeWindowEntry{templateID: req.TemplateID, title: title, window: win}
 	// Register before the window is added or run so neither host callbacks nor
 	// user input can close it before accepted-close cleanup exists.
-	parseWindow.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		parseEntry.parseClosed.Store(true)
-		removeOwnedWindow(parseState, parseOwnerID, parseRequest.ID, parseWindow)
+	win.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+		entry.closed.Store(true)
+		removeOwnedWindow(state, ownerID, req.ID, win)
 	})
-	parseApp.Window.Add(parseWindow)
-	parseWindow.Run()
-	parseState.parseMutex.Lock()
-	parseOwned = parseState.parseOwners[parseOwnerID]
-	if parseEntry.parseClosed.Load() {
-		if parseOwned != nil {
-			delete(parseOwned, parseRequest.ID)
-			if len(parseOwned) == 0 {
-				delete(parseState.parseOwners, parseOwnerID)
+	app.Window.Add(win)
+	win.Run()
+
+	state.mu.Lock()
+	owned = state.owners[ownerID]
+	if entry.closed.Load() {
+		if owned != nil {
+			delete(owned, req.ID)
+			if len(owned) == 0 {
+				delete(state.owners, ownerID)
 			}
 		}
-		parseState.parseMutex.Unlock()
+		state.mu.Unlock()
 		return desktop.ChildWindowInfo{}, unavailable("child window closed during creation")
 	}
-	if parseOwned == nil {
-		parseOwned = map[string]*nativeWindowEntry{}
-		parseState.parseOwners[parseOwnerID] = parseOwned
+	if owned == nil {
+		owned = map[string]*nativeWindowEntry{}
+		state.owners[ownerID] = owned
 	}
-	parseOwned[parseRequest.ID] = parseEntry
-	isOwnerClosing := parseState.parseClosing[parseOwnerID]
-	parseState.parseMutex.Unlock()
+	owned[req.ID] = entry
+	isOwnerClosing := state.closing[ownerID]
+	state.mu.Unlock()
 	if isOwnerClosing {
 		// Retain ownership until the child's accepted-close listener runs. A
 		// child veto therefore cannot turn this failed creation into an orphan.
-		parseEntry.parseClosing.Store(true)
-		parseWindow.Close()
+		entry.closing.Store(true)
+		win.Close()
 		return desktop.ChildWindowInfo{}, unavailable("calling window closed during child creation")
 	}
-	return getNativeChildWindowInfo(parseRequest.ID, parseEntry), nil
+	return buildNativeChildWindowInfo(state, req.ID, entry), nil
 }
 
 // ListChildWindows lists a stable snapshot of caller-owned children.
-func (parseBackend nativeBackend) ListChildWindows(parseContext context.Context) ([]desktop.ChildWindowInfo, error) {
-	parseOwner, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return nil, parseErr
+func (b nativeBackend) ListChildWindows(ctx context.Context) ([]desktop.ChildWindowInfo, error) {
+	owner, err := getCaller(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if parseBackend.parseWindows == nil {
+	if b.windows == nil {
 		return nil, unavailable("child windows are not configured")
 	}
-	parseBackend.parseWindows.parseMutex.Lock()
-	parseEntries := make(map[string]*nativeWindowEntry, len(parseBackend.parseWindows.parseOwners[parseOwner.ID()]))
-	for parseID, parseEntry := range parseBackend.parseWindows.parseOwners[parseOwner.ID()] {
-		if parseEntry != nil {
-			parseEntries[parseID] = parseEntry
+	b.windows.mu.Lock()
+	entries := make(map[string]*nativeWindowEntry, len(b.windows.owners[owner.ID()]))
+	for id, entry := range b.windows.owners[owner.ID()] {
+		if entry != nil {
+			entries[id] = entry
 		}
 	}
-	parseBackend.parseWindows.parseMutex.Unlock()
-	parseIDs := make([]string, 0, len(parseEntries))
-	for parseID := range parseEntries {
-		parseIDs = append(parseIDs, parseID)
+	b.windows.mu.Unlock()
+	ids := make([]string, 0, len(entries))
+	for id := range entries {
+		ids = append(ids, id)
 	}
-	sort.Strings(parseIDs)
-	parseResult := make([]desktop.ChildWindowInfo, 0, len(parseIDs))
-	for _, parseID := range parseIDs {
-		parseResult = append(parseResult, getNativeChildWindowInfo(parseID, parseEntries[parseID]))
+	sort.Strings(ids)
+	result := make([]desktop.ChildWindowInfo, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, buildNativeChildWindowInfo(b.windows, id, entries[id]))
 	}
-	return parseResult, nil
+	return result, nil
 }
 
 // InspectChildWindow resolves an ID only inside the calling owner's scope.
-func (parseBackend nativeBackend) InspectChildWindow(parseContext context.Context, parseRequest desktop.ChildWindowRequest) (desktop.ChildWindowInfo, error) {
-	parseOwner, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return desktop.ChildWindowInfo{}, parseErr
+func (b nativeBackend) InspectChildWindow(ctx context.Context, req desktop.ChildWindowRequest) (desktop.ChildWindowInfo, error) {
+	owner, err := getCaller(ctx)
+	if err != nil {
+		return desktop.ChildWindowInfo{}, err
 	}
-	parseEntry, parseErr := getOwnedWindow(parseBackend.parseWindows, parseOwner.ID(), parseRequest.ID)
-	if parseErr != nil {
-		return desktop.ChildWindowInfo{}, parseErr
+	entry, err := getOwnedWindow(b.windows, owner.ID(), req.ID)
+	if err != nil {
+		return desktop.ChildWindowInfo{}, err
 	}
-	return getNativeChildWindowInfo(parseRequest.ID, parseEntry), nil
+	return buildNativeChildWindowInfo(b.windows, req.ID, entry), nil
 }
 
-// ControlChildWindow shows, hides, or closes an owned child without affecting its parent.
-func (parseBackend nativeBackend) ControlChildWindow(parseContext context.Context, parseRequest desktop.ChildWindowControlRequest) (desktop.ChildWindowInfo, error) {
-	parseOwner, parseErr := getCaller(parseContext)
-	if parseErr != nil {
-		return desktop.ChildWindowInfo{}, parseErr
+// ControlChildWindow applies a bounded control to an owned child without affecting its parent.
+func (b nativeBackend) ControlChildWindow(ctx context.Context, req desktop.ChildWindowControlRequest) (desktop.ChildWindowInfo, error) {
+	owner, err := getCaller(ctx)
+	if err != nil {
+		return desktop.ChildWindowInfo{}, err
 	}
-	parseEntry, parseErr := getOwnedWindow(parseBackend.parseWindows, parseOwner.ID(), parseRequest.ID)
-	if parseErr != nil {
-		return desktop.ChildWindowInfo{}, parseErr
+	entry, err := getOwnedWindow(b.windows, owner.ID(), req.ID)
+	if err != nil {
+		return desktop.ChildWindowInfo{}, err
 	}
-	parseInfo := getNativeChildWindowInfo(parseRequest.ID, parseEntry)
-	switch parseRequest.Action {
+	switch req.Action {
 	case "show":
-		parseEntry.parseWindow.Show()
-		parseInfo.Visible = true
+		entry.window.Show()
+		info := buildNativeChildWindowInfo(b.windows, req.ID, entry)
+		info.Visible = true
+		return info, nil
 	case "hide":
-		parseEntry.parseWindow.Hide()
-		parseInfo.Visible = false
+		entry.window.Hide()
+		info := buildNativeChildWindowInfo(b.windows, req.ID, entry)
+		info.Visible = false
+		return info, nil
 	case "close":
-		setOwnedWindowClosing(parseBackend.parseWindows, parseOwner.ID(), parseRequest.ID, parseEntry.parseWindow)
-		parseEntry.parseWindow.Close()
-		parseInfo.Closing = true
+		info := buildNativeChildWindowInfo(b.windows, req.ID, entry)
+		setOwnedWindowClosing(b.windows, owner.ID(), req.ID, entry.window)
+		entry.window.Close()
+		info.Closing = true
+		return info, nil
+	case "focus":
+		entry.window.Focus()
+	case "minimize":
+		entry.window.Minimise()
+	case "unminimize":
+		entry.window.UnMinimise()
+	case "maximize":
+		entry.window.Maximise()
+	case "unmaximize":
+		entry.window.UnMaximise()
+	case "restore":
+		entry.window.Restore()
+	case "center":
+		entry.window.Center()
+	case "resize":
+		if req.Width <= 0 || req.Height <= 0 {
+			return desktop.ChildWindowInfo{}, invalid("child-window dimensions must be positive")
+		}
+		entry.window.SetSize(req.Width, req.Height)
+	case "set-title":
+		entry.window.SetTitle(req.Title)
+		b.windows.mu.Lock()
+		entry.title = req.Title
+		b.windows.mu.Unlock()
+	case "set-bounds":
+		if req.Width <= 0 || req.Height <= 0 {
+			return desktop.ChildWindowInfo{}, invalid("child-window dimensions must be positive")
+		}
+		entry.window.SetBounds(application.Rect{X: req.X, Y: req.Y, Width: req.Width, Height: req.Height})
 	default:
 		return desktop.ChildWindowInfo{}, invalid("unknown child-window action")
 	}
-	return parseInfo, nil
+	return buildNativeChildWindowInfo(b.windows, req.ID, entry), nil
 }
 
 // setOwnedWindowClosing marks an accepted close request as pending until WindowClosing runs.
-func setOwnedWindowClosing(parseState *nativeWindowState, parseOwnerID uint, parseID string, parseExpected application.Window) {
-	parseState.parseMutex.Lock()
-	defer parseState.parseMutex.Unlock()
-	parseEntry := parseState.parseOwners[parseOwnerID][parseID]
-	if parseEntry != nil && parseEntry.parseWindow == parseExpected {
-		parseEntry.parseClosing.Store(true)
+func setOwnedWindowClosing(state *nativeWindowState, ownerID uint, id string, expected application.Window) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	entry := state.owners[ownerID][id]
+	if entry != nil && entry.window == expected {
+		entry.closing.Store(true)
 	}
 }
 
 // getOwnedWindow resolves only an owner's own child map.
-func getOwnedWindow(parseState *nativeWindowState, parseOwnerID uint, parseID string) (*nativeWindowEntry, error) {
-	if parseState == nil {
+func getOwnedWindow(state *nativeWindowState, ownerID uint, id string) (*nativeWindowEntry, error) {
+	if state == nil {
 		return nil, unavailable("child windows are not configured")
 	}
-	parseState.parseMutex.Lock()
-	defer parseState.parseMutex.Unlock()
-	parseEntry := parseState.parseOwners[parseOwnerID][parseID]
-	if parseEntry == nil {
-		return nil, &interop.Error{Op: "desktop", Code: interop.CodeUnavailable, Err: fmt.Errorf("caller does not own child window %q", parseID)}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	entry := state.owners[ownerID][id]
+	if entry == nil {
+		return nil, &interop.Error{Op: "desktop", Code: interop.CodeUnavailable, Err: fmt.Errorf("caller does not own child window %q", id)}
 	}
-	return parseEntry, nil
+	return entry, nil
 }
 
 // removeWindowReservation rolls back a failed creation.
-func removeWindowReservation(parseState *nativeWindowState, parseOwnerID uint, parseID string) {
-	removeOwnedWindow(parseState, parseOwnerID, parseID, nil)
+func removeWindowReservation(state *nativeWindowState, ownerID uint, id string) {
+	removeOwnedWindow(state, ownerID, id, nil)
 }
 
 // removeOwnedWindow removes a child only when the expected window still owns the slot.
-func removeOwnedWindow(parseState *nativeWindowState, parseOwnerID uint, parseID string, parseExpected application.Window) {
-	parseState.parseMutex.Lock()
-	defer parseState.parseMutex.Unlock()
-	parseOwned := parseState.parseOwners[parseOwnerID]
-	parseEntry, parseOK := parseOwned[parseID]
-	if !parseOK || (parseExpected != nil && (parseEntry == nil || parseEntry.parseWindow != parseExpected)) {
+func removeOwnedWindow(state *nativeWindowState, ownerID uint, id string, expected application.Window) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	owned := state.owners[ownerID]
+	entry, ok := owned[id]
+	if !ok || (expected != nil && (entry == nil || entry.window != expected)) {
 		return
 	}
-	delete(parseOwned, parseID)
-	if len(parseOwned) == 0 && parseState.parseClosing[parseOwnerID] {
-		delete(parseState.parseOwners, parseOwnerID)
+	delete(owned, id)
+	if len(owned) == 0 && state.closing[ownerID] {
+		delete(state.owners, ownerID)
 	}
 }
 
 // closeOwnedWindows blocks new creates and requests closure without dropping pending ownership.
-func closeOwnedWindows(parseState *nativeWindowState, parseOwnerID uint) {
-	parseState.parseMutex.Lock()
-	parseOwned := parseState.parseOwners[parseOwnerID]
-	parseState.parseClosing[parseOwnerID] = true
-	parseEntries := make([]*nativeWindowEntry, 0, len(parseOwned))
-	for _, parseEntry := range parseOwned {
-		if parseEntry != nil {
-			parseEntry.parseClosing.Store(true)
-			parseEntries = append(parseEntries, parseEntry)
+func closeOwnedWindows(state *nativeWindowState, ownerID uint) {
+	state.mu.Lock()
+	owned := state.owners[ownerID]
+	state.closing[ownerID] = true
+	entries := make([]*nativeWindowEntry, 0, len(owned))
+	for _, entry := range owned {
+		if entry != nil {
+			entry.closing.Store(true)
+			entries = append(entries, entry)
 		}
 	}
-	parseState.parseMutex.Unlock()
-	for _, parseEntry := range parseEntries {
-		parseEntry.parseWindow.Close()
+	state.mu.Unlock()
+	for _, entry := range entries {
+		entry.window.Close()
 	}
 }
 
-// getNativeChildWindowInfo converts an owned Wails child to portable metadata.
-func getNativeChildWindowInfo(parseID string, parseEntry *nativeWindowEntry) desktop.ChildWindowInfo {
-	return desktop.ChildWindowInfo{ID: parseID, TemplateID: parseEntry.parseTemplateID, Title: parseEntry.parseTitle, Width: parseEntry.parseWindow.Width(), Height: parseEntry.parseWindow.Height(), Visible: parseEntry.parseWindow.IsVisible(), Closing: parseEntry.parseClosing.Load()}
+// buildNativeChildWindowInfo converts an owned Wails child to portable metadata.
+func buildNativeChildWindowInfo(state *nativeWindowState, id string, entry *nativeWindowEntry) desktop.ChildWindowInfo {
+	state.mu.Lock()
+	title := entry.title
+	state.mu.Unlock()
+	x, y := entry.window.Position()
+	return desktop.ChildWindowInfo{
+		ID:         id,
+		TemplateID: entry.templateID,
+		Title:      title,
+		X:          x,
+		Y:          y,
+		Width:      entry.window.Width(),
+		Height:     entry.window.Height(),
+		Visible:    entry.window.IsVisible(),
+		Focused:    entry.window.IsFocused(),
+		Minimised:  entry.window.IsMinimised(),
+		Maximised:  entry.window.IsMaximised(),
+		Closing:    entry.closing.Load(),
+	}
 }

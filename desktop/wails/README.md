@@ -2,15 +2,16 @@
 
 This is a separate Go module, not a root-SDK dependency. It implements the
 portable `desktop.FileDialogBackend`, `desktop.NativeBackend`, and optional
-capability contracts using Wails v3.0.0-beta.17 with a pinned Windows menu patch
-in the [GWC-maintained fork](https://github.com/monstercameron/wails).
+capability contracts using Wails `v3.1.0` with a pinned Windows menu-ownership
+patch in the [GWC-maintained fork](https://github.com/monstercameron/wails)
+(`gwc/v3.1.0`).
 Only the native application host imports this package. Wasm/shared application
-code imports `github.com/monstercameron/GoWebComponents/v7/desktop` instead.
+code imports `github.com/monstercameron/GoWebComponents/v8/desktop` instead.
 
 ```go
 import (
-    "github.com/monstercameron/GoWebComponents/v7/desktop"
-    wailsadapter "github.com/monstercameron/GoWebComponents/v7/desktop/wails"
+    "github.com/monstercameron/GoWebComponents/v8/desktop"
+    wailsadapter "github.com/monstercameron/GoWebComponents/v8/desktop/wails"
     "github.com/wailsapp/wails/v3/pkg/application"
 )
 
