@@ -996,17 +996,17 @@ func (parseRt *Runtime) CleanupAtomSubscriptions(parseFiber *Fiber) {
 	// Optimization: Only unsubscribe from atoms this fiber is actually using
 	if parseFiber.hooks != nil && len(parseFiber.hooks.atoms) > 0 {
 		parseRt.atomRegistry.UnsubscribeMany(parseFiber.hooks.atoms, parseFiber)
-		if len(parseFiber.reactiveSourceIDs) > 0 {
-			parseRt.atomRegistry.UnsubscribeMany(parseFiber.reactiveSourceIDs, parseFiber)
-			parseFiber.reactiveSourceIDs = nil
-			parseFiber.reactiveAtomID = ""
+		if parseFiber.cold != nil && len(parseFiber.cold.reactiveSourceIDs) > 0 {
+			parseRt.atomRegistry.UnsubscribeMany(parseFiber.cold.reactiveSourceIDs, parseFiber)
+			parseFiber.cold.reactiveSourceIDs = nil
+			parseFiber.cold.reactiveAtomID = ""
 		}
 		return
 	}
-	if len(parseFiber.reactiveSourceIDs) > 0 {
-		parseRt.atomRegistry.UnsubscribeMany(parseFiber.reactiveSourceIDs, parseFiber)
-		parseFiber.reactiveSourceIDs = nil
-		parseFiber.reactiveAtomID = ""
+	if parseFiber.cold != nil && len(parseFiber.cold.reactiveSourceIDs) > 0 {
+		parseRt.atomRegistry.UnsubscribeMany(parseFiber.cold.reactiveSourceIDs, parseFiber)
+		parseFiber.cold.reactiveSourceIDs = nil
+		parseFiber.cold.reactiveAtomID = ""
 		return
 	}
 

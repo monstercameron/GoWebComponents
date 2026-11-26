@@ -101,11 +101,13 @@ func (parseRt *Runtime) setAsyncBoundarySuspension(parseBoundary *Fiber, parseSu
 	if parseBoundary == nil {
 		return
 	}
-	parseBoundary.asyncSuspension = parseSuspension
-	parseBoundary.asyncWait = nil
+	cold := parseBoundary.ensureCold()
+	cold.asyncSuspension = parseSuspension
+	cold.asyncWait = nil
 	if parseBoundary.alternate != nil {
-		parseBoundary.alternate.asyncSuspension = parseSuspension
-		parseBoundary.alternate.asyncWait = nil
+		altCold := parseBoundary.alternate.ensureCold()
+		altCold.asyncSuspension = parseSuspension
+		altCold.asyncWait = nil
 	}
 }
 
@@ -114,11 +116,13 @@ func (parseRt *Runtime) clearAsyncBoundarySuspension(parseBoundary *Fiber) {
 	if parseBoundary == nil {
 		return
 	}
-	parseBoundary.asyncSuspension = nil
-	parseBoundary.asyncWait = nil
-	if parseBoundary.alternate != nil {
-		parseBoundary.alternate.asyncSuspension = nil
-		parseBoundary.alternate.asyncWait = nil
+	if parseBoundary.cold != nil {
+		parseBoundary.cold.asyncSuspension = nil
+		parseBoundary.cold.asyncWait = nil
+	}
+	if parseBoundary.alternate != nil && parseBoundary.alternate.cold != nil {
+		parseBoundary.alternate.cold.asyncSuspension = nil
+		parseBoundary.alternate.cold.asyncWait = nil
 	}
 }
 
@@ -142,12 +146,12 @@ func (parseRt *Runtime) subscribeAsyncBoundary(parseBoundary *Fiber, parseSuspen
 	if parseRt == nil || parseBoundary == nil || parseSuspension == nil || parseSuspension.Done == nil {
 		return
 	}
-	if parseBoundary.asyncWait == parseSuspension.Done {
+	if parseBoundary.getAsyncWait() == parseSuspension.Done {
 		return
 	}
-	parseBoundary.asyncWait = parseSuspension.Done
+	parseBoundary.ensureCold().asyncWait = parseSuspension.Done
 	if parseBoundary.alternate != nil {
-		parseBoundary.alternate.asyncWait = parseSuspension.Done
+		parseBoundary.alternate.ensureCold().asyncWait = parseSuspension.Done
 	}
 	go func(parseDone <-chan struct{}, parseTarget *Fiber) {
 		<-parseDone
@@ -160,11 +164,11 @@ func asyncBoundaryCapturedSuspension(parseFiber *Fiber) *Suspension {
 	if parseFiber == nil {
 		return nil
 	}
-	if parseFiber.asyncSuspension != nil {
-		return parseFiber.asyncSuspension
+	if suspension := parseFiber.getAsyncSuspension(); suspension != nil {
+		return suspension
 	}
 	if parseFiber.alternate != nil {
-		return parseFiber.alternate.asyncSuspension
+		return parseFiber.alternate.getAsyncSuspension()
 	}
 	return nil
 }

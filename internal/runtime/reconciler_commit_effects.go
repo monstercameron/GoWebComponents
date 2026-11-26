@@ -40,7 +40,7 @@ func (parseRt *Runtime) runFiberCleanups(parseFiber *Fiber) {
 					parseCleanup()
 				}()
 				parseDurationNs := commitTimingSinceNs(parseStart)
-				parseFiber.cleanupDurationNs += parseDurationNs
+				parseFiber.addCleanupDurationNs(parseDurationNs)
 				parseRt.profiling.cleanupExecutions++
 				parseRt.profiling.lastCleanupDurationNs = parseDurationNs
 				parseRt.profiling.totalCleanupDurationNs += parseDurationNs
@@ -286,7 +286,7 @@ func (parseRt *Runtime) runFiberEffectsTier(parseFiber *Fiber, parseTier effectT
 	// Only reset the accumulator on a pass that starts the fiber's work, so a
 	// split layout+passive commit reports their sum rather than the last tier.
 	if parseTier != effectTierPassive {
-		parseFiber.effectDurationNs = 0
+		parseFiber.setEffectDurationNs(0)
 	}
 
 	if parseTier != effectTierLayout {
@@ -381,7 +381,7 @@ func (parseRt *Runtime) runOneEffect(parseFiber *Fiber, parseEffect *Effect) {
 		return parseCleanupFn
 	}()
 	parseDurationNs := commitTimingSinceNs(parseStart)
-	parseFiber.effectDurationNs += parseDurationNs
+	parseFiber.addEffectDurationNs(parseDurationNs)
 	parseRt.profiling.effectExecutions++
 	parseRt.profiling.lastEffectDurationNs = parseDurationNs
 	parseRt.profiling.totalEffectDurationNs += parseDurationNs
@@ -415,7 +415,7 @@ func (parseRt *Runtime) runOutgoingCleanup(parseFiber *Fiber, parseCleanupIndex 
 	parseStart := commitTimingStart()
 	parseRt.callOutgoingCleanupContained(parseFiber, parseCleanup)
 	parseDurationNs := commitTimingSinceNs(parseStart)
-	parseFiber.cleanupDurationNs += parseDurationNs
+	parseFiber.addCleanupDurationNs(parseDurationNs)
 	recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
 }
 

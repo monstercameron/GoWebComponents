@@ -112,6 +112,194 @@ func isCommittedChildOrderStable(parseExpected, parseObserved []DOMNode) bool {
 	return true
 }
 
+// unwrapSingleDirectDOMFiber resolves one fiber to its sole direct DOM-bearing
+// fiber when it is either a host/text fiber itself or a chain of single-child
+// DOM-less component/fragment wrappers. Multi-child wrappers, empty wrappers,
+// portals, and unbound serialized nodes return nil so the caller falls back to
+// the full DOM-readback order repair.
+func (parseRt *Runtime) unwrapSingleDirectDOMFiber(fiber *Fiber) *Fiber {
+	for fiber != nil {
+		if parseRt.isPortalFiber(fiber) || fiber.serializedUnbound {
+			return nil
+		}
+		if !IsDOMNodeNull(fiber.dom) {
+			return fiber
+		}
+		if fiber.child == nil || fiber.child.sibling != nil {
+			return nil
+		}
+		fiber = fiber.child
+	}
+	return nil
+}
+
+// tryApplyCommittedChildOrderFromFibers repairs direct child DOM order using
+// Go fiber pointer identity instead of walking live DOM siblings with
+// GetFirstChild/GetNextSibling and IsSameDOMNode. Returns false to fall back to
+// applyCommittedChildOrder for hydrated containers, portals, multi-root
+// fragments, unbound serialized subtrees, or heavily permuted lists eligible
+// for ReplaceChildren foreign-node verification.
+func (parseRt *Runtime) tryApplyCommittedChildOrderFromFibers(parentFiber *Fiber, domParent DOMNode) bool {
+	if parseRt == nil || parseRt.domAdapter == nil || parentFiber == nil ||
+		parentFiber.alternate == nil || parentFiber.hydrated ||
+		IsDOMNodeNull(parentFiber.dom) || IsDOMNodeNull(domParent) {
+		return false
+	}
+
+	oldIdxByFiber := getFiberIndexMapPool.Get().(map[*Fiber]int)
+	defer func() {
+		clear(oldIdxByFiber)
+		getFiberIndexMapPool.Put(oldIdxByFiber)
+	}()
+
+	survivingCount := 0
+	for oldChild := parentFiber.alternate.child; oldChild != nil; oldChild = oldChild.sibling {
+		if oldChild.effectTag == effectTagDeletion {
+			continue
+		}
+		oldDOMFiber := parseRt.unwrapSingleDirectDOMFiber(oldChild)
+		if oldDOMFiber == nil {
+			return false
+		}
+		if oldDOMFiber.effectTag == effectTagDeletion {
+			continue
+		}
+		oldIdxByFiber[oldDOMFiber] = survivingCount
+		survivingCount++
+	}
+
+	var stackDOM [64]DOMNode
+	var stackRanks [64]int
+	expectedDOM := stackDOM[:0]
+	expectedRanks := stackRanks[:0]
+	placementCount := 0
+	matchedSurviving := 0
+	prevRank := -1
+	isAlreadyOrdered := true
+
+	for child := parentFiber.child; child != nil; child = child.sibling {
+		domFiber := parseRt.unwrapSingleDirectDOMFiber(child)
+		if domFiber == nil {
+			return false
+		}
+		var rank int
+		if domFiber.effectTag == effectTagPlacement {
+			rank = survivingCount + placementCount
+			placementCount++
+		} else {
+			var (
+				oldIdx int
+				ok     bool
+			)
+			if domFiber.alternate != nil {
+				oldIdx, ok = oldIdxByFiber[domFiber.alternate]
+				if ok {
+					delete(oldIdxByFiber, domFiber.alternate)
+				}
+			}
+			if !ok {
+				oldIdx, ok = oldIdxByFiber[domFiber]
+				if ok {
+					delete(oldIdxByFiber, domFiber)
+				}
+			}
+			if !ok {
+				return false
+			}
+			rank = oldIdx
+			matchedSurviving++
+		}
+		if rank < prevRank {
+			isAlreadyOrdered = false
+		}
+		prevRank = rank
+		expectedDOM = append(expectedDOM, domFiber.dom)
+		expectedRanks = append(expectedRanks, rank)
+	}
+
+	if matchedSurviving != survivingCount {
+		return false
+	}
+	if len(expectedDOM) == 0 || isAlreadyOrdered {
+		return true
+	}
+
+	kept, keptCount := markCommittedRanksKept(expectedRanks)
+	moveCount := len(expectedDOM) - keptCount
+	if _, supportsReplace := parseRt.domAdapter.(interface {
+		ReplaceChildren(DOMNode, []DOMNode)
+	}); supportsReplace && len(expectedDOM) >= getCommittedChildReplaceThreshold && moveCount*2 > len(expectedDOM) {
+		// Fall back so ReplaceChildren verifies no foreign DOM siblings exist.
+		return false
+	}
+
+	var anchor DOMNode
+	for i := len(expectedDOM) - 1; i >= 0; i-- {
+		node := expectedDOM[i]
+		if kept[i] {
+			anchor = node
+			continue
+		}
+		if IsDOMNodeNull(anchor) {
+			parseRt.domAdapter.AppendChild(domParent, node)
+		} else {
+			parseRt.domAdapter.InsertBefore(domParent, node, anchor)
+		}
+		anchor = node
+	}
+	return true
+}
+
+// markCommittedRanksKept marks the indices of expectedRanks that form a longest
+// increasing subsequence (children already in valid relative DOM order).
+func markCommittedRanksKept(ranks []int) ([]bool, int) {
+	n := len(ranks)
+	var stackTails [64]committedChildOrderLISState
+	var stackPrev [64]int
+	var stackKept [64]bool
+	var tails []committedChildOrderLISState
+	var prev []int
+	var kept []bool
+	if n <= len(stackTails) {
+		tails = stackTails[:0]
+		prev = stackPrev[:n]
+		kept = stackKept[:n]
+	} else {
+		tails = make([]committedChildOrderLISState, 0, n)
+		prev = make([]int, n)
+		kept = make([]bool, n)
+	}
+	for i, rank := range ranks {
+		lo, hi := 0, len(tails)
+		for lo < hi {
+			mid := (lo + hi) / 2
+			if tails[mid].parseValue < rank {
+				lo = mid + 1
+			} else {
+				hi = mid
+			}
+		}
+		if lo > 0 {
+			prev[i] = tails[lo-1].parseIndex
+		} else {
+			prev[i] = -1
+		}
+		state := committedChildOrderLISState{parseValue: rank, parseIndex: i}
+		if lo == len(tails) {
+			tails = append(tails, state)
+		} else {
+			tails[lo] = state
+		}
+	}
+	count := len(tails)
+	if count > 0 {
+		for cursor := tails[count-1].parseIndex; cursor >= 0; cursor = prev[cursor] {
+			kept[cursor] = true
+		}
+	}
+	return kept, count
+}
+
 // applyCommittedChildOrder is an internal reconciler helper.
 func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseExpected []DOMNode) {
 	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseDomParent) || len(parseExpected) == 0 {
@@ -255,27 +443,51 @@ func repairCommittedChildOrderAdjacentSwap(parseRt *Runtime, parseDomParent DOMN
 // order, which IS pointer-comparable — is the real fix and a larger change to
 // the most delicate part of commit.
 func buildCommittedChildOrderMatch(parseExpected, parseObserved []DOMNode) ([]int, bool) {
-	if len(parseExpected) != len(parseObserved) {
+	n := len(parseExpected)
+	if n != len(parseObserved) {
 		return nil, false
 	}
-	parseMatch := make([]int, len(parseObserved))
-	parseUsed := make([]bool, len(parseExpected))
+	parseMatch := make([]int, n)
+	parseUsed := make([]bool, n)
 	parseCursor := 0
+	step := 1
+	prevFound := -2
 	for parseIndex, parseObservedNode := range parseObserved {
 		parseFound := -1
-		// Forward from the cursor, then wrap: together these cover the whole
-		// list exactly once.
-		for parseOffset := range parseExpected {
-			parseExpectedIndex := parseCursor + parseOffset
-			if parseExpectedIndex >= len(parseExpected) {
-				parseExpectedIndex -= len(parseExpected)
+		// Fast probe 1: expected next slot along the active scan direction
+		// (hits on probe 1 for forward runs, rotations, and reverse runs).
+		if !parseUsed[parseCursor] && IsSameDOMNode(parseExpected[parseCursor], parseObservedNode) {
+			parseFound = parseCursor
+		}
+		// Fast probe 2: opposite neighbor (immediately catches a descending or
+		// reversed sequence on its very first element without scanning O(n)).
+		if parseFound < 0 && n > 1 {
+			alt := parseCursor - step
+			if alt < 0 {
+				alt += n
+			} else if alt >= n {
+				alt -= n
 			}
-			if parseUsed[parseExpectedIndex] {
-				continue
+			if !parseUsed[alt] && IsSameDOMNode(parseExpected[alt], parseObservedNode) {
+				parseFound = alt
 			}
-			if IsSameDOMNode(parseExpected[parseExpectedIndex], parseObservedNode) {
-				parseFound = parseExpectedIndex
-				break
+		}
+		// General fallback: scan the remaining slots once along step direction.
+		if parseFound < 0 {
+			for offset := 1; offset < n; offset++ {
+				expectedIdx := parseCursor + offset*step
+				if expectedIdx >= n {
+					expectedIdx -= n
+				} else if expectedIdx < 0 {
+					expectedIdx += n
+				}
+				if parseUsed[expectedIdx] {
+					continue
+				}
+				if IsSameDOMNode(parseExpected[expectedIdx], parseObservedNode) {
+					parseFound = expectedIdx
+					break
+				}
 			}
 		}
 		if parseFound < 0 {
@@ -283,9 +495,17 @@ func buildCommittedChildOrderMatch(parseExpected, parseObserved []DOMNode) ([]in
 		}
 		parseUsed[parseFound] = true
 		parseMatch[parseIndex] = parseFound
-		parseCursor = parseFound + 1
-		if parseCursor >= len(parseExpected) {
+		if (prevFound >= 0 && parseFound == prevFound-1) || (prevFound == -2 && parseFound == n-1) {
+			step = -1
+		} else if prevFound >= 0 && parseFound == prevFound+1 {
+			step = 1
+		}
+		prevFound = parseFound
+		parseCursor = parseFound + step
+		if parseCursor >= n {
 			parseCursor = 0
+		} else if parseCursor < 0 {
+			parseCursor = n - 1
 		}
 	}
 	return parseMatch, true

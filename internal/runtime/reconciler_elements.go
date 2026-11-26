@@ -989,7 +989,7 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		if parseOldFiber.dirty || parseOldFiber.needsUpdate {
 			parseEffectTag = effectTagUpdate
 		}
-		parseNewFiber := acquireWorkInProgress(parseOldFiber)
+		parseNewFiber, reusedCold := acquireWorkInProgressForOverwrite(parseOldFiber)
 		*parseNewFiber = Fiber{
 			typeOf:   parseOldFiber.typeOf,
 			props:    parseOldFiber.props,
@@ -1011,10 +1011,8 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			needsUpdate:            parseOldFiber.needsUpdate,
 			needsChildReconcile:    parseOldFiber.needsChildReconcile,
 			hooks:                  parseOldFiber.hooks, // Share hooks for non-updated components
-			eventCallbacks:         parseOldFiber.eventCallbacks,
 			contextValues:          parseOldFiber.contextValues,
-			reactiveAtomID:         parseOldFiber.reactiveAtomID,
-			reactiveSourceIDs:      parseOldFiber.reactiveSourceIDs,
+			cold:                   clonePreservedCold(parseOldFiber, reusedCold),
 			fineGrained:            parseOldFiber.fineGrained,
 			hasDirectText:          parseOldFiber.hasDirectText,
 			isCompactHostProps:     parseOldFiber.isCompactHostProps,
@@ -1029,11 +1027,9 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			// Same reason as buildUpdatedFiber: the bailout clone is the OTHER
 			// way a marked fiber reaches the work loop, so dropping the lane
 			// here defeats P2.2 just as completely. The suspension fields travel
-			// for the same reason — see the goroutine-per-render note there.
-			updateLane:      parseOldFiber.updateLane,
-			asyncSuspension: parseOldFiber.asyncSuspension,
-			asyncWait:       parseOldFiber.asyncWait,
-			ownerRuntime:    parseRt,
+			// in cold via clonePreservedCold for the same reason.
+			updateLane:   parseOldFiber.updateLane,
+			ownerRuntime: parseRt,
 		}
 		if parseNewFiber.hooks != nil {
 			parseNewFiber.hooks.owner = parseNewFiber
@@ -1177,7 +1173,8 @@ func buildClonedFiberSubscriptionAtomIDs(parseFiber *Fiber) []string {
 	if parseFiber == nil {
 		return nil
 	}
-	getCapacityHint := len(parseFiber.reactiveSourceIDs)
+	sourceIDs := parseFiber.getReactiveSourceIDs()
+	getCapacityHint := len(sourceIDs)
 	if parseFiber.hooks != nil {
 		getCapacityHint += len(parseFiber.hooks.atoms)
 	}
@@ -1226,8 +1223,8 @@ func buildClonedFiberSubscriptionAtomIDs(parseFiber *Fiber) []string {
 	if parseFiber.hooks != nil && len(parseFiber.hooks.atoms) > 0 {
 		storeAtomIDs(parseFiber.hooks.atoms)
 	}
-	if len(parseFiber.reactiveSourceIDs) > 0 {
-		storeAtomIDs(parseFiber.reactiveSourceIDs)
+	if len(sourceIDs) > 0 {
+		storeAtomIDs(sourceIDs)
 	}
 	return getAtomIDs
 }

@@ -12,8 +12,8 @@ func TestCloneChildFibersMovesReactiveSourceSubscriptions(parseT *testing.T) {
 	parseOldFiber := &Fiber{
 		typeOf:            ReactiveRegionNodeType,
 		parent:            parseOldParent,
-		fineGrained:       true,
-		reactiveSourceIDs: []string{"count"},
+		fineGrained: true,
+		cold:        &fiberCold{reactiveSourceIDs: []string{"count"}},
 	}
 	parseOldParent.child = parseOldFiber
 	parseParent := &Fiber{
@@ -57,8 +57,8 @@ func TestCloneChildFibersQueuesReactiveSourceHydrationSubscriptionMoves(parseT *
 	parseOldFiber := &Fiber{
 		typeOf:            ReactiveRegionNodeType,
 		parent:            parseOldParent,
-		fineGrained:       true,
-		reactiveSourceIDs: []string{"count"},
+		fineGrained: true,
+		cold:        &fiberCold{reactiveSourceIDs: []string{"count"}},
 	}
 	parseOldParent.child = parseOldFiber
 	parseParent := &Fiber{
@@ -96,8 +96,8 @@ func TestReconcileChildrenMovesReactiveSourceSubscriptions(parseT *testing.T) {
 	parseOldFiber := &Fiber{
 		typeOf:            "div",
 		parent:            parseOldParent,
-		fineGrained:       true,
-		reactiveSourceIDs: []string{"count"},
+		fineGrained: true,
+		cold:        &fiberCold{reactiveSourceIDs: []string{"count"}},
 	}
 	parseOldParent.child = parseOldFiber
 	parseWipParent := &Fiber{
@@ -126,8 +126,8 @@ func TestReconcileKeyedChildrenMovesReactiveSourceSubscriptions(parseT *testing.
 		typeOf:            "div",
 		props:             map[string]any{"key": "slot-1"},
 		parent:            parseOldParent,
-		fineGrained:       true,
-		reactiveSourceIDs: []string{"count"},
+		fineGrained: true,
+		cold:        &fiberCold{reactiveSourceIDs: []string{"count"}},
 	}
 	parseOldParent.child = parseOldFiber
 	parseWipParent := &Fiber{

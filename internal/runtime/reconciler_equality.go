@@ -128,7 +128,10 @@ func samePropsMap(parseA, parseB map[string]any) bool {
 
 // isSameType checks if two component types are the same
 func isSameType(parseType1, parseType2 any) bool {
-	// String types (HTML tags)
+	if parseType1 == nil || parseType2 == nil {
+		return false
+	}
+	// String types (HTML tags — overwhelmingly common host path)
 	if parseS1, parseOk1 := parseType1.(string); parseOk1 {
 		if parseS2, parseOk2 := parseType2.(string); parseOk2 {
 			return parseS1 == parseS2
@@ -142,6 +145,18 @@ func isSameType(parseType1, parseType2 any) bool {
 			return false
 		}
 		return parseComponent1.IdentityKey() != "" && parseComponent1.IdentityKey() == parseComponent2.IdentityKey()
+	}
+
+	// Fast path for function components and framework singleton node types:
+	// avoids 4 reflect.ValueOf calls per comparison.
+	switch parseType1.(type) {
+	case func() *Element, func(map[string]any) *Element, func(Attrs) *Element:
+		h1 := *(*emptyInterfaceHeader)(unsafe.Pointer(&parseType1))
+		h2 := *(*emptyInterfaceHeader)(unsafe.Pointer(&parseType2))
+		return h1.typ == h2.typ && h1.data == h2.data
+	case *PortalElementType, *ReactiveTextElementType, *ReactiveRegionElementType,
+		*AsyncBoundaryElementType, *ErrorBoundaryType, *ContextProviderType:
+		return parseType1 == parseType2
 	}
 
 	parseV1 := reflect.ValueOf(parseType1)

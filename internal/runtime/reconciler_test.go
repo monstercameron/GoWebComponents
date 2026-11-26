@@ -1105,8 +1105,8 @@ func TestRunEffects_ReportsSlowEffectDiagnostic(parseT *testing.T) {
 		}
 
 		parseRt.runEffects(parseFiber)
-		if parseFiber.effectDurationNs < slowOperationDiagnosticThresholdNs {
-			parseT.Fatalf("expected effect duration to be recorded, got %d", parseFiber.effectDurationNs)
+		if parseFiber.getEffectDurationNs() < slowOperationDiagnosticThresholdNs {
+			parseT.Fatalf("expected effect duration to be recorded, got %d", parseFiber.getEffectDurationNs())
 		}
 		if parseRt.profiling.effectExecutions != 1 {
 			parseT.Fatalf("expected effect execution counter to increment, got %d", parseRt.profiling.effectExecutions)
@@ -1145,8 +1145,8 @@ func TestRunCleanups_ReportsSlowCleanupDiagnostic(parseT *testing.T) {
 		}
 
 		parseRt.runCleanups(parseFiber)
-		if parseFiber.cleanupDurationNs < slowOperationDiagnosticThresholdNs {
-			parseT.Fatalf("expected cleanup duration to be recorded, got %d", parseFiber.cleanupDurationNs)
+		if parseFiber.getCleanupDurationNs() < slowOperationDiagnosticThresholdNs {
+			parseT.Fatalf("expected cleanup duration to be recorded, got %d", parseFiber.getCleanupDurationNs())
 		}
 		if parseRt.profiling.cleanupExecutions != 1 {
 			parseT.Fatalf("expected cleanup execution counter to increment, got %d", parseRt.profiling.cleanupExecutions)

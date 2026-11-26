@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io"
 	"strings"
 
@@ -213,7 +212,7 @@ func renderElementToStreamShell(parseBuilder *strings.Builder, parseElement *Ele
 	if parseTyp, parseOk := parseElement.Type.(string); parseOk {
 		switch parseTyp {
 		case "TEXT_ELEMENT":
-			parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
+			writeSerializedEscapedString(parseBuilder, parseElement.TextContent)
 			return nil
 		case "FRAGMENT":
 			return renderChildrenToStreamShell(parseBuilder, parseElement.Children, parseState)
@@ -238,10 +237,10 @@ func renderElementToStreamShell(parseBuilder *strings.Builder, parseElement *Ele
 	if _, parseOk4 := parseElement.Type.(*ReactiveTextElementType); parseOk4 {
 		parseGetter, _ := parseElement.Props[reactiveTextGetterProp].(func() string)
 		if parseGetter == nil {
-			parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
+			writeSerializedEscapedString(parseBuilder, parseElement.TextContent)
 			return nil
 		}
-		parseBuilder.WriteString(html.EscapeString(parseGetter()))
+		writeSerializedEscapedString(parseBuilder, parseGetter())
 		return nil
 	}
 	if _, parseOk5 := parseElement.Type.(*ReactiveRegionElementType); parseOk5 {
@@ -415,7 +414,7 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 		parseBuilder.WriteString(parseTag)
 		writeSSRProps(parseBuilder, parseProps, "value")
 		parseBuilder.WriteByte('>')
-		parseBuilder.WriteString(html.EscapeString(parseTextareaValue))
+		writeSerializedEscapedString(parseBuilder, parseTextareaValue)
 		parseBuilder.WriteString("</")
 		parseBuilder.WriteString(parseTag)
 		parseBuilder.WriteByte('>')
@@ -456,7 +455,7 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 	}
 
 	if parseElement.hasDirectText {
-		parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
+		writeSerializedEscapedString(parseBuilder, parseElement.TextContent)
 	} else if parseErr := renderChildrenToStreamShell(parseBuilder, getElementChildren(parseElement), parseState); parseErr != nil {
 		return parseErr
 	}
@@ -477,9 +476,9 @@ func renderChildrenToStreamShell(parseBuilder *strings.Builder, parseChildren []
 				return parseErr
 			}
 		case string:
-			parseBuilder.WriteString(html.EscapeString(parseValue))
+			writeSerializedEscapedString(parseBuilder, parseValue)
 		default:
-			parseBuilder.WriteString(html.EscapeString(fmt.Sprint(parseValue)))
+			writeSerializedEscapedString(parseBuilder, fmt.Sprint(parseValue))
 		}
 	}
 	return nil
@@ -524,7 +523,7 @@ func writeSSRStreamBoundaryEnd(parseBuilder *strings.Builder, parseBoundaryID st
 func renderSSRStreamBoundaryPatch(parseBoundaryID string, parseHTML string, parseIncludeScript bool, parseScriptNonce string) string {
 	var parseBuilder strings.Builder
 	parseBuilder.WriteString(`<template data-gwc-stream-boundary="`)
-	parseBuilder.WriteString(html.EscapeString(parseBoundaryID))
+	writeSerializedEscapedString(&parseBuilder, parseBoundaryID)
 	parseBuilder.WriteString(`">`)
 	parseBuilder.WriteString(parseHTML)
 	parseBuilder.WriteString(`</template>`)
@@ -537,7 +536,7 @@ func renderSSRStreamBoundaryPatch(parseBoundaryID string, parseHTML string, pars
 func writeSSRStreamBoundaryPatchScript(parseBuilder *strings.Builder, parseBoundaryID string, parseScriptNonce string) {
 	parseEncodedID, _ := json.Marshal(parseBoundaryID)
 	parseBuilder.WriteString(`<script data-gwc-stream-boundary="`)
-	parseBuilder.WriteString(html.EscapeString(parseBoundaryID))
+	writeSerializedEscapedString(parseBuilder, parseBoundaryID)
 	parseBuilder.WriteByte('"')
 	writeSSRScriptNonceAttr(parseBuilder, parseScriptNonce)
 	parseBuilder.WriteString(`>(function(){var id=`)
@@ -551,6 +550,6 @@ func writeSSRScriptNonceAttr(parseBuilder *strings.Builder, parseScriptNonce str
 		return
 	}
 	parseBuilder.WriteString(` nonce="`)
-	parseBuilder.WriteString(html.EscapeString(parseScriptNonce))
+	writeSerializedEscapedString(parseBuilder, parseScriptNonce)
 	parseBuilder.WriteByte('"')
 }

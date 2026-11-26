@@ -250,131 +250,214 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 		return
 	}
 
-	// Everything below belongs to the reorder/fallback path. Acquire its maps,
-	// scratch slices, and deferred cleanup only after the ordered path declines;
-	// stable lists, appends, and suffix removals otherwise paid two allocations
-	// plus four pool operations immediately before returning.
-	parseOldByKey := keyedFiberMapPool.Get().(map[any]*Fiber)
-	parseOldFallbackKeyed := fiberScratchSlicePool.get()
-	parseOldUnkeyed := fiberScratchSlicePool.get()
-	parseOldIndexByFiber := getFiberIndexMapPool.Get().(map[*Fiber]int)
+	// Collect old fibers into a pooled slice so we can trim both the common
+	// prefix and the common keyed suffix before touching any map. Prepending,
+	// mid-list insertion, mid-list deletion, and small-window reorders then
+	// hash zero or only a handful of fibers instead of the whole list.
+	oldFibers := fiberScratchSlicePool.get()
 	defer func() {
-		clear(parseOldByKey)
-		keyedFiberMapPool.Put(parseOldByKey)
-		clear(parseOldIndexByFiber)
-		getFiberIndexMapPool.Put(parseOldIndexByFiber)
-		fiberScratchSlicePool.clear(parseOldFallbackKeyed)
-		fiberScratchSlicePool.clear(parseOldUnkeyed)
+		fiberScratchSlicePool.clear(oldFibers)
 	}()
-
-	parseOldIndex := 0
-	for parseOldFiber := parseOldFirst; parseOldFiber != nil; parseOldFiber = parseOldFiber.sibling {
-		parseOldIndexByFiber[parseOldFiber] = parseOldIndex
-		parseOldIndex++
-		if parseKey, isComparable, hasKey := fiberReconcileKey(parseOldFiber); isComparable {
-			if _, parseDup := parseOldByKey[parseKey]; parseDup {
-				// Duplicate key: the keyed map holds only one fiber per key, so
-				// route the collision to the positionally-matched fallback list.
-				// This keeps every old fiber tracked in exactly one structure so
-				// none leaks at cleanup — an overwritten map entry would otherwise
-				// never be tagged for deletion, orphaning a stale DOM node.
-				parseOldFallbackKeyed = append(parseOldFallbackKeyed, parseOldFiber)
-			} else {
-				parseOldByKey[parseKey] = parseOldFiber
-			}
-		} else if hasKey {
-			parseOldFallbackKeyed = append(parseOldFallbackKeyed, parseOldFiber)
-		} else {
-			parseOldUnkeyed = append(parseOldUnkeyed, parseOldFiber)
-		}
+	for oldFiber := parseOldFirst; oldFiber != nil; oldFiber = oldFiber.sibling {
+		oldFibers = append(oldFibers, oldFiber)
 	}
 
-	parseUnkeyedIndex := 0
-	parseLastMatchedOldIndex := -1
-	var parsePrevSibling *Fiber
-	isParseFirstChildSet := false
-
-	for _, parseElement := range parseElements {
-		parseElem, parseOk2 := parseElement.(*Element)
-		if !parseOk2 || parseElem == nil {
-			continue
+	prefixLen := 0
+	for prefixLen < len(oldFibers) && prefixLen < len(parseElements) {
+		elem, ok := parseElements[prefixLen].(*Element)
+		if !ok || elem == nil {
+			break
 		}
+		if !sameFiberType(elem, oldFibers[prefixLen]) || !hasElementFiberKeyMatch(elem, oldFibers[prefixLen]) {
+			break
+		}
+		prefixLen++
+	}
 
-		var parseMatchedOld *Fiber
-		if parseKey2, isComparable2, hasKey2 := elementReconcileKey(parseElem); isComparable2 {
-			parseMatchedOld = parseOldByKey[parseKey2]
-			if parseMatchedOld != nil {
-				delete(parseOldByKey, parseKey2)
-			} else {
-				// No primary keyed match: a duplicate-keyed old fiber routed to
-				// the fallback list may still match this element by key.
-				parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
+	oldEnd := len(oldFibers) - 1
+	newEnd := len(parseElements) - 1
+	for oldEnd >= prefixLen && newEnd >= prefixLen {
+		elem, ok := parseElements[newEnd].(*Element)
+		if !ok || elem == nil {
+			break
+		}
+		oldFiber := oldFibers[oldEnd]
+		// Restrict suffix trimming to explicitly keyed pairs so positional
+		// unkeyed fibers keep their left-to-right FIFO matching order.
+		if !hasElementKey(elem) || !hasFiberKey(oldFiber) ||
+			!sameFiberType(elem, oldFiber) || !hasElementFiberKeyMatch(elem, oldFiber) {
+			break
+		}
+		oldEnd--
+		newEnd--
+	}
+
+	var prevSibling *Fiber
+	isFirstChildSet := false
+	appendChild := func(child *Fiber) {
+		if !isFirstChildSet {
+			parseWipFiber.child = child
+			isFirstChildSet = true
+		} else if prevSibling != nil {
+			prevSibling.sibling = child
+		}
+		prevSibling = child
+	}
+
+	// 1. Emit the matched prefix without map lookups.
+	for i := 0; i < prefixLen; i++ {
+		appendChild(parseRt.buildUpdatedFiber(parseWipFiber, oldFibers[i], parseElements[i].(*Element)))
+	}
+
+	hasSuffix := oldEnd < len(oldFibers)-1
+
+	// 2. Reconcile the unmatched middle window.
+	switch {
+	case oldEnd < prefixLen && newEnd >= prefixLen:
+		// Pure head or mid-list insertion: no old fibers remain in the middle.
+		hasInserted := false
+		for i := prefixLen; i <= newEnd; i++ {
+			elem, ok := parseElements[i].(*Element)
+			if !ok || elem == nil {
+				continue
 			}
-		} else if hasKey2 {
-			parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
-		} else if parseUnkeyedIndex < len(parseOldUnkeyed) {
-			parseMatchedOld = parseOldUnkeyed[parseUnkeyedIndex]
-			parseUnkeyedIndex++
+			appendChild(parseRt.buildPlacementFiber(parseWipFiber, elem, nil))
+			hasInserted = true
+		}
+		if hasInserted && hasSuffix {
+			parseWipFiber.needsChildOrder = true
+			markFiberCommitPath(parseWipFiber.parent)
 		}
 
-		var parseNewFiber *Fiber
-		if parseMatchedOld != nil && sameFiberType(parseElem, parseMatchedOld) {
-			if parseMatchedOldIndex, hasParseMatchedOldIndex := parseOldIndexByFiber[parseMatchedOld]; hasParseMatchedOldIndex {
-				if parseMatchedOldIndex < parseLastMatchedOldIndex {
+	case newEnd < prefixLen && oldEnd >= prefixLen:
+		// Pure head or mid-list deletion: remaining prefix and suffix stay ordered.
+		for i := prefixLen; i <= oldEnd; i++ {
+			oldFibers[i].effectTag = effectTagDeletion
+			parseRt.deletions = append(parseRt.deletions, oldFibers[i])
+		}
+
+	case prefixLen <= oldEnd && prefixLen <= newEnd:
+		// General reorder/replacement inside the narrowed [prefixLen..oldEnd] window.
+		parseOldByKey := keyedFiberMapPool.Get().(map[any]*Fiber)
+		parseOldFallbackKeyed := fiberScratchSlicePool.get()
+		parseOldUnkeyed := fiberScratchSlicePool.get()
+		parseOldIndexByFiber := getFiberIndexMapPool.Get().(map[*Fiber]int)
+		defer func() {
+			clear(parseOldByKey)
+			keyedFiberMapPool.Put(parseOldByKey)
+			clear(parseOldIndexByFiber)
+			getFiberIndexMapPool.Put(parseOldIndexByFiber)
+			fiberScratchSlicePool.clear(parseOldFallbackKeyed)
+			fiberScratchSlicePool.clear(parseOldUnkeyed)
+		}()
+
+		for i := prefixLen; i <= oldEnd; i++ {
+			oldFiber := oldFibers[i]
+			parseOldIndexByFiber[oldFiber] = i
+			if parseKey, isComparable, hasKey := fiberReconcileKey(oldFiber); isComparable {
+				if _, parseDup := parseOldByKey[parseKey]; parseDup {
+					// Duplicate key: the keyed map holds only one fiber per key, so
+					// route the collision to the positionally-matched fallback list.
+					// This keeps every old fiber tracked in exactly one structure so
+					// none leaks at cleanup — an overwritten map entry would otherwise
+					// never be tagged for deletion, orphaning a stale DOM node.
+					parseOldFallbackKeyed = append(parseOldFallbackKeyed, oldFiber)
+				} else {
+					parseOldByKey[parseKey] = oldFiber
+				}
+			} else if hasKey {
+				parseOldFallbackKeyed = append(parseOldFallbackKeyed, oldFiber)
+			} else {
+				parseOldUnkeyed = append(parseOldUnkeyed, oldFiber)
+			}
+		}
+
+		parseUnkeyedIndex := 0
+		parseLastMatchedOldIndex := prefixLen - 1
+
+		for i := prefixLen; i <= newEnd; i++ {
+			parseElem, parseOk2 := parseElements[i].(*Element)
+			if !parseOk2 || parseElem == nil {
+				continue
+			}
+
+			var parseMatchedOld *Fiber
+			if parseKey2, isComparable2, hasKey2 := elementReconcileKey(parseElem); isComparable2 {
+				parseMatchedOld = parseOldByKey[parseKey2]
+				if parseMatchedOld != nil {
+					delete(parseOldByKey, parseKey2)
+				} else {
+					// No primary keyed match: a duplicate-keyed old fiber routed to
+					// the fallback list may still match this element by key.
+					parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
+				}
+			} else if hasKey2 {
+				parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
+			} else if parseUnkeyedIndex < len(parseOldUnkeyed) {
+				parseMatchedOld = parseOldUnkeyed[parseUnkeyedIndex]
+				parseUnkeyedIndex++
+			}
+
+			var parseNewFiber *Fiber
+			if parseMatchedOld != nil && sameFiberType(parseElem, parseMatchedOld) {
+				if parseMatchedOldIndex, hasParseMatchedOldIndex := parseOldIndexByFiber[parseMatchedOld]; hasParseMatchedOldIndex {
+					if parseMatchedOldIndex < parseLastMatchedOldIndex {
+						parseWipFiber.needsChildOrder = true
+						markFiberCommitPath(parseWipFiber.parent)
+					}
+					if parseMatchedOldIndex > parseLastMatchedOldIndex {
+						parseLastMatchedOldIndex = parseMatchedOldIndex
+					}
+				}
+
+				parseNewFiber = parseRt.buildUpdatedFiber(parseWipFiber, parseMatchedOld, parseElem)
+			} else {
+				if hasSuffix || len(parseOldByKey) > 0 || hasRemainingFallbackKeyed(parseOldFallbackKeyed) || parseUnkeyedIndex < len(parseOldUnkeyed) {
 					parseWipFiber.needsChildOrder = true
 					markFiberCommitPath(parseWipFiber.parent)
 				}
-				if parseMatchedOldIndex > parseLastMatchedOldIndex {
-					parseLastMatchedOldIndex = parseMatchedOldIndex
+				if parseMatchedOld != nil {
+					parseMatchedOld.effectTag = effectTagDeletion
+					parseRt.deletions = append(parseRt.deletions, parseMatchedOld)
 				}
+
+				parseNewFiber = parseRt.buildPlacementFiber(parseWipFiber, parseElem, nil)
 			}
 
-			parseNewFiber = parseRt.buildUpdatedFiber(parseWipFiber, parseMatchedOld, parseElem)
-		} else {
-			if len(parseOldByKey) > 0 || hasRemainingFallbackKeyed(parseOldFallbackKeyed) || parseUnkeyedIndex < len(parseOldUnkeyed) {
-				parseWipFiber.needsChildOrder = true
-				markFiberCommitPath(parseWipFiber.parent)
+			appendChild(parseNewFiber)
+		}
+
+		for i := prefixLen; i <= oldEnd; i++ {
+			oldFiber := oldFibers[i]
+			parseKey, parseOk := fiberComparableKey(oldFiber)
+			if !parseOk {
+				continue
 			}
-			if parseMatchedOld != nil {
-				parseMatchedOld.effectTag = effectTagDeletion
-				parseRt.deletions = append(parseRt.deletions, parseMatchedOld)
+			if parseOldByKey[parseKey] != oldFiber {
+				continue
 			}
-
-			parseNewFiber = parseRt.buildPlacementFiber(parseWipFiber, parseElem, nil)
+			delete(parseOldByKey, parseKey)
+			oldFiber.effectTag = effectTagDeletion
+			parseRt.deletions = append(parseRt.deletions, oldFiber)
 		}
-
-		if !isParseFirstChildSet {
-			parseWipFiber.child = parseNewFiber
-			isParseFirstChildSet = true
-		} else if parsePrevSibling != nil {
-			parsePrevSibling.sibling = parseNewFiber
+		for _, parseOldFiber3 := range parseOldFallbackKeyed {
+			if parseOldFiber3 == nil {
+				continue
+			}
+			parseOldFiber3.effectTag = effectTagDeletion
+			parseRt.deletions = append(parseRt.deletions, parseOldFiber3)
 		}
-		parsePrevSibling = parseNewFiber
+		for ; parseUnkeyedIndex < len(parseOldUnkeyed); parseUnkeyedIndex++ {
+			parseOldFiber4 := parseOldUnkeyed[parseUnkeyedIndex]
+			parseOldFiber4.effectTag = effectTagDeletion
+			parseRt.deletions = append(parseRt.deletions, parseOldFiber4)
+		}
 	}
 
-	for parseOldFiber2 := parseOldFirst; parseOldFiber2 != nil; parseOldFiber2 = parseOldFiber2.sibling {
-		parseKey, parseOk := fiberComparableKey(parseOldFiber2)
-		if !parseOk {
-			continue
-		}
-		if parseOldByKey[parseKey] != parseOldFiber2 {
-			continue
-		}
-		delete(parseOldByKey, parseKey)
-		parseOldFiber2.effectTag = effectTagDeletion
-		parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
-	}
-	for _, parseOldFiber3 := range parseOldFallbackKeyed {
-		if parseOldFiber3 == nil {
-			continue
-		}
-		parseOldFiber3.effectTag = effectTagDeletion
-		parseRt.deletions = append(parseRt.deletions, parseOldFiber3)
-	}
-	for ; parseUnkeyedIndex < len(parseOldUnkeyed); parseUnkeyedIndex++ {
-		parseOldFiber4 := parseOldUnkeyed[parseUnkeyedIndex]
-		parseOldFiber4.effectTag = effectTagDeletion
-		parseRt.deletions = append(parseRt.deletions, parseOldFiber4)
+	// 3. Emit the matched keyed suffix without map lookups.
+	suffixLen := len(oldFibers) - 1 - oldEnd
+	for offset := 0; offset < suffixLen; offset++ {
+		appendChild(parseRt.buildUpdatedFiber(parseWipFiber, oldFibers[oldEnd+1+offset], parseElements[newEnd+1+offset].(*Element)))
 	}
 }
 

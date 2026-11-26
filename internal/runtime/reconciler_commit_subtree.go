@@ -111,7 +111,7 @@ func (parseRt *Runtime) shouldDeferHostDomToCommit(parseFiber *Fiber) bool {
 		return true
 	}
 	return isSerializableHostFiber(parseFiber) && !parseFiber.fineGrained &&
-		len(parseFiber.eventCallbacks) == 0
+		len(parseFiber.getEventCallbacks()) == 0
 }
 
 // isSerializableHostFiber reports whether one host fiber's DOM state is fully
@@ -410,7 +410,7 @@ func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builde
 		}
 	}
 	if !isSerializableHostFiber(parseFiber) || parseFiber.fineGrained ||
-		len(parseFiber.eventCallbacks) != 0 || !IsDOMNodeNull(parseFiber.dom) ||
+		len(parseFiber.getEventCallbacks()) != 0 || !IsDOMNodeNull(parseFiber.dom) ||
 		parseFiber.hydration != nil || parseFiber.effectTag != effectTagPlacement {
 		return false
 	}
@@ -464,29 +464,43 @@ func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builde
 // directly to the existing mount builder. The standard helper first counts
 // replacements and then builds a second string; serialized mounts can emit the
 // same five escapes in one pass and avoid that temporary entirely.
-func writeSerializedEscapedString(parseBuilder *strings.Builder, parseValue string) {
-	parseStart := 0
-	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
-		var parseEscape string
-		switch parseValue[parseIndex] {
+func writeSerializedEscapedString(builder *strings.Builder, value string) {
+	start := 0
+	for i := 0; i < len(value); i++ {
+		c := value[i]
+		// Every HTML-escapable byte (& ' < > ") is <= '>'. A single unsigned
+		// comparison skips letters, digits, whitespace-free symbols, and UTF-8.
+		if c > '>' {
+			continue
+		}
+		var esc string
+		switch c {
 		case '&':
-			parseEscape = "&amp;"
+			esc = "&amp;"
 		case '\'':
-			parseEscape = "&#39;"
+			esc = "&#39;"
 		case '<':
-			parseEscape = "&lt;"
+			esc = "&lt;"
 		case '>':
-			parseEscape = "&gt;"
+			esc = "&gt;"
 		case '"':
-			parseEscape = "&#34;"
+			esc = "&#34;"
 		default:
 			continue
 		}
-		parseBuilder.WriteString(parseValue[parseStart:parseIndex])
-		parseBuilder.WriteString(parseEscape)
-		parseStart = parseIndex + 1
+		if i > start {
+			builder.WriteString(value[start:i])
+		}
+		builder.WriteString(esc)
+		start = i + 1
 	}
-	parseBuilder.WriteString(parseValue[parseStart:])
+	if start == 0 {
+		builder.WriteString(value)
+		return
+	}
+	if start < len(value) {
+		builder.WriteString(value[start:])
+	}
 }
 
 // isSafeSerializedMountTag reports whether one tag name can round-trip through

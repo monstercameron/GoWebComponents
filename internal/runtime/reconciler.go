@@ -185,6 +185,56 @@ func acquireWorkInProgress(parseOldFiber *Fiber) *Fiber {
 	return new(Fiber)
 }
 
+// acquireWorkInProgressForOverwrite returns a work-in-progress fiber ready to
+// be overwritten with a full Fiber literal, along with any reusable cold block
+// already attached to the alternate slot. Skipping the intermediate zero-fill
+// avoids writing the entire Fiber struct twice per update.
+func acquireWorkInProgressForOverwrite(oldFiber *Fiber) (*Fiber, *fiberCold) {
+	if oldFiber != nil && oldFiber.alternate != nil {
+		reused := oldFiber.alternate
+		return reused, reused.cold
+	}
+	return new(Fiber), nil
+}
+
+// resetColdForReuse clears a reused cold block in place so steady-state
+// profiling and boundary updates do not allocate on subsequent passes.
+func resetColdForReuse(reusedCold *fiberCold) *fiberCold {
+	if reusedCold != nil {
+		*reusedCold = fiberCold{}
+	}
+	return reusedCold
+}
+
+// clonePreservedCold copies cold fields that must survive fiber cloning
+// (event callbacks, async suspension state, and fine-grained reactive
+// subscriptions) while reusing any existing cold block on the alternate fiber.
+func clonePreservedCold(oldFiber *Fiber, reusedCold *fiberCold) *fiberCold {
+	oldCold := oldFiber.cold
+	if oldCold == nil {
+		return resetColdForReuse(reusedCold)
+	}
+	hasPreserved := len(oldCold.eventCallbacks) > 0 ||
+		oldCold.asyncSuspension != nil ||
+		oldCold.asyncWait != nil ||
+		oldCold.reactiveAtomID != "" ||
+		len(oldCold.reactiveSourceIDs) > 0
+	if !hasPreserved {
+		return resetColdForReuse(reusedCold)
+	}
+	if reusedCold == nil {
+		reusedCold = new(fiberCold)
+	}
+	*reusedCold = fiberCold{
+		eventCallbacks:    oldCold.eventCallbacks,
+		asyncSuspension:   oldCold.asyncSuspension,
+		asyncWait:         oldCold.asyncWait,
+		reactiveAtomID:    oldCold.reactiveAtomID,
+		reactiveSourceIDs: oldCold.reactiveSourceIDs,
+	}
+	return reusedCold
+}
+
 // fiberSlabSize is how many fibers one slab allocation provides.
 //
 // Mount is the path that allocates: double-buffering reuses a fiber on every
@@ -218,7 +268,6 @@ func (parseRt *Runtime) acquireMountFiber() *Fiber {
 		parseFiber := parseRt.recycledHostFibers[parseCount-1]
 		parseRt.recycledHostFibers[parseCount-1] = nil
 		parseRt.recycledHostFibers = parseRt.recycledHostFibers[:parseCount-1]
-		*parseFiber = Fiber{}
 		return parseFiber
 	}
 	if parseRt.fiberSlabNext >= len(parseRt.fiberSlab) {
@@ -398,7 +447,7 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 	isParseNeedsUpdate, isParseNeedsChildReconcile := parseRt.buildFiberNeedsWork(parseOldFiber, parseElem)
 	parseEffectTag := buildUpdateEffectTag(parseElem.Type, isParseNeedsUpdate)
 	parseElemProps := getElementFiberProps(parseElem)
-	parseNewFiber := acquireWorkInProgress(parseOldFiber)
+	parseNewFiber, reusedCold := acquireWorkInProgressForOverwrite(parseOldFiber)
 	*parseNewFiber = Fiber{
 		// Adopt the CURRENT element's type, not the old fiber's.
 		//
@@ -434,10 +483,8 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 		needsUpdate:            parseOldFiber.needsUpdate,
 		needsChildReconcile:    isParseNeedsChildReconcile,
 		hooks:                  parseOldFiber.hooks,
-		eventCallbacks:         parseOldFiber.eventCallbacks,
 		hydration:              parseWipFiber.childHydration,
-		reactiveAtomID:         parseOldFiber.reactiveAtomID,
-		reactiveSourceIDs:      parseOldFiber.reactiveSourceIDs,
+		cold:                   clonePreservedCold(parseOldFiber, reusedCold),
 		fineGrained:            parseOldFiber.fineGrained,
 		hasDirectText:          parseElem.hasDirectText,
 		isCompactHostProps:     parseElem.isCompactHostProps,
@@ -448,21 +495,6 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 		ancestorFlagsValid:     true,
 		serializedUnbound:      parseOldFiber.serializedUnbound,
 		updateOrigin:           parseOldFiber.updateOrigin,
-		// A suspension has to survive the clone or every re-render re-subscribes.
-		//
-		// subscribeAsyncBoundary dedupes on asyncWait, so dropping it here made the
-		// dedupe check always fail: renderAsyncBoundaryChildren re-subscribes on
-		// every render while a boundary is suspended, and each subscription parks a
-		// NEW goroutine on the same Done channel. Measured before this: +12
-		// goroutines over 12 boundary re-renders, exactly one per pass, each holding
-		// a reference to the boundary fiber and each firing its own
-		// ScheduleUpdateForFiber when the promise resolves.
-		//
-		// It does not reproduce on a root-only update — the boundary bails out and
-		// never re-subscribes — which is why the obvious test shape missed it. See
-		// TestSuspendedBoundaryDoesNotLeakAGoroutinePerRender.
-		asyncSuspension: parseOldFiber.asyncSuspension,
-		asyncWait:       parseOldFiber.asyncWait,
 		// The lane has to survive the clone or P2.2 does not exist.
 		//
 		// performUnitOfWork reads updateLane off the WORK-IN-PROGRESS fiber, and
@@ -884,8 +916,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 			len(getFiberChildren(parseFiber)) == 0 &&
 			(!IsDOMNodeNull(parseFiber.dom) || parseRt.shouldDeferHostDomToCommit(parseFiber)) {
 			if runtimeHotPathProfilingEnabled {
-				parseFiber.renderDurationNs = 0
-				parseFiber.diffDurationNs = 0
+				parseFiber.resetRenderAndDiffDurationNs()
 			}
 			parseFiber.childHydration = nil
 			parseRt.clearFiberDirty(parseFiber)
@@ -899,8 +930,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	// dominant cost of visiting a clean fiber.
 	if !isParseSelfDirty && !isParseSubtreeOnly {
 		if runtimeHotPathProfilingEnabled {
-			parseFiber.renderDurationNs = 0
-			parseFiber.diffDurationNs = 0
+			parseFiber.resetRenderAndDiffDurationNs()
 		}
 		if parseFiber.hooks != nil {
 			parseFiber.hooks.owner = parseFiber
@@ -911,15 +941,14 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 
 	parseStart := commitTimingStart()
 	if runtimeHotPathProfilingEnabled {
-		parseFiber.renderDurationNs = 0
-		parseFiber.diffDurationNs = 0
+		parseFiber.resetRenderAndDiffDurationNs()
 	}
 	parseFinalize := func(parseNext *Fiber) *Fiber {
 		if !runtimeHotPathProfilingEnabled {
 			return parseNext
 		}
-		parseDiffDurationNs := max(commitTimingSinceNs(parseStart)-parseFiber.renderDurationNs, 0)
-		parseFiber.diffDurationNs = parseDiffDurationNs
+		parseDiffDurationNs := max(commitTimingSinceNs(parseStart)-parseFiber.getRenderDurationNs(), 0)
+		parseFiber.setDiffDurationNs(parseDiffDurationNs)
 		parseRt.profiling.totalDiffDurationNs += parseDiffDurationNs
 		return parseNext
 	}

@@ -174,7 +174,7 @@ func TestErrorBoundaryRecoversEventPanicAndResets(parseT *testing.T) {
 	parseHandler2()
 	flushScheduledWork(parseScheduler)
 	if len(parseRoot.children) == 0 {
-		parseT.Fatalf("expected fallback child after event recovery, got none; boundary error=%v", parseRt.currentRoot.child.boundaryError)
+		parseT.Fatalf("expected fallback child after event recovery, got none; boundary error=%v", parseRt.currentRoot.child.getBoundaryError())
 	}
 
 	if parseGot := textFromNode(parseRoot.children[0]); parseGot != "reset: event boom" {

@@ -147,11 +147,13 @@ func buildProfilingBudgetFixtures() []profilingBudgetFixture {
 func buildProfilingBudgetRuntime(parseFixture profilingBudgetFixture) *Runtime {
 	parseRoot := &Fiber{typeOf: "ROOT"}
 	parseChild := &Fiber{
-		typeOf:           func() *Element { return nil },
-		parent:           parseRoot,
-		renderDurationNs: parseFixture.parseTotalRenderDurationNs,
-		commitDurationNs: parseFixture.parseTotalCommitDurationNs,
-		updateOrigin:     "fixture." + parseFixture.parseName,
+		typeOf: func() *Element { return nil },
+		parent: parseRoot,
+		cold: &fiberCold{
+			renderDurationNs: parseFixture.parseTotalRenderDurationNs,
+			commitDurationNs: parseFixture.parseTotalCommitDurationNs,
+		},
+		updateOrigin: "fixture." + parseFixture.parseName,
 	}
 	parseRoot.child = parseChild
 	parseRuntime := &Runtime{currentRoot: parseRoot}

@@ -368,7 +368,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 			}
 			// G2: publish the freshly-mounted node into any DOM ref carried in props.
 			parseRt.publishDOMRef(parseFiber, parseFiber.dom)
-			parseFiber.commitDurationNs += commitTimingSinceNs(parseStart)
+			parseFiber.addCommitDurationNs(commitTimingSinceNs(parseStart))
 			if parseFiber.fineGrained {
 				parseRt.profiling.fineGrainedCommits++
 			} else {
@@ -384,7 +384,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 				}
 				parseStart2 := commitTimingStart()
 				parseRt.domAdapter.SetTextContent(parseFiber.dom, parseNewValue)
-				parseFiber.commitDurationNs += commitTimingSinceNs(parseStart2)
+				parseFiber.addCommitDurationNs(commitTimingSinceNs(parseStart2))
 				if parseFiber.fineGrained {
 					parseRt.profiling.fineGrainedCommits++
 				} else {
@@ -409,7 +409,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 				// A hydrated node is adopted, never placed, so the placement-time
 				// ref publish does not run for it.
 				parseRt.publishDOMRef(parseFiber, parseFiber.dom)
-				parseFiber.commitDurationNs += commitTimingSinceNs(parseStart3)
+				parseFiber.addCommitDurationNs(commitTimingSinceNs(parseStart3))
 				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
 		} else if parseFiber.effectTag == effectTagUpdate && !IsDOMNodeNull(parseFiber.dom) {
@@ -422,7 +422,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 					if parseOldValue != parseNewValue2 {
 						parseStart4 := commitTimingStart()
 						parseRt.domAdapter.SetTextContent(parseFiber.dom, parseNewValue2)
-						parseFiber.commitDurationNs += commitTimingSinceNs(parseStart4)
+						parseFiber.addCommitDurationNs(commitTimingSinceNs(parseStart4))
 						if parseFiber.fineGrained {
 							parseRt.profiling.fineGrainedCommits++
 						} else {
@@ -460,7 +460,7 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 						parseRt.retargetDOMRef(parseFiber)
 					}
 					if isParseCommitted {
-						parseFiber.commitDurationNs += commitTimingSinceNs(parseStart5)
+						parseFiber.addCommitDurationNs(commitTimingSinceNs(parseStart5))
 						parseRt.recordFineGrainedDescendantCommit(parseFiber)
 					}
 				}
@@ -528,7 +528,9 @@ func (parseRt *Runtime) commitWorkFiber(parseFiber *Fiber, parseDomParent DOMNod
 			parseBatchAdapter.EndBatch()
 		}
 		if parseRt.shouldRepairCommittedChildOrder(parseFiber) && !IsDOMNodeNull(parseChildDomParent) && (!IsDOMNodeNull(parseFiber.dom) || isPortal) {
-			parseRt.applyCommittedChildOrder(parseChildDomParent, parseRt.buildCommittedChildNodes(parseFiber.child, nil))
+			if isPortal || !parseRt.tryApplyCommittedChildOrderFromFibers(parseFiber, parseChildDomParent) {
+				parseRt.applyCommittedChildOrder(parseChildDomParent, parseRt.buildCommittedChildNodes(parseFiber.child, nil))
+			}
 		}
 	}
 	return parseFiber.sibling
@@ -605,11 +607,12 @@ func (parseRt *Runtime) releaseDeletedSubtree(parseFiber *Fiber) {
 	// A deleted host fiber has no such public identity once refs, events, and
 	// subscriptions have been detached by teardownDeletedSubtree.
 	parseRecyclableHost := false
+	hasColdBlocker := parseFiber.cold != nil && (len(parseFiber.cold.eventCallbacks) != 0 ||
+		parseFiber.cold.asyncSuspension != nil || parseFiber.cold.asyncWait != nil ||
+		parseFiber.cold.reactiveAtomID != "" || len(parseFiber.cold.reactiveSourceIDs) != 0)
 	if parseType, parseOk := parseFiber.typeOf.(string); parseOk &&
 		parseType != "ROOT" && parseType != "FRAGMENT" &&
-		parseFiber.hooks == nil && len(parseFiber.eventCallbacks) == 0 &&
-		parseFiber.asyncSuspension == nil && parseFiber.asyncWait == nil &&
-		parseFiber.reactiveAtomID == "" && len(parseFiber.reactiveSourceIDs) == 0 &&
+		parseFiber.hooks == nil && !hasColdBlocker &&
 		!parseFiber.fineGrained {
 		parseRecyclableHost = true
 	}
@@ -627,11 +630,7 @@ func (parseRt *Runtime) releaseDeletedSubtree(parseFiber *Fiber) {
 	parseFiber.hydration = nil
 	parseFiber.childHydration = nil
 	parseFiber.effects = nil
-	parseFiber.eventCallbacks = nil
-	parseFiber.reactiveSourceIDs = nil
-	parseFiber.asyncSuspension = nil
-	parseFiber.asyncWait = nil
-	parseFiber.boundaryError = nil
+	parseFiber.cold = nil
 
 	// Retain a bounded high-water pool. This converts repeated mount/clear
 	// cycles into pointer reuse without pinning arbitrarily large one-off trees.

@@ -723,7 +723,9 @@ func prepareFiberForHotReload(parseRt *Runtime, parseFiber *Fiber) {
 		parseRt.CleanupAtomSubscriptions(parseFiber)
 	}
 	parseFiber.effects = nil
-	parseFiber.eventCallbacks = nil
+	if parseFiber.cold != nil {
+		parseFiber.cold.eventCallbacks = nil
+	}
 
 	prepareFiberForHotReload(parseRt, parseFiber.child)
 	prepareFiberForHotReload(parseRt, parseFiber.sibling)
@@ -843,7 +845,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			parseRt.strictPreviewRender(parseFiber)
 		}
 		setCurrentFiberOwned(parseFiber, parseRt.renderPassOwnerID())
-		parseFiber.renderDurationNs = 0
+		parseFiber.setRenderDurationNs(0)
 		if parseAttempt == 0 && parseRestore != nil {
 			parseFiber.hooks = &Hooks{owner: parseFiber, hotReloadRestore: parseRestore}
 		} else if parseFiber.alternate != nil && parseFiber.alternate.hooks != nil {
@@ -918,7 +920,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			}
 		}()
 		renderDurationNs := commitTimingSinceNs(renderStart)
-		parseFiber.renderDurationNs = renderDurationNs
+		parseFiber.setRenderDurationNs(renderDurationNs)
 
 		if isHandledPanic {
 			return nil, true, parseNextFromBoundary

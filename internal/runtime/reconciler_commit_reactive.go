@@ -192,27 +192,32 @@ func (parseRt *Runtime) syncFineGrainedSubscriptions(parseFiber *Fiber, parseSou
 	if parseRt == nil || parseRt.atomRegistry == nil || parseFiber == nil {
 		return
 	}
-	parsePrevious := parseFiber.reactiveSourceIDs
+	parsePrevious := parseFiber.getReactiveSourceIDs()
 	// The joined form of parsePrevious, carried alongside it so the unchanged
 	// path below can adopt the string instead of rebuilding it.
-	parsePreviousJoined := parseFiber.reactiveAtomID
-	if parseFiber.alternate != nil && parseFiber.alternate != parseFiber && len(parseFiber.alternate.reactiveSourceIDs) > 0 {
-		parsePrevious = parseFiber.alternate.reactiveSourceIDs
-		parsePreviousJoined = parseFiber.alternate.reactiveAtomID
+	parsePreviousJoined := parseFiber.getReactiveAtomID()
+	if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+		if altSources := parseFiber.alternate.getReactiveSourceIDs(); len(altSources) > 0 {
+			parsePrevious = altSources
+			parsePreviousJoined = parseFiber.alternate.getReactiveAtomID()
+		}
 	}
 	if sameReactiveSourceIDs(parsePrevious, parseSourceIDs) {
-		parseFiber.reactiveSourceIDs = parsePrevious
-		parseFiber.reactiveAtomID = ""
 		if len(parsePrevious) > 0 {
+			cold := parseFiber.ensureCold()
+			cold.reactiveSourceIDs = parsePrevious
 			// Nothing changed, so the previous generation's joined id is still
 			// correct. Re-joining here allocated once per fine-grained fiber per
 			// COMMIT — on the path whose whole purpose is to avoid work when the
 			// subscription set is stable. The fallback covers a previous
 			// generation that never recorded one.
-			parseFiber.reactiveAtomID = parsePreviousJoined
-			if parseFiber.reactiveAtomID == "" {
-				parseFiber.reactiveAtomID = strings.Join(parsePrevious, ",")
+			cold.reactiveAtomID = parsePreviousJoined
+			if cold.reactiveAtomID == "" {
+				cold.reactiveAtomID = strings.Join(parsePrevious, ",")
 			}
+		} else if parseFiber.cold != nil {
+			parseFiber.cold.reactiveSourceIDs = nil
+			parseFiber.cold.reactiveAtomID = ""
 		}
 		parseFiber.fineGrained = len(parsePrevious) > 0
 		return
@@ -283,10 +288,13 @@ func (parseRt *Runtime) syncFineGrainedSubscriptions(parseFiber *Fiber, parseSou
 			}
 		}
 	}
-	parseFiber.reactiveSourceIDs = append([]string(nil), parseSourceIDs...)
-	parseFiber.reactiveAtomID = ""
 	if len(parseSourceIDs) > 0 {
-		parseFiber.reactiveAtomID = strings.Join(parseSourceIDs, ",")
+		cold := parseFiber.ensureCold()
+		cold.reactiveSourceIDs = append([]string(nil), parseSourceIDs...)
+		cold.reactiveAtomID = strings.Join(parseSourceIDs, ",")
+	} else if parseFiber.cold != nil {
+		parseFiber.cold.reactiveSourceIDs = nil
+		parseFiber.cold.reactiveAtomID = ""
 	}
 	parseFiber.fineGrained = len(parseSourceIDs) > 0
 }
@@ -307,7 +315,7 @@ func (parseRt *Runtime) syncReactiveTextSubscription(parseFiber *Fiber) {
 	}
 	parseRt.syncFineGrainedSubscriptions(parseFiber, parseSourceIDs)
 	if parseAtomID != "" {
-		parseFiber.reactiveAtomID = parseAtomID
+		parseFiber.ensureCold().reactiveAtomID = parseAtomID
 	}
 }
 

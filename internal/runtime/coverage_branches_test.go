@@ -216,8 +216,8 @@ func TestReconciler_InternalCoverage(parseT *testing.T) {
 				props:          map[string]any{"id": "a"},
 				textContent:    "x",
 				dom:            &testDOMNode{tag: "div"},
-				hooks:          &Hooks{},
-				eventCallbacks: []EventHandler{nil},
+				hooks: &Hooks{},
+				cold:  &fiberCold{eventCallbacks: []EventHandler{nil}},
 				sibling: &Fiber{
 					typeOf: "span",
 					props:  map[string]any{"id": "b"},
