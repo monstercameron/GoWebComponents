@@ -587,7 +587,7 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 	if parseFiber == nil {
 		return
 	}
-	if parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleUpdateForFiberWithOrigin) {
+	if parseRt.shouldPostAsyncStateUpdate() && parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleUpdateForFiberWithOrigin) {
 		return
 	}
 	if parseRt.hydrating {
@@ -675,7 +675,7 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	if parseFiber == nil {
 		return
 	}
-	if parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleGranularUpdateForFiberWithOrigin) {
+	if parseRt.shouldPostAsyncStateUpdate() && parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleGranularUpdateForFiberWithOrigin) {
 		return
 	}
 	if parseRt.hydrating {

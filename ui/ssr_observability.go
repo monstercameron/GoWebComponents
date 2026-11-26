@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v7/internal/runtime"
@@ -63,7 +64,13 @@ var (
 	ssrObserversMu   sync.Mutex
 	nextSSRObserver  int
 	ssrObserversList []ssrObserver
+	ssrObserverCount atomic.Int32
 )
+
+// hasSSRObservers reports whether any global or per-call SSR observer is active.
+func hasSSRObservers(options SSRObservabilityOptions) bool {
+	return options.OnEvent != nil || ssrObserverCount.Load() > 0
+}
 
 // SSRObserverSubscription is the cleanup handle returned by RegisterSSRObserver.
 type SSRObserverSubscription struct {
@@ -88,6 +95,7 @@ func RegisterSSRObserver(parseNotify func(SSRObservation)) SSRObserverSubscripti
 	nextSSRObserver++
 	parseObserverID := nextSSRObserver
 	ssrObserversList = append(ssrObserversList, ssrObserver{id: parseObserverID, notify: parseNotify})
+	ssrObserverCount.Store(int32(len(ssrObserversList)))
 	ssrObserversMu.Unlock()
 
 	return SSRObserverSubscription{cancel: func() {
@@ -103,6 +111,7 @@ func RegisterSSRObserver(parseNotify func(SSRObservation)) SSRObserverSubscripti
 			copy(ssrObserversList[parseIndex:], ssrObserversList[parseIndex+1:])
 			ssrObserversList[len(ssrObserversList)-1] = ssrObserver{}
 			ssrObserversList = ssrObserversList[:len(ssrObserversList)-1]
+			ssrObserverCount.Store(int32(len(ssrObserversList)))
 			return
 		}
 	}}
@@ -199,9 +208,12 @@ func newSSRHydrationObservation(parseMetrics runtime.HydrationMetrics) SSRObserv
 var _ = newSSRHydrationObservation
 
 // renderToStringObserved is a core package helper.
-func renderToStringObserved(parseRoot Node, parseOptions SSRObservabilityOptions) (string, error) {
-	parseStart := time.Now()
-	parseMarkup, parseErr := runtime.RenderToString(parseRoot)
-	dispatchSSRObservation(parseOptions, newSSRRenderObservation(parseOptions, time.Since(parseStart), parseErr))
-	return parseMarkup, parseErr
+func renderToStringObserved(root Node, options SSRObservabilityOptions) (string, error) {
+	if !hasSSRObservers(options) {
+		return runtime.RenderToString(root)
+	}
+	start := time.Now()
+	markup, err := runtime.RenderToString(root)
+	dispatchSSRObservation(options, newSSRRenderObservation(options, time.Since(start), err))
+	return markup, err
 }

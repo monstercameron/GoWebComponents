@@ -83,7 +83,7 @@ func RenderToStream(parseCtx context.Context, parseWriter io.Writer, parseElemen
 	// never into a neighbouring request's. See ssr_atom_scope.go.
 	parseState := &ssrStreamState{
 		options:       parseOptions,
-		contextValues: withSSRAtomScope(ssrHookOwnerContext(nil), ssrAtomScopeForRender(parseOptions.InitialAtoms)),
+		contextValues: newTopLevelSSRContext(parseOptions.InitialAtoms),
 	}
 	var parseShell strings.Builder
 	if parseErr2 := renderElementToStreamShell(&parseShell, parseElement, parseState); parseErr2 != nil {

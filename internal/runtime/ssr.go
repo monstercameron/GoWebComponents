@@ -65,7 +65,7 @@ func renderToStringScoped(parseElement *Element, parseInitialAtoms map[string]an
 		}
 	}()
 
-	parseCtx := withSSRAtomScope(ssrHookOwnerContext(nil), ssrAtomScopeForRender(parseInitialAtoms))
+	parseCtx := newTopLevelSSRContext(parseInitialAtoms)
 	var parseBuilder strings.Builder
 	if parseErr2 := renderElementToString(&parseBuilder, parseElement, parseCtx); parseErr2 != nil {
 		return "", parseErr2

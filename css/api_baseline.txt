@@ -199,7 +199,7 @@ func H(v Length) Rule
 func Harvest() string
 func HarvestedClasses() []string
 func Has(target Selector, rules ...Rule) []Rule
-func Hex(parseValue string) Color
+func Hex(value string) Color
 func Hover(rules ...Rule) []Rule
 func Inject(parseID string, parseCSS string)
 func Inset(v Length) Rule
@@ -218,7 +218,7 @@ func LinearGradientTo(dir GradientDirection, stops ...ColorStop) Image
 func Margin(v Length) Rule
 func MarginX(v Length) Rule
 func MarginY(v Length) Rule
-func MarkImportant(parseRule Rule) Rule
+func MarkImportant(rule Rule) Rule
 func MaskImage(images ...Image) Rule
 func MaskSize(sizes ...BgSizeValue) Rule
 func MaxHeight(v Length) Rule
@@ -353,7 +353,7 @@ type LineStyle string
 type MediaQuery string
 type NthArg string
 type Number string
-type Rule struct { decls []declaration scope scope raw []string declHash uint64 }
+type Rule struct { single declaration hasSingle bool decls []declaration scope scope raw []string declHash uint64 }
 type Selector string
 type ShadowToken string
 type Sheet string

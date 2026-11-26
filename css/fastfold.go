@@ -93,41 +93,50 @@ func (k *foldKey) mixString(parseValue string) {
 // mixed here too. A field that affects the canonical output but not the digest is
 // a silent wrong-class bug, not a missed optimisation — that is the one way this
 // file can hurt you.
-func computeFoldKey(parseRules []Rule) foldKey {
-	parseKey := foldKey{h1: fnvOffset1, h2: fnvOffset2}
-	for parseIndex := range parseRules {
-		parseRule := &parseRules[parseIndex]
-		parseKey.ruleCount++
-		parseKey.mixString(parseRule.scope.template())
-		for _, parseAt := range parseRule.scope.atRules {
-			parseKey.mixString(parseAt)
-		}
-		parseKey.declCount += len(parseRule.decls)
-		// Precomputed hash when the constructor supplied one (decl() does, which is
-		// every typed property), otherwise hash the declarations here.
-		//
-		// This is what makes the digest O(rules) rather than O(total bytes), and on
-		// real bundles that is the whole difference: a four-bundle container in the
-		// Atlas design system flattens to ~190 rules, so byte-wise hashing walked
-		// thousands of characters on every fold of a rule-set that had already been
-		// folded thousands of times.
-		if parseRule.declHash != 0 {
-			parseKey.h1 = (parseKey.h1 ^ parseRule.declHash) * fnvPrime1
-			parseKey.h2 = (parseKey.h2 ^ parseRule.declHash) * fnvPrime2
-			// Byte length still has to move, or two different rules with equal hashes
-			// and equal counts would be indistinguishable on the structural fields.
-			parseKey.byteLen += int(parseRule.declHash & 0xffff)
+func computeFoldKey(rules []Rule) foldKey {
+	key := foldKey{h1: fnvOffset1, h2: fnvOffset2}
+	for i := range rules {
+		rule := &rules[i]
+		key.ruleCount++
+		if rule.scope.selectorTemplate == "" && len(rule.scope.atRules) == 0 {
+			// Fast path for the default "&" selector with no at-rules: matches
+			// key.mixString("&") byte-for-byte without a loop or call overhead.
+			key.h1 = (((key.h1 ^ uint64('&')) * fnvPrime1) ^ 0xff) * fnvPrime1
+			key.h2 = (((key.h2 ^ uint64('&')) * fnvPrime2) ^ 0xff) * fnvPrime2
+			key.byteLen++
 		} else {
-			for _, parseDecl := range parseRule.decls {
-				parseKey.mixString(parseDecl.property)
-				parseKey.mixString(parseDecl.value)
+			key.mixString(rule.scope.template())
+			for _, at := range rule.scope.atRules {
+				key.mixString(at)
 			}
 		}
-		for _, parseRaw := range parseRule.raw {
-			parseKey.mixString(parseRaw)
+		if rule.hasSingle {
+			key.declCount++
+		}
+		key.declCount += len(rule.decls)
+		// Precomputed hash when the constructor supplied one (decl() does, which is
+		// every typed property), otherwise hash the declarations here.
+		if rule.declHash != 0 {
+			key.h1 = (key.h1 ^ rule.declHash) * fnvPrime1
+			key.h2 = (key.h2 ^ rule.declHash) * fnvPrime2
+			// Byte length still has to move, or two different rules with equal hashes
+			// and equal counts would be indistinguishable on the structural fields.
+			key.byteLen += int(rule.declHash & 0xffff)
+		} else {
+			if rule.hasSingle {
+				key.mixString(rule.single.property)
+				key.mixString(rule.single.value)
+			}
+			for _, d := range rule.decls {
+				key.mixString(d.property)
+				key.mixString(d.value)
+			}
+		}
+		for _, raw := range rule.raw {
+			key.mixString(raw)
 		}
 	}
-	return parseKey
+	return key
 }
 
 // foldCache maps a rule-sequence digest to its folded Sheet, letting a repeat
