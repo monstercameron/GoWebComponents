@@ -53,7 +53,7 @@ func TestWebBuildOverridesInheritedDesktopTags(parseTest *testing.T) {
 // TestDesktopDevDryRunNeverBuildsOrStarts verifies both planning flags preserve read-only semantics.
 func TestDesktopDevDryRunNeverBuildsOrStarts(parseTest *testing.T) {
 	parseRoot := parseTest.TempDir()
-	parseMetadata := `{"schemaVersion":1,"desktop":{"version":1,"nativeEntry":"cmd/desktop/main.go","frontendEntry":"frontend/main.go","assetsDir":"assets","outputPath":"bin/wails-counter.exe","wailsVersion":"v3.0.0-beta.17"}}`
+	parseMetadata := `{"schemaVersion":1,"desktop":{"version":1,"nativeEntry":"cmd/desktop/main.go","frontendEntry":"frontend/main.go","assetsDir":"assets","outputPath":"bin/wails-counter.exe","wailsVersion":"` + desktopWailsVersion + `"}}`
 	if parseErr := os.WriteFile(filepath.Join(parseRoot, "gwc-start.json"), []byte(parseMetadata), 0o644); parseErr != nil {
 		parseTest.Fatal(parseErr)
 	}

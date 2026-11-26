@@ -12,103 +12,140 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-var parseWindowMenus = map[*parseWindowFake]*application.Menu{}
-var parseWindowCloseHandlers = map[*parseWindowFake]func(*application.WindowEvent){}
-var parseWindowMenuBlockers = map[*parseWindowFake]<-chan struct{}{}
-var parseWindowMenuEntered = map[*parseWindowFake]chan<- struct{}{}
+var (
+	testMenuMu            sync.Mutex
+	testWindowMenus       = map[*fakeWindow]*application.Menu{}
+	testWindowCloseHooks  = map[*fakeWindow]func(*application.WindowEvent){}
+	testWindowMenuBlocker = map[*fakeWindow]<-chan struct{}{}
+	testWindowMenuEntered = map[*fakeWindow]chan<- struct{}{}
+)
 
 // SetMenu records the menu installed on this exact fake window.
-func (parseWindow *parseWindowFake) SetMenu(parseMenu *application.Menu) {
-	if parseBlock := parseWindowMenuBlockers[parseWindow]; parseBlock != nil {
-		if parseEntered := parseWindowMenuEntered[parseWindow]; parseEntered != nil {
-			close(parseEntered)
-			delete(parseWindowMenuEntered, parseWindow)
-		}
-		<-parseBlock
-		delete(parseWindowMenuBlockers, parseWindow)
+func (w *fakeWindow) SetMenu(menu *application.Menu) {
+	testMenuMu.Lock()
+	blocker := testWindowMenuBlocker[w]
+	entered := testWindowMenuEntered[w]
+	if blocker != nil {
+		delete(testWindowMenuBlocker, w)
+		delete(testWindowMenuEntered, w)
 	}
-	parseWindowMenus[parseWindow] = parseMenu
+	testMenuMu.Unlock()
+	if blocker != nil {
+		if entered != nil {
+			close(entered)
+		}
+		<-blocker
+	}
+	testMenuMu.Lock()
+	testWindowMenus[w] = menu
+	testMenuMu.Unlock()
 }
 
 // OnWindowEvent records caller-window cleanup and returns an idempotent cancellation function.
-func (parseWindow *parseWindowFake) OnWindowEvent(_ events.WindowEventType, parseHandler func(*application.WindowEvent)) func() {
-	parseWindowCloseHandlers[parseWindow] = parseHandler
-	return func() { delete(parseWindowCloseHandlers, parseWindow) }
-}
-
-// TestRuntimeMenuSerializesConcurrentReplacement verifies an older build cannot install after a newer request.
-func TestRuntimeMenuSerializesConcurrentReplacement(parseTest *testing.T) {
-	parseWindow := &parseWindowFake{parseID: 303}
-	parseContext := context.WithValue(context.Background(), application.WindowKey, application.Window(parseWindow))
-	parseRelease := make(chan struct{})
-	parseEntered := make(chan struct{})
-	parseWindowMenuBlockers[parseWindow] = parseRelease
-	parseWindowMenuEntered[parseWindow] = parseEntered
-	parseBackend := nativeBackend{}
-	parseFirst := desktop.Menu{Items: []desktop.MenuItem{{ID: "first", Kind: desktop.MenuItemCommand, Label: "First", Enabled: true}}}
-	parseSecond := desktop.Menu{Items: []desktop.MenuItem{{ID: "second", Kind: desktop.MenuItemCommand, Label: "Second", Enabled: true}}}
-	var parseWait sync.WaitGroup
-	parseWait.Add(2)
-	go func() { defer parseWait.Done(); _ = parseBackend.ReplaceMenu(parseContext, parseFirst) }()
-	<-parseEntered
-	parseSecondStarted := make(chan struct{})
-	go func() {
-		defer parseWait.Done()
-		close(parseSecondStarted)
-		_ = parseBackend.ReplaceMenu(parseContext, parseSecond)
-	}()
-	<-parseSecondStarted
-	close(parseRelease)
-	parseWait.Wait()
-	parseInstalled := parseWindowMenus[parseWindow]
-	if parseInstalled == nil || parseInstalled.ItemAt(0) == nil || parseInstalled.ItemAt(0).Label() != "Second" {
-		parseTest.Fatal("concurrent replacement installed stale menu last")
-	}
-}
-
-// TestContextMenuReinstallNeverRevivesRemovedCallbacks verifies config identities are not reusable counters.
-func TestContextMenuReinstallNeverRevivesRemovedCallbacks(parseTest *testing.T) {
-	parseWindowID := uint(404)
-	parseOldToken := &menuConfigToken{}
-	parseState := &menuWindowState{parseContexts: map[string]*menuContextState{"row": {parseToken: parseOldToken}}}
-	menuWindows.Lock()
-	menuWindows.parseStates[parseWindowID] = parseState
-	delete(parseState.parseContexts, "row")
-	parseState.parseContexts["row"] = &menuContextState{parseToken: &menuConfigToken{}}
-	isOldCurrent := isMenuConfigCurrentLocked(parseWindowID, parseState, parseOldToken, "row")
-	delete(menuWindows.parseStates, parseWindowID)
-	menuWindows.Unlock()
-	if isOldCurrent {
-		parseTest.Fatal("reinstalling a removed context menu revived its old callback token")
+func (w *fakeWindow) OnWindowEvent(_ events.WindowEventType, handler func(*application.WindowEvent)) func() {
+	testMenuMu.Lock()
+	testWindowCloseHooks[w] = handler
+	testMenuMu.Unlock()
+	return func() {
+		testMenuMu.Lock()
+		delete(testWindowCloseHooks, w)
+		testMenuMu.Unlock()
 	}
 }
 
 // EmitEvent records a typed event without broadcasting it to another fake window.
-func (parseWindow *parseWindowFake) EmitEvent(string, ...any) bool { return true }
+func (*fakeWindow) EmitEvent(string, ...any) bool { return true }
+
+// TestRuntimeMenuSerializesConcurrentReplacement verifies an older build cannot install after a newer request.
+func TestRuntimeMenuSerializesConcurrentReplacement(t *testing.T) {
+	win := &fakeWindow{id: 303}
+	ctx := context.WithValue(context.Background(), application.WindowKey, application.Window(win))
+	release := make(chan struct{})
+	entered := make(chan struct{})
+	testMenuMu.Lock()
+	testWindowMenuBlocker[win] = release
+	testWindowMenuEntered[win] = entered
+	testMenuMu.Unlock()
+
+	backend := nativeBackend{}
+	first := desktop.Menu{Items: []desktop.MenuItem{{ID: "first", Kind: desktop.MenuItemCommand, Label: "First", Enabled: true}}}
+	second := desktop.Menu{Items: []desktop.MenuItem{{ID: "second", Kind: desktop.MenuItemCommand, Label: "Second", Enabled: true}}}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); _ = backend.ReplaceMenu(ctx, first) }()
+	<-entered
+	secondStarted := make(chan struct{})
+	go func() {
+		defer wg.Done()
+		close(secondStarted)
+		_ = backend.ReplaceMenu(ctx, second)
+	}()
+	<-secondStarted
+	close(release)
+	wg.Wait()
+
+	testMenuMu.Lock()
+	installed := testWindowMenus[win]
+	testMenuMu.Unlock()
+	if installed == nil || installed.ItemAt(0) == nil || installed.ItemAt(0).Label() != "Second" {
+		t.Fatal("concurrent replacement installed stale menu last")
+	}
+}
+
+// TestContextMenuReinstallNeverRevivesRemovedCallbacks verifies config identities are not reusable counters.
+func TestContextMenuReinstallNeverRevivesRemovedCallbacks(t *testing.T) {
+	windowID := uint(404)
+	oldToken := &menuConfigToken{}
+	state := &menuWindowState{contexts: map[string]*menuContextState{"row": {token: oldToken}}}
+	menuWindows.Lock()
+	menuWindows.states[windowID] = state
+	delete(state.contexts, "row")
+	state.contexts["row"] = &menuContextState{token: &menuConfigToken{}}
+	isOldCurrent := isMenuConfigCurrentLocked(windowID, state, oldToken, "row")
+	delete(menuWindows.states, windowID)
+	menuWindows.Unlock()
+	if isOldCurrent {
+		t.Fatal("reinstalling a removed context menu revived its old callback token")
+	}
+}
 
 // TestRuntimeMenuTargetsOnlyCallerWindow verifies per-window ownership and close cleanup.
-func TestRuntimeMenuTargetsOnlyCallerWindow(parseTest *testing.T) {
-	parseFirst := &parseWindowFake{parseID: 101}
-	parseSecond := &parseWindowFake{parseID: 202}
-	parseBackend := nativeBackend{}
-	parseMenu := desktop.Menu{Items: []desktop.MenuItem{{ID: "file", Kind: desktop.MenuItemSubmenu, Label: "File", Enabled: false, Hidden: true, Items: []desktop.MenuItem{{ID: "open", Kind: desktop.MenuItemCommand, Label: "Open", Enabled: true}}}}}
-	parseFirstContext := context.WithValue(context.Background(), application.WindowKey, application.Window(parseFirst))
-	if parseErr := parseBackend.ReplaceMenu(parseFirstContext, parseMenu); parseErr != nil {
-		parseTest.Fatal(parseErr)
+func TestRuntimeMenuTargetsOnlyCallerWindow(t *testing.T) {
+	first := &fakeWindow{id: 101}
+	second := &fakeWindow{id: 202}
+	backend := nativeBackend{}
+	menu := desktop.Menu{Items: []desktop.MenuItem{{
+		ID:      "file",
+		Kind:    desktop.MenuItemSubmenu,
+		Label:   "File",
+		Enabled: false,
+		Hidden:  true,
+		Items:   []desktop.MenuItem{{ID: "open", Kind: desktop.MenuItemCommand, Label: "Open", Enabled: true}},
+	}}}
+	firstCtx := context.WithValue(context.Background(), application.WindowKey, application.Window(first))
+	if err := backend.ReplaceMenu(firstCtx, menu); err != nil {
+		t.Fatal(err)
 	}
-	if parseWindowMenus[parseFirst] == nil || parseWindowMenus[parseSecond] != nil {
-		parseTest.Fatal("menu replacement escaped caller window")
+	testMenuMu.Lock()
+	firstMenu := testWindowMenus[first]
+	secondMenu := testWindowMenus[second]
+	closeHook := testWindowCloseHooks[first]
+	testMenuMu.Unlock()
+	if firstMenu == nil || secondMenu != nil {
+		t.Fatal("menu replacement escaped caller window")
 	}
-	parseTop := parseWindowMenus[parseFirst].ItemAt(0)
-	if parseTop == nil || parseTop.Enabled() || !parseTop.Hidden() || !parseTop.IsSubmenu() {
-		parseTest.Fatal("disabled submenu was not preserved")
+	top := firstMenu.ItemAt(0)
+	if top == nil || top.Enabled() || !top.Hidden() || !top.IsSubmenu() {
+		t.Fatal("disabled submenu was not preserved")
 	}
-	parseClose := parseWindowCloseHandlers[parseFirst]
-	if parseClose == nil {
-		parseTest.Fatal("caller-window close cleanup was not registered")
+	if closeHook == nil {
+		t.Fatal("caller-window close cleanup was not registered")
 	}
-	parseClose(application.NewWindowEvent())
-	if parseWindowMenus[parseFirst] == nil || parseWindowMenus[parseFirst].ItemAt(0) != nil {
-		parseTest.Fatal("caller-window menu was not cleared on close")
+	closeHook(application.NewWindowEvent())
+	testMenuMu.Lock()
+	clearedMenu := testWindowMenus[first]
+	testMenuMu.Unlock()
+	if clearedMenu == nil || clearedMenu.ItemAt(0) != nil {
+		t.Fatal("caller-window menu was not cleared on close")
 	}
 }

@@ -311,7 +311,7 @@ func (parseService *APIService) GetReport(parseContext context.Context) (contrac
 		parseCopy[parseIndex] = parseValue
 		parseCopy[parseIndex].Paths = append([]string(nil), parseValue.Paths...)
 	}
-	return contracts.APIReport{Platform: runtime.GOOS, WailsVersion: "v3.0.0-beta.17", FixtureDir: parseService.parseFixture, Results: parseCopy}, nil
+	return contracts.APIReport{Platform: runtime.GOOS, WailsVersion: "v3.1.0", FixtureDir: parseService.parseFixture, Results: parseCopy}, nil
 }
 
 // RecordObservation stores an explicit human-observed result.

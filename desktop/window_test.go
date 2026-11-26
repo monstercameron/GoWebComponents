@@ -11,7 +11,9 @@ import (
 // TestWindowRequestAllowlist covers every typed caller-owned runtime operation.
 func TestWindowRequestAllowlist(parseTest *testing.T) {
 	parseValid := []WindowRequest{
-		{Action: "info"}, {Action: "set-title", Title: "Workspace"},
+		{Action: "info"}, {Action: "show"}, {Action: "hide"}, {Action: "close"},
+		{Action: "reload"}, {Action: "force-reload"}, {Action: "snap-assist"},
+		{Action: "set-title", Title: "Workspace"},
 		{Action: "set-screen", ScreenID: "display-1"},
 		{Action: "set-position", X: -10, Y: 20}, {Action: "center"},
 		{Action: "set-relative-position", X: 10, Y: 20}, {Action: "set-bounds", X: 10, Y: 20, Width: 800, Height: 600},
@@ -23,12 +25,13 @@ func TestWindowRequestAllowlist(parseTest *testing.T) {
 		{Action: "focus"}, {Action: "set-always-on-top", Enabled: true},
 		{Action: "set-resizable", Enabled: true}, {Action: "flash", Enabled: true},
 		{Action: "set-frameless", Enabled: true}, {Action: "toggle-frameless"},
+		{Action: "set-ignore-mouse-events", Enabled: true}, {Action: "set-enabled", Enabled: false},
 		{Action: "show-menu-bar"}, {Action: "hide-menu-bar"}, {Action: "toggle-menu-bar"},
 		{Action: "set-background-color", Red: 1, Green: 2, Blue: 3, Alpha: 255},
 		{Action: "set-minimize-button-state", State: "disabled"}, {Action: "set-maximize-button-state", State: "hidden"},
 		{Action: "set-close-button-state", State: "enabled"}, {Action: "set-fullscreen-button-state", State: "disabled"},
 		{Action: "set-content-protection", Enabled: true}, {Action: "zoom-in"},
-		{Action: "zoom-out"}, {Action: "set-zoom", Zoom: 1.25}, {Action: "zoom-reset"},
+		{Action: "zoom-out"}, {Action: "set-zoom", Zoom: 0.5}, {Action: "set-zoom", Zoom: 1.25}, {Action: "zoom-reset"},
 	}
 	for _, parseRequest := range parseValid {
 		if parseErr := validateWindowRequest(parseRequest); parseErr != nil {
@@ -54,7 +57,9 @@ func TestWindowRequestRejectsCrossActionArguments(parseTest *testing.T) {
 		{Action: "set-zoom", Zoom: 10},
 		{Action: "set-zoom", Zoom: 1, Alpha: 255},
 		{Action: "set-zoom", Zoom: 1, State: "enabled"},
-		{Action: "close"}, {Action: "hide"}, {Action: "reload"}, {Action: "exec-js"},
+		{Action: "close", Enabled: true},
+		{Action: "set-ignore-mouse-events", Width: 100},
+		{Action: "exec-js"}, {Action: "set-url"}, {Action: "set-html"}, {Action: "open-devtools"},
 	}
 	for _, parseRequest := range parseInvalid {
 		if parseErr := validateWindowRequest(parseRequest); parseErr == nil {
@@ -67,7 +72,7 @@ func TestWindowRequestRejectsCrossActionArguments(parseTest *testing.T) {
 func TestControlWindowValidatesBeforeTransport(parseTest *testing.T) {
 	parseTransport := &parseRejectWindowTransport{}
 	parseClient := Client{parseTransport: parseTransport}
-	_, parseErr := parseClient.ControlWindow(context.Background(), WindowRequest{Action: "hide"})
+	_, parseErr := parseClient.ControlWindow(context.Background(), WindowRequest{Action: "exec-js"})
 	if !interop.IsCode(parseErr, interop.CodeInvalid) || parseTransport.isCalled {
 		parseTest.Fatalf("invalid request reached transport: called=%v err=%v", parseTransport.isCalled, parseErr)
 	}

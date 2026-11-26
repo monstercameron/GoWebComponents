@@ -17,8 +17,8 @@ import (
 	"time"
 )
 
-const desktopWailsRevision = "0965e9db574e7b14a447b0ae2bf7ed36a5406462"
-const desktopWailsVersion = "v3.0.0-beta.17"
+const desktopWailsRevision = "69879a33bfb35eee1378d7214b674fc2d01a4ebb"
+const desktopWailsVersion = "v3.1.0"
 
 type desktopConfig struct {
 	context  context.Context
@@ -177,7 +177,7 @@ func (parseL launcher) desktopInit(parseConfig desktopConfig) (desktopSummary, e
 	if parseReadmeErr = os.WriteFile(parseReadmePath, []byte(parseReadme), 0o644); parseReadmeErr != nil {
 		return desktopSummary{}, parseReadmeErr
 	}
-	parseMetadata := scaffoldMetadata{SchemaVersion: currentScaffoldMetadataSchemaVersion, ProjectName: "gwc-wails-counter", ModulePath: "example.com/gwc-wails-counter", Description: "Contributor-linked Wails counter template.", Ownership: scaffoldOwnershipMetadata{ProjectOwnership: "framework-coupled", FrameworkSourceMode: "local-replace"}, Desktop: &scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: "bin/wails-counter.exe", WailsVersion: "v3.0.0-beta.17"}}
+	parseMetadata := scaffoldMetadata{SchemaVersion: currentScaffoldMetadataSchemaVersion, ProjectName: "gwc-wails-counter", ModulePath: "example.com/gwc-wails-counter", Description: "Contributor-linked Wails counter template.", Ownership: scaffoldOwnershipMetadata{ProjectOwnership: "framework-coupled", FrameworkSourceMode: "local-replace"}, Desktop: &scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: "bin/wails-counter.exe", WailsVersion: desktopWailsVersion}}
 	if parseErr := normalizeScaffoldMetadata(&parseMetadata); parseErr != nil {
 		return desktopSummary{}, parseErr
 	}
@@ -473,7 +473,7 @@ func desktopLoadMetadata(parseRoot string) (scaffoldMetadata, error) {
 
 // desktopValidateCanonicalTarget limits build/package to the proven template.
 func desktopValidateCanonicalTarget(parseMetadata *scaffoldDesktopMetadata) error {
-	parseWant := scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: "bin/wails-counter.exe", WailsVersion: "v3.0.0-beta.17"}
+	parseWant := scaffoldDesktopMetadata{Version: 1, NativeEntry: "cmd/desktop/main.go", FrontendEntry: "frontend/main.go", AssetsDir: "assets", OutputPath: "bin/wails-counter.exe", WailsVersion: desktopWailsVersion}
 	if parseMetadata == nil || *parseMetadata != parseWant {
 		return errors.New("desktop metadata target is unsupported; only the contributor-linked wails-counter template is supported")
 	}

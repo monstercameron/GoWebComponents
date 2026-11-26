@@ -45,6 +45,16 @@ remains the required toolchain floor.
   Lazy `&Hooks{}` allocation for hookless components, inline single-declaration
   `css.Rule`, precomputed CSS unit tables, zero-overhead unobserved SSR, lazy SSR
   `AtomRegistry`, and stack-buffered atom notifications.
+- **Wails `v3.1.0` Windows desktop upgrade & expanded native APIs:** Advanced
+  `third_party/wails` from `v3.0.0-beta.17` to `v3.1.0` (rebasing the fork's
+  scoped menu-ownership and popup-command fixes cleanly onto `v3.1.0`), added
+  multi-directory pickers (`OpenDirectories`), `TaskDialogIndirect` custom
+  question buttons, sub-1.0 Windows zoom, window `show`/`hide`/`close`/`reload`/
+  `snap-assist`/`set-ignore-mouse-events`/`set-enabled` + border/screen metadata,
+  in-place tray updates with `Label`/`DarkModeIcon`/ICO/`position-window`,
+  extended caller-owned child-window controls and DWM backdrop templates, and
+  additional `v3.1.0` window events (`shown`, `hidden`, `unfullscreen`,
+  `unminimized`, `unmaximized`, `dpi-changed`, `zoom-changed`).
 - **Repository & CI hygiene:** Consolidated API compatibility gating onto the
   single cross-platform `tools/api_compat_guard` JSON baseline (removing 26
   scattered `api_baseline.txt` files and `internal/apidump`), retired the `parse`-prefix

@@ -42,7 +42,7 @@ func TestDesktopInitRefusesExistingRoot(parseT *testing.T) {
 
 func TestDesktopBuildRejectsNonCanonicalTarget(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
-	parseMetadata := `{"schemaVersion":1,"desktop":{"version":1,"nativeEntry":"cmd/desktop/main.go","frontendEntry":"frontend/main.go","assetsDir":"assets","outputPath":"bin/custom.exe","wailsVersion":"v3.0.0-beta.17"}}`
+	parseMetadata := `{"schemaVersion":1,"desktop":{"version":1,"nativeEntry":"cmd/desktop/main.go","frontendEntry":"frontend/main.go","assetsDir":"assets","outputPath":"bin/custom.exe","wailsVersion":"` + desktopWailsVersion + `"}}`
 	if parseErr := os.WriteFile(filepath.Join(parseRoot, "gwc-start.json"), []byte(parseMetadata), 0o644); parseErr != nil {
 		parseT.Fatal(parseErr)
 	}
@@ -53,7 +53,7 @@ func TestDesktopBuildRejectsNonCanonicalTarget(parseT *testing.T) {
 
 func TestDesktopJSONPreservesActionErrors(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
-	parseMetadata := `{"schemaVersion":1,"desktop":{"version":1,"nativeEntry":"cmd/desktop/main.go","frontendEntry":"frontend/main.go","assetsDir":"assets","outputPath":"bin/custom.exe","wailsVersion":"v3.0.0-beta.17"}}`
+	parseMetadata := `{"schemaVersion":1,"desktop":{"version":1,"nativeEntry":"cmd/desktop/main.go","frontendEntry":"frontend/main.go","assetsDir":"assets","outputPath":"bin/custom.exe","wailsVersion":"` + desktopWailsVersion + `"}}`
 	if parseErr := os.WriteFile(filepath.Join(parseRoot, "gwc-start.json"), []byte(parseMetadata), 0o644); parseErr != nil {
 		parseT.Fatal(parseErr)
 	}

@@ -3,8 +3,8 @@
 Experimental Windows desktop example in an isolated Go module. The existing
 GoWebComponents renderer runs as js/wasm inside native Wails WebView2 windows.
 Use Go 1.27.1 or newer and an installed WebView2 runtime. This
-checkout uses Wails beta.17 from `../../../third_party/wails/v3` and GWC's current
-`/v7` module from `../../..`. Initialize the pinned submodule from the repository
+checkout uses Wails `v3.1.0` from `../../../third_party/wails/v3` and GWC's current
+`/v8` module from `../../..`. Initialize the pinned submodule from the repository
 root first:
 
 ```powershell
@@ -38,7 +38,7 @@ bin/wails-counter.exe. It works with no pre-existing dist directory and fails
 on subprocess errors. Go dependency downloads may require network on the first
 build; the frontend has no npm/Vite build dependency or remote asset dependency.
 The CLI's source build may print v3.0.0-dev; the module and submodule revision
-identify the actual beta.17 pin.
+identify the actual `v3.1.0` pin.
 
 `task build` is equivalent if Task is installed. Generated dist and bin outputs
 are ignored. The checked-in .gitkeep lets native tests compile the embed package

@@ -18,6 +18,6 @@
     "frontendEntry": "frontend/main.go",
     "assetsDir": "assets",
     "outputPath": "bin/wails-counter.exe",
-    "wailsVersion": "v3.0.0-beta.17"
+    "wailsVersion": "v3.1.0"
   }
 }

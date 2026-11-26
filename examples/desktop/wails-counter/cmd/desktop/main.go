@@ -175,7 +175,7 @@ func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialog
 	}
 	if isSmoke {
 		go func() {
-			parseTimeout := time.NewTimer(45 * time.Second)
+			parseTimeout := time.NewTimer(90 * time.Second)
 			defer parseTimeout.Stop()
 			var parseReport contracts.SmokeReport
 			select {

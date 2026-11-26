@@ -13,6 +13,14 @@ let getRuntime;
 let isFallback = false;
 let getWasmMIME = "";
 let getStorageEvents = 0;
+const getSmokeErrors = [];
+if (getSmokeMode) {
+  const parseConsoleError = console.error.bind(console);
+  console.error = (...parseArgs) => {
+    if (getSmokeErrors.length < 8) getSmokeErrors.push(parseArgs.map((parseItem) => String(parseItem?.message || parseItem)).join(" ").slice(0, 240));
+    parseConsoleError(...parseArgs);
+  };
+}
 
 // getNativeMethods routes only host-advertised desktop envelopes to the gated dispatcher.
 const getNativeMethods = (parseMethods, parseExecute) => {
@@ -51,7 +59,7 @@ globalThis.__gwcWailsReady = (async () => {
     window.addEventListener("pagehide", parseStopDiagnostics, { once: true });
   }
   getCapabilities = await getBindings.CounterService.GetCapabilities().cancelOn(AbortSignal.timeout(10000));
-  if (getCapabilities.protocol !== 1 || getCapabilities.platform !== "windows" || getCapabilities.hostVersion !== "v3.0.0-beta.17") {
+  if (getCapabilities.protocol !== 1 || getCapabilities.platform !== "windows" || getCapabilities.hostVersion !== "v3.1.0") {
     throw new Error(`Unsupported native host contract: ${JSON.stringify(getCapabilities)}`);
   }
   const parseMethods = {
@@ -118,14 +126,30 @@ const startWasm = async () => {
 
 // waitFor observes rendered results, rather than treating dispatched input as proof.
 const waitFor = async (parsePredicate, parseLabel, parseTimeout = 5000) => {
+  if (parsePredicate()) return;
   const parseDeadline = Date.now() + parseTimeout;
-  // Hidden WebViews can throttle timers; inspect the final state after waking
-  // before declaring expiry, rather than rejecting a result already rendered.
-  while (true) {
-    if (parsePredicate()) return;
-    if (Date.now() >= parseDeadline) throw new Error(`smoke wait timed out: ${parseLabel}`);
-    await new Promise((parseResolve) => setTimeout(parseResolve, 25));
-  }
+  // Hidden WebViews throttle timers; MutationObserver wakes immediately on DOM
+  // commits while setInterval handles non-DOM predicates and deadline expiry.
+  await new Promise((parseResolve, parseReject) => {
+    const parseCheck = () => {
+      if (parsePredicate()) {
+        parseCleanup();
+        parseResolve();
+        return;
+      }
+      if (Date.now() >= parseDeadline) {
+        parseCleanup();
+        parseReject(new Error(`smoke wait timed out: ${parseLabel}`));
+      }
+    };
+    const parseObserver = new MutationObserver(parseCheck);
+    const parseInterval = setInterval(parseCheck, 25);
+    const parseCleanup = () => {
+      parseObserver.disconnect();
+      clearInterval(parseInterval);
+    };
+    parseObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true });
+  });
 };
 
 const getText = (parseID) => document.getElementById(parseID)?.textContent;
@@ -232,22 +256,20 @@ const runSmoke = async () => {
     }
     parseChecks.push("routing", "route-remount");
     handleClick("tester-link");
-    await waitFor(() => document.getElementById("api-window-info") && document.getElementById("api-context-target"), "API lab mount");
+    await waitFor(() => document.getElementById("api-window-info") && document.getElementById("api-context-target"), "API lab mount", 30000);
     if (getComputedStyle(document.getElementById("api-context-target")).getPropertyValue("--custom-contextmenu").trim() !== "api-tester") {
       throw new Error("API lab is not wired to the registered native context menu");
     }
     parseChecks.push("api-tester-ui");
     if (getCapabilities.methods.includes("desktop.window.control")) {
       handleClick("api-window-info");
-      const parseAPIDeadline = Date.now() + 10000;
-      while (true) {
-        const parseAPIReport = await getBindings.APIService.GetReport();
-        // The button invokes the portable SDK once, not the legacy report-writing service.
-        const parseInfo = getText("api-window-info-result");
-        if (parseInfo.includes("completed") && parseInfo.includes("window ") && parseInfo.includes("size=") && parseAPIReport.fixtureDir && parseAPIReport.platform === "windows") break;
-        if (Date.now() >= parseAPIDeadline) throw new Error("API UI/native window report missing");
-        await new Promise((parseResolve) => setTimeout(parseResolve, 25));
-      }
+      // The button invokes the portable SDK once, not the legacy report-writing service.
+      await waitFor(() => {
+        const parseInfo = getText("api-window-info-result") || "";
+        return parseInfo.includes("completed") && parseInfo.includes("window ") && parseInfo.includes("size=");
+      }, "API UI/native window report missing", 20000);
+      const parseAPIReport = await getBindings.APIService.GetReport();
+      if (!parseAPIReport.fixtureDir || parseAPIReport.platform !== "windows") throw new Error("API UI/native window report missing");
       parseChecks.push("api-window-info", "api-session-report");
     } else {
       const parseAPIReport = await getBindings.APIService.GetReport();
@@ -308,10 +330,12 @@ const runSmoke = async () => {
         if (parseMoved.x !== 100 || parseMoved.y !== 100) throw new Error("Native position did not change");
         const parseZoomed = await parseControl({ action: "set-zoom", zoom: 1.25 });
         if (Math.abs(parseZoomed.zoom - 1.25) > 0.01) throw new Error("Native zoom did not change");
-        const parseLowZoom = await getDesktopBindings.NativeHost.Execute({ version: 1, method: "desktop.window.control", args: { action: "set-zoom", zoom: 0.5 } });
-        if (parseLowZoom.code !== "invalid") throw new Error("Windows low zoom was not explicitly rejected");
-        const parseAfterLowZoom = await parseControl({ action: "info" });
-        if (Math.abs(parseAfterLowZoom.zoom - 1.25) > 0.01) throw new Error("Rejected low zoom changed native state");
+        const parseLowZoom = await parseControl({ action: "set-zoom", zoom: 0.75 });
+        if (Math.abs(parseLowZoom.zoom - 0.75) > 0.01) throw new Error("Windows sub-1.0 zoom did not apply");
+        const parseBadZoom = await getDesktopBindings.NativeHost.Execute({ version: 1, method: "desktop.window.control", args: { action: "set-zoom", zoom: 0.1 } });
+        if (parseBadZoom.code !== "invalid") throw new Error("Out-of-bounds zoom was not rejected");
+        const parseAfterBadZoom = await parseControl({ action: "info" });
+        if (Math.abs(parseAfterBadZoom.zoom - 0.75) > 0.01) throw new Error("Rejected zoom changed native state");
         await parseControl({ action: "zoom-reset" });
         const parseFixed = await parseControl({ action: "set-resizable", enabled: false });
         if (parseFixed.resizable !== false) throw new Error("Native resize policy did not change");
@@ -366,7 +390,7 @@ const runSmoke = async () => {
     if (document.getElementById("boot-status").dataset.state !== "ready") throw new Error("boot diagnostics report failure");
     await getBindings.SmokeService.ReportResult({ ok: true, checks: parseChecks, error: "" });
   } catch (parseError) {
-    await getBindings.SmokeService.ReportResult({ ok: false, checks: parseChecks, error: String(parseError?.message || parseError) + `; UI status: ${getText("native-status")}; UI error: ${getText("native-error")}; progress: ${getText("progress-status")}` });
+    await getBindings.SmokeService.ReportResult({ ok: false, checks: parseChecks, error: String(parseError?.message || parseError) + `; hash: ${location.hash}; route: ${getText("route-title")}; apiInfo: ${Boolean(document.getElementById("api-window-info"))}; apiCtx: ${Boolean(document.getElementById("api-context-target"))}; consoleErrors: ${JSON.stringify(getSmokeErrors)}; UI status: ${getText("native-status")}; UI error: ${getText("native-error")}; progress: ${getText("progress-status")}` });
   }
 };
 

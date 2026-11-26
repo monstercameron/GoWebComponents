@@ -43,6 +43,10 @@ func TestTrayShortcutValidationStopsBackend(parseTest *testing.T) {
 	parseInvalid := []error{
 		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "upsert", ID: "bad/id"}),
 		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "upsert", ID: "tray", Icon: []byte("not-png")}),
+		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "upsert", ID: "tray", DarkModeIcon: []byte("not-png")}),
+		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "upsert", ID: "tray", Offset: 8}),
+		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "position-window", ID: "tray", Tooltip: "extra"}),
+		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "position-window", ID: "tray", Offset: 5000}),
 		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "remove", ID: "tray", Tooltip: "extra"}),
 		parseHost.ConfigureTray(context.Background(), TrayRequest{Action: "upsert", ID: "tray", Menu: &Menu{Items: []MenuItem{{ID: "open", Kind: MenuItemCommand, Label: "Open", Enabled: true, Shortcut: "Ctrl+O"}}}}),
 		parseHost.ConfigureShortcut(context.Background(), ShortcutRequest{Action: "upsert", ID: "hotkey"}),
@@ -76,7 +80,14 @@ func TestTrayShortcutReplacementLifecycle(parseTest *testing.T) {
 	parsePolicy, _ := ParseFeaturePolicy("all")
 	parseHost := NewNativeHost(parseFake, parsePolicy)
 	parseContext := context.Background()
-	for _, parseRequest := range []TrayRequest{{Action: "upsert", ID: "main", Tooltip: "one"}, {Action: "upsert", ID: "main", Tooltip: "two"}, {Action: "remove", ID: "main"}} {
+	validICO := make([]byte, 22)
+	validICO[2], validICO[4] = 1, 1 // type=1 (ICO), count=1
+	for _, parseRequest := range []TrayRequest{
+		{Action: "upsert", ID: "main", Label: "GWC", Tooltip: "one", Icon: validICO, DarkModeIcon: validICO},
+		{Action: "position-window", ID: "main", Offset: 12},
+		{Action: "upsert", ID: "main", Tooltip: "two"},
+		{Action: "remove", ID: "main"},
+	} {
 		if parseErr := parseHost.ConfigureTray(parseContext, parseRequest); parseErr != nil {
 			parseTest.Fatal(parseErr)
 		}
@@ -86,7 +97,7 @@ func TestTrayShortcutReplacementLifecycle(parseTest *testing.T) {
 			parseTest.Fatal(parseErr)
 		}
 	}
-	if len(parseFake.parseTrays) != 0 || len(parseFake.parseShortcuts) != 0 || parseFake.parseCalls != 6 {
+	if len(parseFake.parseTrays) != 0 || len(parseFake.parseShortcuts) != 0 || parseFake.parseCalls != 7 {
 		parseTest.Fatalf("unexpected fake lifecycle state: trays=%d shortcuts=%d calls=%d", len(parseFake.parseTrays), len(parseFake.parseShortcuts), parseFake.parseCalls)
 	}
 }

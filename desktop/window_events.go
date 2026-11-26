@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"unicode/utf8"
 
@@ -22,16 +23,23 @@ const WindowDropTopic = "desktop.window.files-dropped"
 type WindowEventKind string
 
 const (
-	WindowFocused      WindowEventKind = "focused"
-	WindowBlurred      WindowEventKind = "blurred"
-	WindowMoved        WindowEventKind = "moved"
-	WindowResized      WindowEventKind = "resized"
-	WindowFullscreen   WindowEventKind = "fullscreen"
-	WindowMinimized    WindowEventKind = "minimized"
-	WindowMaximized    WindowEventKind = "maximized"
-	WindowRestored     WindowEventKind = "restored"
-	WindowClosing      WindowEventKind = "closing"
-	WindowFilesDropped WindowEventKind = "files-dropped"
+	WindowFocused        WindowEventKind = "focused"
+	WindowBlurred        WindowEventKind = "blurred"
+	WindowMoved          WindowEventKind = "moved"
+	WindowResized        WindowEventKind = "resized"
+	WindowShown          WindowEventKind = "shown"
+	WindowHidden         WindowEventKind = "hidden"
+	WindowFullscreen     WindowEventKind = "fullscreen"
+	WindowUnfullscreened WindowEventKind = "unfullscreen"
+	WindowMinimized      WindowEventKind = "minimized"
+	WindowUnminimized    WindowEventKind = "unminimized"
+	WindowMaximized      WindowEventKind = "maximized"
+	WindowUnmaximized    WindowEventKind = "unmaximized"
+	WindowRestored       WindowEventKind = "restored"
+	WindowDPIChanged     WindowEventKind = "dpi-changed"
+	WindowZoomChanged    WindowEventKind = "zoom-changed"
+	WindowClosing        WindowEventKind = "closing"
+	WindowFilesDropped   WindowEventKind = "files-dropped"
 )
 
 // WindowEvent reports only portable state for the subscribing caller's own window.
@@ -42,6 +50,7 @@ type WindowEvent struct {
 	Y        int             `json:"y,omitempty"`
 	Width    int             `json:"width,omitempty"`
 	Height   int             `json:"height,omitempty"`
+	Zoom     float64         `json:"zoom,omitempty"`
 	Files    []string        `json:"files,omitempty"`
 }
 
@@ -95,29 +104,29 @@ func (parseClient Client) SubscribeWindowDrops(parseContext context.Context, par
 }
 
 // validateWindowEvent rejects malformed or cross-topic payloads from a native host.
-func validateWindowEvent(parseEvent WindowEvent, isDrop bool) error {
-	if parseEvent.WindowID == "" || len(parseEvent.WindowID) > 256 || !utf8.ValidString(parseEvent.WindowID) || strings.ContainsRune(parseEvent.WindowID, 0) {
+func validateWindowEvent(event WindowEvent, isDrop bool) error {
+	if event.WindowID == "" || len(event.WindowID) > 256 || !utf8.ValidString(event.WindowID) || strings.ContainsRune(event.WindowID, 0) {
 		return getError(WindowEventTopic, interop.CodeDecode, errors.New("invalid window event owner"))
 	}
-	if parseEvent.X < -100000 || parseEvent.X > 100000 || parseEvent.Y < -100000 || parseEvent.Y > 100000 || parseEvent.Width < 0 || parseEvent.Width > 32768 || parseEvent.Height < 0 || parseEvent.Height > 32768 {
+	if event.X < -100000 || event.X > 100000 || event.Y < -100000 || event.Y > 100000 || event.Width < 0 || event.Width > 32768 || event.Height < 0 || event.Height > 32768 || math.IsNaN(event.Zoom) || math.IsInf(event.Zoom, 0) || event.Zoom < 0 || event.Zoom > 100 {
 		return getError(WindowEventTopic, interop.CodeDecode, errors.New("invalid window event geometry"))
 	}
 	if isDrop {
-		if parseEvent.Kind != WindowFilesDropped || len(parseEvent.Files) == 0 || len(parseEvent.Files) > 32 {
+		if event.Kind != WindowFilesDropped || len(event.Files) == 0 || len(event.Files) > 32 {
 			return getError(WindowDropTopic, interop.CodeDecode, errors.New("invalid window drop event"))
 		}
-		for _, parseFile := range parseEvent.Files {
-			if parseFile == "" || len(parseFile) > 32768 || !utf8.ValidString(parseFile) || strings.ContainsRune(parseFile, 0) {
+		for _, file := range event.Files {
+			if file == "" || len(file) > 32768 || !utf8.ValidString(file) || strings.ContainsRune(file, 0) {
 				return getError(WindowDropTopic, interop.CodeDecode, errors.New("invalid dropped file path"))
 			}
 		}
 		return nil
 	}
-	if len(parseEvent.Files) != 0 {
+	if len(event.Files) != 0 {
 		return getError(WindowEventTopic, interop.CodeDecode, errors.New("files require the opted-in drop topic"))
 	}
-	switch parseEvent.Kind {
-	case WindowFocused, WindowBlurred, WindowMoved, WindowResized, WindowFullscreen, WindowMinimized, WindowMaximized, WindowRestored, WindowClosing:
+	switch event.Kind {
+	case WindowFocused, WindowBlurred, WindowMoved, WindowResized, WindowShown, WindowHidden, WindowFullscreen, WindowUnfullscreened, WindowMinimized, WindowUnminimized, WindowMaximized, WindowUnmaximized, WindowRestored, WindowDPIChanged, WindowZoomChanged, WindowClosing:
 		return nil
 	default:
 		return getError(WindowEventTopic, interop.CodeDecode, errors.New("unknown window event kind"))

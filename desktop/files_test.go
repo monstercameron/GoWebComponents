@@ -76,7 +76,7 @@ func TestFileClientWorkflows(parseT *testing.T) {
 		parseKind string
 		parseCall func(context.Context, FileDialogOptions) (FileSelection, error)
 	}{
-		{"open-file", parseClient.OpenFile}, {"open-files", parseClient.OpenFiles}, {"open-directory", parseClient.OpenDirectory}, {"save-file", parseClient.SaveFile},
+		{"open-file", parseClient.OpenFile}, {"open-files", parseClient.OpenFiles}, {"open-directory", parseClient.OpenDirectory}, {"open-directories", parseClient.OpenDirectories}, {"save-file", parseClient.SaveFile},
 	} {
 		parseValue, parseErr := parseCase.parseCall(context.Background(), FileDialogOptions{Title: "Synthetic"})
 		if parseErr != nil || len(parseValue.Paths) != 1 || parseFake.parseRequest.Kind != parseCase.parseKind {
@@ -108,10 +108,14 @@ func TestFileContractBounds(parseT *testing.T) {
 	for _, parseRequest := range []FileDialogRequest{
 		{Version: 1, Kind: "open-file", Options: FileDialogOptions{Filename: "unexpected.txt"}},
 		{Version: 1, Kind: "open-directory", Options: FileDialogOptions{Filters: []FileFilter{{Name: "Text", Pattern: "*.txt"}}}},
+		{Version: 1, Kind: "open-directories", Options: FileDialogOptions{Filters: []FileFilter{{Name: "Text", Pattern: "*.txt"}}}},
 	} {
 		if validateFileDialogRequest(parseRequest) == nil {
 			parseT.Fatalf("unsupported option accepted: %+v", parseRequest)
 		}
+	}
+	if err := validateFileSelection("open-directories", FileSelection{Paths: []string{`C:\a`, `C:\b`}}); err != nil {
+		parseT.Fatalf("multi-directory selection rejected: %v", err)
 	}
 	for _, parseRequest := range []FileDialogRequest{{Version: 1, Kind: "typo"}, {Version: 1, Kind: "open-file", Options: FileDialogOptions{Title: "bad\x00"}}, {Version: 1, Kind: "open-file", Options: FileDialogOptions{Filters: []FileFilter{{}}}}} {
 		if validateFileDialogRequest(parseRequest) == nil {

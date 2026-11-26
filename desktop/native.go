@@ -158,41 +158,41 @@ type MessageReply struct {
 }
 
 // validateMessageRequest bounds portable message-dialog controls to native Windows capabilities.
-func validateMessageRequest(parseRequest MessageRequest) error {
-	if len(parseRequest.Buttons) > 3 {
+func validateMessageRequest(request MessageRequest) error {
+	if len(request.Buttons) > 3 {
 		return errors.New("too many message buttons")
 	}
-	for _, parseButton := range parseRequest.Buttons {
-		if len(parseButton) > 64 || !utf8.ValidString(parseButton) || strings.ContainsRune(parseButton, 0) {
+	seenButtons := make(map[string]bool, len(request.Buttons))
+	for _, button := range request.Buttons {
+		if strings.TrimSpace(button) == "" || len(button) > 64 || !utf8.ValidString(button) || strings.ContainsRune(button, 0) {
 			return errors.New("invalid message button text")
 		}
-	}
-	switch parseRequest.Kind {
-	case "info", "warning", "error":
-		if len(parseRequest.Buttons) == 0 {
-			parseRequest.Buttons = []string{"Ok"}
+		if seenButtons[button] {
+			return errors.New("duplicate message button label")
 		}
-		if len(parseRequest.Buttons) != 1 || parseRequest.Buttons[0] != "Ok" {
+		seenButtons[button] = true
+	}
+	buttons := request.Buttons
+	switch request.Kind {
+	case "info", "warning", "error":
+		if len(buttons) == 0 {
+			buttons = []string{"Ok"}
+		}
+		if len(buttons) != 1 || buttons[0] != "Ok" {
 			return errors.New("information, warning, and error dialogs support only the Ok button")
 		}
 	case "question":
-		if len(parseRequest.Buttons) == 0 {
-			parseRequest.Buttons = []string{"Yes", "No"}
-		}
-		if len(parseRequest.Buttons) != 2 || parseRequest.Buttons[0] != "Yes" || parseRequest.Buttons[1] != "No" {
-			return errors.New("question dialogs support only Yes and No buttons")
+		if len(buttons) == 0 {
+			buttons = []string{"Yes", "No"}
 		}
 	default:
 		return errors.New("unknown message kind")
 	}
-	if parseRequest.DefaultButton != "" && !messageHasButton(parseRequest.Buttons, parseRequest.DefaultButton) {
+	if request.DefaultButton != "" && !messageHasButton(buttons, request.DefaultButton) {
 		return errors.New("default message button is not present")
 	}
-	if parseRequest.CancelButton != "" && !messageHasButton(parseRequest.Buttons, parseRequest.CancelButton) {
+	if request.CancelButton != "" && !messageHasButton(buttons, request.CancelButton) {
 		return errors.New("cancel message button is not present")
-	}
-	if parseRequest.Kind == "question" && parseRequest.CancelButton != "" && parseRequest.CancelButton != "No" {
-		return errors.New("question dialogs support only No as the cancel button")
 	}
 	return nil
 }
@@ -241,23 +241,34 @@ type WindowRequest struct {
 	State    string  `json:"state,omitempty"`
 }
 
+// WindowBorderSizes reports non-client border thicknesses in pixels.
+type WindowBorderSizes struct {
+	Top    int `json:"top"`
+	Left   int `json:"left"`
+	Bottom int `json:"bottom"`
+	Right  int `json:"right"`
+}
+
 // WindowInfo reports stable caller-window metadata.
 type WindowInfo struct {
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	X          int     `json:"x"`
-	Y          int     `json:"y"`
-	RelativeX  int     `json:"relativeX"`
-	RelativeY  int     `json:"relativeY"`
-	Width      int     `json:"width"`
-	Height     int     `json:"height"`
-	Focused    bool    `json:"focused"`
-	Minimised  bool    `json:"minimised"`
-	Maximised  bool    `json:"maximised"`
-	Fullscreen bool    `json:"fullscreen"`
-	Visible    bool    `json:"visible"`
-	Resizable  bool    `json:"resizable"`
-	Zoom       float64 `json:"zoom"`
+	ID                string             `json:"id"`
+	Name              string             `json:"name"`
+	X                 int                `json:"x"`
+	Y                 int                `json:"y"`
+	RelativeX         int                `json:"relativeX"`
+	RelativeY         int                `json:"relativeY"`
+	Width             int                `json:"width"`
+	Height            int                `json:"height"`
+	Focused           bool               `json:"focused"`
+	Minimised         bool               `json:"minimised"`
+	Maximised         bool               `json:"maximised"`
+	Fullscreen        bool               `json:"fullscreen"`
+	Visible           bool               `json:"visible"`
+	Resizable         bool               `json:"resizable"`
+	Zoom              float64            `json:"zoom"`
+	IgnoreMouseEvents bool               `json:"ignoreMouseEvents,omitempty"`
+	ScreenID          string             `json:"screenId,omitempty"`
+	BorderSizes       *WindowBorderSizes `json:"borderSizes,omitempty"`
 }
 
 // ScreenInfo reports a display without exposing backend-specific screen objects.
@@ -879,57 +890,57 @@ func validateNativeText(parseValue, parseLabel string) error {
 }
 
 // validateWindowRequest bounds the explicit window operation allowlist.
-func validateWindowRequest(parseRequest WindowRequest) error {
-	if (parseRequest.Zoom != 0 || parseRequest.Red != 0 || parseRequest.Green != 0 || parseRequest.Blue != 0 || parseRequest.Alpha != 0 || parseRequest.State != "") && parseRequest.Action != "set-zoom" && parseRequest.Action != "set-background-color" && !isWindowButtonStateAction(parseRequest.Action) {
+func validateWindowRequest(request WindowRequest) error {
+	if (request.Zoom != 0 || request.Red != 0 || request.Green != 0 || request.Blue != 0 || request.Alpha != 0 || request.State != "") && request.Action != "set-zoom" && request.Action != "set-background-color" && !isWindowButtonStateAction(request.Action) {
 		return errors.New("window style arguments do not apply to action")
 	}
-	switch parseRequest.Action {
-	case "info", "center", "enable-size-constraints", "disable-size-constraints", "minimize", "unminimize", "maximize", "unmaximize", "toggle-maximize", "restore", "fullscreen", "unfullscreen", "toggle-fullscreen", "focus", "show-menu-bar", "hide-menu-bar", "toggle-menu-bar", "toggle-frameless", "zoom-in", "zoom-out", "zoom-reset":
-		if parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+	switch request.Action {
+	case "info", "show", "hide", "close", "reload", "force-reload", "snap-assist", "center", "enable-size-constraints", "disable-size-constraints", "minimize", "unminimize", "maximize", "unmaximize", "toggle-maximize", "restore", "fullscreen", "unfullscreen", "toggle-fullscreen", "focus", "show-menu-bar", "hide-menu-bar", "toggle-menu-bar", "toggle-frameless", "zoom-in", "zoom-out", "zoom-reset":
+		if request.Title != "" || request.ScreenID != "" || request.X != 0 || request.Y != 0 || request.Width != 0 || request.Height != 0 || request.Enabled {
 			return errors.New("window action does not accept arguments")
 		}
 	case "set-title":
-		if parseErr := validateNativeText(parseRequest.Title, "window title"); parseErr != nil {
-			return parseErr
+		if err := validateNativeText(request.Title, "window title"); err != nil {
+			return err
 		}
-		if parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+		if request.ScreenID != "" || request.X != 0 || request.Y != 0 || request.Width != 0 || request.Height != 0 || request.Enabled {
 			return errors.New("set-title accepts only title")
 		}
 	case "set-screen":
-		if parseRequest.ScreenID == "" {
+		if request.ScreenID == "" {
 			return errors.New("screen id required")
 		}
-		if parseErr := validateNativeText(parseRequest.ScreenID, "screen id"); parseErr != nil {
-			return parseErr
+		if err := validateNativeText(request.ScreenID, "screen id"); err != nil {
+			return err
 		}
-		if parseRequest.Title != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+		if request.Title != "" || request.X != 0 || request.Y != 0 || request.Width != 0 || request.Height != 0 || request.Enabled {
 			return errors.New("set-screen accepts only screen id")
 		}
 	case "set-position", "set-relative-position":
-		if parseRequest.X < -100000 || parseRequest.X > 100000 || parseRequest.Y < -100000 || parseRequest.Y > 100000 || parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled {
+		if request.X < -100000 || request.X > 100000 || request.Y < -100000 || request.Y > 100000 || request.Title != "" || request.ScreenID != "" || request.Width != 0 || request.Height != 0 || request.Enabled {
 			return errors.New("window position out of bounds")
 		}
 	case "resize", "set-min-size", "set-max-size", "set-bounds":
-		if parseRequest.Width < 1 || parseRequest.Width > 8192 || parseRequest.Height < 1 || parseRequest.Height > 8192 {
+		if request.Width < 1 || request.Width > 8192 || request.Height < 1 || request.Height > 8192 {
 			return errors.New("window dimensions out of bounds")
 		}
-		if parseRequest.X < -100000 || parseRequest.X > 100000 || parseRequest.Y < -100000 || parseRequest.Y > 100000 || parseRequest.Title != "" || parseRequest.ScreenID != "" || (parseRequest.Action != "set-bounds" && (parseRequest.X != 0 || parseRequest.Y != 0)) || parseRequest.Enabled {
+		if request.X < -100000 || request.X > 100000 || request.Y < -100000 || request.Y > 100000 || request.Title != "" || request.ScreenID != "" || (request.Action != "set-bounds" && (request.X != 0 || request.Y != 0)) || request.Enabled {
 			return errors.New("size action accepts only dimensions")
 		}
-	case "set-always-on-top", "set-resizable", "set-frameless", "flash", "set-content-protection":
-		if parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 {
+	case "set-always-on-top", "set-resizable", "set-frameless", "flash", "set-content-protection", "set-ignore-mouse-events", "set-enabled":
+		if request.Title != "" || request.ScreenID != "" || request.X != 0 || request.Y != 0 || request.Width != 0 || request.Height != 0 {
 			return errors.New("boolean window action accepts only enabled")
 		}
 	case "set-background-color":
-		if parseRequest.Red < 0 || parseRequest.Red > 255 || parseRequest.Green < 0 || parseRequest.Green > 255 || parseRequest.Blue < 0 || parseRequest.Blue > 255 || parseRequest.Alpha < 0 || parseRequest.Alpha > 255 || parseRequest.Zoom != 0 || parseRequest.State != "" || hasWindowBaseArguments(parseRequest) {
+		if request.Red < 0 || request.Red > 255 || request.Green < 0 || request.Green > 255 || request.Blue < 0 || request.Blue > 255 || request.Alpha < 0 || request.Alpha > 255 || request.Zoom != 0 || request.State != "" || hasWindowBaseArguments(request) {
 			return errors.New("window color out of bounds")
 		}
 	case "set-zoom":
-		if parseRequest.Zoom < 0.25 || parseRequest.Zoom > 5 || math.IsNaN(parseRequest.Zoom) || math.IsInf(parseRequest.Zoom, 0) || parseRequest.Red != 0 || parseRequest.Green != 0 || parseRequest.Blue != 0 || parseRequest.Alpha != 0 || parseRequest.State != "" || hasWindowBaseArguments(parseRequest) {
+		if request.Zoom < 0.25 || request.Zoom > 5 || math.IsNaN(request.Zoom) || math.IsInf(request.Zoom, 0) || request.Red != 0 || request.Green != 0 || request.Blue != 0 || request.Alpha != 0 || request.State != "" || hasWindowBaseArguments(request) {
 			return errors.New("window zoom out of bounds")
 		}
 	case "set-minimize-button-state", "set-maximize-button-state", "set-close-button-state", "set-fullscreen-button-state":
-		if (parseRequest.State != "enabled" && parseRequest.State != "disabled" && parseRequest.State != "hidden") || parseRequest.Zoom != 0 || parseRequest.Red != 0 || parseRequest.Green != 0 || parseRequest.Blue != 0 || parseRequest.Alpha != 0 || hasWindowBaseArguments(parseRequest) {
+		if (request.State != "enabled" && request.State != "disabled" && request.State != "hidden") || request.Zoom != 0 || request.Red != 0 || request.Green != 0 || request.Blue != 0 || request.Alpha != 0 || hasWindowBaseArguments(request) {
 			return errors.New("invalid window button state")
 		}
 	default:
@@ -939,19 +950,25 @@ func validateWindowRequest(parseRequest WindowRequest) error {
 }
 
 // isWindowButtonStateAction reports whether an action consumes the state field.
-func isWindowButtonStateAction(parseAction string) bool {
-	return parseAction == "set-minimize-button-state" || parseAction == "set-maximize-button-state" || parseAction == "set-close-button-state" || parseAction == "set-fullscreen-button-state"
+func isWindowButtonStateAction(action string) bool {
+	return action == "set-minimize-button-state" || action == "set-maximize-button-state" || action == "set-close-button-state" || action == "set-fullscreen-button-state"
 }
 
 // hasWindowBaseArguments reports arguments not used by color, zoom, or button-state actions.
-func hasWindowBaseArguments(parseRequest WindowRequest) bool {
-	return parseRequest.Title != "" || parseRequest.ScreenID != "" || parseRequest.X != 0 || parseRequest.Y != 0 || parseRequest.Width != 0 || parseRequest.Height != 0 || parseRequest.Enabled
+func hasWindowBaseArguments(request WindowRequest) bool {
+	return request.Title != "" || request.ScreenID != "" || request.X != 0 || request.Y != 0 || request.Width != 0 || request.Height != 0 || request.Enabled
 }
 
 // validateWindowInfo rejects malformed backend window metadata.
-func validateWindowInfo(parseInfo WindowInfo) error {
-	if parseInfo.ID == "" || len(parseInfo.ID) > 256 || !utf8.ValidString(parseInfo.ID) || strings.ContainsRune(parseInfo.ID, 0) || len(parseInfo.Name) > 4096 || !utf8.ValidString(parseInfo.Name) || strings.ContainsRune(parseInfo.Name, 0) || parseInfo.X < -100000 || parseInfo.X > 100000 || parseInfo.Y < -100000 || parseInfo.Y > 100000 || parseInfo.RelativeX < -100000 || parseInfo.RelativeX > 100000 || parseInfo.RelativeY < -100000 || parseInfo.RelativeY > 100000 || parseInfo.Width < 0 || parseInfo.Width > 32768 || parseInfo.Height < 0 || parseInfo.Height > 32768 || math.IsNaN(parseInfo.Zoom) || math.IsInf(parseInfo.Zoom, 0) || parseInfo.Zoom < 0 || parseInfo.Zoom > 100 {
+func validateWindowInfo(info WindowInfo) error {
+	if info.ID == "" || len(info.ID) > 256 || !utf8.ValidString(info.ID) || strings.ContainsRune(info.ID, 0) || len(info.Name) > 4096 || !utf8.ValidString(info.Name) || strings.ContainsRune(info.Name, 0) || len(info.ScreenID) > 256 || !utf8.ValidString(info.ScreenID) || strings.ContainsRune(info.ScreenID, 0) || info.X < -100000 || info.X > 100000 || info.Y < -100000 || info.Y > 100000 || info.RelativeX < -100000 || info.RelativeX > 100000 || info.RelativeY < -100000 || info.RelativeY > 100000 || info.Width < 0 || info.Width > 32768 || info.Height < 0 || info.Height > 32768 || math.IsNaN(info.Zoom) || math.IsInf(info.Zoom, 0) || info.Zoom < 0 || info.Zoom > 100 {
 		return errors.New("invalid window information")
+	}
+	if info.BorderSizes != nil {
+		b := info.BorderSizes
+		if b.Top < 0 || b.Top > 4096 || b.Left < 0 || b.Left > 4096 || b.Bottom < 0 || b.Bottom > 4096 || b.Right < 0 || b.Right > 4096 {
+			return errors.New("invalid window border sizes")
+		}
 	}
 	return nil
 }

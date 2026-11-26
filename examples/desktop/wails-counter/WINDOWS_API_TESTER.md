@@ -14,7 +14,7 @@ go run ./tools/gwc desktop build -root ./examples/desktop/wails-counter -json
 ```
 
 Use **Tests → Open second tester window** for caller-window ownership checks.
-Close all windows before rebuilding. The tester uses the pinned Wails beta.17
+Close all windows before rebuilding. The tester uses the pinned Wails `v3.1.0`
 source, not whichever globally installed Wails CLI happens to be available.
 
 File-selection workflows now use the reusable SDK and isolated Wails adapter.

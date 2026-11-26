@@ -12,141 +12,162 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v8/desktop"
+	"github.com/monstercameron/GoWebComponents/v8/interop"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-type parseTrayWindowFake struct {
+type fakeTrayWindow struct {
 	application.Window
-	parseMutex          sync.Mutex
-	parseEvents         []desktop.TrayEvent
-	parseShortcutEvents []desktop.ShortcutEvent
+	mu             sync.Mutex
+	trayEvents     []desktop.TrayEvent
+	shortcutEvents []desktop.ShortcutEvent
 }
 
 // ID returns a stable caller identity.
-func (*parseTrayWindowFake) ID() uint { return 77 }
+func (*fakeTrayWindow) ID() uint { return 77 }
+
+// OnWindowEvent records lifecycle hooks without requiring a live Wails runtime.
+func (*fakeTrayWindow) OnWindowEvent(events.WindowEventType, func(*application.WindowEvent)) func() {
+	return func() {}
+}
 
 // EmitEvent records typed tray callbacks.
-func (parseWindow *parseTrayWindowFake) EmitEvent(_ string, parseData ...any) bool {
-	parseWindow.parseMutex.Lock()
-	defer parseWindow.parseMutex.Unlock()
-	if len(parseData) == 1 {
-		if parseEvent, parseOK := parseData[0].(desktop.TrayEvent); parseOK {
-			parseWindow.parseEvents = append(parseWindow.parseEvents, parseEvent)
+func (w *fakeTrayWindow) EmitEvent(_ string, data ...any) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if len(data) == 1 {
+		if event, ok := data[0].(desktop.TrayEvent); ok {
+			w.trayEvents = append(w.trayEvents, event)
 		}
-		if parseEvent, parseOK := parseData[0].(desktop.ShortcutEvent); parseOK {
-			parseWindow.parseShortcutEvents = append(parseWindow.parseShortcutEvents, parseEvent)
+		if event, ok := data[0].(desktop.ShortcutEvent); ok {
+			w.shortcutEvents = append(w.shortcutEvents, event)
 		}
 	}
 	return true
 }
 
 // TestShortcutGenerationNeverRevivesStaleCallbacks verifies removed IDs retain monotonic tokens.
-func TestShortcutGenerationNeverRevivesStaleCallbacks(parseTest *testing.T) {
-	parseWindow := &parseTrayWindowFake{}
-	parseOwner := &nativeOwnerState{parseShortcuts: map[string]string{"main": "Ctrl+K"}, parseShortcutGenerations: map[string]uint64{"main": 4}}
-	parseState := newNativeTrayShortcutState()
-	parseState.parseOwners[parseWindow.ID()] = parseOwner
-	parseState.emitShortcutEvent(parseWindow, "main", 3)
-	parseState.emitShortcutEvent(parseWindow, "main", 4)
-	delete(parseOwner.parseShortcuts, "main")
-	parseState.emitShortcutEvent(parseWindow, "main", 4)
-	parseOwner.parseShortcuts["main"] = "Ctrl+L"
-	parseOwner.parseShortcutGenerations["main"]++
-	parseState.emitShortcutEvent(parseWindow, "main", 4)
-	parseState.emitShortcutEvent(parseWindow, "main", 5)
-	if len(parseWindow.parseShortcutEvents) != 2 {
-		parseTest.Fatalf("stale shortcut callbacks revived: %#v", parseWindow.parseShortcutEvents)
+func TestShortcutGenerationNeverRevivesStaleCallbacks(t *testing.T) {
+	win := &fakeTrayWindow{}
+	owner := &nativeOwnerState{
+		shortcuts:           map[string]string{"main": "Ctrl+K"},
+		shortcutGenerations: map[string]uint64{"main": 4},
+	}
+	state := newNativeTrayShortcutState()
+	state.owners[win.ID()] = owner
+	state.emitShortcutEvent(win, "main", 3)
+	state.emitShortcutEvent(win, "main", 4)
+	delete(owner.shortcuts, "main")
+	state.emitShortcutEvent(win, "main", 4)
+	owner.shortcuts["main"] = "Ctrl+L"
+	owner.shortcutGenerations["main"]++
+	state.emitShortcutEvent(win, "main", 4)
+	state.emitShortcutEvent(win, "main", 5)
+	if len(win.shortcutEvents) != 2 {
+		t.Fatalf("stale shortcut callbacks revived: %#v", win.shortcutEvents)
 	}
 }
 
 // TestDefaultTrayIconIsValid verifies the synthetic fallback is a bounded decodable PNG.
-func TestDefaultTrayIconIsValid(parseTest *testing.T) {
-	parseIcon, parseErr := base64.StdEncoding.DecodeString(parseTrayIconPNG)
-	if parseErr != nil {
-		parseTest.Fatal(parseErr)
+func TestDefaultTrayIconIsValid(t *testing.T) {
+	icon, err := base64.StdEncoding.DecodeString(defaultTrayIconPNG)
+	if err != nil {
+		t.Fatal(err)
 	}
-	parseConfig, parseErr := png.DecodeConfig(bytes.NewReader(parseIcon))
-	if parseErr != nil || parseConfig.Width != 16 || parseConfig.Height != 16 {
-		parseTest.Fatalf("invalid default tray icon: %+v: %v", parseConfig, parseErr)
+	config, err := png.DecodeConfig(bytes.NewReader(icon))
+	if err != nil || config.Width != 16 || config.Height != 16 {
+		t.Fatalf("invalid default tray icon: %+v: %v", config, err)
 	}
 }
 
 // TestTrayShortcutBackendExtensionsRequireCaller verifies optional capabilities never fall back to focus.
-func TestTrayShortcutBackendExtensionsRequireCaller(parseTest *testing.T) {
-	parseBackend := NewNativeBackend()
-	parseTrayBackend, parseOK := parseBackend.(desktop.TrayBackend)
-	if !parseOK {
-		parseTest.Fatal("Windows backend does not implement tray extension")
+func TestTrayShortcutBackendExtensionsRequireCaller(t *testing.T) {
+	backend := NewNativeBackend()
+	trayBackend, ok := backend.(desktop.TrayBackend)
+	if !ok {
+		t.Fatal("Windows backend does not implement tray extension")
 	}
-	if parseErr := parseTrayBackend.ConfigureTray(context.Background(), desktop.TrayRequest{Action: "upsert", ID: "main"}); parseErr == nil {
-		parseTest.Fatal("tray accepted missing caller")
+	if err := trayBackend.ConfigureTray(context.Background(), desktop.TrayRequest{Action: "upsert", ID: "main"}); err == nil {
+		t.Fatal("tray accepted missing caller")
 	}
-	parseShortcutBackend, parseOK := parseBackend.(desktop.ShortcutBackend)
-	if !parseOK {
-		parseTest.Fatal("Windows backend does not implement shortcut extension")
+	win := &fakeTrayWindow{}
+	ctx := context.WithValue(context.Background(), application.WindowKey, application.Window(win))
+	if err := trayBackend.ConfigureTray(ctx, desktop.TrayRequest{Action: "position-window", ID: "missing", Offset: 8}); !interop.IsCode(err, interop.CodeInvalid) {
+		t.Fatalf("unregistered tray position-window error=%v", err)
 	}
-	if parseErr := parseShortcutBackend.ConfigureShortcut(context.Background(), desktop.ShortcutRequest{Action: "upsert", ID: "main", Accelerator: "Ctrl+Shift+K"}); parseErr == nil {
-		parseTest.Fatal("shortcut accepted missing caller")
+	shortcutBackend, ok := backend.(desktop.ShortcutBackend)
+	if !ok {
+		t.Fatal("Windows backend does not implement shortcut extension")
+	}
+	if err := shortcutBackend.ConfigureShortcut(context.Background(), desktop.ShortcutRequest{Action: "upsert", ID: "main", Accelerator: "Ctrl+Shift+K"}); err == nil {
+		t.Fatal("shortcut accepted missing caller")
 	}
 }
 
 // TestTrayGenerationNeverRevivesStaleCallbacks verifies remove and recreate keep monotonic identity.
-func TestTrayGenerationNeverRevivesStaleCallbacks(parseTest *testing.T) {
-	parseWindow := &parseTrayWindowFake{}
-	parseOwner := &nativeOwnerState{parseTrays: map[string]*application.SystemTray{"main": nil}, parseTrayGenerations: map[string]uint64{"main": 2}}
-	parseState := newNativeTrayShortcutState()
-	parseState.parseOwners[parseWindow.ID()] = parseOwner
-	parseState.emitTrayEvent(parseWindow, "main", 1, "click", "")
-	parseState.emitTrayEvent(parseWindow, "main", 2, "click", "")
-	delete(parseOwner.parseTrays, "main")
-	parseState.emitTrayEvent(parseWindow, "main", 2, "click", "")
-	parseOwner.parseTrays["main"] = nil
-	parseOwner.parseTrayGenerations["main"]++
-	parseState.emitTrayEvent(parseWindow, "main", 2, "click", "")
-	parseState.emitTrayEvent(parseWindow, "main", 3, "click", "")
-	if len(parseWindow.parseEvents) != 2 {
-		parseTest.Fatalf("stale callbacks revived: %#v", parseWindow.parseEvents)
+func TestTrayGenerationNeverRevivesStaleCallbacks(t *testing.T) {
+	win := &fakeTrayWindow{}
+	owner := &nativeOwnerState{
+		trays:           map[string]*application.SystemTray{"main": nil},
+		trayGenerations: map[string]uint64{"main": 2},
+	}
+	state := newNativeTrayShortcutState()
+	state.owners[win.ID()] = owner
+	state.emitTrayEvent(win, "main", 1, "click", "")
+	state.emitTrayEvent(win, "main", 2, "click", "")
+	delete(owner.trays, "main")
+	state.emitTrayEvent(win, "main", 2, "click", "")
+	owner.trays["main"] = nil
+	owner.trayGenerations["main"]++
+	state.emitTrayEvent(win, "main", 2, "click", "")
+	state.emitTrayEvent(win, "main", 3, "click", "")
+	if len(win.trayEvents) != 2 {
+		t.Fatalf("stale callbacks revived: %#v", win.trayEvents)
 	}
 }
 
 // TestTrayCallbackDoesNotWaitForOperationLock verifies UI callbacks cannot deadlock native dispatch.
-func TestTrayCallbackDoesNotWaitForOperationLock(parseTest *testing.T) {
-	parseWindow := &parseTrayWindowFake{}
-	parseState := newNativeTrayShortcutState()
-	parseState.parseOwners[parseWindow.ID()] = &nativeOwnerState{parseTrays: map[string]*application.SystemTray{"main": nil}, parseTrayGenerations: map[string]uint64{"main": 1}}
-	parseState.parseOperationMutex.Lock()
-	parseDone := make(chan struct{})
+func TestTrayCallbackDoesNotWaitForOperationLock(t *testing.T) {
+	win := &fakeTrayWindow{}
+	state := newNativeTrayShortcutState()
+	state.owners[win.ID()] = &nativeOwnerState{
+		trays:           map[string]*application.SystemTray{"main": nil},
+		trayGenerations: map[string]uint64{"main": 1},
+	}
+	state.opMu.Lock()
+	done := make(chan struct{})
 	go func() {
-		parseState.emitTrayEvent(parseWindow, "main", 1, "click", "")
-		close(parseDone)
+		state.emitTrayEvent(win, "main", 1, "click", "")
+		close(done)
 	}()
 	select {
-	case <-parseDone:
+	case <-done:
 	case <-time.After(time.Second):
-		parseTest.Fatal("tray callback waited for operation lock")
+		t.Fatal("tray callback waited for operation lock")
 	}
-	parseState.parseOperationMutex.Unlock()
+	state.opMu.Unlock()
 }
 
 // TestTrayPublicationUsesSingleUIBoundary verifies complete configuration is wrapped as one UI action.
-func TestTrayPublicationUsesSingleUIBoundary(parseTest *testing.T) {
-	parseState := newNativeTrayShortcutState()
-	parseCalls := 0
+func TestTrayPublicationUsesSingleUIBoundary(t *testing.T) {
+	state := newNativeTrayShortcutState()
+	calls := 0
 	isInsideUI := false
-	parseState.invokeUI = func(parseAction func()) {
-		parseCalls++
+	state.invokeUI = func(action func()) {
+		calls++
 		isInsideUI = true
-		parseAction()
+		action()
 		isInsideUI = false
 	}
-	parseConfigured := false
-	parseState.runTrayUI(func() {
+	isConfigured := false
+	state.runTrayUI(func() {
 		if !isInsideUI {
-			parseTest.Fatal("tray configuration escaped UI boundary")
+			t.Fatal("tray configuration escaped UI boundary")
 		}
-		parseConfigured = true
+		isConfigured = true
 	})
-	if parseCalls != 1 || !parseConfigured || isInsideUI {
-		parseTest.Fatalf("unexpected UI publication: calls=%d configured=%v inside=%v", parseCalls, parseConfigured, isInsideUI)
+	if calls != 1 || !isConfigured || isInsideUI {
+		t.Fatalf("unexpected UI publication: calls=%d configured=%v inside=%v", calls, isConfigured, isInsideUI)
 	}
 }

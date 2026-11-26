@@ -3,6 +3,7 @@
 package wails
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -16,60 +17,91 @@ import (
 type WindowEventOptions struct{ EnableFileDrop bool }
 
 // AttachWindowEvents installs the portable event allowlist on exactly one Wails window.
-func AttachWindowEvents(parseWindow application.Window, parseOptions WindowEventOptions) (func(), error) {
-	if parseWindow == nil {
+func AttachWindowEvents(win application.Window, opts WindowEventOptions) (func(), error) {
+	if win == nil {
 		return nil, invalid("window event owner required")
 	}
-	parseCleanups := []func(){registerWindowEvent(parseWindow, events.Common.WindowFocus, desktop.WindowFocused), registerWindowEvent(parseWindow, events.Common.WindowLostFocus, desktop.WindowBlurred), registerWindowEvent(parseWindow, events.Common.WindowDidMove, desktop.WindowMoved), registerWindowEvent(parseWindow, events.Common.WindowDidResize, desktop.WindowResized), registerWindowEvent(parseWindow, events.Common.WindowFullscreen, desktop.WindowFullscreen), registerWindowEvent(parseWindow, events.Common.WindowMinimise, desktop.WindowMinimized), registerWindowEvent(parseWindow, events.Common.WindowMaximise, desktop.WindowMaximized), registerWindowEvent(parseWindow, events.Common.WindowRestore, desktop.WindowRestored), registerWindowEvent(parseWindow, events.Common.WindowClosing, desktop.WindowClosing)}
-	if parseOptions.EnableFileDrop {
-		parseCleanups = append(parseCleanups, parseWindow.OnWindowEvent(events.Common.WindowFilesDropped, func(parseNativeEvent *application.WindowEvent) {
-			parseFiles, isValid := getDroppedFiles(parseNativeEvent)
+	cleanups := []func(){
+		registerWindowEvent(win, events.Common.WindowFocus, desktop.WindowFocused),
+		registerWindowEvent(win, events.Common.WindowLostFocus, desktop.WindowBlurred),
+		registerWindowEvent(win, events.Common.WindowDidMove, desktop.WindowMoved),
+		registerWindowEvent(win, events.Common.WindowDidResize, desktop.WindowResized),
+		registerWindowEvent(win, events.Common.WindowShow, desktop.WindowShown),
+		registerWindowEvent(win, events.Common.WindowHide, desktop.WindowHidden),
+		registerWindowEvent(win, events.Common.WindowFullscreen, desktop.WindowFullscreen),
+		registerWindowEvent(win, events.Common.WindowUnFullscreen, desktop.WindowUnfullscreened),
+		registerWindowEvent(win, events.Common.WindowMinimise, desktop.WindowMinimized),
+		registerWindowEvent(win, events.Common.WindowUnMinimise, desktop.WindowUnminimized),
+		registerWindowEvent(win, events.Common.WindowMaximise, desktop.WindowMaximized),
+		registerWindowEvent(win, events.Common.WindowUnMaximise, desktop.WindowUnmaximized),
+		registerWindowEvent(win, events.Common.WindowRestore, desktop.WindowRestored),
+		registerWindowEvent(win, events.Common.WindowDPIChanged, desktop.WindowDPIChanged),
+		registerWindowEvent(win, events.Common.WindowZoom, desktop.WindowZoomChanged),
+		registerWindowEvent(win, events.Common.WindowZoomIn, desktop.WindowZoomChanged),
+		registerWindowEvent(win, events.Common.WindowZoomOut, desktop.WindowZoomChanged),
+		registerWindowEvent(win, events.Common.WindowZoomReset, desktop.WindowZoomChanged),
+		registerWindowEvent(win, events.Common.WindowClosing, desktop.WindowClosing),
+	}
+	if opts.EnableFileDrop {
+		cleanups = append(cleanups, win.OnWindowEvent(events.Common.WindowFilesDropped, func(nativeEvent *application.WindowEvent) {
+			files, isValid := getDroppedFiles(nativeEvent)
 			if !isValid {
 				return
 			}
-			parseEvent := buildWindowEvent(parseWindow, desktop.WindowFilesDropped)
-			parseEvent.Files = parseFiles
-			parseWindow.EmitEvent(desktop.WindowDropTopic, parseEvent)
+			event := buildWindowEvent(win, desktop.WindowFilesDropped)
+			event.Files = files
+			win.EmitEvent(desktop.WindowDropTopic, event)
 		}))
 	}
-	var parseOnce sync.Once
+	var once sync.Once
 	return func() {
-		parseOnce.Do(func() {
-			for parseIndex := len(parseCleanups) - 1; parseIndex >= 0; parseIndex-- {
-				parseCleanups[parseIndex]()
+		once.Do(func() {
+			for i := len(cleanups) - 1; i >= 0; i-- {
+				cleanups[i]()
 			}
 		})
 	}, nil
 }
 
 // registerWindowEvent maps one fixed Wails event to portable caller-owned state.
-func registerWindowEvent(parseWindow application.Window, parseType events.WindowEventType, parseKind desktop.WindowEventKind) func() {
-	return parseWindow.OnWindowEvent(parseType, func(_ *application.WindowEvent) {
-		parseWindow.EmitEvent(desktop.WindowEventTopic, buildWindowEvent(parseWindow, parseKind))
+func registerWindowEvent(win application.Window, eventType events.WindowEventType, kind desktop.WindowEventKind) func() {
+	return win.OnWindowEvent(eventType, func(_ *application.WindowEvent) {
+		win.EmitEvent(desktop.WindowEventTopic, buildWindowEvent(win, kind))
 	})
 }
 
 // buildWindowEvent snapshots portable geometry without forwarding native event arguments.
-func buildWindowEvent(parseWindow application.Window, parseKind desktop.WindowEventKind) desktop.WindowEvent {
-	parseInfo := windowInfo(parseWindow)
-	return desktop.WindowEvent{Kind: parseKind, WindowID: parseInfo.ID, X: parseInfo.X, Y: parseInfo.Y, Width: parseInfo.Width, Height: parseInfo.Height}
+func buildWindowEvent(win application.Window, kind desktop.WindowEventKind) desktop.WindowEvent {
+	x, y := win.Position()
+	event := desktop.WindowEvent{
+		Kind:     kind,
+		WindowID: fmt.Sprint(win.ID()),
+		X:        x,
+		Y:        y,
+		Width:    win.Width(),
+		Height:   win.Height(),
+	}
+	if kind == desktop.WindowZoomChanged {
+		event.Zoom = win.GetZoom()
+	}
+	return event
 }
 
 // getDroppedFiles copies and bounds Wails drop paths before they cross the bridge.
-func getDroppedFiles(parseEvent *application.WindowEvent) ([]string, bool) {
-	if parseEvent == nil || parseEvent.Context() == nil {
+func getDroppedFiles(event *application.WindowEvent) ([]string, bool) {
+	if event == nil || event.Context() == nil {
 		return nil, false
 	}
-	parseFiles := parseEvent.Context().DroppedFiles()
-	if len(parseFiles) == 0 || len(parseFiles) > 32 {
+	files := event.Context().DroppedFiles()
+	if len(files) == 0 || len(files) > 32 {
 		return nil, false
 	}
-	parseCopy := make([]string, len(parseFiles))
-	for parseIndex, parseFile := range parseFiles {
-		if parseFile == "" || len(parseFile) > 32768 || !utf8.ValidString(parseFile) || strings.ContainsRune(parseFile, 0) {
+	copied := make([]string, len(files))
+	for i, file := range files {
+		if file == "" || len(file) > 32768 || !utf8.ValidString(file) || strings.ContainsRune(file, 0) {
 			return nil, false
 		}
-		parseCopy[parseIndex] = parseFile
+		copied[i] = file
 	}
-	return parseCopy, true
+	return copied, true
 }

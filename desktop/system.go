@@ -38,6 +38,9 @@ type SystemEnvironmentInfo struct {
 	Architecture string `json:"architecture"`
 	Theme        string `json:"theme"`
 	AccentColor  string `json:"accentColor"`
+	OSName       string `json:"osName,omitempty"`
+	OSVersion    string `json:"osVersion,omitempty"`
+	OSBranding   string `json:"osBranding,omitempty"`
 }
 
 // ExternalURLOpenRequest carries one absolute HTTP(S) URL.
@@ -346,9 +349,14 @@ func isWindowsDriveLetter(parseValue byte) bool {
 }
 
 // validateSystemEnvironment rejects malformed backend environment metadata.
-func validateSystemEnvironment(parseInfo SystemEnvironmentInfo) error {
-	if parseInfo.OS != "windows" || parseInfo.Architecture == "" || len(parseInfo.Architecture) > 64 || (parseInfo.Theme != "light" && parseInfo.Theme != "dark") || len(parseInfo.AccentColor) > 64 || strings.ContainsRune(parseInfo.AccentColor, 0) {
+func validateSystemEnvironment(info SystemEnvironmentInfo) error {
+	if info.OS != "windows" || info.Architecture == "" || len(info.Architecture) > 64 || (info.Theme != "light" && info.Theme != "dark") || len(info.AccentColor) > 64 || strings.ContainsRune(info.AccentColor, 0) {
 		return errors.New("invalid system environment information")
+	}
+	for _, field := range []string{info.OSName, info.OSVersion, info.OSBranding} {
+		if len(field) > 256 || strings.ContainsRune(field, 0) {
+			return errors.New("invalid system environment OS metadata")
+		}
 	}
 	return nil
 }

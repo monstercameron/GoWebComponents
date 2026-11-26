@@ -36,10 +36,15 @@ type ChildWindowRequest struct {
 	ID string `json:"id"`
 }
 
-// ChildWindowControlRequest applies a bounded lifecycle action to an owned child.
+// ChildWindowControlRequest applies a bounded action to an owned child.
 type ChildWindowControlRequest struct {
 	ID     string `json:"id"`
 	Action string `json:"action"`
+	Title  string `json:"title,omitempty"`
+	X      int    `json:"x,omitempty"`
+	Y      int    `json:"y,omitempty"`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
 }
 
 // ChildWindowInfo reports portable metadata for a caller-owned child.
@@ -47,9 +52,14 @@ type ChildWindowInfo struct {
 	ID         string `json:"id"`
 	TemplateID string `json:"templateId"`
 	Title      string `json:"title"`
+	X          int    `json:"x,omitempty"`
+	Y          int    `json:"y,omitempty"`
 	Width      int    `json:"width"`
 	Height     int    `json:"height"`
 	Visible    bool   `json:"visible"`
+	Focused    bool   `json:"focused,omitempty"`
+	Minimised  bool   `json:"minimised,omitempty"`
+	Maximised  bool   `json:"maximised,omitempty"`
 	Closing    bool   `json:"closing,omitempty"`
 }
 
@@ -227,8 +237,23 @@ func (parseClient Client) HideChildWindow(parseContext context.Context, parseID 
 }
 
 // CloseChildWindow permanently closes one caller-owned child, never its parent.
-func (parseClient Client) CloseChildWindow(parseContext context.Context, parseID string) (ChildWindowInfo, error) {
-	return parseClient.ControlChildWindow(parseContext, ChildWindowControlRequest{ID: parseID, Action: "close"})
+func (client Client) CloseChildWindow(ctx context.Context, id string) (ChildWindowInfo, error) {
+	return client.ControlChildWindow(ctx, ChildWindowControlRequest{ID: id, Action: "close"})
+}
+
+// FocusChildWindow focuses one caller-owned child window.
+func (client Client) FocusChildWindow(ctx context.Context, id string) (ChildWindowInfo, error) {
+	return client.ControlChildWindow(ctx, ChildWindowControlRequest{ID: id, Action: "focus"})
+}
+
+// ResizeChildWindow resizes one caller-owned child window within portable bounds.
+func (client Client) ResizeChildWindow(ctx context.Context, id string, width, height int) (ChildWindowInfo, error) {
+	return client.ControlChildWindow(ctx, ChildWindowControlRequest{ID: id, Action: "resize", Width: width, Height: height})
+}
+
+// SetChildWindowTitle updates the title of one caller-owned child window.
+func (client Client) SetChildWindowTitle(ctx context.Context, id, title string) (ChildWindowInfo, error) {
+	return client.ControlChildWindow(ctx, ChildWindowControlRequest{ID: id, Action: "set-title", Title: title})
 }
 
 // getChildWindowReply invokes and validates a single child-window result.
@@ -283,13 +308,40 @@ func validateChildWindowCreateRequest(parseRequest ChildWindowCreateRequest) err
 	return nil
 }
 
-// validateChildWindowControlRequest permits lifecycle operations only.
-func validateChildWindowControlRequest(parseRequest ChildWindowControlRequest) error {
-	if parseErr := validateChildWindowID(parseRequest.ID); parseErr != nil {
-		return parseErr
+// validateChildWindowControlRequest permits bounded caller-owned child operations only.
+func validateChildWindowControlRequest(request ChildWindowControlRequest) error {
+	if err := validateChildWindowID(request.ID); err != nil {
+		return err
 	}
-	switch parseRequest.Action {
-	case "show", "hide", "close":
+	switch request.Action {
+	case "show", "hide", "close", "focus", "minimize", "unminimize", "maximize", "unmaximize", "restore", "center":
+		if request.Title != "" || request.X != 0 || request.Y != 0 || request.Width != 0 || request.Height != 0 {
+			return errors.New("child-window action does not accept arguments")
+		}
+		return nil
+	case "set-title":
+		if !utf8.ValidString(request.Title) || strings.ContainsRune(request.Title, 0) || len(request.Title) > 256 {
+			return errors.New("invalid child-window title")
+		}
+		if request.X != 0 || request.Y != 0 || request.Width != 0 || request.Height != 0 {
+			return errors.New("child-window set-title accepts only title")
+		}
+		return nil
+	case "resize":
+		if request.Width < 1 || request.Width > 4096 || request.Height < 1 || request.Height > 4096 {
+			return errors.New("child-window dimensions must be between 1 and 4096")
+		}
+		if request.Title != "" || request.X != 0 || request.Y != 0 {
+			return errors.New("child-window resize accepts only width and height")
+		}
+		return nil
+	case "set-bounds":
+		if request.Width < 1 || request.Width > 4096 || request.Height < 1 || request.Height > 4096 {
+			return errors.New("child-window dimensions must be between 1 and 4096")
+		}
+		if request.X < -100000 || request.X > 100000 || request.Y < -100000 || request.Y > 100000 || request.Title != "" {
+			return errors.New("child-window bounds out of range")
+		}
 		return nil
 	default:
 		return errors.New("unknown child-window action")
@@ -297,22 +349,22 @@ func validateChildWindowControlRequest(parseRequest ChildWindowControlRequest) e
 }
 
 // validateChildWindowID accepts compact caller-scoped identifiers.
-func validateChildWindowID(parseID string) error {
-	if parseID == "" || len(parseID) > 128 || !utf8.ValidString(parseID) || strings.ContainsRune(parseID, 0) {
+func validateChildWindowID(id string) error {
+	if id == "" || len(id) > 128 || !utf8.ValidString(id) || strings.ContainsRune(id, 0) {
 		return errors.New("invalid child-window id")
 	}
 	return nil
 }
 
 // validateChildWindowInfo rejects malformed adapter results.
-func validateChildWindowInfo(parseInfo ChildWindowInfo) error {
-	if parseErr := validateChildWindowID(parseInfo.ID); parseErr != nil {
-		return parseErr
+func validateChildWindowInfo(info ChildWindowInfo) error {
+	if err := validateChildWindowID(info.ID); err != nil {
+		return err
 	}
-	if parseErr := validateChildWindowID(parseInfo.TemplateID); parseErr != nil {
+	if err := validateChildWindowID(info.TemplateID); err != nil {
 		return errors.New("invalid child-window template id")
 	}
-	if !utf8.ValidString(parseInfo.Title) || strings.ContainsRune(parseInfo.Title, 0) || len(parseInfo.Title) > 256 || parseInfo.Width <= 0 || parseInfo.Height <= 0 || parseInfo.Width > 4096 || parseInfo.Height > 4096 {
+	if !utf8.ValidString(info.Title) || strings.ContainsRune(info.Title, 0) || len(info.Title) > 256 || info.X < -100000 || info.X > 100000 || info.Y < -100000 || info.Y > 100000 || info.Width <= 0 || info.Height <= 0 || info.Width > 4096 || info.Height > 4096 {
 		return errors.New("invalid child-window metadata")
 	}
 	return nil

@@ -122,6 +122,14 @@ func TestValidateWindowEventRejectsRawKindsAndCrossTopicFiles(parseTest *testing
 			parseTest.Fatalf("event=%+v error=%v", parseEvent, parseErr)
 		}
 	}
+	for _, kind := range []WindowEventKind{WindowShown, WindowHidden, WindowUnfullscreened, WindowUnminimized, WindowUnmaximized, WindowDPIChanged, WindowZoomChanged} {
+		if err := validateWindowEvent(WindowEvent{Kind: kind, WindowID: "caller", Zoom: 1.25}, false); err != nil {
+			parseTest.Fatalf("valid window event kind %q rejected: %v", kind, err)
+		}
+	}
+	if err := validateWindowEvent(WindowEvent{Kind: WindowZoomChanged, WindowID: "caller", Zoom: -1}, false); !interop.IsCode(err, interop.CodeDecode) {
+		parseTest.Fatalf("negative zoom accepted: %v", err)
+	}
 	if parseErr := validateWindowEvent(WindowEvent{Kind: WindowFilesDropped, WindowID: "caller", Files: make([]string, 33)}, true); !interop.IsCode(parseErr, interop.CodeDecode) {
 		parseTest.Fatalf("oversized drop error=%v", parseErr)
 	}
