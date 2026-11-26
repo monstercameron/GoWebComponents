@@ -33,11 +33,13 @@ default to denied; this test app explicitly opts in by default.
 | Native context menu | Right-click target, command callback/context data, checkbox, exclusive radios, submenu, disabled command, Escape dismissal |
 | Standard edit menu | Editable text, selection, native right-click editing menu, keyboard/IME input |
 | Application menu/keys | Tests menu, Ctrl+Shift+K accelerator, F8 per-window callback, second tester window |
-| Pickers | Single/multiple text files, Unicode filenames, directory, save-path selection, cancellation, caller-window ownership |
-| Native messages | Information dismissal, question Yes/No, focus recovery |
-| Windows | Size/info, resize, maximize/restore, fullscreen/exit; Escape exits fullscreen |
+| Pickers | Single/multiple text files, Unicode filenames, single/multiple directories (`v3.1.0`), save-path selection, cancellation, caller-window ownership |
+| Native messages | Information/warning/error (`MB_OK`), Yes/No question, custom 3-button `TaskDialogIndirect` (`v3.1.0` default + cancel roles), focus recovery |
+| Windows | Info (`ScreenID`, `BorderSizes`, `IgnoreMouseEvents`), resize/bounds, min/max constraints, maximize/minimize/restore, fullscreen/exit, Snap Assist, reload, `[0.25, 5.0]` zoom including `0.75` (`v3.1.0`), print; Escape exits fullscreen |
+| System tray & child windows | In-place tray updates with PNG + dark-mode taskbar icons & label fallback, `position-window`, global shortcuts, immutable counter & Windows Mica backdrop child templates with focus/center/resize/retitle/state controls |
 | Clipboard | Explicit synthetic-text write and fixture-match check; never automatic |
-| Displays | Native screen enumeration |
+| Displays & environment | Native screen enumeration, DIP/physical geometry conversions, OS name/version/branding & theme probe |
+| GWC v8 UI & events | `html/shorthand` (`MapKeyed`, `If`, `IfElse`, `ClassNames`, `When`), `ui.ErrorBoundary`, `ui.UseTheme` + `ui.UsePrefersColorScheme`, `ui.UsePrefersReducedMotion`, `ui.UseDeferredValue` search filter, `ui.UseGlobalKey`, `ui.UseId`, typed `events.UseTopic` (`WithReplayLast`), `state.UseAtom`, and live Wails `v3.1.0` window/menu/tray/shortcut events |
 | Evidence | Bounded session log, explicit visual verdicts, JSON export through native save dialog |
 
 The private fixture directory contains `sample-a.txt`, `sample-b.txt`,
@@ -96,9 +98,11 @@ Automated smoke deliberately does not click native dialogs or alter clipboard
 state. It separately proves tester routing, native window RPC and session-report
 delivery in the real WebView. Unit tests cover contracts, bounds and menu structure.
 
-The pinned Windows message implementation uses fixed `MB_OK` and `MB_YESNO`
-dialogs, not arbitrary custom button text. Its callback labels are exactly `Ok`,
-`Yes` and `No`. A No response is a completed negative answer, not picker cancellation.
+On Wails `v3.1.0`, Windows `info`, `warning`, and `error` messages remain `MB_OK`
+(`Ok` only), while `question` dialogs use `TaskDialogIndirect` to support 1–3
+custom button labels with explicit `DefaultButton` and `CancelButton` roles. A
+negative or cancel button click returns the selected button label as a completed
+answer rather than picker cancellation.
 
 The pinned source is authoritative. Current upstream references for orientation:
 [context menus](https://v3.wails.io/features/menus/context/),

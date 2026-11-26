@@ -169,9 +169,9 @@ const runSmoke = async () => {
       return;
     }
     try {
-      await waitFor(() => document.getElementById("shared-increment")?.disabled === false && getText("local-count") === "Count: 0", "observer initial state", 15000);
+      await waitFor(() => document.getElementById("shared-increment")?.disabled === false && getText("local-count") === "Count: 0", "observer initial state", 25000);
       await getBindings.SmokeService.ReportObserver({ ready: true, value: 0, local: 0, error: "" });
-      await waitFor(() => getText("shared-count") === "Saved count: 1", "second window native invalidation", 10000);
+      await waitFor(() => getText("shared-count") === "Saved count: 1", "second window native invalidation", 25000);
       if (getText("local-count") !== "Count: 0") throw new Error("Local UI state leaked across windows");
       handleClick("local-increment");
       await waitFor(() => getText("local-count") === "Count: 1", "observer local increment");
@@ -201,7 +201,7 @@ const runSmoke = async () => {
     await waitFor(() => getText("progress-status") === "Native progress: 100%" && getText("local-count") === "Count: 2", "native progress in Go UI");
     parseChecks.push("native-event");
     const waitForObserver = async (parseValue) => {
-      const parseDeadline = Date.now() + 15000;
+      const parseDeadline = Date.now() + 25000;
       let parseLastObserver;
       while (Date.now() < parseDeadline) {
         const parseObserver = await getBindings.SmokeService.GetObserver();

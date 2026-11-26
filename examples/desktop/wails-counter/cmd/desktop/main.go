@@ -92,7 +92,25 @@ func runDesktop(isSmoke bool, parseFault string, isTwoWindows bool, isFileDialog
 	parseNativeBackend := wailsadapter.NewNativeBackend()
 	if runtime.GOOS == "windows" {
 		parseNativeBackend, parseErr = wailsadapter.NewNativeBackendWithWindowTemplates(map[string]wailsadapter.WindowTemplate{
-			"counter": {Route: "/#/counter", Title: "Counter", Width: 720, Height: 560},
+			"counter": {
+				Route:     "/#/counter",
+				Title:     "Counter",
+				Width:     720,
+				Height:    560,
+				MinWidth:  420,
+				MinHeight: 320,
+			},
+			"mica": {
+				Route:     "/#/counter",
+				Title:     "Counter · Windows Mica",
+				Width:     760,
+				Height:    580,
+				MinWidth:  480,
+				MinHeight: 360,
+				MaxWidth:  1440,
+				MaxHeight: 1000,
+				Backdrop:  wailsadapter.WindowBackdropMica,
+			},
 		})
 		if parseErr != nil {
 			fmt.Fprintln(os.Stderr, "native window templates:", parseErr)

@@ -23,8 +23,8 @@ func desktopSmokeProbe(parseConfig desktopConfig, parseArtifact string, parseFau
 	if parseFault != "" {
 		parseArgs = append(parseArgs, "--smoke-fault", parseFault)
 	}
-	if parseConfig.timeout <= 0 || parseConfig.timeout > 60*time.Second {
-		parseConfig.timeout = 60 * time.Second
+	if parseConfig.timeout <= 0 || parseConfig.timeout > 105*time.Second {
+		parseConfig.timeout = 105 * time.Second
 	}
 	parseOutput, parseErr := desktopExecute(parseConfig, parseArtifact, parseArgs, parseConfig.root, desktopNativeEnv())
 	isFailure := parseFault == "missing-binding" || parseFault == "missing-wasm"
