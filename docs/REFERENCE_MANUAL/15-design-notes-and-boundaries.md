@@ -54,12 +54,12 @@ Current practical reading:
 
 ### Complete Top-Level Package Inventory
 
-For v7 semver compatibility, all 48 public top-level packages remain at the module root. Every `Stable` and `Supported companion` package is mechanically pinned in CI by an `api_baseline.txt` golden test (`.github/workflows/api-baseline.yml`).
+For v7 semver compatibility, all 48 public top-level packages remain at the module root. Exported compatibility is mechanically guarded in CI by `tools/api_compat_guard` (`.github/workflows/api-baseline.yml`).
 
 | Tier | Packages | Notes / v8 Plan |
 | --- | --- | --- |
-| `Stable` (core) | `ui`, `html` (incl. `html/shorthand`), `css` (incl. `css/u`), `state`, `fetch`, `flags`, `router` | Core v7 surface; pinned by `api_baseline.txt`. |
-| `Supported companion` | `devtools`, `head`, `plugin`, `i18n`, `interop`, `pwa`, `virtualization`, `hotreload` | Production-safe companions; pinned by `api_baseline.txt`. |
+| `Stable` (core) | `ui`, `html` (incl. `html/shorthand`), `css` (incl. `css/u`), `state`, `fetch`, `flags`, `router` | Core v7 surface. |
+| `Supported companion` | `devtools`, `head`, `plugin`, `i18n`, `interop`, `pwa`, `virtualization`, `hotreload` | Production-safe companions. |
 | `Companion / utility` | `a11y`, `anim`, `desktop`, `diagnostics`, `events`, `logging`, `prerender`, `sanitize`, `telemetry`, `testkit`, `textutil`, `utils`, `validate` | Focused helpers and adapters (`desktop/wails` and `telemetry/otel` already live in nested Go modules). |
 | `Experimental` (v7 root, v8 consolidation candidates) | `agentbridge`, `agentui`, `compute`, `db` (`sqlite`, `offthread`, `durability`), `delta`, `deprecation`, `domain`, `escalate`, `gcpacing`, `kvstate`, `localfirst`, `projection`, `query`, `scheduler`, `servercomponents`, `serverfn`, `timetravel`, `trace`, `wholestack`, `workbench` | Usable in v7 behind app-owned wrappers. Candidate for `exp/` namespace or nested sub-modules in v8. |
 

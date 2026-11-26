@@ -14,10 +14,11 @@ must come with a clear ownership story that survives the semver policy.
 
 Quality is enforced mechanically by checks in the repo, not by reviewer memory:
 
-- **Public API can't drift silently.** Stable packages carry `api_baseline.txt` golden tests
-  (`internal/apidump`). Any change to an exported type/func/method/const/var fails CI until
-  the golden is regenerated *with intent* — which, per [`VERSIONING.md`](./VERSIONING.md),
-  also decides whether the release is major or minor.
+- **Public API can't drift silently.** The consolidated compatibility guard
+  (`tools/api_compat_guard`, backed by `tools/api_compat_guard/api_compatibility_baseline.json`)
+  checks exported types, funcs, methods, consts, and vars across native and `js/wasm`. Any
+  breaking change fails CI until the baseline is regenerated *with intent* — which, per
+  [`VERSIONING.md`](./VERSIONING.md), also decides whether the release is major or minor.
 - **Dependency footprint is budgeted.** `gwc supplychain` proves the zero-npm posture, counts
   direct/transitive Go deps against a budget, and verifies module checksums. A growth in the
   library module's dependency footprint is a reviewable event, not a silent one.

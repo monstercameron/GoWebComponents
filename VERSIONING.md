@@ -26,17 +26,17 @@ signatures — exactly the trigger in the Major row above. The change had been s
 on the branch under `/v4`, where `go get -u` would have delivered it to consumers
 with no import-path signal; that is what a major version exists to prevent.
 
-"Exported API" is defined concretely as the surface captured by the **API-baseline tests**
-(`internal/apidump` + each package's `api_baseline.txt`): exported types with their shape,
-funcs, methods, consts, and vars. That makes the major/minor boundary mechanical, not
-subjective:
+"Exported API" is defined concretely as the surface captured by the **API compatibility guard**
+(`tools/api_compat_guard` + `tools/api_compat_guard/api_compatibility_baseline.json`): exported
+types with their shape, funcs, methods, consts, and vars across native and `js/wasm`. That makes
+the major/minor boundary mechanical, not subjective:
 
-- A baseline diff that **removes or changes** an existing line ⇒ **major**.
-- A baseline diff that **only adds** lines ⇒ **minor**.
+- A baseline diff that **removes or changes** an existing signature ⇒ **major**.
+- A baseline diff that **only adds** signatures ⇒ **minor**.
 - No baseline diff ⇒ **patch** (or no version-affecting change).
 
-Regenerating a baseline (`UPDATE_API_BASELINE=1 go test ./<pkg>/`) is therefore a deliberate
-act that should be reviewed against this table before release.
+Regenerating the baseline (`go -C tools run ./api_compat_guard --module-root=.. -update`) is
+therefore a deliberate act that should be reviewed against this table before release.
 
 ## The CHANGELOG is the migration log
 
@@ -72,15 +72,16 @@ baseline line disappears), so the policy is enforced, not just promised.
 
 ## API-baseline merge gate
 
-The API-baseline tests (`internal/apidump` + each package's `api_baseline.txt`) run as a
-**required PR check** via `.github/workflows/api-baseline.yml` — not only at release. An
-accidental breaking change to an exported surface fails the PR before merge, so a major-bump
-trigger can never land silently on `main`. Intentional changes regenerate the baseline
-(`UPDATE_API_BASELINE=1 go test ./<pkg>/`) as a reviewed commit, classified by the table above.
+The API compatibility guard (`tools/api_compat_guard`) runs as a **required PR check** via
+`.github/workflows/api-baseline.yml` — not only at release. An accidental breaking change to an
+exported surface fails the PR before merge, so a major-bump trigger can never land silently on
+`main`. Intentional changes regenerate the baseline
+(`go -C tools run ./api_compat_guard --module-root=.. -update`) as a reviewed commit, classified
+by the table above.
 
 ## Pre-1.0 / pre-stable surfaces
 
 Packages or symbols documented as **Experimental** (see the reference manual's stability
 notes) are exempt from the major-bump rule until they graduate to **Stable** — at which point
-they gain an `api_baseline.txt` and fall under the table above. Graduating a surface to Stable
-is itself a minor release.
+they join the `tools/api_compat_guard` baseline and fall under the table above. Graduating a
+surface to Stable is itself a minor release.

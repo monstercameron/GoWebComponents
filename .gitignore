@@ -129,7 +129,6 @@ temp/
 *.tmp
 *.patch
 *.txt
-!api_baseline.txt
 !tools/livereload/scripts/livereload-client.txt
 
 # Diagnostics artifacts
